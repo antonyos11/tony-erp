@@ -179,7 +179,7 @@ INSTALLED_APPS = [
 
     
     # Third-party packages
-    # 'django_prometheus',  # Prometheus monitoring - معطل مؤقتاً
+    'django_prometheus',  # Prometheus monitoring - معطل مؤقتاً
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',  # Token blacklisting support
@@ -194,7 +194,7 @@ INSTALLED_APPS = [
     'crispy_bootstrap5',
     
     # Email queue system - Week 1 Phase 1 (Egypt)
-    # 'post_office',  # django-post_office for email queue management - تم تعطيله مؤقتاً
+    'post_office',  # django-post_office for email queue management - تم تعطيله مؤقتاً
     
     # Local apps
     'users',  # نظام المستخدمين والصلاحيات المتقدم
@@ -237,77 +237,77 @@ INSTALLED_APPS = [
 
     # 🔴 DISABLED - Phase 2: Re-enable when core is stable
     # Duplicates:
-    # 'advanced_notifications',  # الإشعارات والرسائل المتقدمة ✨ (duplicate of notifications)
-    # 'advanced_crm',  # نظام CRM المتقدم ✨ (duplicate of crm)
-    # 'tax_system',  # نظام الضرائب المتقدم ✨ (duplicate of taxes)
-    # 'custom_dashboard',  # لوحة تحكم قابلة للتخصيص 📊 (duplicate of dashboard)
-    # 'sound_notifications',  # نظام الإشعارات الصوتية 🔔 (duplicate of notifications)
+    'advanced_notifications',  # الإشعارات والرسائل المتقدمة ✨ (duplicate of notifications)
+    'advanced_crm',  # نظام CRM المتقدم ✨ (duplicate of crm)
+    'tax_system',  # نظام الضرائب المتقدم ✨ (duplicate of taxes)
+    'custom_dashboard',  # لوحة تحكم قابلة للتخصيص 📊 (duplicate of dashboard)
+    'sound_notifications',  # نظام الإشعارات الصوتية 🔔 (duplicate of notifications)
 
     # 🔴 DISABLED - Phase 2: Re-enable when core is stable
     # CRM (partners module is sufficient for now):
-    # 'crm',
+    'crm',
 
     # 🔴 DISABLED - Phase 2: Re-enable when core is stable
     # AI features (not priority):
-    # 'ai_assistant',  # المساعد الذكي بالذكاء الاصطناعي
-    # 'ai_analytics',  # تحليلات الذكاء الاصطناعي 🤖
-    # 'voice_assistant',  # المساعد الصوتي الذكي 🎤
-    # 'smart_pricing',  # التسعير الذكي بالذكاء الاصطناعي 🆕
-    # 'sales_forecasting',  # التنبؤ بالمبيعات والطلب 📈
-    # 'business_intelligence',  # الذكاء الاصطناعي والبيانات الضخمة ✨
+    'ai_assistant',  # المساعد الذكي بالذكاء الاصطناعي
+    'ai_analytics',  # تحليلات الذكاء الاصطناعي 🤖
+    'voice_assistant',  # المساعد الصوتي الذكي 🎤
+    'smart_pricing',  # التسعير الذكي بالذكاء الاصطناعي 🆕
+    'sales_forecasting',  # التنبؤ بالمبيعات والطلب 📈
+    'business_intelligence',  # الذكاء الاصطناعي والبيانات الضخمة ✨
 
     # 🔴 DISABLED - Phase 2: Re-enable when core is stable
     # Technology not needed now:
-    # 'video_calls',  # مكالمات الفيديو 📹
-    # 'internal_chat',  # نظام الدردشة الداخلية 💬
-    # 'collaborative_docs',  # المستندات التعاونية 📄
-    # 'smartwatch',  # تكامل الساعات الذكية ⌚
-    # 'cloud_backup',  # النسخ الاحتياطي السحابي ☁️
-    # 'digital_signatures',  # التوقيعات الرقمية ✍️
-    # 'cms',  # نظام إدارة المحتوى 🌐
+    'video_calls',  # مكالمات الفيديو 📹
+    'internal_chat',  # نظام الدردشة الداخلية 💬
+    'collaborative_docs',  # المستندات التعاونية 📄
+    'smartwatch',  # تكامل الساعات الذكية ⌚
+    'cloud_backup',  # النسخ الاحتياطي السحابي ☁️
+    'digital_signatures',  # التوقيعات الرقمية ✍️
+    'cms',  # نظام إدارة المحتوى 🌐
 
     # 🔴 DISABLED - Phase 2: Re-enable when core is stable
     # Not related to mattress business:
-    # 'fleet',  # نظام إدارة الأسطول (مركبات، سائقون، رحلات)
-    # 'contracting',  # نظام إدارة المقاولات والمشاريع
-    # 'eservices',  # الخدمات الإلكترونية
-    # 'home_services',  # خدمات الصيانة والنظافة المنزلية
-    # 'tender_bidding',  # المناقصات والعطاءات 📋
-    # 'energy_management',  # إدارة الطاقة والاستهلاك ⚡
-    # 'intellectual_property',  # الملكية الفكرية والبراءات ✨
-    # 'license_management',  # إدارة التراخيص والتصاريح 📜
-    # 'competitive_intelligence',  # تحليل المنافسين 🎯
-    # 'compliance_management',  # إدارة الامتثال والمراجعة ✅
-    # 'correspondence_management',  # إدارة المراسلات ✨
+    'fleet',  # نظام إدارة الأسطول (مركبات، سائقون، رحلات)
+    'contracting',  # نظام إدارة المقاولات والمشاريع
+    'eservices',  # الخدمات الإلكترونية
+    'home_services',  # خدمات الصيانة والنظافة المنزلية
+    'tender_bidding',  # المناقصات والعطاءات 📋
+    'energy_management',  # إدارة الطاقة والاستهلاك ⚡
+    'intellectual_property',  # الملكية الفكرية والبراءات ✨
+    'license_management',  # إدارة التراخيص والتصاريح 📜
+    'competitive_intelligence',  # تحليل المنافسين 🎯
+    'compliance_management',  # إدارة الامتثال والمراجعة ✅
+    'correspondence_management',  # إدارة المراسلات ✨
 
     # 🔴 DISABLED - Phase 2: Re-enable when core is stable
     # Can be added later:
-    # 'woocommerce_integration',  # تكامل WooCommerce
-    # 'ecommerce',  # المتجر الإلكتروني المتكامل
-    # 'whatsapp_integration',  # تكامل واتساب مع n8n 📱
-    # 'whatsapp_ai',  # واتساب AI مع n8n وCRM 🤖
-    # 'bank_integration',  # التكامل البنكي ✨
-    # 'bank_reconciliation',  # مطابقة البنوك
-    # 'risk_management',  # إدارة المخاطر والتأمين ✨
-    # 'contract_management',  # إدارة العقود والمستندات ✨
-    # 'treasury_management',  # الشؤون المالية والسيولة ✨
-    # 'warranty_management',  # إدارة الضمانات 🛡️
-    # 'customer_profitability',  # تحليل ربحية العملاء 💎
-    # 'complaint_management',  # إدارة الشكاوى والتحسين المستمر 📞
-    # 'marketing_campaigns',  # إدارة الحملات التسويقية 📣
-    # 'loyalty',  # برنامج الولاء
-    # 'helpdesk',  # مركز الدعم الفني
-    # 'subscriptions',  # إدارة الباقات والاشتراكات 🆕
-    # 'zatca_integration',  # الفوترة الإلكترونية ZATCA المرحلة 2 🆕
-    # 'shipment_tracking',  # Shipment Tracking - تتبع الشحنات مع GPS وإشعارات 📦
-    # 'product_reviews',  # Product Reviews - تقييمات ومراجعات المنتجات ⭐
-    # 'monitoring',  # نظام المراقبة وكشف الشذوذات 🔍
-    # 'theme_system',  # الوضع المظلم والفاتح 🌙
-    # 'report_builder',  # منشئ التقارير المرئي 📈
-    # 'quick_access',  # نظام الوصول السريع والإنتاجية 🚀
-    # 'projects',  # نظام إدارة المشاريع
-    # 'maintenance',  # نظام إدارة الصيانة والمعدات
-    # 'pos',  # نظام نقاط البيع الجديد
+    'woocommerce_integration',  # تكامل WooCommerce
+    'ecommerce',  # المتجر الإلكتروني المتكامل
+    'whatsapp_integration',  # تكامل واتساب مع n8n 📱
+    'whatsapp_ai',  # واتساب AI مع n8n وCRM 🤖
+    'bank_integration',  # التكامل البنكي ✨
+    'bank_reconciliation',  # مطابقة البنوك
+    'risk_management',  # إدارة المخاطر والتأمين ✨
+    'contract_management',  # إدارة العقود والمستندات ✨
+    'treasury_management',  # الشؤون المالية والسيولة ✨
+    'warranty_management',  # إدارة الضمانات 🛡️
+    'customer_profitability',  # تحليل ربحية العملاء 💎
+    'complaint_management',  # إدارة الشكاوى والتحسين المستمر 📞
+    'marketing_campaigns',  # إدارة الحملات التسويقية 📣
+    'loyalty',  # برنامج الولاء
+    'helpdesk',  # مركز الدعم الفني
+    'subscriptions',  # إدارة الباقات والاشتراكات 🆕
+    'zatca_integration',  # الفوترة الإلكترونية ZATCA المرحلة 2 🆕
+    'shipment_tracking',  # Shipment Tracking - تتبع الشحنات مع GPS وإشعارات 📦
+    'product_reviews',  # Product Reviews - تقييمات ومراجعات المنتجات ⭐
+    'monitoring',  # نظام المراقبة وكشف الشذوذات 🔍
+    'theme_system',  # الوضع المظلم والفاتح 🌙
+    'report_builder',  # منشئ التقارير المرئي 📈
+    'quick_access',  # نظام الوصول السريع والإنتاجية 🚀
+    'projects',  # نظام إدارة المشاريع
+    'maintenance',  # نظام إدارة الصيانة والمعدات
+    'pos',  # نظام نقاط البيع الجديد
 ]
 
 IS_RUNNING_TESTS = 'test' in sys.argv
@@ -413,61 +413,34 @@ WSGI_APPLICATION = 'accountant_pro.wsgi.application'
 # Database Configuration
 # يدعم SQLite للتطوير وPostgreSQL للإنتاج
 
-# إعطاء الأولوية لـ DATABASE_URL إذا كان متاحاً
-from typing import Any, cast
+# Database Configuration
+# يدعم SQLite للتطوير وPostgreSQL للإنتاج
 
-db_url = os.getenv('DATABASE_URL')
-# Explicit annotation to avoid mypy inferring overly narrow value types before encountering nested OPTION dicts
-DATABASES: dict[str, dict[str, Any]]
-if db_url:
-    # dj_database_url.parse returns a mapping with engine/name/options etc. Cast to dict[str, Any] for type checkers.
-    parsed: dict[str, Any] = cast(dict[str, Any], dict(dj_database_url.parse(db_url)))
+import os
+db_engine = os.getenv('DB_ENGINE', 'sqlite')
+
+if db_engine == 'postgresql':
     DATABASES = {
-        'default': parsed
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DB_NAME', 'tony_erp_db'),
+            'USER': os.getenv('DB_USER', 'tony_erp_user'),
+            'PASSWORD': os.getenv('DB_PASSWORD', ''),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+            'OPTIONS': {
+                'connect_timeout': 10,
+            },
+            'CONN_MAX_AGE': 600,
+        }
     }
 else:
-    DB_ENGINE = os.getenv('DB_ENGINE', 'sqlite').lower()
-    
-    if DB_ENGINE == 'postgresql':
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql',
-                'NAME': os.getenv('POSTGRES_DB', 'tony_erb'),
-                'USER': os.getenv('POSTGRES_USER', 'postgres'),
-                'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),
-                'HOST': os.getenv('POSTGRES_HOST', '127.0.0.1'),
-                'PORT': os.getenv('POSTGRES_PORT', '5432'),
-                'OPTIONS': {
-                    'charset': 'utf8mb4',
-                },
-            }
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
         }
-    elif DB_ENGINE == 'mysql':
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.mysql',
-                'NAME': os.getenv('MYSQL_DB', 'tony_erb'),
-                'USER': os.getenv('MYSQL_USER', 'root'),
-                'PASSWORD': os.getenv('MYSQL_PASSWORD', ''),
-                'HOST': os.getenv('MYSQL_HOST', '127.0.0.1'),
-                'PORT': os.getenv('MYSQL_PORT', '3306'),
-                'OPTIONS': {
-                    'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-                    'charset': 'utf8mb4',
-                }
-            }
-        }
-    else:
-        # SQLite هو الافتراضي للتطوير
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.sqlite3',
-                'NAME': str(BASE_DIR / 'db.sqlite3'),
-                'OPTIONS': {
-                    'timeout': int(os.getenv('SQLITE_TIMEOUT', '30')),
-                },
-            }
-        }
+    }
 
 # Use isolated test database to avoid leaking prod/dev data into tests
 if _is_test_run:
@@ -1313,3 +1286,24 @@ try:
     from accountant_pro.security_production import *  # noqa: F401,F403
 except ImportError:
     pass
+
+# Monitoring
+try:
+    from accountant_pro.monitoring import setup_sentry
+    setup_sentry()
+except ImportError:
+    pass
+
+# Celery Settings
+import os as _os
+CELERY_BROKER_URL = _os.getenv('CELERY_BROKER_URL', 'redis://127.0.0.1:6379/0')
+CELERY_RESULT_BACKEND = _os.getenv('CELERY_RESULT_BACKEND', 'redis://127.0.0.1:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Africa/Cairo'
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
+for _celery_app in ['django_celery_beat', 'django_celery_results']:
+    if _celery_app not in INSTALLED_APPS:
+        INSTALLED_APPS.append(_celery_app)
