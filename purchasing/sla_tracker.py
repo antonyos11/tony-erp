@@ -37,6 +37,7 @@ class PurchaseSLA(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
+        app_label = 'purchases'
         verbose_name = 'اتفاقية مستوى الخدمة'
         verbose_name_plural = 'اتفاقيات مستوى الخدمة'
         ordering = ['-created_at']
