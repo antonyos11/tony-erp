@@ -32,11 +32,10 @@ class WooCommerceConfig(models.Model):
         verbose_name=_('موقع المخزون الافتراضي')
     )
     
-    default_customer_type = models.ForeignKey(
-        'crm.CustomerType',
-        on_delete=models.SET_NULL,
-        null=True,
+    default_customer_type = models.CharField(
+        max_length=100,
         blank=True,
+        default='',
         verbose_name=_('نوع العميل الافتراضي')
     )
     
@@ -165,7 +164,7 @@ class OrderMapping(models.Model):
     )
     
     erp_customer = models.ForeignKey(
-        'crm.Customer',
+        'partners.Customer',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -211,7 +210,7 @@ class CustomerMapping(models.Model):
     woo_email = models.EmailField(_('البريد الإلكتروني'))
     
     erp_customer = models.ForeignKey(
-        'crm.Customer',
+        'partners.Customer',
         on_delete=models.CASCADE,
         related_name='woo_mappings',
         verbose_name=_('عميل ERP')

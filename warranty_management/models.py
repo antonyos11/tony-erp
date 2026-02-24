@@ -28,7 +28,7 @@ class Warranty(models.Model):
     """الضمان"""
     warranty_number = models.CharField('رقم الضمان', max_length=100, unique=True)
     policy = models.ForeignKey(WarrantyPolicy, on_delete=models.PROTECT, verbose_name='السياسة')
-    customer = models.ForeignKey('crm.Customer', on_delete=models.CASCADE, related_name='warranties')
+    customer = models.ForeignKey('partners.Customer', on_delete=models.CASCADE, related_name='warranties')
     sale_order = models.ForeignKey('sales.SaleOrder', on_delete=models.CASCADE, null=True, blank=True)
     product = models.ForeignKey('inventory.Product', on_delete=models.CASCADE)
     serial_number = models.CharField('الرقم التسلسلي', max_length=100, blank=True)

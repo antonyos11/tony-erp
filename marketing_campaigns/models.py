@@ -169,7 +169,7 @@ class CampaignMessage(models.Model):
     ]
     
     campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name='messages', verbose_name='الحملة')
-    customer = models.ForeignKey('crm.Customer', on_delete=models.CASCADE, related_name='campaign_messages', verbose_name='العميل')
+    customer = models.ForeignKey('partners.Customer', on_delete=models.CASCADE, related_name='campaign_messages', verbose_name='العميل')
     
     message_type = models.CharField('نوع الرسالة', max_length=30, choices=MESSAGE_TYPES)
     status = models.CharField('الحالة', max_length=20, choices=STATUS_CHOICES, default='pending')

@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 class Complaint(models.Model):
     """الشكوى"""
     complaint_number = models.CharField('رقم الشكوى', max_length=100, unique=True)
-    customer = models.ForeignKey('crm.Customer', on_delete=models.CASCADE, related_name='complaints')
+    customer = models.ForeignKey('partners.Customer', on_delete=models.CASCADE, related_name='complaints')
     
     channel = models.CharField('قناة الشكوى', max_length=20, choices=[
         ('phone', 'هاتف'), ('email', 'بريد'), ('website', 'موقع'), ('social_media', 'وسائل تواصل'),
