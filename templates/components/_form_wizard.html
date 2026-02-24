@@ -1,0 +1,264 @@
+{% load i18n %}
+{#
+  _form_wizard.html — Reusable multi-step form wizard component
+  Context vars:
+    wizard_steps : list of dicts — [
+        { "label": str, "icon": str (bi-* class), "active": bool, "completed": bool }
+      ]
+    wizard_form_id : str — HTML id for the <form> element (default: "wizardForm")
+    wizard_action  : str — form action URL (default: "")
+    wizard_method  : str — "post" | "get" (default: "post")
+  Blocks to override:
+    block wizard_content    — step body
+    block wizard_prev_label — Previous button label
+    block wizard_next_label — Next button label
+    block wizard_save_label — Save/Submit button label
+  Usage: {% include 'components/_form_wizard.html' %}
+#}
+
+
+{# ── Step Indicator ── #}
+<div class="wizard-stepper mb-4" aria-label="{% trans 'خطوات النموذج' %}">
+  <ol class="list-unstyled d-flex flex-wrap gap-0 mb-0 wizard-steps-list">
+    {% for step in wizard_steps %}
+    <li class="wizard-step flex-fill
+               {% if step.completed %}wizard-step-completed
+               {% elif step.active %}wizard-step-active
+               {% else %}wizard-step-pending{% endif %}"
+        aria-current="{% if step.active %}step{% endif %}">
+
+      {# Connector line (not shown for first item) #}
+      {% if not forloop.first %}
+        <div class="wizard-connector" aria-hidden="true"></div>
+      {% endif %}
+
+      <div class="wizard-step-inner d-flex flex-column align-items-center gap-1">
+        <div class="wizard-step-circle">
+          {% if step.completed %}
+            <i class="bi bi-check-lg"></i>
+          {% elif step.icon %}
+            <i class="{{ step.icon }}"></i>
+          {% else %}
+            {{ forloop.counter }}
+          {% endif %}
+        </div>
+        <span class="wizard-step-label">{{ step.label }}</span>
+      </div>
+
+    </li>
+    {% empty %}
+    {# No steps provided — render a single-step placeholder #}
+    <li class="wizard-step wizard-step-active flex-fill">
+      <div class="wizard-step-inner d-flex flex-column align-items-center gap-1">
+        <div class="wizard-step-circle"><i class="bi bi-pencil-fill"></i></div>
+        <span class="wizard-step-label">{% trans 'الخطوة الأولى' %}</span>
+      </div>
+    </li>
+    {% endfor %}
+  </ol>
+
+  {# Overall progress bar #}
+  {% if wizard_steps %}
+  {% with total=wizard_steps|length %}
+  <div class="progress mt-3" style="height:4px;" role="progressbar"
+       aria-valuemin="0" aria-valuemax="100">
+    <div class="progress-bar bg-primary"
+         id="{{ wizard_form_id|default:"wizardForm" }}_progressBar"
+         style="width: {{ wizard_progress|default:'0' }}%;transition:width .4s ease;"></div>
+  </div>
+  {% endwith %}
+  {% endif %}
+</div>
+
+{# ── Form ── #}
+<form id="{{ wizard_form_id|default:"wizardForm" }}"
+      method="{{ wizard_method|default:'post' }}"
+      action="{{ wizard_action|default:'' }}"
+      novalidate
+      class="wizard-form needs-validation">
+  {% csrf_token %}
+
+  {# Step content — override in parent template #}
+  <div class="wizard-body">
+    {% block wizard_content %}
+    <div class="alert alert-info d-flex align-items-center gap-2">
+      <i class="bi bi-info-circle-fill flex-shrink-0"></i>
+      <span>{% trans 'أضف محتوى الخطوة داخل كتلة wizard_content.' %}</span>
+    </div>
+    {% endblock %}
+  </div>
+
+  {# ── Navigation Buttons ── #}
+  <div class="wizard-footer d-flex align-items-center justify-content-between flex-wrap gap-2 pt-3 mt-3"
+       style="border-top:1px solid var(--bs-border-color);">
+
+    {# Previous #}
+    <button type="button"
+            class="btn btn-outline-secondary d-flex align-items-center gap-2"
+            id="{{ wizard_form_id|default:"wizardForm" }}_prevBtn"
+            onclick="wizardPrev('{{ wizard_form_id|default:"wizardForm" }}')"
+            {% if wizard_is_first_step %}disabled{% endif %}>
+      <i class="bi bi-arrow-right"></i>
+      <span>{% block wizard_prev_label %}{% trans 'السابق' %}{% endblock %}</span>
+    </button>
+
+    <div class="d-flex align-items-center gap-2">
+
+      {# Save as draft (optional) #}
+      <button type="button"
+              class="btn btn-outline-primary d-flex align-items-center gap-2"
+              id="{{ wizard_form_id|default:"wizardForm" }}_draftBtn"
+              onclick="wizardSaveDraft('{{ wizard_form_id|default:"wizardForm" }}')">
+        <i class="bi bi-floppy"></i>
+        <span class="d-none d-sm-inline">{% trans 'حفظ مسودة' %}</span>
+      </button>
+
+      {# Next / Submit #}
+      {% if wizard_is_last_step %}
+        <button type="submit"
+                class="btn btn-success d-flex align-items-center gap-2"
+                id="{{ wizard_form_id|default:"wizardForm" }}_submitBtn">
+          <i class="bi bi-check2-circle"></i>
+          <span>{% block wizard_save_label %}{% trans 'حفظ وإرسال' %}{% endblock %}</span>
+        </button>
+      {% else %}
+        <button type="button"
+                class="btn btn-primary d-flex align-items-center gap-2"
+                id="{{ wizard_form_id|default:"wizardForm" }}_nextBtn"
+                onclick="wizardNext('{{ wizard_form_id|default:"wizardForm" }}')">
+          <span>{% block wizard_next_label %}{% trans 'التالي' %}{% endblock %}</span>
+          <i class="bi bi-arrow-left"></i>
+        </button>
+      {% endif %}
+
+    </div>
+  </div>
+
+</form>
+
+{# ── Scoped styles ── #}
+<style>
+  .wizard-steps-list { position: relative; }
+
+  .wizard-step { position: relative; text-align: center; min-width: 80px; }
+
+  .wizard-connector {
+    position: absolute;
+    top: 18px;
+    right: calc(50% + 18px);
+    left: calc(-50% + 18px);
+    height: 2px;
+    background: var(--bs-border-color);
+    z-index: 0;
+  }
+  [dir="ltr"] .wizard-connector {
+    right: calc(-50% + 18px);
+    left: calc(50% + 18px);
+  }
+  .wizard-step-completed .wizard-connector,
+  .wizard-step-active .wizard-connector { background: var(--bs-primary); }
+
+  .wizard-step-inner { position: relative; z-index: 1; }
+
+  .wizard-step-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid var(--bs-border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: .85rem;
+    background: var(--bs-body-bg);
+    color: var(--bs-secondary);
+    transition: background .2s, border-color .2s, color .2s;
+  }
+  .wizard-step-active   .wizard-step-circle {
+    border-color: var(--bs-primary);
+    background: var(--bs-primary);
+    color: #fff;
+  }
+  .wizard-step-completed .wizard-step-circle {
+    border-color: var(--bs-success);
+    background: var(--bs-success);
+    color: #fff;
+  }
+
+  .wizard-step-label {
+    font-size: .75rem;
+    font-weight: 500;
+    color: var(--bs-secondary);
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .wizard-step-active    .wizard-step-label { color: var(--bs-primary); font-weight: 700; }
+  .wizard-step-completed .wizard-step-label { color: var(--bs-success); }
+
+  .wizard-body { min-height: 180px; }
+</style>
+
+{# ── Minimal wizard JS (multi-step logic handled server-side via Django form wizard,
+      or client-side when rendering all steps in one page) ── #}
+<script>
+(function () {
+  function getSteps(formId) {
+    return document.querySelectorAll('#' + formId + ' .wizard-step-panel');
+  }
+
+  window.wizardNext = function (formId) {
+    var form    = document.getElementById(formId);
+    var panels  = getSteps(formId);
+    if (!panels.length) {
+      /* Single-panel wizard — just submit */
+      if (form && form.checkValidity()) { form.submit(); }
+      else if (form) { form.classList.add('was-validated'); }
+      return;
+    }
+    var active = Array.from(panels).findIndex(function (p) {
+      return !p.classList.contains('d-none');
+    });
+    if (form && !panels[active].querySelectorAll(':invalid').length) {
+      panels[active].classList.add('d-none');
+      if (panels[active + 1]) panels[active + 1].classList.remove('d-none');
+      updateProgress(formId, active + 2, panels.length);
+    } else if (form) {
+      form.classList.add('was-validated');
+    }
+  };
+
+  window.wizardPrev = function (formId) {
+    var panels = getSteps(formId);
+    if (!panels.length) return;
+    var active = Array.from(panels).findIndex(function (p) {
+      return !p.classList.contains('d-none');
+    });
+    if (active > 0) {
+      panels[active].classList.add('d-none');
+      panels[active - 1].classList.remove('d-none');
+      updateProgress(formId, active, panels.length);
+    }
+  };
+
+  window.wizardSaveDraft = function (formId) {
+    var form = document.getElementById(formId);
+    if (!form) return;
+    var hidden = form.querySelector('input[name="is_draft"]');
+    if (!hidden) {
+      hidden = document.createElement('input');
+      hidden.type  = 'hidden';
+      hidden.name  = 'is_draft';
+      hidden.value = '1';
+      form.appendChild(hidden);
+    }
+    form.submit();
+  };
+
+  function updateProgress(formId, current, total) {
+    var bar = document.getElementById(formId + '_progressBar');
+    if (bar) bar.style.width = Math.round((current / total) * 100) + '%';
+  }
+})();
+</script>
