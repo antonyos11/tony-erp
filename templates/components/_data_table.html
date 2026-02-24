@@ -1,0 +1,232 @@
+{% load i18n %}
+{#
+  _data_table.html — Reusable data table component
+  Context vars:
+    table_id      : str  — HTML id for the <table> (default: "dataTable")
+    table_title   : str  — Optional card header title
+    table_caption : str  — Optional <caption> for accessibility
+    rows_count    : int  — Total rows for empty-state detection (optional)
+    show_export   : bool — Show export buttons (default: True)
+  Usage: {% include 'components/_data_table.html' %}
+  Override blocks in a child template that extends this file:
+    block table_header  — column <th> headers
+    block table_body    — data <tr> rows
+    block table_footer  — totals row
+#}
+
+<div class="card border-0 shadow-sm">
+
+  {# ── Card header ── #}
+  {% if table_title or show_export != False %}
+  <div class="card-header bg-transparent d-flex align-items-center justify-content-between flex-wrap gap-2 py-2">
+    {% if table_title %}
+      <h6 class="mb-0 fw-semibold d-flex align-items-center gap-2">
+        <i class="bi bi-table text-primary"></i>
+        {{ table_title }}
+      </h6>
+    {% else %}
+      <span></span>
+    {% endif %}
+
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+
+      {# Column search #}
+      <div class="input-group input-group-sm" style="width:200px;">
+        <span class="input-group-text bg-transparent">
+          <i class="bi bi-funnel text-muted"></i>
+        </span>
+        <input type="search"
+               class="form-control"
+               id="{{ table_id|default:"dataTable" }}_filter"
+               placeholder="{% trans 'تصفية...' %}"
+               aria-label="{% trans 'تصفية الجدول' %}"
+               oninput="tableFilter(this, '{{ table_id|default:"dataTable" }}')">
+      </div>
+
+      {% if show_export != False %}
+      {# Export: Excel #}
+      <button class="btn btn-sm btn-outline-success d-flex align-items-center gap-1"
+              type="button"
+              onclick="exportTableExcel('{{ table_id|default:"dataTable" }}')"
+              aria-label="{% trans 'تصدير إلى Excel' %}">
+        <i class="bi bi-file-earmark-excel"></i>
+        <span class="d-none d-sm-inline">Excel</span>
+      </button>
+
+      {# Export: PDF #}
+      <button class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1"
+              type="button"
+              onclick="exportTablePDF('{{ table_id|default:"dataTable" }}')"
+              aria-label="{% trans 'تصدير إلى PDF' %}">
+        <i class="bi bi-file-earmark-pdf"></i>
+        <span class="d-none d-sm-inline">PDF</span>
+      </button>
+
+      {# Print #}
+      <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
+              type="button"
+              onclick="window.print()"
+              aria-label="{% trans 'طباعة' %}">
+        <i class="bi bi-printer"></i>
+      </button>
+      {% endif %}
+
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Table wrapper ── #}
+  <div class="table-responsive">
+    <table class="table table-hover table-striped align-middle mb-0"
+           id="{{ table_id|default:"dataTable" }}"
+           aria-label="{{ table_title|default:_('جدول البيانات') }}">
+
+      {% if table_caption %}
+        <caption class="visually-hidden">{{ table_caption }}</caption>
+      {% endif %}
+
+      {# Column headers — override in child template #}
+      <thead class="table-light">
+        {% block table_header %}
+        <tr>
+          <th scope="col">#</th>
+          <th scope="col">{% trans 'العنوان' %}</th>
+          <th scope="col">{% trans 'الحالة' %}</th>
+          <th scope="col" class="text-center">{% trans 'الإجراءات' %}</th>
+        </tr>
+        {% endblock %}
+      </thead>
+
+      {# Table rows — override in child template #}
+      <tbody id="{{ table_id|default:"dataTable" }}_body">
+        {% block table_body %}
+        {# Empty state — shown when no rows provided #}
+        <tr class="table-empty-state" id="{{ table_id|default:"dataTable" }}_empty">
+          <td colspan="99" class="text-center py-5">
+            <div class="d-flex flex-column align-items-center gap-2 text-muted">
+              <i class="bi bi-inbox fs-1 opacity-50"></i>
+              <p class="mb-0 fw-medium">{% trans 'لا توجد بيانات للعرض' %}</p>
+              <p class="small mb-0">{% trans 'أضف بيانات جديدة أو عدّل معايير التصفية' %}</p>
+            </div>
+          </td>
+        </tr>
+        {% endblock %}
+      </tbody>
+
+      {# Footer — override for totals or pagination inside table #}
+      {% block table_footer %}{% endblock %}
+
+    </table>
+  </div>
+
+  {# ── Card footer: pagination ── #}
+  <div class="card-footer bg-transparent d-flex align-items-center justify-content-between flex-wrap gap-2 py-2"
+       id="{{ table_id|default:"dataTable" }}_pagination_area">
+
+    <small class="text-muted" id="{{ table_id|default:"dataTable" }}_count_label">
+      {% trans 'جارٍ التحميل...' %}
+    </small>
+
+    {# Pagination — extend or replace via Django Paginator context #}
+    {% block pagination %}
+    {% if page_obj %}
+    <nav aria-label="{% trans 'ترقيم الصفحات' %}">
+      <ul class="pagination pagination-sm mb-0">
+
+        {# Previous #}
+        <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+          <a class="page-link"
+             href="{% if page_obj.has_previous %}?page={{ page_obj.previous_page_number }}{% else %}#{% endif %}"
+             aria-label="{% trans 'السابق' %}">
+            <i class="bi bi-chevron-right"></i>
+          </a>
+        </li>
+
+        {# Page numbers #}
+        {% for num in page_obj.paginator.page_range %}
+          {% if num == page_obj.number %}
+            <li class="page-item active" aria-current="page">
+              <span class="page-link">{{ num }}</span>
+            </li>
+          {% elif num|add:"-3" <= page_obj.number and num|add:"3" >= page_obj.number %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+            </li>
+          {% endif %}
+        {% endfor %}
+
+        {# Next #}
+        <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+          <a class="page-link"
+             href="{% if page_obj.has_next %}?page={{ page_obj.next_page_number }}{% else %}#{% endif %}"
+             aria-label="{% trans 'التالي' %}">
+            <i class="bi bi-chevron-left"></i>
+          </a>
+        </li>
+
+      </ul>
+    </nav>
+    {% endif %}
+    {% endblock %}
+
+  </div>
+
+</div>
+
+<script>
+/* ── Client-side table filter ── */
+function tableFilter(input, tableId) {
+  var filter = input.value.toLowerCase();
+  var rows   = document.querySelectorAll('#' + tableId + ' tbody tr:not(.table-empty-state)');
+  var visible = 0;
+  rows.forEach(function (row) {
+    var text = row.textContent.toLowerCase();
+    var show = text.includes(filter);
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  var empty = document.getElementById(tableId + '_empty');
+  if (empty) empty.style.display = visible === 0 ? '' : 'none';
+  var label = document.getElementById(tableId + '_count_label');
+  if (label) label.textContent = visible + ' {% trans "نتيجة" %}';
+}
+
+/* ── Export helpers ── */
+function exportTableExcel(tableId) {
+  var table = document.getElementById(tableId);
+  if (!table) return;
+  var html = table.outerHTML.replace(/ /g, '%20');
+  var a    = document.createElement('a');
+  a.href   = 'data:application/vnd.ms-excel,' + html;
+  a.download = tableId + '.xls';
+  a.click();
+}
+
+function exportTablePDF(tableId) {
+  /* Requires a PDF library (e.g. jsPDF + autoTable) to be loaded separately.
+     This stub opens a print-friendly view as a fallback. */
+  var printWin = window.open('', '_blank');
+  var table    = document.getElementById(tableId);
+  if (!table || !printWin) return;
+  printWin.document.write(
+    '<html dir="rtl">' +
+    '<head><title>{% trans "تصدير PDF" %}</title>' +
+    '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css">' +
+    '</head><body class="p-3">' + table.outerHTML + '</body></html>'
+  );
+  printWin.document.close();
+  printWin.focus();
+  setTimeout(function () { printWin.print(); printWin.close(); }, 500);
+}
+
+/* ── Update row count on load ── */
+(function () {
+  document.querySelectorAll('[id$="_body"]').forEach(function (tbody) {
+    var tableId = tbody.id.replace('_body', '');
+    var label   = document.getElementById(tableId + '_count_label');
+    if (!label) return;
+    var rows = tbody.querySelectorAll('tr:not(.table-empty-state)');
+    label.textContent = rows.length + ' {% trans "سجل" %}';
+  });
+})();
+</script>

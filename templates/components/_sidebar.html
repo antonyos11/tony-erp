@@ -1,0 +1,241 @@
+{% load static %}{% load i18n %}
+{#
+  _sidebar.html — Reusable sidebar component
+  Context: sidebar_menu_v3 (list of group dicts from sidebar_processor_v3)
+  Each group: { group_id, group_label, group_icon, items[] }
+  Each item:  { label, icon, url, active, children[] }
+  Usage: {% include 'components/_sidebar.html' %}
+#}
+
+<style>
+  :root {
+    --theme-sidebar-bg: #1E293B;
+    --theme-sidebar-text: #CBD5E1;
+    --theme-sidebar-active: #3B82F6;
+    --theme-sidebar-hover-bg: rgba(255,255,255,.06);
+    --theme-sidebar-border: rgba(255,255,255,.08);
+    --sidebar-width: 260px;
+    --sidebar-collapsed-width: 64px;
+  }
+  #appSidebarComponent {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: var(--sidebar-width);
+    background: var(--theme-sidebar-bg, #1E293B);
+    color: var(--theme-sidebar-text, #CBD5E1);
+    display: flex;
+    flex-direction: column;
+    z-index: 1040;
+    transition: width .25s ease, transform .25s ease;
+    overflow: hidden;
+  }
+  [dir="ltr"] #appSidebarComponent { right: auto; left: 0; }
+  #appSidebarComponent.sidebar-collapsed { width: var(--sidebar-collapsed-width); }
+  #appSidebarComponent.sidebar-collapsed .sidebar-label,
+  #appSidebarComponent.sidebar-collapsed .sidebar-group-header,
+  #appSidebarComponent.sidebar-collapsed .sidebar-brand-text { display: none; }
+  #appSidebarComponent.sidebar-collapsed .sidebar-item-link { justify-content: center; padding: .5rem; }
+
+  .sidebar-brand-area {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--theme-sidebar-border);
+    flex-shrink: 0;
+  }
+  .sidebar-brand-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    background: var(--theme-sidebar-active, #3B82F6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .sidebar-brand-logo i { color: #fff; font-size: 1.1rem; }
+  .sidebar-brand-text { font-weight: 700; font-size: .95rem; color: #fff; white-space: nowrap; }
+
+  .sidebar-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: .5rem 0;
+  }
+  .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+  .sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 4px; }
+
+  .sidebar-group-header {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .75rem 1.25rem .35rem;
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: rgba(203,213,225,.45);
+    white-space: nowrap;
+  }
+  .sidebar-group-header i { font-size: .85rem; }
+
+  .sidebar-item-link {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    padding: .48rem 1.25rem;
+    color: var(--theme-sidebar-text, #CBD5E1);
+    text-decoration: none;
+    border-radius: 0;
+    font-size: .875rem;
+    transition: background .15s, color .15s;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .sidebar-item-link:hover {
+    background: var(--theme-sidebar-hover-bg);
+    color: #fff;
+  }
+  .sidebar-item-link.active {
+    background: var(--theme-sidebar-active, #3B82F6);
+    color: #fff;
+    font-weight: 600;
+  }
+  .sidebar-item-link i { font-size: 1rem; flex-shrink: 0; width: 1.25rem; text-align: center; }
+  .sidebar-label { flex: 1; }
+
+  .sidebar-children { padding-right: 1rem; }
+  [dir="ltr"] .sidebar-children { padding-right: 0; padding-left: 1rem; }
+  .sidebar-children .sidebar-item-link { font-size: .82rem; padding: .38rem 1.25rem; }
+  .sidebar-children .sidebar-item-link i { font-size: .85rem; }
+
+  .sidebar-collapse-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    padding: .85rem 1.25rem;
+    border-top: 1px solid var(--theme-sidebar-border);
+    background: transparent;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    color: var(--theme-sidebar-text);
+    font-size: .82rem;
+    cursor: pointer;
+    width: 100%;
+    transition: background .15s;
+    flex-shrink: 0;
+  }
+  .sidebar-collapse-btn:hover { background: var(--theme-sidebar-hover-bg); color: #fff; }
+  .sidebar-collapse-btn i { font-size: 1rem; flex-shrink: 0; }
+</style>
+
+<aside id="appSidebarComponent" aria-label="{% trans 'القائمة الجانبية' %}">
+
+  {# Brand / Logo #}
+  <div class="sidebar-brand-area">
+    <div class="sidebar-brand-logo">
+      <i class="bi bi-hexagon-fill"></i>
+    </div>
+    <span class="sidebar-brand-text">{{ SYSTEM_NAME|default:"Tony ERP" }}</span>
+  </div>
+
+  {# Menu #}
+  <div class="sidebar-scroll">
+    <nav aria-label="{% trans 'القائمة الرئيسية' %}">
+
+      {% if sidebar_menu_v3 %}
+        {% for group in sidebar_menu_v3 %}
+          <div class="sidebar-group" data-group-id="{{ group.group_id }}">
+
+            <div class="sidebar-group-header">
+              {% if group.group_icon %}<i class="{{ group.group_icon }}"></i>{% endif %}
+              <span>{{ group.group_label }}</span>
+            </div>
+
+            {% for item in group.items %}
+              {% if item.children %}
+                {# Parent item with sub-items #}
+                <a class="sidebar-item-link{% if item.active %} active{% endif %}"
+                   data-bs-toggle="collapse"
+                   data-bs-target="#sidebarSub_{{ group.group_id }}_{{ forloop.counter }}"
+                   aria-expanded="{% if item.active %}true{% else %}false{% endif %}"
+                   role="button"
+                   href="#sidebarSub_{{ group.group_id }}_{{ forloop.counter }}">
+                  <i class="{{ item.icon }}"></i>
+                  <span class="sidebar-label">{{ item.label }}</span>
+                  <i class="bi bi-chevron-down ms-auto"></i>
+                </a>
+                <div class="collapse{% if item.active %} show{% endif %}"
+                     id="sidebarSub_{{ group.group_id }}_{{ forloop.counter }}">
+                  <div class="sidebar-children">
+                    {% for child in item.children %}
+                      <a href="{{ child.url }}"
+                         class="sidebar-item-link{% if child.active %} active{% endif %}"
+                         {% if child.active %}aria-current="page"{% endif %}>
+                        <i class="{{ child.icon }}"></i>
+                        <span class="sidebar-label">{{ child.label }}</span>
+                      </a>
+                    {% endfor %}
+                  </div>
+                </div>
+              {% else %}
+                <a href="{{ item.url }}"
+                   class="sidebar-item-link{% if item.active %} active{% endif %}"
+                   {% if item.active %}aria-current="page"{% endif %}>
+                  <i class="{{ item.icon }}"></i>
+                  <span class="sidebar-label">{{ item.label }}</span>
+                </a>
+              {% endif %}
+            {% endfor %}
+
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="p-3 text-center" style="color:rgba(203,213,225,.4);font-size:.82rem;">
+          <i class="bi bi-info-circle d-block mb-1"></i>
+          {% trans 'لا توجد عناصر في القائمة' %}
+        </div>
+      {% endif %}
+
+    </nav>
+  </div>
+
+  {# Collapse / Expand Toggle #}
+  <button class="sidebar-collapse-btn" id="sidebarCollapseBtn"
+          type="button" aria-label="{% trans 'طي القائمة' %}">
+    <i class="bi bi-layout-sidebar-reverse" id="sidebarCollapseIcon"></i>
+    <span class="sidebar-label">{% trans 'طي القائمة' %}</span>
+  </button>
+
+</aside>
+
+<script>
+(function () {
+  var sidebar = document.getElementById('appSidebarComponent');
+  var btn     = document.getElementById('sidebarCollapseBtn');
+  var icon    = document.getElementById('sidebarCollapseIcon');
+  if (!sidebar || !btn) return;
+
+  var STORAGE_KEY = 'sidebar_collapsed';
+  var collapsed = localStorage.getItem(STORAGE_KEY) === '1';
+
+  function applyState() {
+    sidebar.classList.toggle('sidebar-collapsed', collapsed);
+    icon.className = collapsed ? 'bi bi-layout-sidebar' : 'bi bi-layout-sidebar-reverse';
+    btn.setAttribute('aria-label', collapsed ? '{% trans "توسيع القائمة" %}' : '{% trans "طي القائمة" %}');
+  }
+
+  applyState();
+
+  btn.addEventListener('click', function () {
+    collapsed = !collapsed;
+    localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0');
+    applyState();
+  });
+})();
+</script>

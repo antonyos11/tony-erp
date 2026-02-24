@@ -1,0 +1,546 @@
+{% load static %}{% load tony_erb_tags %}{% load i18n %}
+{% get_current_language as LANGUAGE_CODE %}
+<!doctype html>
+<html lang="{{ LANGUAGE_CODE }}" dir="{% if LANGUAGE_CODE == 'ar' %}rtl{% else %}ltr{% endif %}" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>{% block title %}{{ SYSTEM_NAME }}{% endblock %}</title>
+  <link rel="icon" type="image/png" sizes="128x128" href="{% static 'img/icons/icon-128x128.png' %}">
+  <link rel="shortcut icon" href="{% static 'img/icons/icon-128x128.png' %}">
+  
+  <!-- PWA Support -->
+  <link rel="manifest" href="{% static 'manifest.json' %}">
+  <meta name="theme-color" content="#1e3a5f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="{{ SYSTEM_NAME }}">
+  <link rel="apple-touch-icon" href="{% static 'img/icons/icon-192x192.png' %}">
+  
+  <link href="{% static 'css/ui_v2_layout.css' %}?v=1" rel="stylesheet">
+  <link href="{% static 'css/theme.css' %}" rel="stylesheet">
+  <link href="{% static 'css/theme-dark.css' %}" rel="stylesheet">
+  <!-- Google Fonts: Cairo + Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  
+  <script>
+(function(){try{var s=localStorage.getItem('theme');var p=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches;var t=s||(p?'dark':'light');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+</script>
+  <link id="bootstrapCoreCss" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap{% if LANGUAGE_CODE == 'ar' %}.rtl{% endif %}.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="{% static 'css/design_system.css' %}?v=2" rel="stylesheet">
+  <link href="{% static 'css/ui_v2.css' %}?v=50" rel="stylesheet">
+  {# sidebar_fix.css + sidebar_enhanced.css مُزالان - يوفرهما sidebar_v3.css #}
+  <link href="{% static 'css/enhancements.css' %}?v=1" rel="stylesheet">
+  <link href="{% static 'css/neo_theme.css' %}?v=3" rel="stylesheet">
+  <link href="{% static 'css/modern_pages.css' %}?v=1" rel="stylesheet">
+  <link href="{% static 'css/dashboard_compact.css' %}?v=2" rel="stylesheet">
+  <link href="{% static 'css/no_margins.css' %}?v=13" rel="stylesheet">
+  <link href="{% static 'css/dropdown_fix.css' %}?v=2" rel="stylesheet">
+  <!-- ملف موحد واحد بدلاً من 7 ملفات متعارضة -->
+  <link href="{% static 'css/mobile_unified.css' %}?v=3" rel="stylesheet">
+  <!-- Sidebar v3 - المصدر الوحيد للتنسيق -->
+  <link href="{% static 'css/sidebar_v3.css' %}?v=11" rel="stylesheet">
+  <!-- ملفات التحسينات الجديدة -->
+  <link href="{% static 'css/keyboard_shortcuts.css' %}?v=1" rel="stylesheet">
+  <link href="{% static 'css/contextual_help.css' %}?v=2" rel="stylesheet">
+  <link href="{% static 'css/ux_improvements.css' %}?v=1" rel="stylesheet">
+  {% block extra_css %}{% endblock %}
+
+  {# ألوان الهوية الديناميكية #}
+  {% if BRAND_COLORS %}
+  <style>
+    :root {
+      {% if BRAND_COLORS.primary %}--primary-color: {{ BRAND_COLORS.primary }};--primary-dark: {{ BRAND_COLORS.primary_dark|default:BRAND_COLORS.primary }};--primary-light: {{ BRAND_COLORS.primary_light|default:BRAND_COLORS.primary }};{% endif %}
+      {% if BRAND_COLORS.info %}--info-color: {{ BRAND_COLORS.info }};{% endif %}
+      {% if BRAND_COLORS.success %}--success-color: {{ BRAND_COLORS.success }};{% endif %}
+      {% if BRAND_COLORS.warning %}--warning-color: {{ BRAND_COLORS.warning }};{% endif %}
+      {% if BRAND_COLORS.danger %}--danger-color: {{ BRAND_COLORS.danger }};{% endif %}
+    }
+  </style>
+  {% endif %}
+  <link rel="stylesheet" href="{% static 'css/modal_fix.css' %}?v=1">
+  {% block extra_head %}{% endblock %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="app-body">
+  <div id="django-csrf-token" hidden>{% csrf_token %}</div>
+  {% include 'partials/_sidebar_v3.html' %}
+  <div class="app-wrapper">
+    <nav class="app-topbar navbar navbar-expand-lg shadow-sm">
+      <div class="container-fluid">
+        <!-- زر القائمة الجانبية -->
+        <button class="btn btn-outline-secondary btn-sm d-lg-none" id="sidebarToggle" aria-label="فتح القائمة">
+          <i class="bi bi-list fs-4"></i>
+        </button>
+        
+        <!-- الشعار/اسم النظام للموبايل -->
+        <a href="/" class="navbar-brand d-lg-none text-white fw-bold me-auto" style="font-size: 1rem;">
+          {{ SYSTEM_NAME|default:"Tony ERP" }}
+        </a>
+        
+        <!-- شريط الاختصارات (للديسكتوب فقط) - للمدراء فقط -->
+        {% if user.is_superuser %}
+        <div class="d-none d-lg-flex align-items-center ms-auto me-3 quick-actions-wrap">
+          <span class="qa-user me-2">{% if user and user.is_authenticated %}{{ user.get_short_name }}{% if not user.get_short_name %}{{ user.username }}{% endif %}{% endif %}</span>
+          <div class="quick-actions align-items-center d-flex">
+            <button class="qa-btn" data-quick-action="clear-cache" type="button" data-bs-toggle="tooltip" data-bs-placement="bottom" title="مسح الكاش"><i class="bi bi-arrow-repeat"></i></button>
+            <button class="qa-btn" data-quick-action="home" type="button" data-bs-toggle="tooltip" data-bs-placement="bottom" title="الصفحة الرئيسية"><i class="bi bi-house-door-fill"></i></button>
+            <button class="qa-btn" data-quick-action="track-reps" type="button" data-bs-toggle="tooltip" data-bs-placement="bottom" title="تتبع المناديب"><i class="bi bi-geo-alt-fill"></i></button>
+            <button class="qa-btn" data-quick-action="ecommerce" type="button" data-bs-toggle="tooltip" data-bs-placement="bottom" title="المتجر الالكتروني"><i class="bi bi-shop-window"></i></button>
+            <button class="qa-btn" data-quick-action="notifications" type="button" data-bs-toggle="tooltip" data-bs-placement="bottom" title="الاشعارات"><i class="bi bi-bell"></i></button>
+            <button class="qa-btn" data-quick-action="all-notifications" type="button" data-bs-toggle="tooltip" data-bs-placement="bottom" title="جميع الاشعارات"><i class="bi bi-list-ul"></i></button>
+            <button class="qa-btn" data-quick-action="backup" type="button" data-bs-toggle="tooltip" data-bs-placement="bottom" title="تحميل النسخة الاحتياطية"><i class="bi bi-cloud-arrow-down-fill"></i></button>
+            <div class="qa-divider" aria-hidden="true"></div>
+            {% include 'includes/print_status_header.html' %}
+            <button class="qa-btn" data-quick-action="maintenance" type="button" data-bs-toggle="tooltip" data-bs-placement="bottom" title="صيانة النظام / التحديثات"><i class="bi bi-tools"></i></button>
+          </div>
+        </div>
+        {% endif %}
+        
+        <!-- ============ القائمة الرئيسية - ديسكتوب ============ -->
+        <ul class="navbar-nav ms-auto align-items-center gap-1 d-none d-lg-flex">
+          <!-- قائمة المتجر الإلكتروني -->
+          {% if user.is_superuser %}
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="bi bi-shop-window"></i>
+              <span class="ms-1">المتجر الإلكتروني</span>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="/ecommerce/"><i class="bi bi-house-door me-2"></i>الصفحة الرئيسية</a></li>
+              <li><a class="dropdown-item" href="/ecommerce/mattress-builder/"><i class="bi bi-box-seam me-2"></i>بناء مرتبة مخصصة</a></li>
+              <li><a class="dropdown-item" href="/ecommerce/track-shipment/"><i class="bi bi-truck me-2"></i>تتبع الشحنات</a></li>
+              <li><a class="dropdown-item" href="/ecommerce/reviews/"><i class="bi bi-star me-2"></i>المراجعات والتقييمات</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="/ecommerce/cart/"><i class="bi bi-cart me-2"></i>سلة التسوق</a></li>
+              <li><a class="dropdown-item" href="/ecommerce/wishlist/"><i class="bi bi-heart me-2"></i>المفضلة</a></li>
+              <li><a class="dropdown-item" href="/ecommerce/my-orders/"><i class="bi bi-receipt me-2"></i>طلباتي</a></li>
+            </ul>
+          </li>
+          {% endif %}
+          
+          <li class="nav-item">
+            <a href="{% url 'hr:employee_welcome' %}" class="btn btn-sm btn-outline-primary rounded-pill" title="صفحة ترحيب الموظف">
+              <i class="bi bi-person-check"></i>
+              <span class="ms-1">ترحيب الموظف</span>
+            </a>
+          </li>
+          {% if user.is_superuser %}
+          <li class="nav-item">
+            <a href="{% url 'quick_access:dashboard' %}" class="btn btn-sm btn-primary rounded-pill" title="الوصول السريع - Ctrl+K">
+              <i class="bi bi-lightning-charge-fill"></i>
+              <span class="ms-1">وصول سريع</span>
+            </a>
+          </li>
+          {% endif %}
+          
+          <li class="nav-item">
+            <button id="themeToggle" class="btn btn-sm btn-outline-primary rounded-pill" type="button" aria-label="تبديل الوضع">
+              <i class="bi bi-moon-stars" id="themeIcon"></i>
+            </button>
+          </li>
+          
+          {# Language switcher - ديسكتوب #}
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="langDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="bi bi-translate"></i>
+              <span class="ms-1">{% if LANGUAGE_CODE == 'ar' %}{% trans 'العربية' %}{% else %}{% trans 'English' %}{% endif %}</span>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="langDropdown">
+              <li>
+                <form method="post" action="/i18n/setlang/">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="{{ request.path }}">
+                  <button name="language" value="ar" class="dropdown-item{% if LANGUAGE_CODE == 'ar' %} active{% endif %}" type="submit">
+                    <i class="bi bi-check2 {% if LANGUAGE_CODE != 'ar' %}invisible{% endif %}"></i>
+                    🇸🇦 العربية
+                  </button>
+                  <button name="language" value="en" class="dropdown-item{% if LANGUAGE_CODE == 'en' %} active{% endif %}" type="submit">
+                    <i class="bi bi-check2 {% if LANGUAGE_CODE != 'en' %}invisible{% endif %}"></i>
+                    🇺🇸 English
+                  </button>
+                </form>
+              </li>
+            </ul>
+          </li>
+          
+          {% if user.is_authenticated and user_showrooms %}
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="showroomDropdownDesktop" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              {% if show_all_showrooms %}
+                <i class="bi bi-globe2"></i>
+                <span class="ms-1">{% trans 'جميع الفروع' %}</span>
+              {% elif current_showroom %}
+                <i class="bi {{ current_showroom.type_icon }}"></i>
+                <span class="ms-1">{{ current_showroom.name_ar|default:current_showroom.name }}</span>
+              {% else %}
+                <i class="bi bi-shop"></i>
+                <span class="ms-1">{% trans 'اختر فرع' %}</span>
+              {% endif %}
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="showroomDropdownDesktop">
+              {% if can_view_all_showrooms %}
+              <li>
+                <a class="dropdown-item{% if show_all_showrooms %} active{% endif %}" href="?showroom=all">
+                  <i class="bi bi-check2 {% if not show_all_showrooms %}invisible{% endif %}"></i>
+                  <i class="bi bi-globe2"></i>
+                  {% trans 'جميع الفروع' %}
+                </a>
+              </li>
+              <li><hr class="dropdown-divider"></li>
+              {% endif %}
+              {% for sr in user_showrooms %}
+              <li>
+                <a class="dropdown-item{% if current_showroom and sr.id == current_showroom.id %} active{% endif %}" 
+                   href="?showroom={{ sr.id }}">
+                  <i class="bi bi-check2 {% if not current_showroom or sr.id != current_showroom.id %}invisible{% endif %}"></i>
+                  <i class="bi {{ sr.type_icon }}{% if sr.showroom_type == 'factory' %} text-primary{% endif %}"></i>
+                  {{ sr.name_ar|default:sr.name }}
+                  {% if sr.showroom_type == 'factory' %}<small class="text-muted">(مصنع)</small>{% endif %}
+                </a>
+              </li>
+              {% endfor %}
+            </ul>
+          </li>
+          {% endif %}
+          {% user_menu %}
+        </ul>
+        <div class="global-search-wrapper d-none d-lg-block" role="search" id="globalSearchContainer">
+          <div class="input-group input-group-sm search-box position-relative">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input id="globalSearch" class="form-control" type="search" placeholder="{% trans 'بحث في القوائم...' %}" autocomplete="off" aria-label="{% trans 'بحث' %}">
+            <div id="globalSearchResults" class="global-search-results list-group d-none" role="listbox" aria-label="نتائج البحث"></div>
+          </div>
+        </div>
+        
+        <!-- ============ أزرار الموبايل ============ -->
+        <div class="d-flex d-lg-none align-items-center gap-2 mobile-topbar-actions">
+          {% if user.is_superuser %}
+          <a href="{% url 'quick_access:dashboard' %}" class="mobile-topbar-btn" title="الوصول السريع">
+            <i class="bi bi-lightning-charge-fill"></i>
+          </a>
+          {% endif %}
+          <button class="mobile-topbar-btn" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenuPanel" aria-controls="mobileMenuPanel" aria-label="القائمة">
+            <i class="bi bi-list"></i>
+          </button>
+        </div>
+      </div>
+    </nav>
+    <main class="app-content py-3">
+      <div class="layout-container">
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+  {% block breadcrumb %}{% endblock %}
+  {% block page_header %}{% endblock %}
+  {% block content %}{% endblock %}
+  </div>
+    </main>
+  {% include 'includes/footer.html' %}
+  </div>
+
+  <!-- ============ Offcanvas قائمة الموبايل ============ -->
+  <div class="offcanvas offcanvas-end d-lg-none" tabindex="-1" id="mobileMenuPanel" aria-labelledby="mobileMenuLabel" style="max-width:320px;width:85vw;">
+    <!-- Header -->
+    <div class="offcanvas-header border-bottom" style="background:linear-gradient(135deg,#1e3a5f 0%,#2d5a8e 100%);padding:20px 16px;">
+      {% if user and user.is_authenticated %}
+      <div class="d-flex align-items-center gap-3 w-100">
+        <div style="width:48px;height:48px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <i class="bi bi-person-fill text-white" style="font-size:1.4rem;"></i>
+        </div>
+        <div style="min-width:0;flex:1;">
+          <div class="fw-bold text-white text-truncate" style="font-size:1rem;">{{ user|get_user_arabic_name }}</div>
+          <small style="color:rgba(255,255,255,0.7);">{{ user|get_user_role_name }}</small>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="إغلاق"></button>
+      </div>
+      {% else %}
+      <h5 class="offcanvas-title text-white" id="mobileMenuLabel">{% trans 'القائمة' %}</h5>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="إغلاق"></button>
+      {% endif %}
+    </div>
+    <!-- Body -->
+    <div class="offcanvas-body p-0" style="overflow-y:auto;">
+      <nav class="mobile-offcanvas-nav">
+        <!-- روابط سريعة -->
+        <div class="mob-nav-section">
+          <div class="mob-nav-header">{% trans 'روابط سريعة' %}</div>
+          <a href="/" class="mob-nav-item">
+            <i class="bi bi-house-door text-primary"></i>
+            <span>{% trans 'الصفحة الرئيسية' %}</span>
+          </a>
+          {% if user.is_superuser %}
+          <a href="{% url 'quick_access:dashboard' %}" class="mob-nav-item">
+            <i class="bi bi-lightning-charge-fill text-warning"></i>
+            <span>{% trans 'الوصول السريع' %}</span>
+          </a>
+          {% endif %}
+          <a href="{% url 'hr:employee_welcome' %}" class="mob-nav-item">
+            <i class="bi bi-person-check text-success"></i>
+            <span>{% trans 'ترحيب الموظف' %}</span>
+          </a>
+          {% if user.is_superuser %}
+          <a href="/ecommerce/" class="mob-nav-item">
+            <i class="bi bi-shop-window text-info"></i>
+            <span>{% trans 'المتجر الإلكتروني' %}</span>
+          </a>
+          {% endif %}
+        </div>
+
+        <!-- الفرع -->
+        {% if user.is_authenticated and user_showrooms %}
+        <div class="mob-nav-section">
+          <div class="mob-nav-header">{% trans 'الفرع' %}</div>
+          {% if can_view_all_showrooms %}
+          <a href="?showroom=all" class="mob-nav-item{% if show_all_showrooms %} active{% endif %}">
+            <i class="bi bi-globe2"></i>
+            <span>{% trans 'جميع الفروع' %}</span>
+            {% if show_all_showrooms %}<i class="bi bi-check-circle-fill text-success ms-auto"></i>{% endif %}
+          </a>
+          {% endif %}
+          {% for sr in user_showrooms %}
+          <a href="?showroom={{ sr.id }}" class="mob-nav-item{% if current_showroom and sr.id == current_showroom.id %} active{% endif %}">
+            <i class="bi {{ sr.type_icon }}"></i>
+            <span>{{ sr.name_ar|default:sr.name }}</span>
+            {% if current_showroom and sr.id == current_showroom.id %}<i class="bi bi-check-circle-fill text-success ms-auto"></i>{% endif %}
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- الإعدادات -->
+        <div class="mob-nav-section">
+          <div class="mob-nav-header">{% trans 'الإعدادات' %}</div>
+          <button type="button" class="mob-nav-item" onclick="document.getElementById('themeToggle').click();">
+            <i class="bi bi-circle-half text-info"></i>
+            <span>{% trans 'تبديل المظهر' %}</span>
+          </button>
+        </div>
+
+        <!-- اللغة -->
+        <div class="mob-nav-section">
+          <div class="mob-nav-header">{% trans 'اللغة' %}</div>
+          <form method="post" action="/i18n/setlang/">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <button name="language" value="ar" type="submit" class="mob-nav-item{% if LANGUAGE_CODE == 'ar' %} active{% endif %}">
+              <span style="font-size:1.2rem;">🇸🇦</span>
+              <span>العربية</span>
+              {% if LANGUAGE_CODE == 'ar' %}<i class="bi bi-check-circle-fill text-success ms-auto"></i>{% endif %}
+            </button>
+            <button name="language" value="en" type="submit" class="mob-nav-item{% if LANGUAGE_CODE == 'en' %} active{% endif %}">
+              <span style="font-size:1.2rem;">🇺🇸</span>
+              <span>English</span>
+              {% if LANGUAGE_CODE == 'en' %}<i class="bi bi-check-circle-fill text-success ms-auto"></i>{% endif %}
+            </button>
+          </form>
+        </div>
+
+        <!-- حسابي -->
+        {% if user and user.is_authenticated %}
+        <div class="mob-nav-section">
+          <div class="mob-nav-header">{% trans 'حسابي' %}</div>
+          <a href="{% url 'users:profile' %}" class="mob-nav-item">
+            <i class="bi bi-person text-primary"></i>
+            <span>{% trans 'الملف الشخصي' %}</span>
+          </a>
+          <a href="{% url 'users:change_password' %}" class="mob-nav-item">
+            <i class="bi bi-key text-warning"></i>
+            <span>{% trans 'تغيير كلمة المرور' %}</span>
+          </a>
+          <a href="{% url 'core:switch_account' %}" class="mob-nav-item">
+            <i class="bi bi-arrow-left-right text-info"></i>
+            <span>{% trans 'تبديل الحساب' %}</span>
+          </a>
+        </div>
+        <div class="mob-nav-section" style="border-bottom:none;">
+          <form method="post" action="{% url 'core:logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="mob-nav-item text-danger">
+              <i class="bi bi-box-arrow-right"></i>
+              <span>{% trans 'تسجيل الخروج' %}</span>
+            </button>
+          </form>
+        </div>
+        {% endif %}
+      </nav>
+    </div>
+  </div>
+  <!-- Mobile backdrop for sidebar -->
+  <div id="sidebarMobileBackdrop" class="sidebar-mobile-backdrop" hidden></div>
+  <!-- Back to top button -->
+  <!-- AI Assistant Chat Widget -->
+  {% include "ai_assistant/chat_widget.html" %}
+  <button id="backToTop" class="fab no-print" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="opacity:0;pointer-events:none;transition:opacity .3s" title="العودة للأعلى">
+    <i class="bi bi-arrow-up"></i>
+  </button>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script src="{% static 'js/csrf.js' %}?v=1"></script>
+  <script src="{% static 'js/app_layout.js' %}?v=9"></script>
+  <script src="{% static 'js/global_search.js' %}?v=1"></script>
+  <script src="{% static 'js/global_ui.js' %}?v=2"></script>
+  <script src="{% static 'js/nav.js' %}?v=1"></script>
+  <script src="{% static 'js/performance.js' %}?v=1"></script>
+  <script src="{% static 'js/modal_backdrop_fix.js' %}?v=2"></script>
+  <script>
+    (function(){
+      var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      tooltipTriggerList.forEach(function(el) { try { new bootstrap.Tooltip(el); } catch(e) {} });
+
+      var dashboardUrl = "{% url 'core:dashboard' %}";
+      var settingsUrl = "{% url 'core:company_settings' %}";
+
+      function goDashboard() { window.location.href = dashboardUrl || '/'; }
+      function showToast(msg, type) {
+        if (!type) type = 'secondary';
+        try {
+          var toastContainer = document.createElement('div');
+          toastContainer.className = 'toast align-items-center text-bg-'+type+' border-0 position-fixed top-0 end-0 m-3';
+          toastContainer.style.zIndex = 2050;
+          toastContainer.innerHTML = '<div class="d-flex"><div class="toast-body">'+msg+'</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
+          document.body.appendChild(toastContainer);
+          var toast = new bootstrap.Toast(toastContainer, { delay: 3000 });
+          toast.show();
+          toastContainer.addEventListener('hidden.bs.toast', function() { toastContainer.remove(); });
+        } catch(e) {}
+      }
+      function getCookie(name) {
+        var value = '; ' + document.cookie;
+        var parts = value.split('; ' + name + '=');
+        if (parts.length === 2) return parts.pop().split(';').shift();
+      }
+      function clearCache() {
+        if ('caches' in window) {
+          caches.keys().then(function(names) { names.forEach(function(name) { caches.delete(name); }); });
+        }
+        localStorage.clear();
+        sessionStorage.clear();
+        showToast('تم مسح الكاش بنجاح! جاري إعادة التحميل...', 'success');
+        setTimeout(function() { location.reload(true); }, 1200);
+      }
+      function notify() {
+        var alerts = document.querySelectorAll('.alert');
+        if (alerts.length) { alerts[0].scrollIntoView({behavior:'smooth',block:'center'}); alerts[0].classList.add('shadow'); return; }
+        showToast('لا توجد إشعارات جديدة', 'info');
+      }
+      var quickActions = {
+        'clear-cache': function() { clearCache(); },
+        home: function() { goDashboard(); },
+        'track-reps': function() { window.location.href = '/sales/location/tracking/'; },
+        ecommerce: function() { window.location.href = '/ecommerce/'; },
+        notifications: function() { notify(); },
+        'all-notifications': function() { window.location.href = '/notifications/'; },
+        backup: function() {
+          showToast('جاري إنشاء النسخة الاحتياطية...', 'info');
+          fetch('/api/system/backup/', {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': (document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : getCookie('csrftoken')) || '',
+              'Content-Type': 'application/json'
+            }
+          }).then(function(resp) {
+            return resp.json();
+          }).then(function(data) {
+            if (data.success && data.download_url) {
+              showToast('تم إنشاء النسخة الاحتياطية! جاري التنزيل...', 'success');
+              window.location.href = data.download_url;
+            } else {
+              showToast('فشل إنشاء النسخة الاحتياطية: ' + (data.message || 'خطأ'), 'danger');
+            }
+          }).catch(function(e) {
+            showToast('خطأ: ' + e.message, 'danger');
+          });
+        },
+        maintenance: function() { window.location.href = settingsUrl; }
+      };
+
+      document.querySelectorAll('[data-quick-action]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var action = btn.getAttribute('data-quick-action');
+          var fn = quickActions[action];
+          if (typeof fn === 'function') { fn(); }
+        });
+      });
+      
+      // ========== نظام الوصول السريع الجديد ==========
+      // البحث السريع بـ Ctrl+K
+      document.addEventListener('keydown', function(e) {
+        // Ctrl+K أو Cmd+K للبحث السريع
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+          e.preventDefault();
+          window.location.href = '/quick/';
+        }
+        // Ctrl+/ لدليل الاختصارات
+        if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+          e.preventDefault();
+          window.location.href = '/quick/shortcuts/';
+        }
+      });
+    })();
+  </script>
+  
+  <!-- Mobile sidebar fix - minimal -->
+  <script>
+    (function() {
+      if (window.innerWidth <= 991) {
+        document.addEventListener('DOMContentLoaded', function() {
+          var sidebar = document.querySelector('.app-sidebar, #appSidebar');
+          if (sidebar && !document.body.classList.contains('sidebar-open')) {
+            sidebar.style.visibility = 'hidden';
+            sidebar.style.pointerEvents = 'none';
+            var dir = document.documentElement.getAttribute('dir') || 'rtl';
+            sidebar.style.transform = dir === 'rtl' ? 'translateX(100%)' : 'translateX(-100%)';
+          }
+        });
+      }
+    })();
+  </script>
+  
+  <!-- PWA Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/static/sw.js')
+          .then(function(registration) {
+            console.log('✅ ServiceWorker registered:', registration.scope);
+          })
+          .catch(function(err) {
+            console.log('❌ ServiceWorker registration failed:', err);
+          });
+      });
+    }
+  </script>
+  
+  <!-- ملفات JavaScript للتحسينات الجديدة -->
+  <script src="{% static 'js/keyboard_shortcuts.js' %}?v=1"></script>
+  <script src="{% static 'js/contextual_help.js' %}?v=3"></script>
+  
+  <!-- مساعدة سياقية فورية -->
+  {% include 'includes/contextual_help_widget.html' %}
+  
+  <!-- مولد الأكواد التلقائي - يعمل في جميع الصفحات -->
+  <script src="{% static 'js/code_generator.js' %}?v=1"></script>
+  
+  <!-- وكيل الطباعة المحلي - Zebra + XPrinter + A4 -->
+  <script src="{% static 'js/tony_print_agent.js' %}?v=3.6"></script>
+  <!-- مزامنة حالة الاتصال لجميع الصفحات -->
+  <script src="{% static 'js/print_status.js' %}?v=3.2"></script>
+  
+  {% block extra_js %}{% endblock %}
+    <!-- Sidebar v3 -->
+    <script src="{% static 'js/sidebar_v3.js' %}?v=1" defer></script>
+    <!-- Command Palette -->
+    <script src="{% static 'js/command_palette.js' %}"></script>
+</body>
+</html>
