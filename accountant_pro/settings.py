@@ -232,6 +232,7 @@ INSTALLED_APPS = [
     # ====================================
 
     'django_celery_beat',  # جدولة مهام Celery
+    'django_celery_results',  # نتائج مهام Celery
 
     # 🔴 DISABLED APPS - Phase 2: Will be re-enabled after core stabilization
 
@@ -1293,17 +1294,3 @@ try:
     setup_sentry()
 except ImportError:
     pass
-
-# Celery Settings
-import os as _os
-CELERY_BROKER_URL = _os.getenv('CELERY_BROKER_URL', 'redis://127.0.0.1:6379/0')
-CELERY_RESULT_BACKEND = _os.getenv('CELERY_RESULT_BACKEND', 'redis://127.0.0.1:6379/0')
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'Africa/Cairo'
-CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
-
-for _celery_app in ['django_celery_beat', 'django_celery_results']:
-    if _celery_app not in INSTALLED_APPS:
-        INSTALLED_APPS.append(_celery_app)

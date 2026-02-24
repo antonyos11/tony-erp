@@ -779,6 +779,7 @@ def goods_receipt_list(request):
     
     context = {
         'receipts': receipts,
+        'object_list': receipts,
         'status_filter': status_filter,
         'quality_filter': quality_filter,
         'search': search,
