@@ -208,102 +208,106 @@ INSTALLED_APPS = [
     'reports',
     'api',
     'hr',
-    # 'crm',  # DISABLED - Phase 2
     'production',
-    # 'maintenance',  # DISABLED - Phase 2  # نظام إدارة الصيانة والمعدات
     'payments',  # نظام المدفوعات والقروض
     'installments',  # نظام التقسيط الذكي
     'exports',  # نظام التصدير والنسخ الاحتياطي
-    # 'fleet',  # DISABLED - Phase 2  # نظام إدارة الأسطول (مركبات، سائقون، رحلات)
-    # 'pos',  # DISABLED - Phase 2  # نظام نقاط البيع الجديد
     'showrooms',  # legacy - UI merged into branches
     'approvals',  # نظام الموافقات الجديد
     'notifications',  # نظام الإشعارات الداخلي
-    # 'woocommerce_integration',  # DISABLED - Phase 2  # تكامل WooCommerce
     'fixed_assets',  # إدارة الأصول الثابتة
-    # 'contracting',  # DISABLED - Phase 2  # نظام إدارة المقاولات والمشاريع
     'shipping',  # نظام إدارة الشحن
-    # 'eservices',  # DISABLED - Phase 2  # الخدمات الإلكترونية
-    # 'projects',  # DISABLED - Phase 2  # نظام إدارة المشاريع
-    # 'ecommerce',  # DISABLED - Phase 2  # المتجر الإلكتروني المتكامل
-    # 'ai_assistant',  # DISABLED - Phase 2  # المساعد الذكي بالذكاء الاصطناعي
     'taxes',  # نظام إدارة الضرائب والفاتورة الإلكترونية
     'data_import',  # نظام استيراد البيانات من Excel
-    # 'home_services',  # DISABLED - Phase 2  # خدمات الصيانة والنظافة المنزلية
     'printing',  # نظام الطباعة الموحد (ZPL / ESC-POS / PDF)
     'attendance',  # نظام الحضور والانصراف المتقدم
     'branches',  # نظام إدارة الفروع المتعددة
-    # 'bank_reconciliation',  # DISABLED - Phase 2  # مطابقة البنوك
     'budgeting',  # إدارة الميزانيات
     'quality_control',  # إدارة الجودة
-    # 'loyalty',  # DISABLED - Phase 2  # برنامج الولاء
     'dashboard',  # لوحة المعلومات المحسنة (KPIs + Cache)
-    # 'helpdesk',  # DISABLED - Phase 2  # مركز الدعم الفني
-    # 'smart_pricing',  # DISABLED - Phase 2  # التسعير الذكي بالذكاء الاصطناعي 🆕
-    # 'subscriptions',  # DISABLED - Phase 2  # إدارة الباقات والاشتراكات 🆕
-    # 'zatca_integration',  # DISABLED - Phase 2  # الفوترة الإلكترونية ZATCA المرحلة 2 🆕
-    
-    # ======== الميزات الجديدة - January 2026 ========
-    # 'bank_integration',  # DISABLED - Phase 2  # التكامل البنكي ✨
-    # 'risk_management',  # DISABLED - Phase 2  # إدارة المخاطر والتأمين ✨
-    # 'tax_system',  # DISABLED - Phase 2  # نظام الضرائب المتقدم ✨
-    # 'contract_management',  # DISABLED - Phase 2  # إدارة العقود والمستندات ✨
-    # 'advanced_notifications',  # DISABLED - Phase 2  # الإشعارات والرسائل المتقدمة ✨
-    # 'treasury_management',  # DISABLED - Phase 2  # الشؤون المالية والسيولة ✨
-    # 'advanced_crm',  # DISABLED - Phase 2  # نظام CRM المتقدم ✨
-    # 'business_intelligence',  # DISABLED - Phase 2  # الذكاء الاصطناعي والبيانات الضخمة ✨
-    # 'correspondence_management',  # DISABLED - Phase 2  # إدارة المراسلات ✨
-    # 'intellectual_property',  # DISABLED - Phase 2  # الملكية الفكرية والبراءات ✨
-    # 'quick_access',  # DISABLED - Phase 2  # نظام الوصول السريع والإنتاجية 🚀
-    
-    # ======== الميزات الإضافية - January 6, 2026 ========
-    # 'sales_forecasting',  # DISABLED - Phase 2  # التنبؤ بالمبيعات والطلب 📈
-    # 'marketing_campaigns',  # DISABLED - Phase 2  # إدارة الحملات التسويقية 📣
-    # 'tender_bidding',  # DISABLED - Phase 2  # المناقصات والعطاءات 📋
-    # 'warranty_management',  # DISABLED - Phase 2  # إدارة الضمانات 🛡️
-    # 'customer_profitability',  # DISABLED - Phase 2  # تحليل ربحية العملاء 💎
-    # 'energy_management',  # DISABLED - Phase 2  # إدارة الطاقة والاستهلاك ⚡
-    # 'complaint_management',  # DISABLED - Phase 2  # إدارة الشكاوى والتحسين المستمر 📞
-    # 'license_management',  # DISABLED - Phase 2  # إدارة التراخيص والتصاريح 📜
-    # 'competitive_intelligence',  # DISABLED - Phase 2  # تحليل المنافسين 🎯
-    # 'compliance_management',  # DISABLED - Phase 2  # إدارة الامتثال والمراجعة ✅
-    # 'monitoring',  # DISABLED - Phase 2  # نظام المراقبة وكشف الشذوذات 🔍
-    # ======================================
-    
-    # ======== الميزات المتقدمة الجديدة - January 2026 ========
-    # 'sound_notifications',  # DISABLED - Phase 2  # نظام الإشعارات الصوتية 🔔
-    # 'theme_system',  # DISABLED - Phase 2  # الوضع المظلم والفاتح 🌙
-    # 'voice_assistant',  # DISABLED - Phase 2  # المساعد الصوتي الذكي 🎤
-    # 'custom_dashboard',  # DISABLED - Phase 2  # لوحة تحكم قابلة للتخصيص 📊
     'tasks',  # نظام المهام والتذكيرات ✅
-    # 'digital_signatures',  # DISABLED - Phase 2  # التوقيعات الرقمية ✍️
-    # 'report_builder',  # DISABLED - Phase 2  # منشئ التقارير المرئي 📈
-    # 'internal_chat',  # DISABLED - Phase 2  # نظام الدردشة الداخلية 💬
-    # 'cloud_backup',  # DISABLED - Phase 2  # النسخ الاحتياطي السحابي ☁️
-    # 'ai_analytics',  # DISABLED - Phase 2  # تحليلات الذكاء الاصطناعي 🤖
-    # 'video_calls',  # DISABLED - Phase 2  # مكالمات الفيديو 📹
-    # 'collaborative_docs',  # DISABLED - Phase 2  # المستندات التعاونية 📄
-    # 'cms',  # DISABLED - Phase 2  # نظام إدارة المحتوى 🌐
-    # 'smartwatch',  # DISABLED - Phase 2  # تكامل الساعات الذكية ⌚
-    # ============================================
-    
-    # ======== تكامل واتساب و n8n ========
-    # 'whatsapp_integration',  # DISABLED - Phase 2  # تكامل واتساب مع n8n 📱
-    # 'whatsapp_ai',  # DISABLED - Phase 2  # واتساب AI مع n8n وCRM 🤖
-    
+
     # ======== نظام بناء المراتب المخصصة ========
     'mattress_builder',  # Custom Mattress Builder - تصميم المراتب التفاعلي 🛏️
     # ====================================
-    
-    # ======== نظام تتبع الشحنات المتقدم ========
-    # 'shipment_tracking',  # DISABLED - Phase 2  # Shipment Tracking - تتبع الشحنات مع GPS وإشعارات 📦
-    # ====================================
-    
-    # ======== نظام المراجعات والتقييمات ========
-    # 'product_reviews',  # DISABLED - Phase 2  # Product Reviews - تقييمات ومراجعات المنتجات ⭐
-    # ====================================
-    
+
     'django_celery_beat',  # جدولة مهام Celery
+
+    # 🔴 DISABLED APPS - Phase 2: Will be re-enabled after core stabilization
+
+    # 🔴 DISABLED - Phase 2: Re-enable when core is stable
+    # Duplicates:
+    # 'advanced_notifications',  # الإشعارات والرسائل المتقدمة ✨ (duplicate of notifications)
+    # 'advanced_crm',  # نظام CRM المتقدم ✨ (duplicate of crm)
+    # 'tax_system',  # نظام الضرائب المتقدم ✨ (duplicate of taxes)
+    # 'custom_dashboard',  # لوحة تحكم قابلة للتخصيص 📊 (duplicate of dashboard)
+    # 'sound_notifications',  # نظام الإشعارات الصوتية 🔔 (duplicate of notifications)
+
+    # 🔴 DISABLED - Phase 2: Re-enable when core is stable
+    # CRM (partners module is sufficient for now):
+    # 'crm',
+
+    # 🔴 DISABLED - Phase 2: Re-enable when core is stable
+    # AI features (not priority):
+    # 'ai_assistant',  # المساعد الذكي بالذكاء الاصطناعي
+    # 'ai_analytics',  # تحليلات الذكاء الاصطناعي 🤖
+    # 'voice_assistant',  # المساعد الصوتي الذكي 🎤
+    # 'smart_pricing',  # التسعير الذكي بالذكاء الاصطناعي 🆕
+    # 'sales_forecasting',  # التنبؤ بالمبيعات والطلب 📈
+    # 'business_intelligence',  # الذكاء الاصطناعي والبيانات الضخمة ✨
+
+    # 🔴 DISABLED - Phase 2: Re-enable when core is stable
+    # Technology not needed now:
+    # 'video_calls',  # مكالمات الفيديو 📹
+    # 'internal_chat',  # نظام الدردشة الداخلية 💬
+    # 'collaborative_docs',  # المستندات التعاونية 📄
+    # 'smartwatch',  # تكامل الساعات الذكية ⌚
+    # 'cloud_backup',  # النسخ الاحتياطي السحابي ☁️
+    # 'digital_signatures',  # التوقيعات الرقمية ✍️
+    # 'cms',  # نظام إدارة المحتوى 🌐
+
+    # 🔴 DISABLED - Phase 2: Re-enable when core is stable
+    # Not related to mattress business:
+    # 'fleet',  # نظام إدارة الأسطول (مركبات، سائقون، رحلات)
+    # 'contracting',  # نظام إدارة المقاولات والمشاريع
+    # 'eservices',  # الخدمات الإلكترونية
+    # 'home_services',  # خدمات الصيانة والنظافة المنزلية
+    # 'tender_bidding',  # المناقصات والعطاءات 📋
+    # 'energy_management',  # إدارة الطاقة والاستهلاك ⚡
+    # 'intellectual_property',  # الملكية الفكرية والبراءات ✨
+    # 'license_management',  # إدارة التراخيص والتصاريح 📜
+    # 'competitive_intelligence',  # تحليل المنافسين 🎯
+    # 'compliance_management',  # إدارة الامتثال والمراجعة ✅
+    # 'correspondence_management',  # إدارة المراسلات ✨
+
+    # 🔴 DISABLED - Phase 2: Re-enable when core is stable
+    # Can be added later:
+    # 'woocommerce_integration',  # تكامل WooCommerce
+    # 'ecommerce',  # المتجر الإلكتروني المتكامل
+    # 'whatsapp_integration',  # تكامل واتساب مع n8n 📱
+    # 'whatsapp_ai',  # واتساب AI مع n8n وCRM 🤖
+    # 'bank_integration',  # التكامل البنكي ✨
+    # 'bank_reconciliation',  # مطابقة البنوك
+    # 'risk_management',  # إدارة المخاطر والتأمين ✨
+    # 'contract_management',  # إدارة العقود والمستندات ✨
+    # 'treasury_management',  # الشؤون المالية والسيولة ✨
+    # 'warranty_management',  # إدارة الضمانات 🛡️
+    # 'customer_profitability',  # تحليل ربحية العملاء 💎
+    # 'complaint_management',  # إدارة الشكاوى والتحسين المستمر 📞
+    # 'marketing_campaigns',  # إدارة الحملات التسويقية 📣
+    # 'loyalty',  # برنامج الولاء
+    # 'helpdesk',  # مركز الدعم الفني
+    # 'subscriptions',  # إدارة الباقات والاشتراكات 🆕
+    # 'zatca_integration',  # الفوترة الإلكترونية ZATCA المرحلة 2 🆕
+    # 'shipment_tracking',  # Shipment Tracking - تتبع الشحنات مع GPS وإشعارات 📦
+    # 'product_reviews',  # Product Reviews - تقييمات ومراجعات المنتجات ⭐
+    # 'monitoring',  # نظام المراقبة وكشف الشذوذات 🔍
+    # 'theme_system',  # الوضع المظلم والفاتح 🌙
+    # 'report_builder',  # منشئ التقارير المرئي 📈
+    # 'quick_access',  # نظام الوصول السريع والإنتاجية 🚀
+    # 'projects',  # نظام إدارة المشاريع
+    # 'maintenance',  # نظام إدارة الصيانة والمعدات
+    # 'pos',  # نظام نقاط البيع الجديد
 ]
 
 IS_RUNNING_TESTS = 'test' in sys.argv
