@@ -1,0 +1,178 @@
+﻿{% extends 'base_templates/_list_professional.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block page_title %}{% trans 'أرصدة الموردين' %}{% endblock %}
+{% block hero_icon %}bi-wallet2{% endblock %}
+{% block hero_title %}{% trans 'أرصدة الموردين' %}{% endblock %}
+{% block hero_subtitle %}{% trans 'متابعة أرصدة ومستحقات الموردين وإدارة المدفوعات' %}{% endblock %}
+
+{% block hero_actions %}
+<a href="{% url 'purchases:supplier_payment_new' %}" class="btn btn-light">
+  <i class="bi bi-credit-card me-1"></i>{% trans 'دفعة جديدة' %}
+</a>
+<a href="?export=xlsx" class="btn btn-outline-light btn-sm">
+  <i class="bi bi-file-excel me-1"></i>{% trans 'تصدير Excel' %}
+</a>
+<a href="?export=csv" class="btn btn-outline-light btn-sm">
+  <i class="bi bi-filetype-csv me-1"></i>{% trans 'تصدير CSV' %}
+</a>
+{% endblock %}
+
+{% block stats_section %}
+<div class="stats-grid">
+  <div class="stat-card primary">
+    <div class="stat-icon"><i class="bi bi-people"></i></div>
+    <div class="stat-value">{{ rows|length|default:0 }}</div>
+    <div class="stat-label">{% trans 'عدد الموردين' %}</div>
+  </div>
+  <div class="stat-card danger">
+    <div class="stat-icon"><i class="bi bi-cash-stack"></i></div>
+    <div class="stat-value">{{ grand_remaining|floatformat:0|intcomma }}</div>
+    <div class="stat-label">{% trans 'إجمالي المستحقات' %}</div>
+  </div>
+  <div class="stat-card warning">
+    <div class="stat-icon"><i class="bi bi-file-text"></i></div>
+    <div class="stat-value">{{ open_bills_total|default:0 }}</div>
+    <div class="stat-label">{% trans 'فواتير مفتوحة' %}</div>
+  </div>
+  <div class="stat-card success">
+    <div class="stat-icon"><i class="bi bi-check-circle"></i></div>
+    <div class="stat-value">{{ grand_paid|floatformat:0|intcomma }}</div>
+    <div class="stat-label">{% trans 'إجمالي المدفوع' %}</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block filter_fields %}
+<div class="filter-group">
+  <label>{% trans 'بحث' %}</label>
+  <div class="input-group input-group-sm">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input type="text" name="search" class="form-control" placeholder="{% trans 'اسم المورد...' %}" value="{{ search }}">
+  </div>
+</div>
+<div class="filter-group">
+  <label>{% trans 'حالة الرصيد' %}</label>
+  <select name="balance_status" class="form-select form-select-sm">
+    <option value="">{% trans 'الكل' %}</option>
+    <option value="has_balance" {% if balance_status == 'has_balance' %}selected{% endif %}>{% trans 'عليه رصيد' %}</option>
+    <option value="no_balance" {% if balance_status == 'no_balance' %}selected{% endif %}>{% trans 'رصيد صفر' %}</option>
+    <option value="overdue" {% if balance_status == 'overdue' %}selected{% endif %}>{% trans 'متأخر' %}</option>
+  </select>
+</div>
+<div class="filter-group">
+  <label>{% trans 'ترتيب حسب' %}</label>
+  <select name="order_by" class="form-select form-select-sm">
+    <option value="name" {% if order_by == 'name' %}selected{% endif %}>{% trans 'الاسم' %}</option>
+    <option value="-balance" {% if order_by == '-balance' %}selected{% endif %}>{% trans 'الأعلى رصيد' %}</option>
+    <option value="balance" {% if order_by == 'balance' %}selected{% endif %}>{% trans 'الأقل رصيد' %}</option>
+    <option value="-last_transaction" {% if order_by == '-last_transaction' %}selected{% endif %}>{% trans 'آخر معاملة' %}</option>
+  </select>
+</div>
+{% endblock %}
+
+{% block table_icon %}bi-wallet2{% endblock %}
+{% block table_title %}{% trans 'أرصدة الموردين' %}{% endblock %}
+{% block table_count %}
+<span class="badge bg-primary rounded-pill ms-2">{{ rows|length }}</span>
+{% endblock %}
+
+{% block table_actions %}
+<a href="?print=1" class="btn btn-outline-secondary btn-sm" target="_blank">
+  <i class="bi bi-printer me-1"></i>{% trans 'طباعة' %}
+</a>
+{% endblock %}
+
+{% block table_headers %}
+<th style="width: 50px;">#</th>
+<th>{% trans 'المورد' %}</th>
+<th class="text-end">{% trans 'إجمالي المشتريات' %}</th>
+<th class="text-end">{% trans 'المدفوع' %}</th>
+<th class="text-end">{% trans 'الرصيد المستحق' %}</th>
+<th class="text-center">{% trans 'فواتير مفتوحة' %}</th>
+<th class="text-center" style="width: 150px;">{% trans 'الإجراءات' %}</th>
+{% endblock %}
+
+{% block table_body %}
+{% for row in rows %}
+<tr>
+  <td>{{ forloop.counter }}</td>
+  <td>
+    <div class="d-flex align-items-center gap-2">
+      <div class="cell-avatar">
+        <i class="bi bi-building"></i>
+      </div>
+      <div>
+        <div class="cell-main">
+          <a href="{% url 'partners:supplier_account' row.supplier_id %}">{{ row.name }}</a>
+        </div>
+      </div>
+    </div>
+  </td>
+  <td class="text-end">
+    <span class="fw-medium">{{ row.total|floatformat:2|intcomma }}</span>
+    <span class="cell-sub d-block">{% trans 'ج.م' %}</span>
+  </td>
+  <td class="text-end">
+    <span class="text-success fw-medium">{{ row.paid|floatformat:2|intcomma }}</span>
+  </td>
+  <td class="text-end">
+    {% if row.remaining > 0 %}
+    <span class="fw-bold text-danger">{{ row.remaining|floatformat:2|intcomma }}</span>
+    <span class="cell-sub d-block">{% trans 'ج.م' %}</span>
+    {% else %}
+    <span class="text-success"><i class="bi bi-check-circle me-1"></i>{% trans 'مسدد' %}</span>
+    {% endif %}
+  </td>
+  <td class="text-center">
+    <span class="badge bg-secondary">{{ row.open_bills }}</span>
+  </td>
+  <td>
+    <div class="action-buttons">
+      <a href="{% url 'partners:supplier_account' row.supplier_id %}" class="action-btn view" title="{% trans 'كشف حساب' %}">
+        <i class="bi bi-file-text"></i>
+      </a>
+      {% if row.remaining > 0 %}
+      <a href="{% url 'purchases:supplier_payment_new' %}?supplier={{ row.supplier_id }}" class="action-btn approve" title="{% trans 'دفعة جديدة' %}">
+        <i class="bi bi-credit-card"></i>
+      </a>
+      {% endif %}
+      <a href="{% url 'partners:partner_detail' row.supplier_id %}" class="action-btn" title="{% trans 'تفاصيل' %}">
+        <i class="bi bi-info-circle"></i>
+      </a>
+    </div>
+  </td>
+</tr>
+{% empty %}
+<tr>
+  <td colspan="7">
+    <div class="empty-state">
+      <div class="empty-icon"><i class="bi bi-building"></i></div>
+      <h5>{% trans 'لا يوجد موردين' %}</h5>
+      <p>{% trans 'أضف موردين جدد للبدء في تتبع الأرصدة' %}</p>
+      <a href="{% url 'partners:supplier_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus me-1"></i>{% trans 'إضافة مورد' %}
+      </a>
+    </div>
+  </td>
+</tr>
+{% endfor %}
+{% endblock %}
+
+{% block pagination %}
+{% if rows %}
+<div class="pagination-wrapper">
+  <div class="d-flex align-items-center gap-3">
+    <div class="pagination-info">
+      <strong>{% trans 'إجمالي المستحقات:' %}</strong>
+      <span class="text-danger fw-bold">{{ grand_remaining|floatformat:2|intcomma }} {% trans 'ج.م' %}</span>
+      <span class="mx-2">|</span>
+      <strong>{% trans 'إجمالي المشتريات:' %}</strong>
+      <span class="text-primary fw-bold">{{ grand_total|floatformat:2|intcomma }} {% trans 'ج.م' %}</span>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

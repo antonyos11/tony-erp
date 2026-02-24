@@ -1,0 +1,197 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load humanize %}
+
+{% block title %}تقرير ربحية المنتجات{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-success text-white">
+            <h3 class="mb-0">
+                <i class="fas fa-chart-line"></i>
+                تقرير ربحية المنتجات
+            </h3>
+        </div>
+        <div class="card-body">
+            <!-- Filters -->
+            <form method="get" class="mb-4">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label>من تاريخ</label>
+                        <input type="date" name="start_date" class="form-control" value="{ start_date|date:'Y-m-d' }">
+                    </div>
+                    <div class="col-md-3">
+                        <label>إلى تاريخ</label>
+                        <input type="date" name="end_date" class="form-control" value="{ end_date|date:'Y-m-d' }">
+                    </div>
+                    <div class="col-md-4">
+                        <label>المنتج</label>
+                        <select name="product" class="form-control">
+                            <option value="">الكل</option>
+                            {% for p in products %}
+                            <option value="{ p.id }}" {% if selected_product == p.id|stringformat:"s" %}selected{% endif %}>
+                                {{ p.sku }} - {{ p.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label>&nbsp;</label>
+                        <button type="submit" class="btn btn-success btn-block">
+                            <i class="fas fa-search"></i> عرض
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Summary -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body text-center">
+                            <h5>إجمالي المبيعات</h5>
+                            <h3>{{ total_revenue|floatformat:2|intcomma }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body text-center">
+                            <h5>إجمالي التكلفة</h5>
+                            <h3>{{ total_cost|floatformat:2|intcomma }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body text-center">
+                            <h5>إجمالي الربح</h5>
+                            <h3>{{ total_profit|floatformat:2|intcomma }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body text-center">
+                            <h5>هامش الربح</h5>
+                            <h3>{{ total_profit_margin|floatformat:1 }}%</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Table -->
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="profitabilityTable">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th>SKU</th>
+                            <th>المنتج</th>
+                            <th>الكمية المباعة</th>
+                            <th>تكلفة الوحدة</th>
+                            <th>متوسط سعر البيع</th>
+                            <th>المبيعات</th>
+                            <th>التكلفة الإجمالية</th>
+                            <th>الربح</th>
+                            <th>هامش الربح %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in results %}
+                        <tr>
+                            <td>{{ result.product.sku }}</td>
+                            <td>{{ result.product.name }}</td>
+                            <td class="text-right">{{ result.quantity_sold|floatformat:2 }}</td>
+                            <td class="text-right">{{ result.unit_cost|floatformat:2|intcomma }}</td>
+                            <td class="text-right">{{ result.avg_selling_price|floatformat:2|intcomma }}</td>
+                            <td class="text-right">{{ result.revenue|floatformat:2|intcomma }}</td>
+                            <td class="text-right">{{ result.total_cost|floatformat:2|intcomma }}</td>
+                            <td class="text-right {% if result.profit < 0 %}text-danger{% else %}text-success{% endif %}">
+                                <strong>{{ result.profit|floatformat:2|intcomma }}</strong>
+                            </td>
+                            <td class="text-right">
+                                <span class="badge {% if result.profit_margin < 10 %}badge-danger{% elif result.profit_margin < 20 %}badge-warning{% else %}badge-success{% endif %}">
+                                    {{ result.profit_margin|floatformat:1 }}%
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center">لا توجد مبيعات للفترة المحددة</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Chart -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <canvas id="profitChart" height="80"></canvas>
+                </div>
+            </div>
+
+            <!-- Export -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <a href="?{{ request.GET.urlencode }}&format=json" class="btn btn-info" target="_blank">
+                        <i class="fas fa-file-code"></i> JSON
+                    </a>
+                    <button class="btn btn-success" onclick="window.print()">
+                        <i class="fas fa-print"></i> طباعة
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('profitChart').getContext('2d');
+    const chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: [
+                {% for result in results|slice:":10" %}
+                '{{ result.product.name|truncatechars:20 }}',
+                {% endfor %}
+            ],
+            datasets: [{
+                label: 'الربح',
+                data: [
+                    {% for result in results|slice:":10" %}
+                    {{ result.profit|floatformat:2 }},
+                    {% endfor %}
+                ],
+                backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'أعلى 10 منتجات ربحية'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+});
+</script>
+
+<style>
+@media print {
+    .btn, form, canvas { display: none; }
+}
+</style>
+{% endblock %}
+

@@ -1,0 +1,393 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "محسن الأسعار الذكي" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .optimizer-card {
+        border: 2px solid #e9ecef;
+        border-radius: 15px;
+        transition: all 0.3s ease;
+    }
+    .optimizer-card:hover {
+        border-color: #0d6efd;
+        box-shadow: 0 5px 20px rgba(13, 110, 253, 0.15);
+    }
+    .strategy-option {
+        cursor: pointer;
+        padding: 15px;
+        border-radius: 10px;
+        border: 2px solid #e9ecef;
+        transition: all 0.3s ease;
+    }
+    .strategy-option:hover {
+        border-color: #0d6efd;
+        background-color: #f8f9ff;
+    }
+    .strategy-option.selected {
+        border-color: #0d6efd;
+        background-color: #e7f1ff;
+    }
+    .ai-badge {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 12px;
+    }
+    .confidence-meter {
+        height: 10px;
+        border-radius: 5px;
+        overflow: hidden;
+    }
+    .result-highlight {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        border-radius: 15px;
+        padding: 25px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'smart_pricing:dashboard' %}">{% trans "التسعير الذكي" %}</a>
+                    </li>
+                    <li class="breadcrumb-item active">{% trans "محسن الأسعار" %}</li>
+                </ol>
+            </nav>
+            <div class="d-flex align-items-center">
+                <h2 class="mb-0 me-3">
+                    <i class="fas fa-chart-line text-primary"></i>
+                    {% trans "محسن الأسعار الذكي" %}
+                </h2>
+                <span class="ai-badge">
+                    <i class="fas fa-brain me-1"></i> AI Powered
+                </span>
+            </div>
+            <p class="text-muted mt-2">
+                {% trans "استخدم الذكاء الاصطناعي لتحديد السعر الأمثل لمنتجاتك" %}
+            </p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- نموذج التحسين -->
+        <div class="col-lg-5 mb-4">
+            <div class="card optimizer-card h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cog text-primary"></i>
+                        {% trans "إعدادات التحسين" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="optimizerForm">
+                        {% csrf_token %}
+                        
+                        <!-- اختيار المنتج -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-box text-muted me-1"></i>
+                                {% trans "اختر المنتج" %}
+                            </label>
+                            <select name="product_id" class="form-select form-select-lg" required>
+                                <option value="">{% trans "-- اختر منتج --" %}</option>
+                                {% for product in products %}
+                                <option value="{{ product.id }}">
+                                    {{ product.name }} 
+                                    {% if product.price %}
+                                    ({{ product.price }} ر.س)
+                                    {% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- اختيار الاستراتيجية -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-chess text-muted me-1"></i>
+                                {% trans "استراتيجية التسعير" %}
+                            </label>
+                            
+                            <div class="row g-2">
+                                {% for value, label in strategies %}
+                                <div class="col-6">
+                                    <div class="strategy-option {% if value == 'balanced' %}selected{% endif %}"
+                                         onclick="selectStrategy('{{ value }}', this)">
+                                        <div class="d-flex align-items-center">
+                                            <input type="radio" name="strategy" value="{{ value }}" 
+                                                   class="form-check-input me-2" 
+                                                   {% if value == 'balanced' %}checked{% endif %}>
+                                            <div>
+                                                <strong>{{ label.split|first }}</strong>
+                                                <small class="d-block text-muted">
+                                                    {% if value == 'aggressive' %}
+                                                    {% trans "للمنافسة القوية" %}
+                                                    {% elif value == 'conservative' %}
+                                                    {% trans "للمنتجات المميزة" %}
+                                                    {% elif value == 'balanced' %}
+                                                    {% trans "توازن بين الربح والمبيعات" %}
+                                                    {% elif value == 'premium' %}
+                                                    {% trans "للمنتجات الفاخرة" %}
+                                                    {% elif value == 'penetration' %}
+                                                    {% trans "لدخول أسواق جديدة" %}
+                                                    {% endif %}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- خيارات التحليل -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-sliders-h text-muted me-1"></i>
+                                {% trans "خيارات التحليل" %}
+                            </label>
+                            
+                            <div class="form-check mb-2">
+                                <input type="checkbox" class="form-check-input" name="competitor_analysis" checked id="compCheck">
+                                <label class="form-check-label" for="compCheck">
+                                    {% trans "تضمين تحليل المنافسين" %}
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input type="checkbox" class="form-check-input" name="demand_analysis" checked id="demandCheck">
+                                <label class="form-check-label" for="demandCheck">
+                                    {% trans "تضمين تحليل الطلب" %}
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" name="seasonal_analysis" checked id="seasonCheck">
+                                <label class="form-check-label" for="seasonCheck">
+                                    {% trans "تضمين العوامل الموسمية" %}
+                                </label>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-lg w-100">
+                            <i class="fas fa-magic me-2"></i>
+                            {% trans "تحليل وتحسين السعر" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- نتائج التحسين أو التعليمات -->
+        <div class="col-lg-7 mb-4">
+            {% if result %}
+            <!-- نتائج التحسين -->
+            <div class="card border-0 shadow">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-check-circle me-2"></i>
+                        {% trans "نتائج التحليل" %} - {{ product.name }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- السعر الموصى به -->
+                    <div class="result-highlight text-center mb-4">
+                        <h6 class="text-muted mb-2">{% trans "السعر الموصى به" %}</h6>
+                        <h1 class="display-4 text-success fw-bold mb-2">
+                            {{ result.recommended_price|floatformat:2 }} <small class="fs-5">ر.س</small>
+                        </h1>
+                        
+                        {% if result.price_change > 0 %}
+                        <span class="badge bg-success fs-6">
+                            <i class="fas fa-arrow-up"></i>
+                            +{{ result.price_change|floatformat:1 }}% من السعر الحالي
+                        </span>
+                        {% elif result.price_change < 0 %}
+                        <span class="badge bg-danger fs-6">
+                            <i class="fas fa-arrow-down"></i>
+                            {{ result.price_change|floatformat:1 }}% من السعر الحالي
+                        </span>
+                        {% else %}
+                        <span class="badge bg-secondary fs-6">
+                            {% trans "السعر الحالي مناسب" %}
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- درجة الثقة -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>{% trans "درجة الثقة في التوصية" %}</span>
+                            <span class="fw-bold">{{ result.confidence_score|floatformat:0 }}%</span>
+                        </div>
+                        <div class="confidence-meter bg-light">
+                            <div class="h-100 
+                                {% if result.confidence_score >= 80 %}bg-success
+                                {% elif result.confidence_score >= 60 %}bg-info
+                                {% elif result.confidence_score >= 40 %}bg-warning
+                                {% else %}bg-danger{% endif %}"
+                                style="width: {{ result.confidence_score }}%;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- مقارنة الأسعار -->
+                    <div class="row mb-4">
+                        <div class="col-md-4 text-center">
+                            <div class="p-3 bg-light rounded">
+                                <small class="text-muted d-block">{% trans "السعر الحالي" %}</small>
+                                <h4 class="mb-0">{{ result.current_price|floatformat:2 }} ر.س</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="p-3 bg-light rounded">
+                                <small class="text-muted d-block">{% trans "الحد الأدنى" %}</small>
+                                <h4 class="mb-0 text-danger">{{ result.price_range.min|floatformat:2 }} ر.س</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="p-3 bg-light rounded">
+                                <small class="text-muted d-block">{% trans "الحد الأقصى" %}</small>
+                                <h4 class="mb-0 text-success">{{ result.price_range.max|floatformat:2 }} ر.س</h4>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- العوامل المؤثرة -->
+                    <h6 class="mb-3">
+                        <i class="fas fa-chart-pie text-primary me-2"></i>
+                        {% trans "العوامل المؤثرة في التوصية" %}
+                    </h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "العامل" %}</th>
+                                    <th>{% trans "الوزن" %}</th>
+                                    <th>{% trans "القيمة" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for factor in result.factors %}
+                                <tr>
+                                    <td>
+                                        {% if factor.0 == 'cost' %}
+                                        <i class="fas fa-coins text-warning me-1"></i> {% trans "التكلفة والهامش" %}
+                                        {% elif factor.0 == 'competitor' %}
+                                        <i class="fas fa-users text-info me-1"></i> {% trans "أسعار المنافسين" %}
+                                        {% elif factor.0 == 'demand' %}
+                                        <i class="fas fa-chart-line text-success me-1"></i> {% trans "مستوى الطلب" %}
+                                        {% else %}
+                                        {{ factor.0 }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height: 8px; width: 80px;">
+                                            <div class="progress-bar bg-primary" style="width: {{ factor.1|floatformat:0 }}0%;"></div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if factor.2 %}
+                                        {{ factor.2|floatformat:2 }}
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- الإجراءات -->
+                    <div class="d-flex gap-2 mt-4">
+                        <button class="btn btn-success" onclick="applyPrice({{ result.recommended_price }})">
+                            <i class="fas fa-check me-1"></i>
+                            {% trans "تطبيق السعر" %}
+                        </button>
+                        <a href="{% url 'smart_pricing:simulation' %}?product_id={{ product.id }}" class="btn btn-outline-info">
+                            <i class="fas fa-flask me-1"></i>
+                            {% trans "محاكاة التغيير" %}
+                        </a>
+                        <button class="btn btn-outline-secondary" onclick="window.print()">
+                            <i class="fas fa-print me-1"></i>
+                            {% trans "طباعة" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <!-- التعليمات -->
+            <div class="card border-0 shadow h-100">
+                <div class="card-body d-flex flex-column justify-content-center align-items-center py-5">
+                    <div class="text-center">
+                        <i class="fas fa-robot fa-5x text-primary mb-4" style="opacity: 0.3;"></i>
+                        <h4>{% trans "محسن الأسعار بالذكاء الاصطناعي" %}</h4>
+                        <p class="text-muted mb-4">
+                            {% trans "اختر منتجاً واستراتيجية للحصول على توصية السعر الأمثل" %}
+                        </p>
+                        
+                        <div class="row g-3 mt-3">
+                            <div class="col-md-4">
+                                <div class="p-3 bg-light rounded">
+                                    <i class="fas fa-chart-bar text-primary fa-2x mb-2"></i>
+                                    <h6>{% trans "تحليل التكلفة" %}</h6>
+                                    <small class="text-muted">{% trans "حساب الهامش الأمثل" %}</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="p-3 bg-light rounded">
+                                    <i class="fas fa-users text-info fa-2x mb-2"></i>
+                                    <h6>{% trans "تحليل المنافسين" %}</h6>
+                                    <small class="text-muted">{% trans "مقارنة بأسعار السوق" %}</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="p-3 bg-light rounded">
+                                    <i class="fas fa-chart-line text-success fa-2x mb-2"></i>
+                                    <h6>{% trans "تحليل الطلب" %}</h6>
+                                    <small class="text-muted">{% trans "توقع المبيعات" %}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    var MSG_CONFIRM_APPLY = "{{ 'هل تريد تطبيق السعر الجديد؟'|escapejs }}";
+    var MSG_PRICE_APPLIED = "{{ 'سيتم تطبيق السعر:'|escapejs }}";
+    var MSG_EGP = "{{ 'ر.س'|escapejs }}";
+    
+    function selectStrategy(value, element) {
+        // إزالة التحديد من الكل
+        document.querySelectorAll('.strategy-option').forEach(el => {
+            el.classList.remove('selected');
+        });
+        // تحديد الخيار الجديد
+        element.classList.add('selected');
+        element.querySelector('input').checked = true;
+    }
+    
+    function applyPrice(price) {
+        if (confirm(MSG_CONFIRM_APPLY)) {
+            // إرسال طلب لتحديث السعر
+            alert(MSG_PRICE_APPLIED + ' ' + price + ' ' + MSG_SAR);
+        }
+    }
+</script>
+{% endblock %}

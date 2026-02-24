@@ -1,0 +1,461 @@
+﻿{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "تقرير الضرائب" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+    }
+    
+    .tax-hero {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    
+    .period-selector {
+        background: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        margin-bottom: 2rem;
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    
+    .tax-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .summary-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .summary-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+    }
+    
+    .summary-card.sales::before { background: var(--success-color); }
+    .summary-card.purchases::before { background: var(--danger-color); }
+    .summary-card.net::before { background: var(--accent-color); }
+    .summary-card.paid::before { background: var(--primary-color); }
+    
+    .card-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .card-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .card-value.positive { color: var(--success-color); }
+    .card-value.negative { color: var(--danger-color); }
+    
+    .card-detail {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-top: 0.5rem;
+    }
+    
+    .tax-details {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+    }
+    
+    @media (max-width: 992px) {
+        .tax-details {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .detail-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .detail-header {
+        padding: 1.25rem 1.5rem;
+        background: #fafbfc;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .detail-title {
+        font-weight: 600;
+        color: var(--primary-color);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .detail-title.sales i { color: var(--success-color); }
+    .detail-title.purchases i { color: var(--danger-color); }
+    
+    .detail-body {
+        padding: 1.5rem;
+    }
+    
+    .tax-table {
+        width: 100%;
+        margin: 0;
+    }
+    
+    .tax-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+        color: var(--primary-color);
+        padding: 0.75rem 1rem;
+        border: none;
+    }
+    
+    .tax-table td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .tax-table tbody tr:hover {
+        background: rgba(0, 212, 170, 0.02);
+    }
+    
+    .tax-table tfoot td {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        font-weight: 700;
+    }
+    
+    .amount-positive { color: var(--success-color); font-weight: 600; }
+    .amount-negative { color: var(--danger-color); font-weight: 600; }
+    
+    .declaration-section {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        margin-top: 2rem;
+    }
+    
+    .declaration-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--accent-color);
+    }
+    
+    .declaration-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2rem;
+    }
+    
+    @media (max-width: 768px) {
+        .declaration-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .declaration-field {
+        text-align: center;
+        padding: 1.5rem;
+        background: #f8f9fa;
+        border-radius: 12px;
+    }
+    
+    .field-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .field-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .btn-export {
+        background: linear-gradient(135deg, var(--accent-color), #00b894);
+        border: none;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+    
+    .btn-export:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 212, 170, 0.3);
+        color: white;
+    }
+    
+    .chart-container {
+        height: 300px;
+        margin-top: 1.5rem;
+    }
+    
+    [data-bs-theme="dark"] .period-selector,
+    [data-bs-theme="dark"] .summary-card,
+    [data-bs-theme="dark"] .detail-card,
+    [data-bs-theme="dark"] .declaration-section {
+        background: #1a1d21;
+    }
+    
+    [data-bs-theme="dark"] .detail-header,
+    [data-bs-theme="dark"] .tax-table th {
+        background: #2d3238;
+    }
+    
+    [data-bs-theme="dark"] .declaration-field {
+        background: #2d3238;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Hero Section -->
+    <div class="tax-hero">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="h2 mb-2">
+                    <i class="fas fa-percentage me-2"></i>
+                    {% trans "تقرير الضرائب (VAT)" %}
+                </h1>
+                <p class="mb-0 opacity-75">
+                    {% trans "ملخص ضريبة القيمة المضافة للفترة المحددة" %}
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <button class="btn btn-export">
+                    <i class="fas fa-file-pdf me-1"></i>
+                    {% trans "تصدير للهيئة" %}
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Period Selector -->
+    <div class="period-selector">
+        <label class="fw-bold">{% trans "الفترة:" %}</label>
+        <select class="form-select" style="width: auto;">
+            <option value="q1-2024">{% trans "الربع الأول 2024" %}</option>
+            <option value="q4-2023">{% trans "الربع الرابع 2023" %}</option>
+            <option value="q3-2023">{% trans "الربع الثالث 2023" %}</option>
+        </select>
+        <span class="text-muted">{% trans "أو" %}</span>
+        <input type="date" class="form-control" style="width: auto;" value="{ date_from }">
+        <span>-</span>
+        <input type="date" class="form-control" style="width: auto;" value="{ date_to }">
+        <button class="btn btn-primary">
+            <i class="fas fa-sync me-1"></i>
+            {% trans "تحديث" %}
+        </button>
+    </div>
+    
+    <!-- Tax Summary Cards -->
+    <div class="tax-summary">
+        <div class="summary-card sales">
+            <div class="card-label">{% trans "ضريبة المبيعات المحصلة" %}</div>
+            <div class="card-value positive">{{ sales_tax|default:"45,000"|intcomma }} ج.م</div>
+            <div class="card-detail">
+                {% trans "من مبيعات:" %} {{ sales_total|default:"300,000"|intcomma }} ج.م
+            </div>
+        </div>
+        
+        <div class="summary-card purchases">
+            <div class="card-label">{% trans "ضريبة المشتريات المدفوعة" %}</div>
+            <div class="card-value negative">{{ purchases_tax|default:"30,000"|intcomma }} ج.م</div>
+            <div class="card-detail">
+                {% trans "من مشتريات:" %} {{ purchases_total|default:"200,000"|intcomma }} ج.م
+            </div>
+        </div>
+        
+        <div class="summary-card net">
+            <div class="card-label">{% trans "صافي الضريبة المستحقة" %}</div>
+            <div class="card-value {% if net_tax >= 0 %}positive{% else %}negative{% endif %}">
+                {{ net_tax|default:"15,000"|intcomma }} ج.م
+            </div>
+            <div class="card-detail">
+                {% trans "تستحق الدفع قبل:" %} {{ due_date|default:"2024-04-30" }}
+            </div>
+        </div>
+        
+        <div class="summary-card paid">
+            <div class="card-label">{% trans "المبالغ المسددة" %}</div>
+            <div class="card-value">{{ paid_amount|default:"0"|intcomma }} ج.م</div>
+            <div class="card-detail">
+                {% trans "المتبقي:" %} {{ remaining|default:"15,000"|intcomma }} ج.م
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tax Details -->
+    <div class="tax-details">
+        <!-- Sales Tax Details -->
+        <div class="detail-card">
+            <div class="detail-header">
+                <h5 class="detail-title sales mb-0">
+                    <i class="fas fa-arrow-down"></i>
+                    {% trans "تفاصيل ضريبة المبيعات" %}
+                </h5>
+                <span class="badge bg-success">15%</span>
+            </div>
+            <div class="detail-body">
+                <div class="table-responsive"><table class="table tax-table">
+                    <thead>
+                        <tr>
+                            <th>{% trans "البيان" %}</th>
+                            <th>{% trans "المبلغ الخاضع" %}</th>
+                            <th>{% trans "الضريبة" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>{% trans "مبيعات محلية" %}</td>
+                            <td>250,000</td>
+                            <td class="amount-positive">37,500</td>
+                        </tr>
+                        <tr>
+                            <td>{% trans "خدمات" %}</td>
+                            <td>50,000</td>
+                            <td class="amount-positive">7,500</td>
+                        </tr>
+                        <tr>
+                            <td>{% trans "مبيعات معفاة" %}</td>
+                            <td>20,000</td>
+                            <td>0</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td><strong>{% trans "الإجمالي" %}</strong></td>
+                            <td><strong>300,000</strong></td>
+                            <td class="amount-positive"><strong>45,000</strong></td>
+                        </tr>
+                    </tfoot>
+                </table></div>
+            </div>
+        </div>
+        
+        <!-- Purchases Tax Details -->
+        <div class="detail-card">
+            <div class="detail-header">
+                <h5 class="detail-title purchases mb-0">
+                    <i class="fas fa-arrow-up"></i>
+                    {% trans "تفاصيل ضريبة المشتريات" %}
+                </h5>
+                <span class="badge bg-danger">15%</span>
+            </div>
+            <div class="detail-body">
+                <div class="table-responsive"><table class="table tax-table">
+                    <thead>
+                        <tr>
+                            <th>{% trans "البيان" %}</th>
+                            <th>{% trans "المبلغ الخاضع" %}</th>
+                            <th>{% trans "الضريبة" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>{% trans "مشتريات بضائع" %}</td>
+                            <td>150,000</td>
+                            <td class="amount-negative">22,500</td>
+                        </tr>
+                        <tr>
+                            <td>{% trans "مصاريف تشغيلية" %}</td>
+                            <td>30,000</td>
+                            <td class="amount-negative">4,500</td>
+                        </tr>
+                        <tr>
+                            <td>{% trans "أصول ثابتة" %}</td>
+                            <td>20,000</td>
+                            <td class="amount-negative">3,000</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td><strong>{% trans "الإجمالي" %}</strong></td>
+                            <td><strong>200,000</strong></td>
+                            <td class="amount-negative"><strong>30,000</strong></td>
+                        </tr>
+                    </tfoot>
+                </table></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Declaration Summary -->
+    <div class="declaration-section">
+        <div class="declaration-header">
+            <h5 class="mb-0">
+                <i class="fas fa-file-invoice me-2"></i>
+                {% trans "ملخص الإقرار الضريبي" %}
+            </h5>
+            <span class="badge bg-warning text-dark px-3 py-2">
+                <i class="fas fa-clock me-1"></i>
+                {% trans "لم يُقدم بعد" %}
+            </span>
+        </div>
+        
+        <div class="declaration-grid">
+            <div class="declaration-field">
+                <div class="field-label">{% trans "إجمالي المبيعات الخاضعة" %}</div>
+                <div class="field-value">300,000 ج.م</div>
+            </div>
+            <div class="declaration-field">
+                <div class="field-label">{% trans "إجمالي المشتريات الخاضعة" %}</div>
+                <div class="field-value">200,000 ج.م</div>
+            </div>
+            <div class="declaration-field">
+                <div class="field-label">{% trans "صافي الضريبة المستحقة" %}</div>
+                <div class="field-value text-success">15,000 ج.م</div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <button class="btn btn-primary btn-lg me-2">
+                <i class="fas fa-paper-plane me-2"></i>
+                {% trans "تقديم الإقرار" %}
+            </button>
+            <button class="btn btn-outline-secondary btn-lg">
+                <i class="fas fa-print me-2"></i>
+                {% trans "طباعة التقرير" %}
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

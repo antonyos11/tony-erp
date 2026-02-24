@@ -1,0 +1,265 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}أنواع الأنشطة - CRM{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-0"><i class="fas fa-tasks text-primary me-2"></i>أنواع الأنشطة</h3>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'crm:dashboard' %}">CRM</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'crm:settings' %}">الإعدادات</a></li>
+                    <li class="breadcrumb-item active">أنواع الأنشطة</li>
+                </ol>
+            </nav>
+        </div>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addActivityTypeModal">
+            <i class="fas fa-plus me-1"></i> نوع نشاط جديد
+        </button>
+    </div>
+
+    <!-- Activity Types Grid -->
+    <div class="row">
+        {% for activity_type in activity_types %}
+        <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+            <div class="card h-100 border-{{ activity_type.color_class|default:'primary' }}">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <span class="d-inline-flex align-items-center justify-content-center rounded-circle" 
+                              style="width: 70px; height: 70px; background-color: {{ activity_type.color|default:'#0d6efd' }}20;">
+                            <i class="fas {{ activity_type.icon|default:'fa-check-circle' }} fa-2x" style="color: {{ activity_type.color|default:'#0d6efd' }};"></i>
+                        </span>
+                    </div>
+                    <h5 class="card-title">{{ activity_type.name }}</h5>
+                    <p class="text-muted small">{{ activity_type.description|default:"-"|truncatewords:8 }}</p>
+                    
+                    <div class="d-flex justify-content-center gap-3 mb-3">
+                        <div>
+                            <span class="h5 mb-0">{{ activity_type.activities_count|default:0 }}</span>
+                            <small class="text-muted d-block">نشاط</small>
+                        </div>
+                    </div>
+                    
+                    {% if activity_type.default_duration %}
+                    <small class="text-muted d-block mb-3">
+                        <i class="far fa-clock me-1"></i> {{ activity_type.default_duration }} دقيقة
+                    </small>
+                    {% endif %}
+                    
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-info"
+                                onclick="editActivityType({{ activity_type.pk }}, '{{ activity_type.name }}', '{{ activity_type.description|default:'' }}', '{{ activity_type.icon|default:'fa-check-circle' }}', '{{ activity_type.color|default:'#0d6efd' }}', {{ activity_type.default_duration|default:30 }})"
+                                data-bs-toggle="modal" data-bs-target="#editActivityTypeModal">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" onclick="confirmDelete({{ activity_type.pk }}, '{{ activity_type.name }}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-tasks fa-4x text-muted mb-3"></i>
+                    <h5>لا توجد أنواع أنشطة</h5>
+                    <p class="text-muted">أضف أنواع الأنشطة مثل: اتصال، اجتماع، بريد إلكتروني</p>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addActivityTypeModal">
+                        <i class="fas fa-plus me-1"></i> إضافة نوع نشاط
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Default Activity Types Suggestions -->
+    {% if not activity_types %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">أنواع مقترحة</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">يمكنك إضافة الأنواع التالية بنقرة واحدة:</p>
+            <form method="post">
+                {% csrf_token %}
+                <div class="btn-group flex-wrap">
+                    <button type="submit" name="quick_add" value="call" class="btn btn-outline-primary">
+                        <i class="fas fa-phone me-1"></i> اتصال هاتفي
+                    </button>
+                    <button type="submit" name="quick_add" value="meeting" class="btn btn-outline-success">
+                        <i class="fas fa-users me-1"></i> اجتماع
+                    </button>
+                    <button type="submit" name="quick_add" value="email" class="btn btn-outline-info">
+                        <i class="fas fa-envelope me-1"></i> بريد إلكتروني
+                    </button>
+                    <button type="submit" name="quick_add" value="visit" class="btn btn-outline-warning">
+                        <i class="fas fa-car me-1"></i> زيارة ميدانية
+                    </button>
+                    <button type="submit" name="quick_add" value="demo" class="btn btn-outline-secondary">
+                        <i class="fas fa-desktop me-1"></i> عرض توضيحي
+                    </button>
+                    <button type="submit" name="quick_add" value="followup" class="btn btn-outline-dark">
+                        <i class="fas fa-redo me-1"></i> متابعة
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add Activity Type Modal -->
+<div class="modal fade" id="addActivityTypeModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-plus me-2"></i>إضافة نوع نشاط</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">اسم النوع <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الوصف</label>
+                        <textarea name="description" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">الأيقونة</label>
+                                <select name="icon" class="form-select">
+                                    <option value="fa-phone">📞 اتصال</option>
+                                    <option value="fa-users">👥 اجتماع</option>
+                                    <option value="fa-envelope">📧 بريد</option>
+                                    <option value="fa-car">🚗 زيارة</option>
+                                    <option value="fa-desktop">💻 عرض</option>
+                                    <option value="fa-redo">🔄 متابعة</option>
+                                    <option value="fa-file-contract">📝 عقد</option>
+                                    <option value="fa-handshake">🤝 صفقة</option>
+                                    <option value="fa-check-circle">✅ مهمة</option>
+                                    <option value="fa-comment">💬 محادثة</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">اللون</label>
+                                <input type="color" name="color" class="form-control form-control-color w-100" value="#0d6efd">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">المدة الافتراضية (بالدقائق)</label>
+                        <input type="number" name="default_duration" class="form-control" min="5" step="5" value="30">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" name="action" value="add" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> حفظ
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Activity Type Modal -->
+<div class="modal fade" id="editActivityTypeModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="activity_type_id" id="editActivityTypeId">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-edit me-2"></i>تعديل نوع نشاط</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">اسم النوع <span class="text-danger">*</span></label>
+                        <input type="text" name="name" id="editActivityTypeName" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الوصف</label>
+                        <textarea name="description" id="editActivityTypeDesc" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">الأيقونة</label>
+                                <select name="icon" id="editActivityTypeIcon" class="form-select">
+                                    <option value="fa-phone">📞 اتصال</option>
+                                    <option value="fa-users">👥 اجتماع</option>
+                                    <option value="fa-envelope">📧 بريد</option>
+                                    <option value="fa-car">🚗 زيارة</option>
+                                    <option value="fa-desktop">💻 عرض</option>
+                                    <option value="fa-redo">🔄 متابعة</option>
+                                    <option value="fa-file-contract">📝 عقد</option>
+                                    <option value="fa-handshake">🤝 صفقة</option>
+                                    <option value="fa-check-circle">✅ مهمة</option>
+                                    <option value="fa-comment">💬 محادثة</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">اللون</label>
+                                <input type="color" name="color" id="editActivityTypeColor" class="form-control form-control-color w-100">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">المدة الافتراضية (بالدقائق)</label>
+                        <input type="number" name="default_duration" id="editActivityTypeDuration" class="form-control" min="5" step="5">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" name="action" value="edit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> حفظ التعديلات
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Form -->
+<form id="deleteForm" method="post" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="delete">
+    <input type="hidden" name="activity_type_id" id="deleteActivityTypeId">
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function editActivityType(id, name, desc, icon, color, duration) {
+    document.getElementById('editActivityTypeId').value = id;
+    document.getElementById('editActivityTypeName').value = name;
+    document.getElementById('editActivityTypeDesc').value = desc;
+    document.getElementById('editActivityTypeIcon').value = icon;
+    document.getElementById('editActivityTypeColor').value = color;
+    document.getElementById('editActivityTypeDuration').value = duration;
+}
+
+function confirmDelete(id, name) {
+    if (confirm('هل أنت متأكد من حذف نوع النشاط "' + name + '"؟')) {
+        document.getElementById('deleteActivityTypeId').value = id;
+        document.getElementById('deleteForm').submit();
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,291 @@
+{% extends 'base.html' %}
+{% load i18n humanize %}
+{% block title %}{% trans 'تحويل المخزون' %} - {{ showroom.name_ar|default:showroom.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Breadcrumb -->
+  <nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'showrooms:list' %}"><i class="fas fa-store"></i> {% trans 'المعارض' %}</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'showrooms:detail' showroom.id %}">{{ showroom.name_ar|default:showroom.name }}</a></li>
+      <li class="breadcrumb-item active">{% trans 'تحويل المخزون' %}</li>
+    </ol>
+  </nav>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-10">
+      <!-- Header Card -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-info text-white py-3">
+          <div class="d-flex align-items-center">
+            <i class="fas fa-exchange-alt fa-2x me-3"></i>
+            <div>
+              <h4 class="mb-0">{% trans 'تحويل المخزون بين المعارض' %}</h4>
+              <small class="text-white-50">{% trans 'من' %}: {{ showroom.name_ar|default:showroom.name }}</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Transfer Form -->
+      <form method="post" id="transferForm">
+        {% csrf_token %}
+        
+        <div class="row g-4">
+          <!-- From/To Section -->
+          <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+              <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-arrow-right me-2"></i> {% trans 'من المعرض' %}</h5>
+              </div>
+              <div class="card-body">
+                <div class="text-center py-3">
+                  <i class="fas fa-store fa-3x text-danger mb-3"></i>
+                  <h4>{{ showroom.name_ar|default:showroom.name }}</h4>
+                  <p class="text-muted mb-0">{{ showroom.code }}</p>
+                  <input type="hidden" name="from_showroom" value="{{ showroom.id }}">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+              <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-arrow-left me-2"></i> {% trans 'إلى المعرض' %}</h5>
+              </div>
+              <div class="card-body">
+                <label class="form-label fw-bold">{% trans 'اختر المعرض المستلم' %} <span class="text-danger">*</span></label>
+                <select name="to_showroom" class="form-select form-select-lg" required>
+                  <option value="">{% trans '-- اختر المعرض --' %}</option>
+                  {% for s in other_showrooms %}
+                    <option value="{{ s.id }}">{{ s.code }} - {{ s.name_ar|default:s.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Transfer Details -->
+        <div class="card border-0 shadow-sm mt-4">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-boxes text-primary me-2"></i> {% trans 'المنتجات للتحويل' %}</h5>
+            <button type="button" class="btn btn-primary" id="addProductBtn">
+              <i class="fas fa-plus"></i> {% trans 'إضافة منتج' %}
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-hover" id="productsTable">
+                <thead class="bg-light">
+                  <tr>
+                    <th width="40%">{% trans 'المنتج' %}</th>
+                    <th width="15%">{% trans 'المتاح' %}</th>
+                    <th width="20%">{% trans 'الكمية للتحويل' %}</th>
+                    <th width="20%">{% trans 'ملاحظات' %}</th>
+                    <th width="5%"></th>
+                  </tr>
+                </thead>
+                <tbody id="productRows">
+                  <!-- Dynamic rows will be added here -->
+                </tbody>
+              </table>
+            </div>
+
+            <div id="emptyState" class="text-center py-5 text-muted">
+              <i class="fas fa-boxes fa-3x mb-3"></i>
+              <p>{% trans 'قم بإضافة المنتجات المراد تحويلها' %}</p>
+              <button type="button" class="btn btn-outline-primary" id="addFirstProduct">
+                <i class="fas fa-plus"></i> {% trans 'إضافة منتج' %}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes & Submit -->
+        <div class="card border-0 shadow-sm mt-4">
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-8">
+                <label class="form-label fw-bold">{% trans 'ملاحظات عامة' %}</label>
+                <textarea name="notes" class="form-control" rows="3" placeholder="{% trans 'أي ملاحظات إضافية...' %}"></textarea>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-bold">{% trans 'ملخص التحويل' %}</label>
+                <div class="bg-light rounded p-3">
+                  <div class="d-flex justify-content-between mb-2">
+                    <span>{% trans 'عدد المنتجات' %}:</span>
+                    <strong id="totalProducts">0</strong>
+                  </div>
+                  <div class="d-flex justify-content-between">
+                    <span>{% trans 'إجمالي الكميات' %}:</span>
+                    <strong id="totalQty">0</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+              <a href="{% url 'showrooms:detail' showroom.id %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-right"></i> {% trans 'رجوع' %}
+              </a>
+              <div>
+                <button type="submit" name="action" value="draft" class="btn btn-secondary me-2">
+                  <i class="fas fa-save"></i> {% trans 'حفظ كمسودة' %}
+                </button>
+                <button type="submit" name="action" value="confirm" class="btn btn-success btn-lg">
+                  <i class="fas fa-check-circle"></i> {% trans 'تأكيد التحويل' %}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Product Selection Modal -->
+<div class="modal fade" id="productModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="fas fa-search me-2"></i> {% trans 'اختيار منتج' %}</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" class="form-control form-control-lg mb-3" id="productSearch" placeholder="{% trans 'البحث عن منتج...' %}">
+        <div class="list-group" id="productList" style="max-height: 400px; overflow-y: auto;">
+          {% for stock in available_stock %}
+          <button type="button" class="list-group-item list-group-item-action product-option" 
+                  data-id="{{ stock.product.id }}" 
+                  data-name="{{ stock.product.name_ar|default:stock.product.name }}"
+                  data-sku="{{ stock.product.sku }}"
+                  data-available="{{ stock.quantity }}">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <h6 class="mb-0">{{ stock.product.name_ar|default:stock.product.name }}</h6>
+                <small class="text-muted">{{ stock.product.sku }}</small>
+              </div>
+              <span class="badge bg-success">{% trans 'متاح' %}: {{ stock.quantity }}</span>
+            </div>
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let productIndex = 0;
+const selectedProducts = new Set();
+
+document.getElementById('addProductBtn').addEventListener('click', showProductModal);
+document.getElementById('addFirstProduct').addEventListener('click', showProductModal);
+
+function showProductModal() {
+  const modal = new bootstrap.Modal(document.getElementById('productModal'));
+  modal.show();
+}
+
+// Product search
+document.getElementById('productSearch').addEventListener('input', function(e) {
+  const search = e.target.value.toLowerCase();
+  document.querySelectorAll('.product-option').forEach(item => {
+    const name = item.dataset.name.toLowerCase();
+    const sku = item.dataset.sku.toLowerCase();
+    item.style.display = (name.includes(search) || sku.includes(search)) ? 'block' : 'none';
+  });
+});
+
+// Product selection
+document.querySelectorAll('.product-option').forEach(item => {
+  item.addEventListener('click', function() {
+    const productId = this.dataset.id;
+    if (selectedProducts.has(productId)) {
+      alert('{% trans "هذا المنتج مضاف مسبقاً" %}');
+      return;
+    }
+    
+    addProductRow(productId, this.dataset.name, this.dataset.sku, this.dataset.available);
+    bootstrap.Modal.getInstance(document.getElementById('productModal')).hide();
+  });
+});
+
+function addProductRow(productId, productName, sku, available) {
+  selectedProducts.add(productId);
+  document.getElementById('emptyState').style.display = 'none';
+  
+  const row = document.createElement('tr');
+  row.id = `row-${productIndex}`;
+  row.innerHTML = `
+    <td>
+      <input type="hidden" name="products[${productIndex}][id]" value="${productId}">
+      <strong>${productName}</strong>
+      <br><small class="text-muted">${sku}</small>
+    </td>
+    <td>
+      <span class="badge bg-info">${available}</span>
+      <input type="hidden" name="products[${productIndex}][available]" value="${available}">
+    </td>
+    <td>
+      <input type="number" name="products[${productIndex}][qty]" class="form-control qty-input" 
+             min="1" max="${available}" value="1" required onchange="updateTotals()">
+    </td>
+    <td>
+      <input type="text" name="products[${productIndex}][note]" class="form-control" placeholder="{% trans 'ملاحظة' %}">
+    </td>
+    <td>
+      <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(${productIndex}, '${productId}')">
+        <i class="fas fa-times"></i>
+      </button>
+    </td>
+  `;
+  document.getElementById('productRows').appendChild(row);
+  productIndex++;
+  updateTotals();
+}
+
+function removeRow(index, productId) {
+  document.getElementById(`row-${index}`).remove();
+  selectedProducts.delete(productId);
+  updateTotals();
+  
+  if (selectedProducts.size === 0) {
+    document.getElementById('emptyState').style.display = 'block';
+  }
+}
+
+function updateTotals() {
+  const rows = document.querySelectorAll('#productRows tr');
+  let totalQty = 0;
+  rows.forEach(row => {
+    const qtyInput = row.querySelector('.qty-input');
+    if (qtyInput) {
+      totalQty += parseInt(qtyInput.value) || 0;
+    }
+  });
+  document.getElementById('totalProducts').textContent = rows.length;
+  document.getElementById('totalQty').textContent = totalQty;
+}
+
+// Form validation
+document.getElementById('transferForm').addEventListener('submit', function(e) {
+  if (selectedProducts.size === 0) {
+    e.preventDefault();
+    alert('{% trans "يجب إضافة منتج واحد على الأقل" %}');
+    return;
+  }
+  
+  const toShowroom = document.querySelector('[name="to_showroom"]').value;
+  if (!toShowroom) {
+    e.preventDefault();
+    alert('{% trans "يجب اختيار المعرض المستلم" %}');
+    return;
+  }
+});
+</script>
+{% endblock %}

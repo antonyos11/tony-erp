@@ -1,0 +1,75 @@
+{% extends 'base_v2.html' %}
+{% block extra_css %}
+<style>
+    .detail-card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    .step-timeline { position: relative; padding-right: 30px; }
+    .step-item { position: relative; padding: 15px 0; padding-right: 20px; border-right: 3px solid #dee2e6; }
+    .step-item:last-child { border-right-color: transparent; }
+    .step-dot { position: absolute; right: -9px; top: 18px; width: 15px; height: 15px; border-radius: 50%; background: #667eea; border: 2px solid white; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-1"><i class="bi bi-diagram-3 me-2"></i>{{ page_title }}</h4>
+            <p class="text-muted"><small><a href="{% url 'accounts:workflow_list' %}">سير العمل</a> / {{ workflow.name }}</small></p>
+        </div>
+        <a href="{% url 'accounts:workflow_edit' workflow.pk %}" class="btn btn-outline-primary"><i class="bi bi-pencil me-1"></i>تعديل</a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-5">
+            <div class="detail-card">
+                <h5 class="mb-3">بيانات سير العمل</h5>
+                <table class="table table-borderless">
+                    <tr><td class="text-muted">نوع المستند:</td><td>{{ workflow.get_document_type_display }}</td></tr>
+                    <tr><td class="text-muted">الفرع:</td><td>{{ workflow.branch|default:"جميع الفروع" }}</td></tr>
+                    <tr><td class="text-muted">الحالة:</td><td>{% if workflow.is_active %}<span class="badge bg-success">نشط</span>{% else %}<span class="badge bg-danger">معطل</span>{% endif %}</td></tr>
+                    {% if workflow.description %}<tr><td class="text-muted">الوصف:</td><td>{{ workflow.description }}</td></tr>{% endif %}
+                </table>
+            </div>
+        </div>
+        <div class="col-md-7">
+            <div class="detail-card">
+                <h5 class="mb-3">خطوات الموافقة ({{ steps|length }})</h5>
+                <div class="step-timeline">
+                    {% for step in steps %}
+                    <div class="step-item">
+                        <div class="step-dot"></div>
+                        <strong>{{ step.step_order }}. {{ step.name }}</strong>
+                        <div class="text-muted small">
+                            {% if step.approver_user %}المعتمد: {{ step.approver_user }}{% endif %}
+                            {% if step.approver_role %}الدور: {{ step.approver_role }}{% endif %}
+                            {% if step.timeout_hours %} | المهلة: {{ step.timeout_hours }} ساعة{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if recent_requests %}
+    <div class="detail-card">
+        <h5 class="mb-3">آخر الطلبات</h5>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light"><tr><th>#</th><th>المستند</th><th>مقدم الطلب</th><th>الحالة</th><th>التاريخ</th></tr></thead>
+                <tbody>
+                    {% for req in recent_requests %}
+                    <tr>
+                        <td><a href="{% url 'accounts:approval_detail' req.pk %}">#{{ req.pk }}</a></td>
+                        <td>{{ req.get_document_type_display }} #{{ req.document_id }}</td>
+                        <td>{{ req.requested_by }}</td>
+                        <td><span class="badge bg-{% if req.status == 'approved' %}success{% elif req.status == 'rejected' %}danger{% else %}warning{% endif %}">{{ req.get_status_display }}</span></td>
+                        <td>{{ req.created_at|date:"Y/m/d H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

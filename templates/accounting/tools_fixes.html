@@ -1,0 +1,188 @@
+﻿{% extends "base.html" %}
+{% load static %}
+
+{% block title %}الإصلاحات السريعة{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">الإصلاحات السريعة للنظام المحاسبي</h1>
+        <a href="{% url 'accounting:diagnostics' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-chart-line"></i> تشخيص النظام
+        </a>
+    </div>
+
+    <!-- إحصائيات عامة -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h4>{{ total_entries }}</h4>
+                    <small>إجمالي القيود</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h4>{{ posted_entries }}</h4>
+                    <small>قيود مرحّلة</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body text-center">
+                    <h4>{{ draft_entries }}</h4>
+                    <small>قيود مسودة</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h4>{{ total_accounts }}</h4>
+                    <small>الحسابات</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- نتائج الإصلاحات -->
+    {% if fixes_run %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">نتائج العملية</h5>
+                </div>
+                <div class="card-body">
+                    {% for result in results %}
+                    <div class="alert alert-{% if result.status == 'success' %}success{% elif result.status == 'warning' %}warning{% else %}danger{% endif %}">
+                        <strong>{{ result.title }}:</strong> {{ result.message }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- أدوات الإصلاح -->
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">فحص سلامة البيانات</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">فحص القيود والحسابات للتأكد من سلامة البيانات</p>
+                    
+                    <form method="post" class="mb-2">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="check_unbalanced">
+                        <button type="submit" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-search"></i> فحص القيود غير المتوازنة
+                        </button>
+                    </form>
+
+                    <form method="post" class="mb-2">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="check_accounts">
+                        <button type="submit" class="btn btn-outline-info btn-sm">
+                            <i class="fas fa-list"></i> فحص الحسابات
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">الإصلاحات التلقائية</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">تشغيل إصلاحات تلقائية للمشاكل الشائعة</p>
+                    
+                    <form method="post" class="mb-2">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="fix_unbalanced">
+                        <button type="submit" class="btn btn-warning btn-sm" 
+                                onclick="return confirm('هذا الإجراء سيلغي ترحيل القيود غير المتوازنة. هل تريد المتابعة؟')">
+                            <i class="fas fa-tools"></i> إصلاح القيود غير المتوازنة
+                        </button>
+                    </form>
+
+                    <form method="post" class="mb-2">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="cleanup_data">
+                        <button type="submit" class="btn btn-outline-danger btn-sm"
+                                onclick="return confirm('هذا الإجراء سيحذف البيانات المكررة والعناصر اليتيمة. هل تريد المتابعة؟')">
+                            <i class="fas fa-trash"></i> تنظيف البيانات
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- معلومات إضافية -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">معلومات مهمة</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <strong>تحذير:</strong> قبل تشغيل أي إصلاحات، تأكد من وجود نسخة احتياطية من قاعدة البيانات.
+                        الإصلاحات التلقائية قد تؤثر على البيانات بشكل دائم.
+                    </div>
+                    
+                    <h6>الإصلاحات المتوفرة:</h6>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">
+                            <strong>فحص القيود غير المتوازنة:</strong> يفحص القيود التي مجموع المدين فيها لا يساوي مجموع الدائن
+                        </li>
+                        <li class="list-group-item">
+                            <strong>فحص الحسابات:</strong> يفحص الحسابات التي بدون أكواد أو الأكواد المكررة
+                        </li>
+                        <li class="list-group-item">
+                            <strong>إصلاح القيود غير المتوازنة:</strong> يلغي ترحيل القيود غير المتوازنة
+                        </li>
+                        <li class="list-group-item">
+                            <strong>تنظيف البيانات:</strong> يحذف عناصر القيود التي لا ترتبط بقيد صحيح
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- روابط سريعة -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">روابط سريعة</h5>
+                </div>
+                <div class="card-body">
+                    <a href="{% url 'accounting:dashboard' %}" class="btn btn-outline-secondary me-2">
+                        <i class="fas fa-chart-bar"></i> لوحة التحكم
+                    </a>
+                    <a href="{% url 'accounting:export_tools' %}" class="btn btn-outline-primary me-2">
+                        <i class="fas fa-download"></i> أدوات التصدير
+                    </a>
+                    <a href="{% url 'accounting:import_journal' %}" class="btn btn-outline-success me-2">
+                        <i class="fas fa-upload"></i> استيراد قيود
+                    </a>
+                    <a href="{% url 'accounting:journal_entries_list' %}" class="btn btn-outline-info">
+                        <i class="fas fa-list"></i> قائمة القيود
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

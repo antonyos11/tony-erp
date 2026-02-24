@@ -1,0 +1,320 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}المهام والتذكيرات - Tony ERP{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="bi bi-check2-square text-primary me-2"></i>المهام والتذكيرات</h2>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTaskModal">
+                    <i class="bi bi-plus-lg me-2"></i>مهمة جديدة
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- الإحصائيات -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ stats.total|default:0 }}</h3>
+                            <span>إجمالي المهام</span>
+                        </div>
+                        <i class="bi bi-list-task fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 bg-warning text-dark">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ stats.pending|default:0 }}</h3>
+                            <span>قيد الانتظار</span>
+                        </div>
+                        <i class="bi bi-hourglass-split fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ stats.in_progress|default:0 }}</h3>
+                            <span>قيد التنفيذ</span>
+                        </div>
+                        <i class="bi bi-arrow-repeat fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ stats.completed|default:0 }}</h3>
+                            <span>مكتملة</span>
+                        </div>
+                        <i class="bi bi-check-circle fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- المهام -->
+        <div class="col-md-8">
+            <!-- مهام اليوم -->
+            <div class="card mb-4">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="bi bi-calendar-day me-2"></i>مهام اليوم</h5>
+                </div>
+                <div class="card-body">
+                    {% if today_tasks %}
+                    <div class="list-group list-group-flush">
+                        {% for task in today_tasks %}
+                        <div class="list-group-item d-flex align-items-center">
+                            <div class="form-check me-3">
+                                <input type="checkbox" class="form-check-input" 
+                                       onchange="toggleTask({{ task.id }})" 
+                                       {% if task.status == 'completed' %}checked{% endif %}>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 {% if task.status == 'completed' %}text-decoration-line-through text-muted{% endif %}">
+                                    {{ task.title }}
+                                </h6>
+                                {% if task.due_time %}
+                                <small class="text-danger">
+                                    <i class="bi bi-clock me-1"></i>{{ task.due_time|time:"H:i" }}
+                                </small>
+                                {% endif %}
+                            </div>
+                            <span class="badge bg-{{ task.priority_color }}">{{ task.get_priority_display }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-check-all fa-3x text-success mb-2"></i>
+                        <p class="text-muted mb-0">لا توجد مهام لليوم 🎉</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- جميع المهام -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-list-task me-2"></i>جميع المهام</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary active" onclick="filterTasks('all')">الكل</button>
+                        <button class="btn btn-outline-warning" onclick="filterTasks('pending')">معلقة</button>
+                        <button class="btn btn-outline-info" onclick="filterTasks('in_progress')">قيد التنفيذ</button>
+                        <button class="btn btn-outline-success" onclick="filterTasks('completed')">مكتملة</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;"></th>
+                                <th>المهمة</th>
+                                <th>الأولوية</th>
+                                <th>تاريخ الاستحقاق</th>
+                                <th>الحالة</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for task in tasks %}
+                            <tr>
+                                <td>
+                                    <input type="checkbox" class="form-check-input" 
+                                           onchange="toggleTask({{ task.id }})"
+                                           {% if task.status == 'completed' %}checked{% endif %}>
+                                </td>
+                                <td>
+                                    <strong class="{% if task.status == 'completed' %}text-decoration-line-through text-muted{% endif %}">
+                                        {{ task.title }}
+                                    </strong>
+                                    {% if task.description %}
+                                    <br><small class="text-muted">{{ task.description|truncatewords:10 }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ task.priority_color }}">{{ task.get_priority_display }}</span>
+                                </td>
+                                <td>
+                                    {% if task.due_date %}
+                                    {{ task.due_date|date:"Y/m/d" }}
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ task.status_color }}">{{ task.get_status_display }}</span>
+                                </td>
+                                <td>
+                                    <div class="dropdown">
+                                        <button class="btn btn-link" data-bs-toggle="dropdown">
+                                            <i class="bi bi-three-dots-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="#" onclick="editTask({{ task.id }})">
+                                                <i class="bi bi-pencil me-2"></i>تعديل
+                                            </a></li>
+                                            <li><a class="dropdown-item text-danger" href="#" onclick="deleteTask({{ task.id }})">
+                                                <i class="bi bi-trash me-2"></i>حذف
+                                            </a></li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <i class="bi bi-inbox fa-3x text-muted mb-3"></i>
+                                    <p class="text-muted">لا توجد مهام</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- التذكيرات -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-bell text-warning me-2"></i>التذكيرات</h5>
+                    <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#addReminderModal">
+                        <i class="bi bi-plus"></i>
+                    </button>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for reminder in reminders %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">{{ reminder.title }}</h6>
+                                <small class="text-muted">
+                                    <i class="bi bi-clock me-1"></i>
+                                    {{ reminder.remind_at|date:"Y/m/d H:i" }}
+                                </small>
+                            </div>
+                            <button class="btn btn-sm btn-link text-danger" onclick="deleteReminder({{ reminder.id }})">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-center text-muted py-4">
+                        <i class="bi bi-bell-slash fa-2x mb-2"></i>
+                        <p class="mb-0">لا توجد تذكيرات</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- التقويم المصغر -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-calendar3 text-info me-2"></i>هذا الأسبوع</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between text-center">
+                        {% for day in week_days %}
+                        <div class="p-2 {% if day.is_today %}bg-primary text-white rounded{% endif %}">
+                            <small>{{ day.name }}</small>
+                            <h5 class="mb-0">{{ day.number }}</h5>
+                            {% if day.tasks_count %}
+                            <span class="badge bg-danger rounded-pill">{{ day.tasks_count }}</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal إضافة مهمة -->
+<div class="modal fade" id="addTaskModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">إضافة مهمة جديدة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'tasks:task_create' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">عنوان المهمة</label>
+                        <input type="text" class="form-control" name="title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الوصف</label>
+                        <textarea class="form-control" name="description" rows="3"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">الأولوية</label>
+                            <select class="form-select" name="priority">
+                                <option value="low">منخفضة</option>
+                                <option value="medium" selected>متوسطة</option>
+                                <option value="high">عالية</option>
+                                <option value="urgent">عاجلة</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">تاريخ الاستحقاق</label>
+                            <input type="date" class="form-control" name="due_date">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">إضافة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleTask(taskId) {
+    fetch(`/tasks/${taskId}/toggle/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    }).then(() => location.reload());
+}
+
+function deleteTask(taskId) {
+    if (confirm('هل تريد حذف هذه المهمة؟')) {
+        fetch(`/tasks/${taskId}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        }).then(() => location.reload());
+    }
+}
+
+function filterTasks(status) {
+    window.location.href = `?status=${status}`;
+}
+</script>
+{% endblock %}

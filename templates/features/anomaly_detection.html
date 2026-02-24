@@ -1,0 +1,133 @@
+{% extends BASE_TEMPLATE %}
+{% load i18n static %}
+
+{% block title %}كشف الشذوذات{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-gradient-dark text-white">
+                    <h3 class="mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        كشف الشذوذات والتنبؤ بالمشاكل
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">اكتشاف الأنماط غير الطبيعية والتنبؤ بالمشاكل المحتملة</p>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6 mb-3">
+                            <button class="btn btn-primary w-100" onclick="runAnomalyDetection()">
+                                <i class="bi bi-search me-2"></i>
+                                فحص الشذوذات الآن
+                            </button>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <button class="btn btn-info w-100" onclick="runPredictions()">
+                                <i class="bi bi-graph-up me-2"></i>
+                                تشغيل التنبؤات الاستباقية
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="anomalyResults" style="display: none;">
+                        <h5 class="mb-3">نتائج الفحص:</h5>
+                        <div id="anomaliesList" class="list-group">
+                            <!-- سيتم تحميل الشذوذات هنا -->
+                        </div>
+                    </div>
+                    
+                    <div id="predictionResults" class="mt-4" style="display: none;">
+                        <h5 class="mb-3">التنبؤات والتحذيرات:</h5>
+                        <div id="predictionsList" class="list-group">
+                            <!-- سيتم تحميل التنبؤات هنا -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function runAnomalyDetection() {
+    try {
+        const response = await fetch('/monitoring/anomaly-detection/run/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const anomaliesList = document.getElementById('anomaliesList');
+            anomaliesList.innerHTML = data.anomalies.map(anomaly => `
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1 text-danger">
+                            <i class="bi bi-exclamation-circle me-2"></i>
+                            ${anomaly.type}
+                        </h6>
+                        <small class="text-muted">${anomaly.severity}</small>
+                    </div>
+                    <p class="mb-1">${anomaly.description}</p>
+                    <small class="text-muted">${anomaly.detected_at}</small>
+                </div>
+            `).join('');
+            
+            document.getElementById('anomalyResults').style.display = 'block';
+        } else {
+            alert('حدث خطأ في الفحص');
+        }
+    } catch (error) {
+        alert('حدث خطأ في الاتصال');
+    }
+}
+
+async function runPredictions() {
+    try {
+        const response = await fetch('/monitoring/anomaly-detection/predict/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const predictionsList = document.getElementById('predictionsList');
+            predictionsList.innerHTML = data.predictions.map(pred => {
+                const alertClass = pred.priority === 'high' ? 'danger' : 
+                                  pred.priority === 'medium' ? 'warning' : 'info';
+                return `
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1 text-${alertClass}">
+                                <i class="bi bi-bell me-2"></i>
+                                ${pred.type}
+                            </h6>
+                            <span class="badge bg-${alertClass}">${pred.priority}</span>
+                        </div>
+                        <p class="mb-1">${pred.description}</p>
+                        <small class="text-muted">التوقع: ${pred.predicted_date}</small>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('predictionResults').style.display = 'block';
+        } else {
+            alert('حدث خطأ في التنبؤ');
+        }
+    } catch (error) {
+        alert('حدث خطأ في الاتصال');
+    }
+}
+</script>
+{% endblock %}

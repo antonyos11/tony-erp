@@ -1,0 +1,484 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load tony_erb_tags %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-lg-7 mx-auto">
+            <div class="card shadow-sm border-0" style="border-radius: 16px; overflow: hidden;">
+                <div class="card-header text-white d-flex justify-content-between align-items-center"
+                     style="background: linear-gradient(135deg, #667eea, #764ba2);">
+                    <h5 class="mb-0"><i class="bi bi-tag-fill me-2"></i> {{ title }}</h5>
+                    <a href="{% url 'purchases:supplier_material_prices' %}" class="btn btn-sm btn-light">
+                        <i class="bi bi-arrow-right me-1"></i> رجوع
+                    </a>
+                </div>
+                <div class="card-body p-4">
+
+                    {% if initial_product %}
+                    <div class="alert alert-info border-0 mb-4" style="border-radius: 12px; background: #e0f2fe;">
+                        <i class="bi bi-info-circle me-2"></i>
+                        إضافة سعر للمادة: <strong>{{ initial_product.name }}</strong>
+                        <a href="{% url 'inventory:raw_material_edit' initial_product.pk %}" class="ms-2 small">
+                            <i class="bi bi-arrow-up-right-square"></i> عودة لصفحة المادة
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    <form method="post" id="supplierPriceForm">
+                        {% csrf_token %}
+                        {% if initial_product %}
+                        <input type="hidden" name="return_to" value="{% url 'inventory:raw_material_edit' initial_product.pk %}">
+                        {% endif %}
+
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <!-- STEP 1: اختيار المورد -->
+                        <div class="step-section mb-4">
+                            <div class="step-label mb-2">
+                                <span class="badge rounded-pill text-white me-2" style="background:#667eea;">1</span>
+                                <span class="fw-bold fs-6">اختر المورد</span>
+                            </div>
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text bg-white"><i class="bi bi-building text-primary"></i></span>
+                                {{ form.supplier }}
+                            </div>
+                            {% if form.supplier.errors %}<div class="text-danger small mt-1">{{ form.supplier.errors.0 }}</div>{% endif %}
+                        </div>
+
+                        <!-- STEP 2: اختيار المادة الخام (يتفعل بعد اختيار المورد) -->
+                        <div class="step-section mb-4" id="materialSection" style="opacity:0.4; pointer-events:none;">
+                            <div class="step-label mb-2">
+                                <span class="badge rounded-pill text-white me-2" style="background:#667eea;">2</span>
+                                <span class="fw-bold fs-6">اختر المادة الخام</span>
+                                <small class="text-muted me-2">— يظهر بعد اختيار المورد</small>
+                            </div>
+
+                            <!-- اختيار طريقة الإدخال -->
+                            <div class="mb-3 p-3 border rounded bg-light">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input material-mode-radio" type="radio" name="material_mode" id="mode_existing" value="existing" {% if form.material_mode.value == 'existing' or not form.material_mode.value %}checked{% endif %}>
+                                    <label class="form-check-label fw-bold" for="mode_existing">ربط بمادة خام موجودة</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input material-mode-radio" type="radio" name="material_mode" id="mode_new" value="new" {% if form.material_mode.value == 'new' %}checked{% endif %}>
+                                    <label class="form-check-label fw-bold" for="mode_new">إدخال اسم مادة جديد (بدون ربط)</label>
+                                </div>
+                            </div>
+
+                            <!-- قسم المادة الموجودة -->
+                            <div id="existingMaterialContainer" {% if form.material_mode.value == 'new' %}style="display:none;"{% endif %}>
+                                <!-- خيوط البحث السريع -->
+                                <div class="input-group input-group-lg mb-2" id="materialSearchGroup" style="display:none !important;">
+                                    <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                                    <input type="text" class="form-control" id="materialSearchInput"
+                                           placeholder="ابحث عن المادة الخام..." autocomplete="off">
+                                </div>
+
+                                <!-- الـ select الأصلي (مخفي - للإرسال) -->
+                                <div style="display:none;">{{ form.product }}</div>
+
+                                <!-- قائمة بصرية للمواد -->
+                                <div id="materialsList" class="border rounded-3 overflow-hidden" style="max-height: 320px; overflow-y: auto; display:none;">
+                                    <!-- يُملأ بـ JavaScript -->
+                                </div>
+
+                                <!-- رسالة التحميل -->
+                                <div id="materialsLoading" style="display:none;" class="text-center py-4 text-muted">
+                                    <div class="spinner-border spinner-border-sm me-2"></div>
+                                    جاري تحميل المواد...
+                                </div>
+                                <div id="materialsEmpty" style="display:none;" class="text-center py-4 text-muted">
+                                    <i class="bi bi-inbox fs-2 d-block mb-2" style="opacity:0.3;"></i>
+                                    لا توجد مواد خام مسجلة في النظام
+                                    <br>
+                                    <a href="{% url 'inventory:raw_material_create' %}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                                        <i class="bi bi-plus-circle me-1"></i> أضف مادة خام جديدة
+                                    </a>
+                                </div>
+                                {% if form.product.errors %}<div class="text-danger small mt-1">{{ form.product.errors.0 }}</div>{% endif %}
+                            </div>
+
+                            <!-- قسم المادة الجديدة -->
+                            <div id="newMaterialContainer" {% if form.material_mode.value != 'new' %}style="display:none;"{% endif %}>
+                                <div class="input-group input-group-lg">
+                                    <span class="input-group-text bg-white"><i class="bi bi-box text-primary"></i></span>
+                                    {{ form.new_material_name }}
+                                </div>
+                                <small class="text-muted mt-1 d-block">أدخل اسم المادة كما يظهر في فاتورة المورد (مثال: اسفنج كثافة 26)</small>
+                                {% if form.new_material_name.errors %}<div class="text-danger small mt-1">{{ form.new_material_name.errors.0 }}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <!-- STEP 3: بيانات السعر (تظهر بعد اختيار المادة) -->
+                        <div id="priceSection" style="opacity:0.4; pointer-events:none;">
+                            <div class="step-label mb-3">
+                                <span class="badge rounded-pill text-white me-2" style="background:#667eea;">3</span>
+                                <span class="fw-bold fs-6">بيانات السعر والوحدة</span>
+                            </div>
+
+                            <!-- بطاقة المادة المختارة -->
+                            <div id="selectedMaterialCard" class="alert border-0 mb-3 d-none"
+                                 style="background: linear-gradient(135deg, #f0fdf4, #dcfce7); border-radius: 12px;">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="badge bg-success mb-1">المادة المختارة</span>
+                                        <div class="fw-bold fs-5" id="selectedMaterialName">—</div>
+                                        <small class="text-muted" id="selectedMaterialSku">—</small>
+                                    </div>
+                                    <div id="currentPriceBadge" class="text-end" style="display:none;">
+                                        <small class="text-muted d-block">السعر الحالي عند هذا المورد</small>
+                                        <span class="badge bg-info fs-6" id="currentPriceText">—</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row g-3">
+                                <!-- وحدة الشراء -->
+                                <div class="col-md-5">
+                                    <label class="form-label fw-bold">
+                                        <i class="bi bi-rulers me-1"></i> وحدة الشراء <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group input-group-lg">
+                                        <span class="input-group-text bg-white"><i class="bi bi-box-seam text-info"></i></span>
+                                        {{ form.purchase_unit }}
+                                    </div>
+                                    {% if form.purchase_unit.errors %}<div class="text-danger small mt-1">{{ form.purchase_unit.errors.0 }}</div>{% endif %}
+                                </div>
+
+                                <!-- السعر -->
+                                <div class="col-md-7">
+                                    <label class="form-label fw-bold" id="cost-label">
+                                        <i class="bi bi-currency-dollar me-1"></i>
+                                        السعر (ج.م / وحدة) <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group input-group-lg">
+                                        <span class="input-group-text bg-success text-white fw-bold">ج.م</span>
+                                        {{ form.cost }}
+                                        <span class="input-group-text" id="costUomSuffix">/ وحدة</span>
+                                    </div>
+                                    {% if form.cost.errors %}<div class="text-danger small mt-1">{{ form.cost.errors.0 }}</div>{% endif %}
+                                    <small class="text-muted mt-1 d-block" id="priceHint"></small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- أزرار الحفظ -->
+                        <div class="d-flex gap-2 mt-4 pt-3 border-top">
+                            <button type="submit" class="btn btn-primary btn-lg flex-grow-1" id="submitBtn" disabled>
+                                <i class="bi bi-check-circle me-1"></i> حفظ السعر
+                            </button>
+                            {% if initial_product %}
+                            <a href="{% url 'inventory:raw_material_edit' initial_product.pk %}" class="btn btn-outline-secondary btn-lg">
+                                إلغاء
+                            </a>
+                            {% else %}
+                            <a href="{% url 'purchases:supplier_material_prices' %}" class="btn btn-outline-secondary btn-lg">
+                                إلغاء
+                            </a>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.step-label { display: flex; align-items: center; }
+.material-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px; cursor: pointer; border-bottom: 1px solid #f1f5f9;
+    transition: background .15s;
+}
+.material-item:hover { background: #f8fafc; }
+.material-item.selected { background: #e0f2fe !important; }
+.material-item.has-price .price-badge { display: inline-block; }
+.material-item .price-badge { display: none; }
+</style>
+
+<script>
+const API_URL = "{% url 'purchases:api_supplier_materials' %}";
+const uomNames = {
+    'unit':'وحدة','kg':'كيلو','g':'جرام','m':'متر','cm':'سنتيمتر',
+    'm2':'متر مربع','m3':'متر مكعب','ton':'طن','liter':'لتر',
+    'box':'صندوق','roll':'لفة','sheet':'لوح','can':'صفيحة',
+    'barrel':'برميل','bag':'كيس','piece':'قطعة',
+    'gallon':'جالون','pallet':'بالت','carton':'كرتونة'
+};
+
+let allMaterials = [];
+let selectedProduct = null;
+
+// ============================================================
+// 0. تبديل وضع الإدخال (موجودة / جديدة)
+// ============================================================
+const modeRadios = document.querySelectorAll('.material-mode-radio');
+const existingContainer = document.getElementById('existingMaterialContainer');
+const newContainer = document.getElementById('newMaterialContainer');
+const newMaterialInput = document.getElementById('id_new_material_name');
+
+function updateMaterialMode() {
+    const mode = document.querySelector('.material-mode-radio:checked').value;
+    if (mode === 'existing') {
+        existingContainer.style.display = 'block';
+        newContainer.style.display = 'none';
+        if (selectedProduct) {
+            enablePriceSection();
+        } else {
+            disablePriceSection();
+        }
+    } else {
+        existingContainer.style.display = 'none';
+        newContainer.style.display = 'block';
+        if (newMaterialInput.value.trim() !== '') {
+            enablePriceSection();
+        } else {
+            disablePriceSection();
+        }
+    }
+}
+
+modeRadios.forEach(radio => {
+    radio.addEventListener('change', updateMaterialMode);
+});
+
+newMaterialInput.addEventListener('input', function() {
+    if (this.value.trim() !== '') {
+        enablePriceSection();
+        document.getElementById('selectedMaterialName').textContent = this.value;
+        document.getElementById('selectedMaterialSku').textContent = 'مادة جديدة';
+        document.getElementById('selectedMaterialCard').classList.remove('d-none');
+    } else {
+        disablePriceSection();
+        document.getElementById('selectedMaterialCard').classList.add('d-none');
+    }
+});
+
+// ============================================================
+// 1. عند اختيار المورد → تحميل المواد
+// ============================================================
+document.getElementById('id_supplier').addEventListener('change', function() {
+    const supplierId = this.value;
+    if (!supplierId) {
+        resetMaterialSection();
+        return;
+    }
+    loadMaterials(supplierId);
+});
+
+function resetMaterialSection() {
+    const ms = document.getElementById('materialSection');
+    ms.style.opacity = '0.4';
+    ms.style.pointerEvents = 'none';
+    document.getElementById('materialsList').style.display = 'none';
+    document.getElementById('materialsEmpty').style.display = 'none';
+    document.getElementById('materialSearchGroup').style.display = 'none !important';
+    resetPriceSection();
+}
+
+function loadMaterials(supplierId) {
+    const ms = document.getElementById('materialSection');
+    const listDiv = document.getElementById('materialsList');
+    const loading = document.getElementById('materialsLoading');
+    const empty = document.getElementById('materialsEmpty');
+
+    // أظهر المرحلة الثانية
+    ms.style.opacity = '1';
+    ms.style.pointerEvents = 'auto';
+    listDiv.style.display = 'none';
+    empty.style.display = 'none';
+    loading.style.display = 'block';
+    resetPriceSection();
+    updateMaterialMode(); // تحديث حالة القسم الثالث بناءً على الوضع الحالي
+
+    fetch(`${API_URL}?supplier_id=${supplierId}`)
+        .then(r => {
+            if (r.status === 429) {
+                throw new Error('rate_limit');
+            }
+            return r.json();
+        })
+        .then(data => {
+            loading.style.display = 'none';
+            allMaterials = data.materials || [];
+            if (allMaterials.length === 0) {
+                empty.style.display = 'block';
+                return;
+            }
+            renderMaterialsList(allMaterials);
+            listDiv.style.display = 'block';
+            // أظهر البحث
+            document.getElementById('materialSearchGroup').style.display = '';
+        })
+        .catch((err) => {
+            loading.style.display = 'none';
+            if (err.message === 'rate_limit') {
+                listDiv.innerHTML = `<div class="text-center py-4 text-warning">
+                    <i class="bi bi-clock-history fs-2 d-block mb-2"></i>
+                    طلبات كثيرة جداً — انتظر ثواني قليلة ثم اختر المورد مرة أخرى
+                </div>`;
+                listDiv.style.display = 'block';
+            } else {
+                empty.style.display = 'block';
+            }
+        });
+}
+
+function renderMaterialsList(materials) {
+    const listDiv = document.getElementById('materialsList');
+    listDiv.innerHTML = materials.map(m => `
+        <div class="material-item ${m.has_price ? 'has-price' : ''} ${selectedProduct && selectedProduct.id === m.id ? 'selected' : ''}"
+             onclick="selectMaterial(${JSON.stringify(m).replace(/"/g, '&quot;')})"
+             data-id="${m.id}" data-name="${m.name}">
+            <div>
+                <div class="fw-bold">${m.name}</div>
+                <small class="text-muted">${m.sku}</small>
+            </div>
+            <div class="text-end">
+                ${m.has_price
+                    ? `<span class="badge bg-success price-badge">${m.cost} ج.م / ${uomNames[m.purchase_unit] || m.purchase_unit}</span>`
+                    : `<span class="badge bg-light text-muted border">لا يوجد سعر</span>`
+                }
+            </div>
+        </div>
+    `).join('');
+}
+
+// ============================================================
+// 2. عند اختيار مادة → تعبئة السعر
+// ============================================================
+function selectMaterial(m) {
+    selectedProduct = m;
+
+    // تحديث الـ select المخفي
+    const sel = document.getElementById('id_product');
+    sel.value = m.id;
+
+    // تحديد العنصر المحدد بصرياً
+    document.querySelectorAll('.material-item').forEach(el => el.classList.remove('selected'));
+    const el = document.querySelector(`.material-item[data-id="${m.id}"]`);
+    if (el) el.classList.add('selected');
+
+    // إظهار قسم السعر
+    enablePriceSection();
+
+    // بطاقة المادة المختارة
+    const card = document.getElementById('selectedMaterialCard');
+    card.classList.remove('d-none');
+    document.getElementById('selectedMaterialName').textContent = m.name;
+    document.getElementById('selectedMaterialSku').textContent = m.sku;
+
+    // تعبئة السعر إذا كان موجوداً
+    if (m.has_price && m.cost) {
+        document.getElementById('id_cost').value = m.cost;
+        document.getElementById('id_purchase_unit').value = m.purchase_unit;
+        updateCostLabel();
+
+        // إظهار السعر الحالي
+        const badge = document.getElementById('currentPriceBadge');
+        badge.style.display = 'block';
+        document.getElementById('currentPriceText').textContent =
+            `${m.cost} ج.م / ${uomNames[m.purchase_unit] || m.purchase_unit}`;
+        document.getElementById('priceHint').innerHTML =
+            `<i class="bi bi-arrow-up-circle text-warning me-1"></i> يمكنك تعديل السعر وحفظه`;
+    } else {
+        document.getElementById('id_cost').value = '';
+        document.getElementById('currentPriceBadge').style.display = 'none';
+        document.getElementById('priceHint').innerHTML =
+            `<i class="bi bi-info-circle text-primary me-1"></i> أدخل السعر الجديد لهذا المورد`;
+    }
+}
+
+function enablePriceSection() {
+    const ps = document.getElementById('priceSection');
+    ps.style.opacity = '1';
+    ps.style.pointerEvents = 'auto';
+    document.getElementById('submitBtn').disabled = false;
+}
+
+function disablePriceSection() {
+    const ps = document.getElementById('priceSection');
+    ps.style.opacity = '0.4';
+    ps.style.pointerEvents = 'none';
+    document.getElementById('submitBtn').disabled = true;
+}
+
+function resetPriceSection() {
+    selectedProduct = null;
+    document.getElementById('id_product').value = '';
+    disablePriceSection();
+    document.getElementById('selectedMaterialCard').classList.add('d-none');
+}
+
+// ============================================================
+// 3. البحث في قائمة المواد
+// ============================================================
+document.getElementById('materialSearchInput').addEventListener('input', function() {
+    const q = this.value.trim().toLowerCase();
+    const filtered = q ? allMaterials.filter(m =>
+        m.name.toLowerCase().includes(q) || m.sku.toLowerCase().includes(q)
+    ) : allMaterials;
+    renderMaterialsList(filtered);
+});
+
+// ============================================================
+// 4. تحديث label السعر عند تغيير الوحدة
+// ============================================================
+document.getElementById('id_purchase_unit').addEventListener('change', updateCostLabel);
+
+function updateCostLabel() {
+    const pu = document.getElementById('id_purchase_unit');
+    const uomLabel = uomNames[pu.value] || pu.value;
+    document.getElementById('cost-label').innerHTML =
+        `<i class="bi bi-currency-dollar me-1"></i> السعر (ج.م / ${uomLabel}) <span class="text-danger">*</span>`;
+    document.getElementById('costUomSuffix').textContent = `/ ${uomLabel}`;
+}
+
+// ============================================================
+// 5. تهيئة الصفحة عند التعديل (إذا كانت قيم موجودة مسبقاً)
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+    updateCostLabel();
+
+    // إذا كان المورد محدداً مسبقاً (وضع التعديل أو initial_product)
+    const supplierId = document.getElementById('id_supplier').value;
+    const productId = document.getElementById('id_product').value;
+
+    if (supplierId) {
+        loadMaterials(supplierId);
+        // بعد التحميل سيتم تحديد المادة تلقائياً
+        if (productId) {
+            // انتظر تحميل القائمة ثم حدد المادة
+            const checkInterval = setInterval(() => {
+                if (allMaterials.length > 0) {
+                    clearInterval(checkInterval);
+                    const m = allMaterials.find(x => String(x.id) === String(productId));
+                    if (m) selectMaterial(m);
+                }
+            }, 100);
+        }
+    }
+
+    {% if initial_product %}
+    // تحديد المادة المبدئية تلقائياً
+    const checkInit = setInterval(() => {
+        if (allMaterials.length > 0) {
+            clearInterval(checkInit);
+            const m = allMaterials.find(x => String(x.id) === '{{ initial_product.pk }}');
+            if (m) selectMaterial(m);
+        }
+    }, 100);
+    {% endif %}
+});
+</script>
+{% endblock %}

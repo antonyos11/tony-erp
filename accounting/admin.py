@@ -563,3 +563,10 @@ class ReceivableAgingAdmin(admin.ModelAdmin):
     
     def has_add_permission(self, request):
         return False
+
+
+# Import advanced admin registrations
+try:
+    from . import admin_advanced  # noqa: F401
+except ImportError:
+    pass

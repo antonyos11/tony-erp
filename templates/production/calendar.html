@@ -1,0 +1,493 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تقويم الإنتاج - المحاسب الشامل{% endblock %}
+
+{% block extra_css %}
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.css' rel='stylesheet' />
+<style>
+    .fc-toolbar-title {
+        color: #333;
+        font-weight: bold;
+        font-size: 1.8rem;
+    }
+    .fc-button-primary {
+        background-color: #007bff;
+        border-color: #007bff;
+    }
+    .fc-button-primary:hover {
+        background-color: #0056b3;
+        border-color: #004085;
+    }
+    .fc-event-start {
+        background-color: #28a745;
+        border-color: #1e7e34;
+    }
+    .fc-event-end {
+        background-color: #dc3545;
+        border-color: #bd2130;
+    }
+    .fc-event-progress {
+        background-color: #17a2b8;
+        border-color: #138496;
+    }
+    .fc-event-urgent {
+        background-color: #ffc107;
+        border-color: #e0a800;
+        color: #000;
+        animation: blink 2s infinite;
+    }
+    @keyframes blink {
+        0%, 50% { opacity: 1; }
+        51%, 100% { opacity: 0.7; }
+    }
+    .calendar-legend {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .legend-color {
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        margin-left: 10px;
+    }
+    .stats-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    .order-modal .modal-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    .priority-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: bold;
+    }
+    .priority-low { background-color: #e3f2fd; color: #1976d2; }
+    .priority-normal { background-color: #f3e5f5; color: #7b1fa2; }
+    .priority-high { background-color: #fff3e0; color: #f57c00; }
+    .priority-urgent { background-color: #ffebee; color: #d32f2f; }
+    .status-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        color: white;
+        font-size: 0.75rem;
+    }
+    .status-draft { background-color: #6c757d; }
+    .status-confirmed { background-color: #007bff; }
+    .status-in_progress { background-color: #17a2b8; }
+    .status-completed { background-color: #28a745; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- العنوان والإجراءات -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1><i class="fas fa-calendar-alt"></i> تقويم الإنتاج</h1>
+                <div>
+                    <button class="btn btn-primary" onclick="addNewOrder()">
+                        <i class="fas fa-plus"></i> أمر إنتاج جديد
+                    </button>
+                    <a href="{% url 'production:dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-tachometer-alt"></i> لوحة التحكم
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- التقويم الرئيسي -->
+        <div class="col-lg-9">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-calendar"></i> جدول الإنتاج الشهري</h5>
+                </div>
+                <div class="card-body">
+                    <div id="calendar"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- الشريط الجانبي -->
+        <div class="col-lg-3">
+            <!-- إحصائيات سريعة -->
+            <div class="stats-card">
+                <h5><i class="fas fa-chart-bar"></i> إحصائيات الشهر</h5>
+                <div class="row text-center mb-3">
+                    <div class="col-6 border-end">
+                        <h4 class="text-primary">{{ orders_count }}</h4>
+                        <small class="text-muted">أوامر الإنتاج</small>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-success">{{ completed_orders }}</h4>
+                        <small class="text-muted">أوامر مكتملة</small>
+                    </div>
+                </div>
+                <div class="row text-center">
+                    <div class="col-6 border-end">
+                        <h4 class="text-warning">{{ in_progress_orders }}</h4>
+                        <small class="text-muted">قيد التنفيذ</small>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-danger">{{ overdue_orders }}</h4>
+                        <small class="text-muted">متأخرة</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- دليل الألوان -->
+            <div class="calendar-legend">
+                <h5><i class="fas fa-info-circle"></i> دليل الألوان</h5>
+                
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #28a745;"></div>
+                    <span>بداية الإنتاج</span>
+                </div>
+                
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #dc3545;"></div>
+                    <span>انتهاء مخطط</span>
+                </div>
+                
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #17a2b8;"></div>
+                    <span>قيد التنفيذ</span>
+                </div>
+                
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ffc107;"></div>
+                    <span>عاجل</span>
+                </div>
+                
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #6c757d;"></div>
+                    <span>مسودة</span>
+                </div>
+            </div>
+
+            <!-- أوامر اليوم -->
+            <div class="stats-card">
+                <h5><i class="fas fa-calendar-day"></i> أوامر اليوم</h5>
+                <div id="todayOrders">
+                    <!-- سيتم تحميلها ديناميكياً -->
+                </div>
+            </div>
+
+            <!-- التنبيهات -->
+            <div class="stats-card">
+                <h5><i class="fas fa-exclamation-triangle"></i> تنبيهات هامة</h5>
+                <div class="alert alert-warning alert-sm" role="alert">
+                    <small><strong>تذكير:</strong> 3 أوامر تنتهي هذا الأسبوع</small>
+                </div>
+                <div class="alert alert-danger alert-sm" role="alert">
+                    <small><strong>عاجل:</strong> أمر متأخر يحتاج متابعة</small>
+                </div>
+            </div>
+
+            <!-- إجراءات سريعة -->
+            <div class="stats-card">
+                <h5><i class="fas fa-bolt"></i> إجراءات سريعة</h5>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary btn-sm" onclick="filterByStatus('in_progress')">
+                        <i class="fas fa-filter"></i> أوامر قيد التنفيذ
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="filterByStatus('overdue')">
+                        <i class="fas fa-exclamation"></i> أوامر متأخرة
+                    </button>
+                    <button class="btn btn-outline-warning btn-sm" onclick="filterByPriority('urgent')">
+                        <i class="fas fa-star"></i> أوامر عاجلة
+                    </button>
+                    <button class="btn btn-outline-success btn-sm" onclick="exportCalendar()">
+                        <i class="fas fa-download"></i> تصدير التقويم
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal تفاصيل الأمر -->
+<div class="modal fade order-modal" id="orderModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-clipboard-list"></i> تفاصيل أمر الإنتاج</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="orderModalBody">
+                <!-- سيتم تحميل المحتوى ديناميكياً -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+                <button type="button" class="btn btn-primary" id="viewOrderDetails">عرض التفاصيل الكاملة</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/locales/ar.global.min.js'></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const calendarEl = document.getElementById('calendar');
+    
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        locale: 'ar',
+        initialView: 'dayGridMonth',
+        direction: 'rtl',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+        },
+        buttonText: {
+            today: 'اليوم',
+            month: 'شهر',
+            week: 'أسبوع',
+            day: 'يوم'
+        },
+        events: function(info, successCallback, failureCallback) {
+            fetch('/production/api/calendar-events/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    start: info.startStr,
+                    end: info.endStr
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const events = data.events.map(event => {
+                    return {
+                        id: event.id,
+                        title: event.title,
+                        start: event.start,
+                        end: event.end,
+                        backgroundColor: event.backgroundColor,
+                        borderColor: event.borderColor,
+                        textColor: event.textColor,
+                        classNames: event.className,
+                        extendedProps: {
+                            orderId: event.orderId,
+                            orderNumber: event.orderNumber,
+                            product: event.product,
+                            status: event.status,
+                            priority: event.priority,
+                            quantity: event.quantity,
+                            completion: event.completion
+                        }
+                    };
+                });
+                successCallback(events);
+                
+                // تحديث إحصائيات الشريط الجانبي
+                updateSidebarStats(data.stats);
+            })
+            .catch(error => {
+                console.error('Error loading calendar events:', error);
+                failureCallback(error);
+            });
+        },
+        
+        eventClick: function(info) {
+            showOrderDetails(info.event.extendedProps.orderId);
+        },
+        
+        dateClick: function(info) {
+            showDateOrders(info.dateStr);
+        },
+        
+        eventMouseEnter: function(info) {
+            // إظهار tooltip مع معلومات سريعة
+            const tooltip = createTooltip(info.event);
+            info.el.appendChild(tooltip);
+        },
+        
+        eventMouseLeave: function(info) {
+            // إخفاء tooltip
+            const tooltip = info.el.querySelector('.event-tooltip');
+            if (tooltip) {
+                tooltip.remove();
+            }
+        }
+    });
+    
+    calendar.render();
+    
+    // تحديث التقويم كل 5 دقائق
+    setInterval(function() {
+        if (document.visibilityState === 'visible') {
+            calendar.refetchEvents();
+        }
+    }, 300000);
+    
+    // إضافة CSRF token إلى جميع الطلبات
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+    if (!csrfToken) {
+        // إنشاء CSRF token إذا لم يكن موجوداً
+        const tokenInput = document.createElement('input');
+        tokenInput.type = 'hidden';
+        tokenInput.name = 'csrfmiddlewaretoken';
+        tokenInput.value = '{{ csrf_token }}';
+        document.body.appendChild(tokenInput);
+    }
+});
+
+function createTooltip(event) {
+    const tooltip = document.createElement('div');
+    tooltip.className = 'event-tooltip position-absolute bg-dark text-white p-2 rounded shadow';
+    tooltip.style.cssText = 'z-index: 9999; font-size: 0.8rem; max-width: 200px; top: -50px; left: 0;';
+    tooltip.innerHTML = `
+        <strong>${event.extendedProps.orderNumber}</strong><br>
+        ${event.extendedProps.product}<br>
+        الكمية: ${event.extendedProps.quantity}<br>
+        الإنجاز: ${event.extendedProps.completion}%<br>
+        <small class="text-muted">${event.title}</small>
+    `;
+    return tooltip;
+}
+
+function showOrderDetails(orderId) {
+    fetch(`/production/api/order-summary/${orderId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('orderModalBody').innerHTML = data.html;
+                document.getElementById('viewOrderDetails').onclick = () => {
+                    window.location.href = `/production/orders/${orderId}/`;
+                };
+                new bootstrap.Modal(document.getElementById('orderModal')).show();
+            }
+        })
+        .catch(error => {
+            console.error('Error loading order details:', error);
+            alert('خطأ في تحميل تفاصيل الأمر');
+        });
+}
+
+function showDateOrders(dateStr) {
+    fetch(`/production/api/date-orders/${dateStr}/`)
+        .then(response => response.json())
+        .then(data => {
+            const ordersHtml = data.orders.map(order => `
+                <div class="card mb-2">
+                    <div class="card-body p-2">
+                        <h6 class="mb-1">
+                            <a href="/production/orders/${order.id}/">
+                                ${order.number}
+                            </a>
+                        </h6>
+                        <small class="text-muted">${order.product}</small><br>
+                        <span class="status-badge status-${order.status}">
+                            ${order.status_display}
+                        </span>
+                        <span class="priority-badge priority-${order.priority}">
+                            ${order.priority_display}
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+            
+            document.getElementById('todayOrders').innerHTML = ordersHtml || 
+                '<p class="text-muted text-center">لا توجد أوامر في هذا التاريخ</p>';
+        });
+}
+
+function updateSidebarStats(stats) {
+    // تحديث الإحصائيات في الشريط الجانبي
+    document.querySelector('.stats-card .text-primary').textContent = stats.total || 0;
+    document.querySelector('.stats-card .text-success').textContent = stats.completed || 0;
+    document.querySelector('.stats-card .text-warning').textContent = stats.in_progress || 0;
+    document.querySelector('.stats-card .text-danger').textContent = stats.overdue || 0;
+}
+
+function filterByStatus(status) {
+    const calendar = FullCalendar.getCalendars()[0];
+    
+    // إخفاء جميع الأحداث أولاً
+    calendar.getEvents().forEach(event => {
+        event.setProp('display', 'none');
+    });
+    
+    // إظهار الأحداث المطلوبة فقط
+    calendar.getEvents().forEach(event => {
+        if (status === 'overdue') {
+            // منطق خاص للأوامر المتأخرة
+            const today = new Date();
+            const eventEnd = new Date(event.end || event.start);
+            if (eventEnd < today && event.extendedProps.status !== 'completed') {
+                event.setProp('display', 'auto');
+            }
+        } else if (event.extendedProps.status === status) {
+            event.setProp('display', 'auto');
+        }
+    });
+}
+
+function filterByPriority(priority) {
+    const calendar = FullCalendar.getCalendars()[0];
+    
+    calendar.getEvents().forEach(event => {
+        if (event.extendedProps.priority === priority) {
+            event.setProp('display', 'auto');
+            event.setProp('backgroundColor', '#ffc107');
+            event.setProp('borderColor', '#e0a800');
+        } else {
+            event.setProp('display', 'none');
+        }
+    });
+}
+
+function addNewOrder() {
+    window.location.href = '{% url "production:create_order" %}';
+}
+
+function exportCalendar() {
+    window.open('/production/api/export-calendar/', '_blank');
+}
+
+// إعادة تعيين المرشحات
+function clearFilters() {
+    const calendar = FullCalendar.getCalendars()[0];
+    calendar.refetchEvents();
+}
+
+// اختصارات لوحة المفاتيح
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey || e.metaKey) {
+        switch(e.key) {
+            case 'n':
+                e.preventDefault();
+                addNewOrder();
+                break;
+            case 'r':
+                e.preventDefault();
+                location.reload();
+                break;
+        }
+    }
+});
+</script>
+{% endblock %}

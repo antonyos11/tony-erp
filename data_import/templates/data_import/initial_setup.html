@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .setup-step {
+        transition: all 0.3s ease;
+    }
+    .setup-step:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1) !important;
+    }
+    .setup-step.completed {
+        border-color: #28a745 !important;
+        background: linear-gradient(135deg, #f8fff9 0%, #ffffff 100%);
+    }
+    .setup-step.completed .step-icon {
+        background: #28a745;
+        color: white;
+    }
+    .step-number {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 1.2rem;
+    }
+    .step-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f8f9fa;
+        margin: 0 auto 15px;
+    }
+    .progress-line {
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: #e9ecef;
+        z-index: 0;
+    }
+    .progress-line-fill {
+        height: 100%;
+        background: #28a745;
+        transition: width 0.5s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-gradient-info shadow-lg border-0">
+                <div class="card-body p-4">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h2 class="text-white mb-2">
+                                <i class="fas fa-magic me-2"></i>
+                                {% trans "الإعداد الأولي للنظام" %}
+                            </h2>
+                            <p class="text-white-50 mb-0">
+                                {% trans "مرحباً بك! اتبع الخطوات التالية لاستيراد بياناتك الحالية وبدء العمل بسرعة" %}
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <a href="{% url 'data_import:download_all_templates' %}" class="btn btn-white btn-lg shadow">
+                                <i class="fas fa-download me-2"></i>
+                                {% trans "تحميل جميع القوالب" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- تعليمات -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-light border shadow-sm">
+                <h5 class="alert-heading">
+                    <i class="fas fa-lightbulb text-warning me-2"></i>
+                    {% trans "كيفية الاستيراد" %}
+                </h5>
+                <hr>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-start">
+                            <span class="step-number bg-primary text-white me-3">1</span>
+                            <div>
+                                <strong>{% trans "تحميل القالب" %}</strong>
+                                <p class="text-muted mb-0 small">{% trans "حمل قالب Excel المناسب لكل نوع بيانات" %}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-start">
+                            <span class="step-number bg-primary text-white me-3">2</span>
+                            <div>
+                                <strong>{% trans "تعبئة البيانات" %}</strong>
+                                <p class="text-muted mb-0 small">{% trans "أضف بياناتك في القالب واحفظه" %}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-start">
+                            <span class="step-number bg-primary text-white me-3">3</span>
+                            <div>
+                                <strong>{% trans "رفع الملف" %}</strong>
+                                <p class="text-muted mb-0 small">{% trans "ارفع الملف وسيتم استيراد البيانات تلقائياً" %}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- خطوات الاستيراد -->
+    <div class="row">
+        {% for module in modules %}
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card setup-step shadow-sm h-100 {% if module.key == 'categories' and init_status.categories_imported %}completed{% elif module.key == 'products' and init_status.products_imported %}completed{% elif module.key == 'customers' and init_status.customers_imported %}completed{% elif module.key == 'suppliers' and init_status.suppliers_imported %}completed{% elif module.key == 'employees' and init_status.employees_imported %}completed{% elif module.key == 'departments' and init_status.departments_imported %}completed{% elif module.key == 'accounts' and init_status.accounts_imported %}completed{% elif module.key == 'locations' and init_status.locations_imported %}completed{% elif module.key == 'opening_balances' and init_status.opening_balances_imported %}completed{% endif %}">
+                <div class="card-body text-center">
+                    <div class="step-icon">
+                        <i class="fas {{ module.icon }} fa-2x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">{{ module.name }}</h5>
+                    <p class="text-muted small mb-3">
+                        {% if module.key == 'categories' %}
+                        {% trans "تصنيفات المنتجات" %}
+                        {% elif module.key == 'products' %}
+                        {% trans "قائمة المنتجات والأصناف" %}
+                        {% elif module.key == 'customers' %}
+                        {% trans "بيانات العملاء" %}
+                        {% elif module.key == 'suppliers' %}
+                        {% trans "بيانات الموردين" %}
+                        {% elif module.key == 'employees' %}
+                        {% trans "بيانات الموظفين" %}
+                        {% elif module.key == 'departments' %}
+                        {% trans "أقسام الشركة" %}
+                        {% elif module.key == 'accounts' %}
+                        {% trans "شجرة الحسابات المحاسبية" %}
+                        {% elif module.key == 'locations' %}
+                        {% trans "المخازن والمواقع" %}
+                        {% elif module.key == 'opening_balances' %}
+                        {% trans "أرصدة المخزون الافتتاحية" %}
+                        {% endif %}
+                    </p>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'data_import:download_template' module.key %}" class="btn btn-outline-primary">
+                            <i class="fas fa-download me-1"></i>
+                            {% trans "تحميل القالب" %}
+                        </a>
+                        <a href="{% url 'data_import:import_module' module.key %}" class="btn btn-primary">
+                            <i class="fas fa-upload me-1"></i>
+                            {% trans "استيراد البيانات" %}
+                        </a>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent text-center">
+                    {% if module.key == 'categories' and init_status.categories_imported %}
+                    <span class="badge bg-success"><i class="fas fa-check me-1"></i>{% trans "تم الاستيراد" %}</span>
+                    {% elif module.key == 'products' and init_status.products_imported %}
+                    <span class="badge bg-success"><i class="fas fa-check me-1"></i>{% trans "تم الاستيراد" %}</span>
+                    {% elif module.key == 'customers' and init_status.customers_imported %}
+                    <span class="badge bg-success"><i class="fas fa-check me-1"></i>{% trans "تم الاستيراد" %}</span>
+                    {% elif module.key == 'suppliers' and init_status.suppliers_imported %}
+                    <span class="badge bg-success"><i class="fas fa-check me-1"></i>{% trans "تم الاستيراد" %}</span>
+                    {% elif module.key == 'employees' and init_status.employees_imported %}
+                    <span class="badge bg-success"><i class="fas fa-check me-1"></i>{% trans "تم الاستيراد" %}</span>
+                    {% elif module.key == 'departments' and init_status.departments_imported %}
+                    <span class="badge bg-success"><i class="fas fa-check me-1"></i>{% trans "تم الاستيراد" %}</span>
+                    {% elif module.key == 'accounts' and init_status.accounts_imported %}
+                    <span class="badge bg-success"><i class="fas fa-check me-1"></i>{% trans "تم الاستيراد" %}</span>
+                    {% elif module.key == 'locations' and init_status.locations_imported %}
+                    <span class="badge bg-success"><i class="fas fa-check me-1"></i>{% trans "تم الاستيراد" %}</span>
+                    {% elif module.key == 'opening_balances' and init_status.opening_balances_imported %}
+                    <span class="badge bg-success"><i class="fas fa-check me-1"></i>{% trans "تم الاستيراد" %}</span>
+                    {% else %}
+                    <span class="badge bg-secondary"><i class="fas fa-clock me-1"></i>{% trans "في انتظار الاستيراد" %}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- زر إنهاء الإعداد -->
+    <div class="row mt-4">
+        <div class="col-12 text-center">
+            <form method="post" action="{% url 'data_import:mark_initialized' %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success btn-lg shadow">
+                    <i class="fas fa-check-circle me-2"></i>
+                    {% trans "إنهاء الإعداد والبدء باستخدام النظام" %}
+                </button>
+            </form>
+            <p class="text-muted mt-2 small">
+                {% trans "يمكنك استيراد المزيد من البيانات لاحقاً من صفحة الاستيراد" %}
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

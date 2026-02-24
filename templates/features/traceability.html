@@ -1,0 +1,147 @@
+{% extends BASE_TEMPLATE %}
+{% load i18n static %}
+
+{% block title %}تتبع المنتجات{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-gradient-info text-white">
+                    <h3 class="mb-0">
+                        <i class="bi bi-qr-code me-2"></i>
+                        تتبع رحلة المنتج الكاملة
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">تتبع المنتج من المواد الخام حتى التسليم للعميل</p>
+                    
+                    <form id="traceabilityForm" class="mt-4">
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label class="form-label">رقم الباركود أو رقم التعريف</label>
+                                <input type="text" name="product_code" class="form-control" placeholder="أدخل رقم المنتج..." required>
+                            </div>
+                            <div class="col-md-4 mb-3 d-flex align-items-end">
+                                <button type="submit" class="btn btn-info w-100">
+                                    <i class="bi bi-search me-2"></i>
+                                    تتبع المنتج
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <div id="traceabilityResult" class="mt-4" style="display: none;">
+                        <div id="productInfo" class="alert alert-info mb-3" style="display: none;">
+                            <strong>المنتج:</strong> <span id="productName"></span>
+                        </div>
+                        <h5 class="mb-3">رحلة المنتج:</h5>
+                        <div class="timeline" id="productTimeline">
+                            <!-- سيتم تحميل الخط الزمني هنا -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline {
+    position: relative;
+    padding: 20px 0;
+}
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 30px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #0dcaf0;
+}
+.timeline-item {
+    position: relative;
+    padding-left: 70px;
+    margin-bottom: 30px;
+}
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: 22px;
+    top: 5px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #0dcaf0;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 2px #0dcaf0;
+}
+</style>
+
+<script>
+document.getElementById('traceabilityForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const productCode = formData.get('product_code');
+    
+    // إظهار مؤشر التحميل
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>جاري البحث...';
+    submitBtn.disabled = true;
+    
+    try {
+        const response = await fetch(`/quality-control/traceability/journey/?product_code=${encodeURIComponent(productCode)}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const timeline = document.getElementById('productTimeline');
+            
+            // عرض اسم المنتج إذا تم العثور عليه
+            if (data.product_name) {
+                document.getElementById('productName').textContent = data.product_name;
+                document.getElementById('productInfo').style.display = 'block';
+            } else {
+                document.getElementById('productInfo').style.display = 'none';
+            }
+            
+            // تحديد أيقونة ولون لكل مرحلة
+            const stageStyles = {
+                'استلام المواد الخام': { icon: 'bi-box-seam', color: '#6c757d' },
+                'الإنتاج': { icon: 'bi-gear', color: '#0d6efd' },
+                'فحص الجودة': { icon: 'bi-check-circle', color: '#198754' },
+                'التخزين': { icon: 'bi-building', color: '#0dcaf0' },
+                'الشحن': { icon: 'bi-truck', color: '#ffc107' }
+            };
+            
+            timeline.innerHTML = data.journey.map((step, index) => {
+                const style = stageStyles[step.stage] || { icon: 'bi-circle', color: '#0dcaf0' };
+                return `
+                <div class="timeline-item" style="--timeline-color: ${style.color}">
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <h6 class="text-primary mb-2">
+                                <i class="${style.icon} me-2"></i>${step.stage}
+                            </h6>
+                            <p class="mb-1">${step.description}</p>
+                            <small class="text-muted"><i class="bi bi-calendar me-1"></i>${step.date}</small>
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+            document.getElementById('traceabilityResult').style.display = 'block';
+        } else {
+            alert(data.error || 'لم يتم العثور على المنتج');
+        }
+    } catch (error) {
+        alert('حدث خطأ في الاتصال');
+        console.error(error);
+    } finally {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+});
+</script>
+{% endblock %}

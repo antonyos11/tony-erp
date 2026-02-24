@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+{% load i18n humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" dir="rtl">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h1 class="h3 mb-0 text-gray-800">{{ title }}</h1>
+            <form method="get" class="d-flex gap-2">
+                <select name="month" class="form-control form-control-sm">
+                    {% for m in "123456789101112"|make_list %}
+                        <option value="{{ forloop.counter }}" {% if month == forloop.counter %}selected{% endif %}>
+                            {{ forloop.counter|stringformat:"02d" }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <input type="number" name="year" class="form-control form-control-sm" value="{{ year }}" style="width: 100px;">
+                <button type="submit" class="btn btn-sm btn-primary">{% trans "تحديث" %}</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Monthly Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">{% trans "إجمالي الأوامر" %}</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_orders }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">{% trans "الكمية المنتجة" %}</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ produced_qty|floatformat:0|intcomma }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-box fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">{% trans "نسبة الإنجاز" %}</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ completion_rate|floatformat:1 }}%</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-percent fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">{% trans "إجمالي التكاليف" %} (EGP)</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_cost|floatformat:2|intcomma }} ج.م</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Production Chart -->
+        <div class="col-xl-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "الإنتاج اليومي خلال شهر" %} {{ month_name }}</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="monthlyProductionChart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Products -->
+        <div class="col-xl-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "أهم المنتجات هذا الشهر" %}</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-flush mb-0">
+                            <thead>
+                                <tr class="bg-light">
+                                    <th>{% trans "المنتج" %}</th>
+                                    <th class="text-center">{% trans "الكمية" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in top_products %}
+                                <tr>
+                                    <td class="small">{{ p.product__name }}</td>
+                                    <td class="text-center font-weight-bold">{{ p.total_qty|floatformat:0|intcomma }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    const ctx = document.getElementById('monthlyProductionChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [{% for item in daily_production %}'{{ item.date|slice:"8:10" }}',{% endfor %}],
+            datasets: [{
+                label: '{% trans "الكمية المنتجة" %}',
+                data: [{% for item in daily_production %}{{ item.quantity }},{% endfor %}],
+                borderColor: '#4e73df',
+                backgroundColor: 'rgba(78, 115, 223, 0.05)',
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { beginAtZero: true },
+                x: { title: { display: true, text: '{% trans "يوم" %}' } }
+            }
+        }
+    });
+</script>
+{% endblock %}
+{% endblock %}

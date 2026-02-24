@@ -1,0 +1,132 @@
+{% load i18n %}
+{% load static %}
+
+<aside id="appSidebar" class="app-sidebar app-sidebar-v3 d-flex flex-column">
+  {# ===== Header ===== #}
+  <div class="sidebar-v3-header">
+    <div class="d-flex align-items-center gap-2">
+      {% if company and company.logo %}
+        <a href="{% url 'core:dashboard' %}" class="d-flex align-items-center text-decoration-none">
+          <img src="{{ company.logo.url }}" alt="Logo" class="sidebar-logo">
+          <span class="sidebar-brand ms-2">{{ SYSTEM_NAME|default:"Tony ERP" }}</span>
+        </a>
+      {% else %}
+        <a href="{% url 'core:dashboard' %}" class="sidebar-brand text-decoration-none">
+          {{ SYSTEM_NAME|default:"Tony ERP" }}
+        </a>
+      {% endif %}
+    </div>
+    <button type="button" class="sidebar-close-btn d-lg-none" id="sidebarCloseBtn"
+            aria-label="{% trans 'إغلاق القائمة' %}">
+      <i class="bi bi-x-lg"></i>
+    </button>
+  </div>
+
+  {# ===== Global Search ===== #}
+  <div class="sidebar-v3-search">
+    <div class="position-relative">
+      <i class="bi bi-search search-icon"></i>
+      <input type="search"
+             class="form-control"
+             id="sidebarGlobalSearch"
+             placeholder="{% trans 'بحث سريع...' %} (Ctrl+K)"
+             autocomplete="off"
+             aria-label="{% trans 'بحث في القائمة' %}">
+      <kbd class="search-kbd">⌘K</kbd>
+    </div>
+    <div id="sidebarSearchResults" class="sidebar-search-results" hidden></div>
+  </div>
+
+  {# ===== Quick Access ===== #}
+  <div class="sidebar-v3-quick">
+    <a href="{% url 'core:dashboard' %}"
+       class="quick-link{% if request.path == '/' or request.path == '/dashboard/' %} active{% endif %}">
+      <i class="bi bi-speedometer2"></i>
+      <span>{% trans 'لوحة التحكم' %}</span>
+    </a>
+    <button type="button" id="sidebarExpandAll" class="sidebar-expand-all-btn" title="{% trans 'توسيع/طي الكل' %}">
+      <i class="bi bi-arrows-expand"></i>
+    </button>
+  </div>
+
+  {# ===== Scrollable Navigation ===== #}
+  <div class="sidebar-v3-scroll flex-grow-1">
+    <nav class="sidebar-v3-nav" aria-label="{% trans 'القائمة الرئيسية' %}">
+
+      {% for group in sidebar_v3 %}
+      <div class="sidebar-parent-group{% if group.active %} active{% endif %}" data-group="{{ group.id }}">
+
+        {# Parent Group Toggle #}
+        <button class="sidebar-parent-btn{% if group.active %} active{% endif %}"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#group-{{ group.id }}"
+                aria-expanded="{% if group.active %}true{% else %}false{% endif %}"
+                aria-controls="group-{{ group.id }}"
+                style="--group-color: {{ group.color }};">
+          <i class="{{ group.icon }} parent-icon"></i>
+          <span class="parent-label">{{ group.label }}</span>
+          <span class="parent-count">{{ group.sections|length }}</span>
+          <i class="bi bi-chevron-down toggle-chevron"></i>
+        </button>
+
+        {# Collapsible Content #}
+        <div class="collapse{% if group.active %} show{% endif %}" id="group-{{ group.id }}">
+          <div class="sidebar-group-content">
+
+            {% for section in group.sections %}
+            <div class="sidebar-section-block{% if section.active %} active{% endif %}">
+
+              {# Section Header (only multi-section groups) #}
+              {% if group.sections|length > 1 %}
+              <div class="sidebar-section-label">
+                <i class="{{ section.icon }}"></i>
+                <span>{{ section.label }}</span>
+              </div>
+              {% endif %}
+
+              {# Items by Category #}
+              {% for category in section.categories %}
+                {% if section.categories|length > 1 %}
+                <div class="sidebar-category-tag">{{ category.label }}</div>
+                {% endif %}
+
+                {% for item in category.items %}
+                <a href="{{ item.url }}"
+                   class="sidebar-item-link{% if item.active %} active{% endif %}"
+                   {% if item.badge_source %}data-badge-source="{{ item.badge_source }}"{% endif %}>
+                  <i class="{{ item.icon }}"></i>
+                  <span>{{ item.label }}</span>
+                  {% if item.badge_source %}
+                  <span class="sidebar-live-badge" data-source="{{ item.badge_source }}"></span>
+                  {% endif %}
+                </a>
+                {% endfor %}
+              {% endfor %}
+
+            </div>
+            {% endfor %}
+
+          </div>
+        </div>
+
+      </div>
+      {% endfor %}
+
+    </nav>
+  </div>
+
+  {# ===== Footer: Mini-Sidebar Toggle ===== #}
+  <div class="sidebar-v3-footer d-none d-lg-flex">
+    <button type="button" id="sidebarCollapseToggle" class="sidebar-collapse-toggle"
+            aria-label="{% trans 'تصغير القائمة' %}">
+      <i class="bi bi-layout-sidebar-inset"></i>
+      <span>{% trans 'تصغير' %}</span>
+    </button>
+  </div>
+</aside>
+
+{% comment %}Mobile Backdrop is in base_v2.html{% endcomment %}
+
+{# Search Index Data (XSS-safe via json_script) #}
+{{ sidebar_search_items|json_script:"sidebarSearchData" }}

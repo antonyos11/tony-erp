@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}التصدير والتقارير{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-file-export"></i> التصدير والتقارير</h2>
+            <p class="text-muted">تصدير بيانات النظام بصيغ مختلفة (Excel, CSV, PDF, JSON)</p>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-plus-circle"></i> تصدير جديد</h5>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{% url 'exports:export_create' %}">
+                {% csrf_token %}
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="export_type" class="form-label">نوع البيانات</label>
+                        <select name="export_type" id="export_type" class="form-select">
+                            <option value="all">جميع البيانات</option>
+                            <option value="inventory_products">المنتجات (المخزون)</option>
+                            <option value="sales_invoices">فواتير المبيعات</option>
+                            <option value="purchases">المشتريات</option>
+                            <option value="hr">الموارد البشرية</option>
+                            <option value="crm">إدارة العملاء</option>
+                            <option value="accounting">المحاسبة</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="format" class="form-label">الصيغة</label>
+                        <select name="format" id="format" class="form-select">
+                            <option value="csv">CSV</option>
+                            <option value="excel">Excel (XLSX)</option>
+                            <option value="pdf">PDF</option>
+                            <option value="json">JSON</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="name" class="form-label">اسم التصدير (اختياري)</label>
+                        <input type="text" name="name" id="name" class="form-control" placeholder="تصدير تلقائي">
+                    </div>
+                    <div class="col-md-2 mb-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-download"></i> تصدير
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-history"></i> آخر عمليات التصدير</h5>
+        </div>
+        <div class="card-body">
+            {% if exports %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>الاسم</th>
+                            <th>النوع</th>
+                            <th>الصيغة</th>
+                            <th>الحالة</th>
+                            <th>التقدم</th>
+                            <th>التاريخ</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for exp in exports %}
+                        <tr>
+                            <td>{{ exp.id }}</td>
+                            <td>{{ exp.export_name }}</td>
+                            <td>{{ exp.export_type }}</td>
+                            <td><span class="badge bg-secondary">{{ exp.export_format|upper }}</span></td>
+                            <td>
+                                {% if exp.status == 'completed' %}
+                                    <span class="badge bg-success">مكتمل</span>
+                                {% elif exp.status == 'processing' %}
+                                    <span class="badge bg-warning">جاري</span>
+                                {% elif exp.status == 'failed' %}
+                                    <span class="badge bg-danger">فشل</span>
+                                {% else %}
+                                    <span class="badge bg-info">انتظار</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ exp.progress }}%</td>
+                            <td>{{ exp.created_at|date:"Y/m/d H:i" }}</td>
+                            <td>
+                                {% if exp.status == 'completed' and exp.file_path %}
+                                    <a href="{% url 'exports:export_download' exp.id %}" class="btn btn-sm btn-success">
+                                        <i class="fas fa-download"></i>
+                                    </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-inbox fa-3x mb-3"></i>
+                <p>لا توجد عمليات تصدير سابقة</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

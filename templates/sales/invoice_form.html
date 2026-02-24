@@ -1,0 +1,497 @@
+﻿{% extends 'base_templates/_form_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% if form.instance.pk %}{% trans 'تعديل فاتورة' %}{% else %}{% trans 'فاتورة جديدة' %}{% endif %}{% endblock %}
+{% block form_hero_icon %}bi-receipt{% endblock %}
+{% block form_hero_title %}{% if form.instance.pk %}{% trans 'تعديل فاتورة مبيعات' %}{% else %}{% trans 'إنشاء فاتورة مبيعات جديدة' %}{% endif %}{% endblock %}
+{% block form_hero_subtitle %}{% if form.instance.pk %}{% trans 'تحديث بيانات الفاتورة رقم' %} {{ form.instance.invoice_number }}{% else %}{% trans 'أدخل بيانات الفاتورة والأصناف المباعة' %}{% endif %}{% endblock %}
+
+{% block form_content %}
+<style>
+  .customer-card {
+    background: linear-gradient(135deg, var(--primary) 0%, #2d5a87 100%);
+    color: white;
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .customer-card .customer-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  .customer-card .info-item {
+    background: rgba(255,255,255,0.1);
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius);
+  }
+  .customer-card .info-label {
+    font-size: 0.75rem;
+    opacity: 0.8;
+  }
+  .customer-card .info-value {
+    font-weight: 600;
+  }
+  .item-row {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    transition: var(--transition);
+  }
+  .item-row:hover {
+    border-color: var(--primary);
+    box-shadow: var(--shadow-sm);
+  }
+  .item-row .remove-item {
+    color: var(--danger);
+    cursor: pointer;
+    opacity: 0.7;
+    transition: var(--transition);
+  }
+  .item-row .remove-item:hover {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  .product-search {
+    position: relative;
+  }
+  .product-search .search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+  }
+  .product-search .search-results.show {
+    display: block;
+  }
+  .product-search .search-item {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .product-search .search-item:hover {
+    background: rgba(var(--primary-rgb), 0.1);
+  }
+  .product-search .search-item:last-child {
+    border-bottom: none;
+  }
+  .totals-box {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    border: 2px solid var(--border-color);
+  }
+  .totals-box .total-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px dashed var(--border-color);
+  }
+  .totals-box .total-row:last-child {
+    border-bottom: none;
+  }
+  .totals-box .grand-total {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary);
+    padding-top: 1rem;
+    border-top: 2px solid var(--primary);
+    margin-top: 0.5rem;
+  }
+  .quick-add-section {
+    background: rgba(var(--accent-rgb), 0.1);
+    border: 1px dashed var(--accent);
+    border-radius: var(--radius);
+    padding: 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .quick-add-section:hover {
+    background: rgba(var(--accent-rgb), 0.2);
+  }
+</style>
+
+<form method="post" id="invoice-form" novalidate>
+  {% csrf_token %}
+
+  <!-- Customer Selection -->
+  <div class="form-section">
+    <div class="section-header">
+      <i class="bi bi-person-badge section-icon"></i>
+      <div class="section-title">{% trans 'معلومات العميل' %}</div>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">{% trans 'العميل' %} <span class="text-danger">*</span></label>
+        <select name="customer" id="customer-select" class="form-select" required>
+          <option value="">{% trans 'اختر العميل...' %}</option>
+          {% for customer in customers %}
+          <option value="{{ customer.pk }}"
+            data-balance="{{ customer.balance }}"
+            data-phone="{ customer.phone|default:'' }}"
+            data-address="{ customer.address|default:'' }}"
+            data-credit-limit="{ customer.credit_limit|default:0 }"
+            {% if form.instance.customer_id == customer.pk %}selected{% endif %}>
+            {{ customer.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">{% trans 'رقم الفاتورة' %}</label>
+        <input type="text" name="invoice_number" class="form-control" 
+               value="{ form.instance.invoice_number|default:next_number }}" readonly>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">{% trans 'التاريخ' %} <span class="text-danger">*</span></label>
+        <input type="date" name="date" class="form-control" 
+               value="{% if form.instance.date %}{ form.instance.date|date:'Y-m-d' }}{% else %}{ today|date:'Y-m-d' }{% endif %}" required>
+      </div>
+    </div>
+
+    <!-- Customer Info Card (Shown when customer selected) -->
+    <div id="customer-info-card" class="customer-card mt-3" style="display: none;">
+      <div class="d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-person-circle me-2"></i><span id="customer-name"></span></h5>
+        <span class="badge bg-light text-dark" id="customer-balance-badge">{% trans 'الرصيد' %}: <span id="customer-balance">0</span></span>
+      </div>
+      <div class="customer-info">
+        <div class="info-item">
+          <div class="info-label">{% trans 'الهاتف' %}</div>
+          <div class="info-value" id="customer-phone">-</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">{% trans 'حد الائتمان' %}</div>
+          <div class="info-value" id="customer-credit-limit">0</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">{% trans 'العنوان' %}</div>
+          <div class="info-value" id="customer-address">-</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invoice Items -->
+  <div class="form-section">
+    <div class="section-header">
+      <i class="bi bi-box section-icon"></i>
+      <div class="section-title">{% trans 'أصناف الفاتورة' %}</div>
+    </div>
+
+    <!-- Quick Product Search -->
+    <div class="row mb-3">
+      <div class="col-md-8">
+        <div class="product-search">
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" id="product-search" class="form-control" placeholder="{% trans 'ابحث عن منتج بالاسم أو الباركود...' %}">
+          </div>
+          <div class="search-results" id="search-results"></div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <button type="button" class="btn btn-outline-primary w-100" id="show-products-modal">
+          <i class="bi bi-grid me-1"></i>{% trans 'اختيار من الكتالوج' %}
+        </button>
+      </div>
+    </div>
+
+    <!-- Items Container -->
+    <div id="items-container">
+      {% for item in form.instance.items.all %}
+      <div class="item-row" data-index="{ forloop.counter0 }">
+        <div class="row g-2 align-items-center">
+          <div class="col-md-4">
+            <input type="hidden" name="items[{{ forloop.counter0 }}][product_id]" value="{ item.product_id }">
+            <label class="form-label small">{% trans 'المنتج' %}</label>
+            <input type="text" class="form-control form-control-sm product-name" value="{ item.product.name }}" readonly>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small">{% trans 'الكمية' %}</label>
+            <input type="number" name="items[{{ forloop.counter0 }}][quantity]" class="form-control form-control-sm item-qty" 
+                   value="{ item.quantity }}" min="1" step="0.01">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small">{% trans 'السعر' %}</label>
+            <input type="number" name="items[{{ forloop.counter0 }}][price]" class="form-control form-control-sm item-price" 
+                   value="{ item.unit_price }}" min="0" step="0.01">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small">{% trans 'الخصم' %}</label>
+            <input type="number" name="items[{{ forloop.counter0 }}][discount]" class="form-control form-control-sm item-discount" 
+                   value="{ item.discount|default:0 }}" min="0" step="0.01">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small">{% trans 'الإجمالي' %}</label>
+            <div class="d-flex align-items-center gap-2">
+              <input type="text" class="form-control form-control-sm item-total" value="{ item.line_total }}" readonly>
+              <span class="remove-item" onclick="removeItem(this)"><i class="bi bi-trash fs-5"></i></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Add Item Button -->
+    <div class="quick-add-section" id="add-item-btn">
+      <i class="bi bi-plus-circle fs-4 text-accent"></i>
+      <div class="mt-1">{% trans 'انقر لإضافة صنف أو ابحث أعلاه' %}</div>
+    </div>
+  </div>
+
+  <!-- Totals & Payment -->
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="form-section">
+        <div class="section-header">
+          <i class="bi bi-credit-card section-icon"></i>
+          <div class="section-title">{% trans 'طريقة الدفع' %}</div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">{% trans 'طريقة الدفع' %}</label>
+            <select name="payment_method" class="form-select">
+              <option value="cash">{% trans 'نقدي' %}</option>
+              <option value="credit">{% trans 'آجل' %}</option>
+              <option value="card">{% trans 'بطاقة' %}</option>
+              <option value="bank">{% trans 'تحويل بنكي' %}</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">{% trans 'تاريخ الاستحقاق' %}</label>
+            <input type="date" name="due_date" class="form-control" value="{ form.instance.due_date|date:'Y-m-d' }">
+          </div>
+          <div class="col-12">
+            <label class="form-label">{% trans 'ملاحظات' %}</label>
+            <textarea name="notes" class="form-control" rows="3">{{ form.instance.notes|default:'' }}</textarea>
+          </div>
+        </div>
+        
+        <!-- وجهة الدفع/التحصيل -->
+        {% include 'partials/_payment_destination.html' %}
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="totals-box">
+        <h5 class="mb-3"><i class="bi bi-calculator me-2"></i>{% trans 'ملخص الفاتورة' %}</h5>
+        <div class="total-row">
+          <span>{% trans 'المجموع الفرعي' %}</span>
+          <span id="subtotal">0.00</span>
+        </div>
+        <div class="total-row">
+          <span>{% trans 'إجمالي الخصم' %}</span>
+          <span id="total-discount" class="text-danger">0.00</span>
+        </div>
+        <div class="total-row">
+          <span>{% trans 'الضريبة' %} (<span id="tax-rate">15</span>%)</span>
+          <span id="tax-amount">0.00</span>
+        </div>
+        <div class="total-row grand-total">
+          <span>{% trans 'الإجمالي النهائي' %}</span>
+          <span id="grand-total">0.00</span>
+        </div>
+        <input type="hidden" name="total" id="total-input" value="0">
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block form_actions_left %}
+<a href="{% url 'sales:invoice_list' %}" class="btn btn-outline-secondary">
+  <i class="bi bi-x-circle me-1"></i>{% trans 'إلغاء' %}
+</a>
+{% endblock %}
+
+{% block form_actions_right %}
+<button type="submit" form="invoice-form" name="save_print" class="btn btn-outline-primary">
+  <i class="bi bi-printer me-1"></i>{% trans 'حفظ وطباعة' %}
+</button>
+<button type="submit" form="invoice-form" name="save_new" class="btn btn-outline-success">
+  <i class="bi bi-plus-circle me-1"></i>{% trans 'حفظ وجديد' %}
+</button>
+<button type="submit" form="invoice-form" class="btn btn-primary">
+  <i class="bi bi-check-circle me-1"></i>{% trans 'حفظ الفاتورة' %}
+</button>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let itemIndex = {{ form.instance.items.count|default:0 }};
+  const products = [
+    {% for product in products %}
+    {
+      id: {{ product.pk }},
+      name: "{{ product.name|escapejs }}",
+      code: "{{ product.code|default:''|escapejs }}",
+      barcode: "{{ product.barcode|default:''|escapejs }}",
+      price: {{ product.selling_price|default:0 }},
+      stock: {{ product.quantity_on_hand|default:0 }}
+    },
+    {% endfor %}
+  ];
+
+  // Customer selection
+  document.getElementById('customer-select').addEventListener('change', function() {
+    const option = this.options[this.selectedIndex];
+    const card = document.getElementById('customer-info-card');
+    if (this.value) {
+      card.style.display = 'block';
+      document.getElementById('customer-name').textContent = option.text;
+      document.getElementById('customer-balance').textContent = option.dataset.balance || '0';
+      document.getElementById('customer-phone').textContent = option.dataset.phone || '-';
+      document.getElementById('customer-address').textContent = option.dataset.address || '-';
+      document.getElementById('customer-credit-limit').textContent = option.dataset.creditLimit || '0';
+    } else {
+      card.style.display = 'none';
+    }
+  });
+
+  // Trigger on load if customer is selected
+  if (document.getElementById('customer-select').value) {
+    document.getElementById('customer-select').dispatchEvent(new Event('change'));
+  }
+
+  // Product search
+  const searchInput = document.getElementById('product-search');
+  const searchResults = document.getElementById('search-results');
+
+  searchInput.addEventListener('input', function() {
+    const query = this.value.toLowerCase();
+    if (query.length < 2) {
+      searchResults.classList.remove('show');
+      return;
+    }
+
+    const matches = products.filter(p => 
+      p.name.toLowerCase().includes(query) ||
+      p.code.toLowerCase().includes(query) ||
+      p.barcode.includes(query)
+    ).slice(0, 10);
+
+    if (matches.length) {
+      searchResults.innerHTML = matches.map(p => `
+        <div class="search-item" onclick="addProduct(${p.id})">
+          <div class="fw-medium">${p.name}</div>
+          <div class="small text-muted">
+            {% trans 'السعر' %}: ${p.price.toFixed(2)} | {% trans 'المتوفر' %}: ${p.stock}
+          </div>
+        </div>
+      `).join('');
+      searchResults.classList.add('show');
+    } else {
+      searchResults.innerHTML = '<div class="p-3 text-muted text-center">{% trans "لا توجد نتائج" %}</div>';
+      searchResults.classList.add('show');
+    }
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.product-search')) {
+      searchResults.classList.remove('show');
+    }
+  });
+
+  function addProduct(productId) {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+
+    const container = document.getElementById('items-container');
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.dataset.index = itemIndex;
+    row.innerHTML = `
+      <div class="row g-2 align-items-center">
+        <div class="col-md-4">
+          <input type="hidden" name="items[${itemIndex}][product_id]" value="${product.id}">
+          <label class="form-label small">{% trans 'المنتج' %}</label>
+          <input type="text" class="form-control form-control-sm product-name" value="${product.name}" readonly>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{% trans 'الكمية' %}</label>
+          <input type="number" name="items[${itemIndex}][quantity]" class="form-control form-control-sm item-qty" 
+                 value="1" min="1" step="0.01" onchange="calculateTotals()">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{% trans 'السعر' %}</label>
+          <input type="number" name="items[${itemIndex}][price]" class="form-control form-control-sm item-price" 
+                 value="${product.price}" min="0" step="0.01" onchange="calculateTotals()">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{% trans 'الخصم' %}</label>
+          <input type="number" name="items[${itemIndex}][discount]" class="form-control form-control-sm item-discount" 
+                 value="0" min="0" step="0.01" onchange="calculateTotals()">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{% trans 'الإجمالي' %}</label>
+          <div class="d-flex align-items-center gap-2">
+            <input type="text" class="form-control form-control-sm item-total" value="${product.price.toFixed(2)}" readonly>
+            <span class="remove-item" onclick="removeItem(this)"><i class="bi bi-trash fs-5"></i></span>
+          </div>
+        </div>
+      </div>
+    `;
+    container.appendChild(row);
+    itemIndex++;
+    
+    searchInput.value = '';
+    searchResults.classList.remove('show');
+    calculateTotals();
+  }
+
+  function removeItem(el) {
+    el.closest('.item-row').remove();
+    calculateTotals();
+  }
+
+  function calculateTotals() {
+    let subtotal = 0;
+    let totalDiscount = 0;
+
+    document.querySelectorAll('.item-row').forEach(row => {
+      const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+      const price = parseFloat(row.querySelector('.item-price').value) || 0;
+      const discount = parseFloat(row.querySelector('.item-discount').value) || 0;
+      
+      const lineTotal = (qty * price) - discount;
+      row.querySelector('.item-total').value = lineTotal.toFixed(2);
+      
+      subtotal += qty * price;
+      totalDiscount += discount;
+    });
+
+    const taxRate = 15; // Could be dynamic
+    const taxAmount = (subtotal - totalDiscount) * (taxRate / 100);
+    const grandTotal = subtotal - totalDiscount + taxAmount;
+
+    document.getElementById('subtotal').textContent = subtotal.toFixed(2);
+    document.getElementById('total-discount').textContent = totalDiscount.toFixed(2);
+    document.getElementById('tax-amount').textContent = taxAmount.toFixed(2);
+    document.getElementById('grand-total').textContent = grandTotal.toFixed(2);
+    document.getElementById('total-input').value = grandTotal.toFixed(2);
+  }
+
+  // Initialize calculations
+  document.querySelectorAll('.item-qty, .item-price, .item-discount').forEach(input => {
+    input.addEventListener('change', calculateTotals);
+  });
+  calculateTotals();
+</script>
+{% endblock %}
+

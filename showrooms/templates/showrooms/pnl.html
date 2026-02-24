@@ -1,0 +1,391 @@
+{% extends 'base.html' %}
+{% load i18n humanize %}
+{% block title %}{% trans 'الأرباح والخسائر - المعارض' %}{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Header -->
+  <div class="row align-items-center mb-4">
+    <div class="col-md-8">
+      <h2 class="mb-1">
+        <i class="fas fa-chart-line text-success"></i> 
+        {% trans 'تقرير الأرباح والخسائر' %}
+      </h2>
+      <p class="text-muted mb-0">{% trans 'تحليل شامل للأداء المالي للمعارض' %}</p>
+    </div>
+    <div class="col-md-4 text-end">
+      <button class="btn btn-outline-primary" onclick="window.print()">
+        <i class="fas fa-print"></i> {% trans 'طباعة' %}
+      </button>
+      <button class="btn btn-outline-success" onclick="exportToExcel()">
+        <i class="fas fa-file-excel"></i> {% trans 'تصدير Excel' %}
+      </button>
+    </div>
+  </div>
+
+  <!-- فلاتر البحث -->
+  <div class="card shadow-sm mb-4 border-0">
+    <div class="card-header bg-gradient text-white py-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+      <h5 class="mb-0">
+        <i class="fas fa-filter me-2"></i>
+        {% trans 'خيارات الفلترة' %}
+      </h5>
+    </div>
+    <div class="card-body p-4">
+      <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label fw-bold">
+            <i class="fas fa-store text-primary me-1"></i>
+            {% trans 'المعرض' %}
+          </label>
+          {{ form.showroom }}
+          <small class="text-muted d-block mt-1">{% trans 'اختر معرض محدد أو اتركه فارغاً لجميع المعارض' %}</small>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-bold">
+            <i class="fas fa-calendar text-info me-1"></i>
+            {% trans 'الفترة (YYYY-MM)' %}
+          </label>
+          {{ form.period }}
+          <small class="text-muted d-block mt-1">{% trans 'مثال: 2025-12' %}</small>
+        </div>
+        <div class="col-md-4">
+          <button class="btn btn-primary btn-lg w-100 shadow-sm" type="submit">
+            <i class="fas fa-search me-2"></i> {% trans 'عرض التقرير' %}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if data %}
+  <!-- معلومات الفلترة -->
+  <div class="alert alert-info alert-dismissible fade show" role="alert">
+    <i class="fas fa-info-circle me-2"></i>
+    <strong>{% trans 'نطاق التقرير:' %}</strong>
+    {% if data.showroom %}
+      {% trans 'المعرض:' %} <span class="badge bg-primary">{{ data.showroom.name_ar|default:data.showroom.name }}</span>
+    {% else %}
+      <span class="badge bg-success">{% trans 'جميع المعارض' %}</span>
+    {% endif %}
+    {% if data.period %}
+      - {% trans 'الفترة:' %} <span class="badge bg-dark">{{ data.period }}</span>
+    {% else %}
+      - <span class="badge bg-warning text-dark">{% trans 'جميع الفترات' %}</span>
+    {% endif %}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+
+  <!-- البطاقات الإحصائية الرئيسية -->
+  <div class="row g-4 mb-4">
+    <div class="col-md-4">
+      <div class="card border-0 shadow-lg h-100 hover-lift">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-start mb-3">
+            <div>
+              <h6 class="text-muted text-uppercase small mb-1">{% trans 'إجمالي الإيرادات' %}</h6>
+              <div class="display-4 fw-bold text-success">{{ data.revenue|floatformat:2|intcomma }}</div>
+              <small class="text-muted">{% trans 'جنيه مصري' %}</small>
+            </div>
+            <div class="bg-success-soft rounded-circle p-3">
+              <i class="fas fa-arrow-up fs-2 text-success"></i>
+            </div>
+          </div>
+          <div class="progress" style="height: 8px;">
+            <div class="progress-bar bg-success" style="width: 100%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card border-0 shadow-lg h-100 hover-lift">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-start mb-3">
+            <div>
+              <h6 class="text-muted text-uppercase small mb-1">{% trans 'إجمالي المصروفات' %}</h6>
+              <div class="display-4 fw-bold text-danger">{{ data.expense|floatformat:2|intcomma }}</div>
+              <small class="text-muted">{% trans 'جنيه مصري' %}</small>
+            </div>
+            <div class="bg-danger-soft rounded-circle p-3">
+              <i class="fas fa-arrow-down fs-2 text-danger"></i>
+            </div>
+          </div>
+          <div class="progress" style="height: 8px;">
+            <div class="progress-bar bg-danger" style="width: 100%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card border-0 shadow-lg h-100 hover-lift">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-start mb-3">
+            <div>
+              <h6 class="text-muted text-uppercase small mb-1">{% trans 'صافي الربح' %}</h6>
+              <div class="display-4 fw-bold {% if data.gross_profit >= 0 %}text-primary{% else %}text-danger{% endif %}">
+                {{ data.gross_profit|floatformat:2|intcomma }}
+              </div>
+              <small class="text-muted">{% trans 'جنيه مصري' %}</small>
+            </div>
+            <div class="{% if data.gross_profit >= 0 %}bg-primary-soft{% else %}bg-danger-soft{% endif %} rounded-circle p-3">
+              <i class="fas fa-chart-pie fs-2 {% if data.gross_profit >= 0 %}text-primary{% else %}text-danger{% endif %}"></i>
+            </div>
+          </div>
+          <div class="progress" style="height: 8px;">
+            <div class="progress-bar {% if data.gross_profit >= 0 %}bg-primary{% else %}bg-danger{% endif %}" style="width: 100%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- التحليل التفصيلي -->
+  <div class="row g-4 mb-4">
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-light border-0 py-3">
+          <h5 class="mb-0">
+            <i class="fas fa-percentage text-info me-2"></i>
+            {% trans 'نسب الأداء' %}
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="mb-4">
+            <div class="d-flex justify-content-between mb-2">
+              <span class="fw-bold">{% trans 'هامش الربح' %}</span>
+              <span class="badge bg-primary">
+                {% if data.revenue > 0 %}
+                  {% widthratio data.gross_profit data.revenue 100 %}%
+                {% else %}
+                  0%
+                {% endif %}
+              </span>
+            </div>
+            <div class="progress" style="height: 12px;">
+              {% if data.revenue > 0 %}
+                {% widthratio data.gross_profit data.revenue 100 as profit_margin %}
+                <div class="progress-bar bg-primary" style="width: {{ profit_margin }}%"></div>
+              {% else %}
+                <div class="progress-bar bg-secondary" style="width: 0%"></div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <div class="d-flex justify-content-between mb-2">
+              <span class="fw-bold">{% trans 'نسبة المصروفات' %}</span>
+              <span class="badge bg-danger">
+                {% if data.revenue > 0 %}
+                  {% widthratio data.expense data.revenue 100 %}%
+                {% else %}
+                  0%
+                {% endif %}
+              </span>
+            </div>
+            <div class="progress" style="height: 12px;">
+              {% if data.revenue > 0 %}
+                {% widthratio data.expense data.revenue 100 as expense_ratio %}
+                <div class="progress-bar bg-danger" style="width: {{ expense_ratio }}%"></div>
+              {% else %}
+                <div class="progress-bar bg-secondary" style="width: 0%"></div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div>
+            <div class="d-flex justify-content-between mb-2">
+              <span class="fw-bold">{% trans 'معدل العائد' %}</span>
+              <span class="badge bg-success">
+                {% if data.expense > 0 %}
+                  {% widthratio data.revenue data.expense 100 %}%
+                {% else %}
+                  100%
+                {% endif %}
+              </span>
+            </div>
+            <div class="progress" style="height: 12px;">
+              <div class="progress-bar bg-success" style="width: 100%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-light border-0 py-3">
+          <h5 class="mb-0">
+            <i class="fas fa-chart-bar text-warning me-2"></i>
+            {% trans 'ملخص مالي' %}
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive"><table class="table table-borderless mb-0">
+            <tbody>
+              <tr class="border-bottom">
+                <td class="py-3">
+                  <i class="fas fa-plus-circle text-success me-2"></i>
+                  <strong>{% trans 'الإيرادات' %}</strong>
+                </td>
+                <td class="text-end py-3">
+                  <span class="fs-5 fw-bold text-success">{{ data.revenue|floatformat:2|intcomma }}</span>
+                </td>
+              </tr>
+              <tr class="border-bottom">
+                <td class="py-3">
+                  <i class="fas fa-minus-circle text-danger me-2"></i>
+                  <strong>{% trans 'المصروفات' %}</strong>
+                </td>
+                <td class="text-end py-3">
+                  <span class="fs-5 fw-bold text-danger">({{ data.expense|floatformat:2|intcomma }})</span>
+                </td>
+              </tr>
+              <tr class="bg-light">
+                <td class="py-3">
+                  <i class="fas fa-equals text-primary me-2"></i>
+                  <strong class="fs-5">{% trans 'صافي الربح' %}</strong>
+                </td>
+                <td class="text-end py-3">
+                  <span class="fs-4 fw-bold {% if data.gross_profit >= 0 %}text-primary{% else %}text-danger{% endif %}">
+                    {{ data.gross_profit|floatformat:2|intcomma }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table></div>
+
+          <div class="alert alert-{% if data.gross_profit >= 0 %}success{% else %}danger{% endif %} mt-3 mb-0">
+            <i class="fas fa-{% if data.gross_profit >= 0 %}check{% else %}exclamation{% endif %}-circle me-2"></i>
+            {% if data.gross_profit >= 0 %}
+              <strong>{% trans 'أداء ممتاز!' %}</strong> {% trans 'الأعمال تحقق أرباحاً' %}
+            {% else %}
+              <strong>{% trans 'تنبيه!' %}</strong> {% trans 'الأعمال تحقق خسائر، يرجى المراجعة' %}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- رسم بياني دائري -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-light border-0 py-3">
+      <h5 class="mb-0">
+        <i class="fas fa-chart-pie text-success me-2"></i>
+        {% trans 'التوزيع المالي' %}
+      </h5>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-6">
+          <canvas id="pnlChart" height="200"></canvas>
+        </div>
+        <div class="col-md-6">
+          <div class="d-flex flex-column justify-content-center h-100">
+            <div class="mb-4">
+              <div class="d-flex align-items-center mb-2">
+                <div class="bg-success rounded me-3" style="width: 40px; height: 40px;"></div>
+                <div>
+                  <h6 class="mb-0">{% trans 'الإيرادات' %}</h6>
+                  <p class="mb-0 text-muted">{{ data.revenue|floatformat:2|intcomma }} {% trans 'جنيه' %}</p>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="d-flex align-items-center">
+                <div class="bg-danger rounded me-3" style="width: 40px; height: 40px;"></div>
+                <div>
+                  <h6 class="mb-0">{% trans 'المصروفات' %}</h6>
+                  <p class="mb-0 text-muted">{{ data.expense|floatformat:2|intcomma }} {% trans 'جنيه' %}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% else %}
+  <!-- حالة عدم وجود بيانات -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-body text-center py-5">
+      <i class="fas fa-search fa-4x text-muted mb-4"></i>
+      <h4 class="text-muted mb-3">{% trans 'لا توجد بيانات للعرض' %}</h4>
+      <p class="text-muted mb-4">{% trans 'يرجى اختيار المعرض والفترة من الفلاتر أعلاه ثم الضغط على "عرض التقرير"' %}</p>
+      <div class="alert alert-info d-inline-block">
+        <i class="fas fa-lightbulb me-2"></i>
+        {% trans 'نصيحة: يمكنك ترك المعرض فارغاً لعرض تقرير شامل لجميع المعارض' %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+.hover-lift {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.2) !important;
+}
+
+.bg-success-soft {
+  background-color: rgba(25, 135, 84, 0.1);
+}
+
+.bg-danger-soft {
+  background-color: rgba(220, 53, 69, 0.1);
+}
+
+.bg-primary-soft {
+  background-color: rgba(13, 110, 253, 0.1);
+}
+
+.bg-gradient {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+@media print {
+  .btn, .card-header {
+    display: none !important;
+  }
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+{% if data %}
+// رسم بياني دائري
+const ctx = document.getElementById('pnlChart');
+if (ctx) {
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['{% trans "الإيرادات" %}', '{% trans "المصروفات" %}'],
+      datasets: [{
+        data: [{{ data.revenue }}, {{ data.expense }}],
+        backgroundColor: ['#198754', '#dc3545'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        }
+      }
+    }
+  });
+}
+{% endif %}
+
+function exportToExcel() {
+  alert('{% trans "سيتم إضافة ميزة التصدير قريباً" %}');
+}
+</script>
+{% endblock %}

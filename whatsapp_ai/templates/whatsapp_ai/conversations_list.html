@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-bar {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .conversation-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border-right: 5px solid #667eea;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        transition: all 0.3s ease;
+    }
+    
+    .conversation-card:hover {
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        transform: translateX(-5px);
+    }
+    
+    .conversation-card.whatsapp { border-right-color: #25D366; }
+    .conversation-card.facebook { border-right-color: #1877F2; }
+    .conversation-card.instagram { border-right-color: #E4405F; }
+    
+    .platform-badge {
+        display: inline-block;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: bold;
+        color: white;
+    }
+    
+    .platform-badge.whatsapp { background: #25D366; }
+    .platform-badge.facebook { background: #1877F2; }
+    .platform-badge.instagram { background: #E4405F; }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: bold;
+    }
+    
+    .status-badge.active { background: #ffc107; color: #000; }
+    .status-badge.closed { background: #6c757d; color: white; }
+    .status-badge.converted { background: #28a745; color: white; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12 mb-4">
+            <h1 class="display-5">
+                <i class="fas fa-comments me-3"></i>
+                {{ page_title }}
+            </h1>
+        </div>
+    </div>
+    
+    <!-- شريط الفلترة -->
+    <div class="filter-bar">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">البحث</label>
+                <input type="text" name="search" class="form-control" placeholder="اسم العميل أو رقم الهاتف..." value="{{ search_query }}">
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">المنصة</label>
+                <select name="platform" class="form-select">
+                    <option value="">الكل</option>
+                    <option value="whatsapp" {% if platform_filter == 'whatsapp' %}selected{% endif %}>واتساب</option>
+                    <option value="facebook" {% if platform_filter == 'facebook' %}selected{% endif %}>فيسبوك</option>
+                    <option value="instagram" {% if platform_filter == 'instagram' %}selected{% endif %}>انستجرام</option>
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">الحالة</label>
+                <select name="status" class="form-select">
+                    <option value="">الكل</option>
+                    <option value="active" {% if status_filter == 'active' %}selected{% endif %}>نشطة</option>
+                    <option value="closed" {% if status_filter == 'closed' %}selected{% endif %}>مغلقة</option>
+                    <option value="converted" {% if status_filter == 'converted' %}selected{% endif %}>تم التحويل</option>
+                </select>
+            </div>
+            
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">
+                    <i class="fas fa-search me-2"></i>
+                    بحث
+                </button>
+                <a href="{% url 'whatsapp_ai:conversations_list' %}" class="btn btn-secondary">
+                    <i class="fas fa-redo me-2"></i>
+                    إعادة تعيين
+                </a>
+            </div>
+        </form>
+    </div>
+    
+    <!-- قائمة المحادثات -->
+    <div class="row">
+        <div class="col-12">
+            {% for conv in conversations %}
+            <div class="conversation-card {{ conv.platform }}">
+                <div class="row align-items-center">
+                    <div class="col-md-1 text-center">
+                        {% if conv.platform == 'whatsapp' %}
+                            <i class="fab fa-whatsapp fa-3x" style="color: #25D366;"></i>
+                        {% elif conv.platform == 'facebook' %}
+                            <i class="fab fa-facebook-messenger fa-3x" style="color: #1877F2;"></i>
+                        {% elif conv.platform == 'instagram' %}
+                            <i class="fab fa-instagram fa-3x" style="color: #E4405F;"></i>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <h5 class="mb-1">{{ conv.customer_name|default:"عميل بدون اسم" }}</h5>
+                        <small class="text-muted">
+                            {% if conv.phone_number %}
+                                <i class="fas fa-phone me-1"></i>{{ conv.phone_number }}
+                            {% else %}
+                                <i class="fas fa-id-badge me-1"></i>{{ conv.platform_user_id }}
+                            {% endif %}
+                        </small>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <span class="platform-badge {{ conv.platform }}">
+                            {{ conv.get_platform_display }}
+                        </span>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <span class="status-badge {{ conv.status }}">
+                            {{ conv.get_status_display }}
+                        </span>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <div class="text-muted small">رسائل</div>
+                        <strong>{{ conv.messages_count }}</strong>
+                        
+                        {% if conv.conversion_probability > 0 %}
+                            <div class="text-muted small mt-1">
+                                احتمالية الشراء: {{ conv.conversion_probability|floatformat:0 }}%
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-2 text-start">
+                        <a href="{% url 'whatsapp_ai:conversation_detail' conv.id %}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-eye me-1"></i>
+                            عرض التفاصيل
+                        </a>
+                        
+                        {% if not conv.customer %}
+                        <button class="btn btn-sm btn-success mt-1 convert-btn" data-id="{{ conv.id }}">
+                            <i class="fas fa-user-plus me-1"></i>
+                            تحويل لعميل
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if conv.interested_products %}
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-shopping-cart me-2"></i>
+                            <strong>منتجات مهتم بها:</strong>
+                            {% for product in conv.interested_products %}
+                                <span class="badge bg-primary me-1">{{ product }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                لا توجد محادثات تطابق معايير البحث
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('.convert-btn').click(function() {
+        const convId = $(this).data('id');
+        const btn = $(this);
+        
+        if (confirm('هل تريد تحويل هذه المحادثة إلى عميل في CRM؟')) {
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i> جاري التحويل...');
+            
+            $.ajax({
+                url: `/social-media/conversations/${convId}/convert/`,
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                success: function(data) {
+                    if (data.success) {
+                        alert('تم التحويل بنجاح!');
+                        location.reload();
+                    } else {
+                        alert(data.message);
+                        btn.prop('disabled', false).html('<i class="fas fa-user-plus me-1"></i> تحويل لعميل');
+                    }
+                },
+                error: function() {
+                    alert('حدث خطأ أثناء التحويل');
+                    btn.prop('disabled', false).html('<i class="fas fa-user-plus me-1"></i> تحويل لعميل');
+                }
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

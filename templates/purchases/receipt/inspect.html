@@ -1,0 +1,338 @@
+﻿{% extends 'base_templates/_form_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'فحص سند الاستلام' %}{% endblock %}
+{% block hero_icon %}bi-search{% endblock %}
+{% block hero_title %}{% trans 'فحص سند الاستلام' %} - {{ receipt.receipt_number }}{% endblock %}
+{% block hero_subtitle %}{% trans 'فحص وتدقيق البضائع المستلمة' %}{% endblock %}
+
+{% block back_url %}{% url 'purchases:receipt_detail' receipt.pk %}{% endblock %}
+
+{% block form_styles %}
+<style>
+.receipt-summary {
+  background: var(--bs-tertiary-bg);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.receipt-summary .summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}
+.receipt-summary .summary-item {
+  text-align: center;
+}
+.receipt-summary .summary-item .label {
+  font-size: 0.75rem;
+  color: var(--bs-secondary-color);
+  text-transform: uppercase;
+}
+.receipt-summary .summary-item .value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-brand-primary);
+}
+.inspection-item {
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  transition: all 0.2s;
+}
+.inspection-item:hover {
+  border-color: var(--color-brand-primary);
+}
+.inspection-item .item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+.inspection-item .item-info h5 {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+}
+.inspection-item .item-info .item-code {
+  color: var(--bs-secondary-color);
+  font-size: 0.85rem;
+}
+.inspection-item .qty-badge {
+  background: var(--color-brand-primary);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 700;
+}
+.inspection-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+.condition-options {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.condition-option {
+  flex: 1;
+  min-width: 100px;
+}
+.condition-option input {
+  display: none;
+}
+.condition-option label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.75rem;
+  border: 2px solid var(--bs-border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+.condition-option label i {
+  font-size: 1.25rem;
+}
+.condition-option label span {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.condition-option input:checked + label.good {
+  border-color: #198754;
+  background: rgba(25,135,84,0.08);
+  color: #198754;
+}
+.condition-option input:checked + label.damaged {
+  border-color: #dc3545;
+  background: rgba(220,53,69,0.08);
+  color: #dc3545;
+}
+.condition-option input:checked + label.partial {
+  border-color: #ffc107;
+  background: rgba(255,193,7,0.1);
+  color: #997404;
+}
+.qc-summary {
+  background: linear-gradient(135deg, rgba(var(--color-brand-accent-rgb),0.1) 0%, rgba(var(--color-brand-accent-rgb),0.03) 100%);
+  border: 1px solid var(--color-brand-accent);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+.qc-summary h5 {
+  margin: 0 0 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.qc-summary h5 i {
+  color: var(--color-brand-accent);
+}
+.qc-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.qc-stat {
+  text-align: center;
+  padding: 0.75rem;
+  background: var(--bs-body-bg);
+  border-radius: 8px;
+}
+.qc-stat .stat-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+.qc-stat .stat-label {
+  font-size: 0.75rem;
+  color: var(--bs-secondary-color);
+}
+.qc-stat.good .stat-value { color: #198754; }
+.qc-stat.damaged .stat-value { color: #dc3545; }
+.qc-stat.partial .stat-value { color: #997404; }
+</style>
+{% endblock %}
+
+{% block form_content %}
+{# Receipt Summary #}
+<div class="receipt-summary">
+  <div class="summary-grid">
+    <div class="summary-item">
+      <div class="label">{% trans 'رقم السند' %}</div>
+      <div class="value">{{ receipt.receipt_number }}</div>
+    </div>
+    <div class="summary-item">
+      <div class="label">{% trans 'أمر الشراء' %}</div>
+      <div class="value">{{ receipt.purchase_order.po_number }}</div>
+    </div>
+    <div class="summary-item">
+      <div class="label">{% trans 'المورد' %}</div>
+      <div class="value">{{ receipt.purchase_order.supplier.name }}</div>
+    </div>
+    <div class="summary-item">
+      <div class="label">{% trans 'تاريخ الاستلام' %}</div>
+      <div class="value">{{ receipt.receipt_date|date:"Y/m/d" }}</div>
+    </div>
+    <div class="summary-item">
+      <div class="label">{% trans 'عدد الأصناف' %}</div>
+      <div class="value">{{ receipt.items.count }}</div>
+    </div>
+  </div>
+</div>
+
+{# Inspection Items #}
+<h5 class="mb-3">
+  <i class="bi bi-clipboard-check me-2"></i>{% trans 'فحص الأصناف' %}
+</h5>
+
+{% for item in receipt.items.all %}
+<div class="inspection-item" data-item-id="{ item.pk }">
+  <div class="item-header">
+    <div class="item-info">
+      <h5>{{ item.product.name }}</h5>
+      <div class="item-code">{{ item.product.code }}</div>
+    </div>
+    <div class="qty-badge">
+      {{ item.received_qty }} {{ item.product.unit }}
+    </div>
+  </div>
+  
+  <div class="inspection-fields">
+    <div class="form-field">
+      <label class="form-label">{% trans 'حالة الصنف' %}</label>
+      <div class="condition-options">
+        <div class="condition-option">
+          <input type="radio" name="items[{{ item.pk }}][condition]" 
+                 id="cond_good_{ item.pk }}" value="good" 
+                 {% if item.inspection_status == 'good' or not item.inspection_status %}checked{% endif %}>
+          <label for="cond_good_{ item.pk }}" class="good">
+            <i class="bi bi-check-circle"></i>
+            <span>{% trans 'سليم' %}</span>
+          </label>
+        </div>
+        <div class="condition-option">
+          <input type="radio" name="items[{{ item.pk }}][condition]" 
+                 id="cond_damaged_{ item.pk }}" value="damaged"
+                 {% if item.inspection_status == 'damaged' %}checked{% endif %}>
+          <label for="cond_damaged_{ item.pk }}" class="damaged">
+            <i class="bi bi-x-circle"></i>
+            <span>{% trans 'تالف' %}</span>
+          </label>
+        </div>
+        <div class="condition-option">
+          <input type="radio" name="items[{{ item.pk }}][condition]" 
+                 id="cond_partial_{ item.pk }}" value="partial"
+                 {% if item.inspection_status == 'partial' %}checked{% endif %}>
+          <label for="cond_partial_{ item.pk }}" class="partial">
+            <i class="bi bi-exclamation-circle"></i>
+            <span>{% trans 'جزئي' %}</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    
+    <div class="form-field">
+      <label class="form-label">{% trans 'الكمية المقبولة' %}</label>
+      <input type="number" name="items[{{ item.pk }}][accepted_qty]" 
+             class="form-control accepted-qty" 
+             value="{ item.accepted_qty|default:item.received_qty }}"
+             min="0" max="{ item.received_qty }}" step="0.01">
+    </div>
+    
+    <div class="form-field">
+      <label class="form-label">{% trans 'ملاحظات الفحص' %}</label>
+      <input type="text" name="items[{{ item.pk }}][inspection_note]" 
+             class="form-control" value="{ item.inspection_note|default:'' }"
+             placeholder="{% trans 'وصف المشكلة إن وجدت...' %}">
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+{# QC Summary #}
+<div class="qc-summary">
+  <h5>
+    <i class="bi bi-graph-up"></i>
+    {% trans 'ملخص الفحص' %}
+  </h5>
+  
+  <div class="qc-stats">
+    <div class="qc-stat good">
+      <div class="stat-value" id="goodCount">0</div>
+      <div class="stat-label">{% trans 'سليم' %}</div>
+    </div>
+    <div class="qc-stat damaged">
+      <div class="stat-value" id="damagedCount">0</div>
+      <div class="stat-label">{% trans 'تالف' %}</div>
+    </div>
+    <div class="qc-stat partial">
+      <div class="stat-value" id="partialCount">0</div>
+      <div class="stat-label">{% trans 'جزئي' %}</div>
+    </div>
+  </div>
+  
+  <div class="form-field">
+    <label class="form-label">{% trans 'ملاحظات الفحص العامة' %}</label>
+    <textarea name="inspection_notes" class="form-control" rows="2" 
+              placeholder="{% trans 'ملاحظات عامة على نتائج الفحص...' %}">{{ receipt.inspection_notes|default:'' }}</textarea>
+  </div>
+</div>
+{% endblock %}
+
+{% block form_buttons %}
+<a href="{% url 'purchases:receipt_detail' receipt.pk %}" class="btn btn-outline-secondary">
+  <i class="bi bi-x-lg me-1"></i>{% trans 'إلغاء' %}
+</a>
+<button type="submit" name="action" value="save" class="btn btn-outline-primary">
+  <i class="bi bi-floppy me-1"></i>{% trans 'حفظ' %}
+</button>
+<button type="submit" name="action" value="complete" class="btn btn-success">
+  <i class="bi bi-check-circle me-1"></i>{% trans 'إكمال الفحص' %}
+</button>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateStats() {
+  let good = 0, damaged = 0, partial = 0;
+  document.querySelectorAll('.inspection-item').forEach(item => {
+    const checked = item.querySelector('input[type="radio"]:checked');
+    if (checked) {
+      if (checked.value === 'good') good++;
+      else if (checked.value === 'damaged') damaged++;
+      else if (checked.value === 'partial') partial++;
+    }
+  });
+  document.getElementById('goodCount').textContent = good;
+  document.getElementById('damagedCount').textContent = damaged;
+  document.getElementById('partialCount').textContent = partial;
+}
+
+// Listen for condition changes
+document.querySelectorAll('.condition-option input').forEach(radio => {
+  radio.addEventListener('change', function() {
+    const item = this.closest('.inspection-item');
+    const acceptedInput = item.querySelector('.accepted-qty');
+    const maxQty = parseFloat(acceptedInput.max);
+    
+    if (this.value === 'damaged') {
+      acceptedInput.value = 0;
+    } else if (this.value === 'good') {
+      acceptedInput.value = maxQty;
+    }
+    updateStats();
+  });
+});
+
+// Initial update
+updateStats();
+</script>
+{% endblock %}
+

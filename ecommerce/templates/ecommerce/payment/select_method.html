@@ -1,0 +1,100 @@
+{% extends "ecommerce/store_base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "اختيار طريقة الدفع" %} - {{ settings.store_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0 rounded-lg overflow-hidden">
+                <div class="card-header bg-white py-3 border-bottom">
+                    <h1 class="h4 mb-0 text-center fw-bold">{% trans "اختر طريقة الدفع" %}</h1>
+                </div>
+                <div class="card-body p-4">
+                    <div class="order-summary mb-4 p-3 bg-light rounded">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>{% trans "رقم الطلب" %}:</span>
+                            <span class="fw-bold">#{{ order.order_number }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>{% trans "إجمالي المبلغ" %}:</span>
+                            <span class="fw-bold text-primary">{{ order.total }} {{ order.currency }}</span>
+                        </div>
+                    </div>
+                    
+                    <form action="{% url 'ecommerce:initiate_payment' order.id %}" method="POST">
+                        {% csrf_token %}
+                        <div class="payment-methods d-grid gap-3 mb-4">
+                            {% for gateway in payment_gateways %}
+                            <div class="payment-method-item">
+                                <input type="radio" class="btn-check" name="payment_method_id" value="{{ gateway.id }}" id="method_{{ gateway.id }}" {% if forloop.first %}checked{% endif %}>
+                                <label class="btn btn-outline-light text-dark text-start p-3 w-100 border d-flex align-items-center gap-3 shadow-none" for="method_{{ gateway.id }}">
+                                    <div class="gateway-icon">
+                                        {% if gateway.icon %}
+                                        <img src="{{ gateway.icon.url }}" alt="{{ gateway.name }}" style="height: 30px; width: auto;">
+                                        {% else %}
+                                        <i class="bi bi-credit-card fs-3 text-primary"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div class="gateway-info">
+                                        <div class="fw-bold">{{ gateway.name }}</div>
+                                        {% if gateway.description %}
+                                        <small class="text-muted d-block">{{ gateway.description }}</small>
+                                        {% endif %}
+                                    </div>
+                                    <i class="bi bi-check-circle-fill ms-auto text-primary check-icon"></i>
+                                </label>
+                            </div>
+                            {% empty %}
+                            <div class="alert alert-warning text-center">
+                                {% trans "لا توجد طرق دفع متاحة حالياً. يرجى التواصل مع الإدارة." %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg" {% if not payment_gateways %}disabled{% endif %}>
+                                {% trans "تأكيد الدفع" %} <i class="bi bi-arrow-left ms-2"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer bg-white py-3 border-top text-center">
+                    <a href="{% url 'ecommerce:order_detail' order.id %}" class="text-decoration-none text-muted small">
+                        <i class="bi bi-chevron-right me-1"></i>{% trans "العودة لتفاصيل الطلب" %}
+                    </a>
+                </div>
+            </div>
+            
+            <div class="secure-info mt-4 text-center text-muted small">
+                <i class="bi bi-shield-lock-fill me-1"></i>{% trans "جميع عمليات الدفع مشفرة وآمنة تماماً." %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .payment-method-item label {
+        transition: all 0.2s ease;
+        border-color: #dee2e6 !important;
+    }
+    
+    .payment-method-item input:checked + label {
+        border-color: var(--bs-primary) !important;
+        background-color: rgba(13, 110, 253, 0.05) !important;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.1) !important;
+    }
+    
+    .payment-method-item label .check-icon {
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+    
+    .payment-method-item input:checked + label .check-icon {
+        opacity: 1;
+    }
+</style>
+{% endblock %}

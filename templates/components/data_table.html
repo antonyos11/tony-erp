@@ -1,0 +1,161 @@
+﻿{% comment %}
+==============================================================================
+مكون جدول محسّن
+Enhanced Table Component
+
+الاستخدام:
+{% include 'components/data_table.html' with columns=columns data=data searchable=True sortable=True %}
+
+المعاملات:
+- columns: قائمة الأعمدة [{"name": "الاسم", "field": "name", "sortable": true}]
+- data: بيانات الجدول
+- searchable: إضافة بحث (اختياري)
+- sortable: إضافة ترتيب (اختياري)
+- selectable: إضافة تحديد (اختياري)
+- actions: أزرار الإجراءات (اختياري)
+- empty_message: رسالة عند عدم وجود بيانات (اختياري)
+==============================================================================
+{% endcomment %}
+
+{% load i18n %}
+
+<div class="ds-table-wrapper table-wrapper">
+  {% if searchable %}
+  <div class="table-toolbar d-flex gap-2 p-3 border-bottom">
+    <div class="input-group input-group-sm" style="max-width: 300px;">
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
+      <input type="text" class="form-control" data-table-search placeholder="{% trans 'بحث...' %}">
+    </div>
+    
+    <div class="ms-auto d-flex gap-2">
+      {% if actions %}
+        {% for action in actions %}
+        <a href="{{ action.url }}" class="btn btn-sm btn-{{ action.variant|default:'primary' }}">
+          {% if action.icon %}<i class="bi {{ action.icon }} me-1"></i>{% endif %}
+          {{ action.label }}
+        </a>
+        {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+  
+  {% if selectable %}
+  <div class="selection-info p-2 border-bottom bg-light" style="display: none;">
+    <span class="text-muted">{% trans 'تم تحديد' %} <strong data-selection-count>0</strong> {% trans 'عناصر' %}</span>
+    <button type="button" class="btn btn-sm btn-outline-danger ms-2" data-bulk-delete>
+      <i class="bi bi-trash"></i> {% trans 'حذف المحدد' %}
+    </button>
+  </div>
+  {% endif %}
+  
+  <div class="table-responsive">
+    <table class="table table-modern table-enhanced mb-0">
+      <thead>
+        <tr>
+          {% if selectable %}
+          <th style="width: 40px;">
+            <input type="checkbox" class="form-check-input" data-select-all>
+          </th>
+          {% endif %}
+          
+          {% for col in columns %}
+          <th {% if sortable and col.sortable %}data-sortable{% endif %}>
+            {{ col.name }}
+            {% if sortable and col.sortable %}
+            <i class="bi bi-arrow-down-up text-muted float-end"></i>
+            {% endif %}
+          </th>
+          {% endfor %}
+          
+          {% if row_actions %}
+          <th style="width: 100px;">{% trans 'إجراءات' %}</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in data %}
+        <tr>
+          {% if selectable %}
+          <td>
+            <input type="checkbox" class="form-check-input" data-row-select value="{{ row.id }}">
+          </td>
+          {% endif %}
+          
+          {% for col in columns %}
+          <td>
+            {% if col.field == 'status' %}
+              <span class="ds-badge" data-variant="{{ row.status_variant|default:'success' }}">
+                {{ row|lookup:col.field }}
+              </span>
+            {% elif col.type == 'money' %}
+              {{ row|lookup:col.field|money }}
+            {% elif col.type == 'date' %}
+              {{ row|lookup:col.field|date:"Y-m-d" }}
+            {% else %}
+              {{ row|lookup:col.field|default:"-" }}
+            {% endif %}
+          </td>
+          {% endfor %}
+          
+          {% if row_actions %}
+          <td>
+            <div class="btn-group btn-group-sm">
+              <a href="{{ row.edit_url|default:'#' }}" class="btn btn-outline-secondary" title="{% trans 'تعديل' %}">
+                <i class="bi bi-pencil"></i>
+              </a>
+              <a href="{{ row.view_url|default:'#' }}" class="btn btn-outline-secondary" title="{% trans 'عرض' %}">
+                <i class="bi bi-eye"></i>
+              </a>
+            </div>
+          </td>
+          {% endif %}
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="{{ columns|length|add:2 }}" class="text-center py-5">
+            <div class="text-muted">
+              <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+              {{ empty_message|default:"لا توجد بيانات للعرض" }}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  
+  {% if data %}
+  <div class="table-footer d-flex justify-content-between align-items-center p-3 border-top">
+    <small class="text-muted">
+      {% trans 'إجمالي' %}: {{ data|length }} {% trans 'عناصر' %}
+    </small>
+    
+    {% if is_paginated %}
+    <nav>
+      <ul class="pagination pagination-sm mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+            <i class="bi bi-chevron-right"></i>
+          </a>
+        </li>
+        {% endif %}
+        
+        <li class="page-item active">
+          <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        </li>
+        
+        {% if page_obj.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+            <i class="bi bi-chevron-left"></i>
+          </a>
+        </li>
+        {% endif %}
+      </ul>
+    </nav>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>

@@ -1,0 +1,123 @@
+{% extends BASE_TEMPLATE %}
+{% load i18n %}
+
+{% block title %}تقرير التكاليف{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-cash me-2"></i>تقرير التكاليف</h2>
+    </div>
+
+    <!-- ملخص -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 bg-primary bg-opacity-10">
+                <div class="card-body text-center">
+                    <h4 class="text-primary mb-1">{{ total_budget|floatformat:0 }} ج.م</h4>
+                    <small class="text-muted">إجمالي الميزانية</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 bg-danger bg-opacity-10">
+                <div class="card-body text-center">
+                    <h4 class="text-danger mb-1">{{ total_expenses|floatformat:0 }} ج.م</h4>
+                    <small class="text-muted">إجمالي المصروفات</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 bg-success bg-opacity-10">
+                <div class="card-body text-center">
+                    {% widthratio total_expenses total_budget 100 as percent %}
+                    <h4 class="text-success mb-1">{{ percent|default:"0" }}%</h4>
+                    <small class="text-muted">نسبة الإنفاق</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- تكاليف حسب النوع -->
+    {% if by_type %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-pie-chart me-2"></i>التكاليف حسب النوع</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>نوع المصروف</th>
+                            <th>عدد العمليات</th>
+                            <th>الإجمالي</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in by_type %}
+                        <tr>
+                            <td>
+                                {% if item.expense_type == 'material' %}مواد
+                                {% elif item.expense_type == 'labour' %}عمالة
+                                {% elif item.expense_type == 'equipment' %}معدات
+                                {% elif item.expense_type == 'transport' %}نقل
+                                {% else %}أخرى{% endif %}
+                            </td>
+                            <td>{{ item.count }}</td>
+                            <td class="fw-bold text-danger">{{ item.total|floatformat:2 }} ج.م</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- تكاليف حسب المشروع -->
+    <div class="card shadow-sm">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-building me-2"></i>التكاليف حسب المشروع</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>المشروع</th>
+                            <th>الكود</th>
+                            <th>الميزانية</th>
+                            <th>المنصرف</th>
+                            <th>العمليات</th>
+                            <th>الفرق</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in by_project %}
+                        <tr>
+                            <td><strong>{{ item.project__name }}</strong></td>
+                            <td><code>{{ item.project__code }}</code></td>
+                            <td>{{ item.project__budget|floatformat:0 }} ج.م</td>
+                            <td class="text-danger fw-bold">{{ item.total_spent|floatformat:0 }} ج.م</td>
+                            <td>{{ item.expense_count }}</td>
+                            <td>
+                                {% if item.project__budget %}
+                                <span class="{% if item.total_spent > item.project__budget %}text-danger{% else %}text-success{% endif %}">
+                                    {{ item.project__budget|floatformat:0 }} - {{ item.total_spent|floatformat:0 }}
+                                </span>
+                                {% else %}-{% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">لا توجد مصروفات مسجلة</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,391 @@
+﻿{% extends 'base_templates/_detail_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'تفاصيل طلب عرض السعر' %}{% endblock %}
+{% block hero_icon %}bi-send{% endblock %}
+{% block hero_title %}{% trans 'طلب عرض السعر' %} - {{ rfq.rfq_number }}{% endblock %}
+{% block hero_subtitle %}{% if rfq.purchase_request %}{% trans 'مرتبط بطلب الشراء' %}: {{ rfq.purchase_request.pr_number }}{% endif %}{% endblock %}
+
+{% block hero_badge %}
+{% if rfq.status == 'draft' %}
+<span class="badge bg-secondary">{% trans 'مسودة' %}</span>
+{% elif rfq.status == 'sent' %}
+<span class="badge bg-warning text-dark">{% trans 'بانتظار الرد' %}</span>
+{% elif rfq.status == 'responded' %}
+<span class="badge bg-success">{% trans 'تم الرد' %}</span>
+{% elif rfq.status == 'expired' %}
+<span class="badge bg-danger">{% trans 'منتهي' %}</span>
+{% elif rfq.status == 'cancelled' %}
+<span class="badge bg-secondary">{% trans 'ملغى' %}</span>
+{% endif %}
+{% endblock %}
+
+{% block hero_actions %}
+{% if rfq.status == 'draft' %}
+<a href="{% url 'purchases:rfq_edit' rfq.pk %}" class="btn btn-outline-light">
+  <i class="bi bi-pencil me-1"></i>{% trans 'تعديل' %}
+</a>
+<a href="{% url 'purchases:rfq_send' rfq.pk %}" class="btn btn-light">
+  <i class="bi bi-send me-1"></i>{% trans 'إرسال' %}
+</a>
+{% elif rfq.status == 'sent' %}
+<a href="{% url 'purchases:quotation_create' %}?rfq={{ rfq.pk }}" class="btn btn-light">
+  <i class="bi bi-plus-circle me-1"></i>{% trans 'إضافة عرض سعر' %}
+</a>
+{% endif %}
+{% endblock %}
+
+{% block back_url %}{% url 'purchases:rfq_list' %}{% endblock %}
+
+{% block detail_styles %}
+<style>
+.suppliers-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.supplier-card {
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 12px;
+  padding: 1.25rem;
+  transition: all 0.2s;
+}
+.supplier-card:hover {
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.supplier-card .supplier-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+.supplier-card .supplier-name {
+  font-weight: 700;
+  font-size: 1rem;
+}
+.supplier-card .supplier-status {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+.supplier-card .supplier-status.sent {
+  background: rgba(13,110,253,0.1);
+  color: #0d6efd;
+}
+.supplier-card .supplier-status.responded {
+  background: rgba(25,135,84,0.1);
+  color: #198754;
+}
+.supplier-card .supplier-contact {
+  font-size: 0.85rem;
+  color: var(--bs-secondary-color);
+}
+.supplier-card .supplier-contact i {
+  width: 16px;
+  margin-left: 0.25rem;
+}
+.supplier-card .quotation-link {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--bs-border-color);
+}
+.validity-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+}
+.validity-banner.valid {
+  background: rgba(25,135,84,0.1);
+  border: 1px solid rgba(25,135,84,0.3);
+}
+.validity-banner.expiring {
+  background: rgba(255,193,7,0.1);
+  border: 1px solid rgba(255,193,7,0.3);
+}
+.validity-banner.expired {
+  background: rgba(220,53,69,0.1);
+  border: 1px solid rgba(220,53,69,0.3);
+}
+.validity-banner i {
+  font-size: 1.5rem;
+}
+.validity-banner.valid i { color: #198754; }
+.validity-banner.expiring i { color: #ffc107; }
+.validity-banner.expired i { color: #dc3545; }
+.message-box {
+  background: var(--bs-tertiary-bg);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.message-box .message-label {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.message-box .message-label i {
+  color: var(--color-brand-primary);
+}
+.quotations-summary {
+  background: linear-gradient(135deg, rgba(var(--color-brand-accent-rgb),0.1) 0%, rgba(var(--color-brand-accent-rgb),0.03) 100%);
+  border: 1px solid var(--color-brand-accent);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+.quotations-summary h5 {
+  margin: 0 0 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.quotations-summary h5 i {
+  color: var(--color-brand-accent);
+}
+.quotation-mini-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--bs-body-bg);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+}
+.quotation-mini-card:last-child {
+  margin-bottom: 0;
+}
+.quotation-mini-card .supplier {
+  font-weight: 600;
+}
+.quotation-mini-card .price {
+  font-weight: 700;
+  color: var(--color-brand-primary);
+}
+</style>
+{% endblock %}
+
+{% block info_cards %}
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon primary">
+      <i class="bi bi-hash"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'رقم الطلب' %}</div>
+      <div class="info-value">{{ rfq.rfq_number }}</div>
+    </div>
+  </div>
+</div>
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon success">
+      <i class="bi bi-calendar-check"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'تاريخ الإنشاء' %}</div>
+      <div class="info-value">{{ rfq.date|date:"Y/m/d" }}</div>
+    </div>
+  </div>
+</div>
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon {% if rfq.is_expired %}danger{% else %}warning{% endif %}">
+      <i class="bi bi-calendar-event"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'صالح حتى' %}</div>
+      <div class="info-value">{{ rfq.valid_until|date:"Y/m/d"|default:"-" }}</div>
+    </div>
+  </div>
+</div>
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon accent">
+      <i class="bi bi-building"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'عدد الموردين' %}</div>
+      <div class="info-value">{{ rfq.suppliers.count }}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block main_content %}
+{# Validity Banner #}
+{% if rfq.valid_until %}
+<div class="validity-banner {% if rfq.is_expired %}expired{% elif rfq.days_until_expiry <= 7 %}expiring{% else %}valid{% endif %}">
+  <i class="bi {% if rfq.is_expired %}bi-x-circle{% elif rfq.days_until_expiry <= 7 %}bi-exclamation-triangle{% else %}bi-check-circle{% endif %}"></i>
+  <div>
+    {% if rfq.is_expired %}
+    <strong>{% trans 'انتهت صلاحية الطلب' %}</strong>
+    {% elif rfq.days_until_expiry <= 7 %}
+    <strong>{% trans 'ينتهي خلال' %} {{ rfq.days_until_expiry }} {% trans 'أيام' %}</strong>
+    {% else %}
+    <strong>{% trans 'الطلب ساري المفعول' %}</strong>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{# Suppliers Cards #}
+<h5 class="mb-3">
+  <i class="bi bi-building me-2"></i>{% trans 'الموردين المرسل إليهم' %}
+</h5>
+
+<div class="suppliers-cards">
+  {% for supplier in rfq.suppliers.all %}
+  <div class="supplier-card">
+    <div class="supplier-header">
+      <div class="supplier-name">{{ supplier.name }}</div>
+      {% if supplier in rfq.responded_suppliers.all %}
+      <span class="supplier-status responded">{% trans 'تم الرد' %}</span>
+      {% elif rfq.status == 'sent' %}
+      <span class="supplier-status sent">{% trans 'مرسل' %}</span>
+      {% endif %}
+    </div>
+    <div class="supplier-contact">
+      {% if supplier.email %}
+      <div><i class="bi bi-envelope"></i> {{ supplier.email }}</div>
+      {% endif %}
+      {% if supplier.phone %}
+      <div><i class="bi bi-telephone"></i> {{ supplier.phone }}</div>
+      {% endif %}
+    </div>
+    {% if supplier in rfq.responded_suppliers.all %}
+    <div class="quotation-link">
+      <a href="{% url 'purchases:quotation_list' %}?supplier={{ supplier.pk }}&rfq={{ rfq.pk }}" class="btn btn-sm btn-outline-success w-100">
+        <i class="bi bi-file-earmark-text me-1"></i>{% trans 'عرض عرض السعر' %}
+      </a>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{# Message #}
+{% if rfq.message %}
+<div class="message-box">
+  <div class="message-label">
+    <i class="bi bi-envelope"></i>
+    {% trans 'رسالة للموردين' %}
+  </div>
+  <p class="mb-0">{{ rfq.message }}</p>
+</div>
+{% endif %}
+
+{# Items Table #}
+<div class="items-section mb-4">
+  <h5 class="section-title">
+    <i class="bi bi-box-seam me-2"></i>{% trans 'الأصناف المطلوبة' %}
+    <span class="badge bg-primary ms-2">{{ rfq.items.count }}</span>
+  </h5>
+  
+  <div class="table-responsive">
+    <table class="table pro-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>{% trans 'الصنف' %}</th>
+          <th class="text-center">{% trans 'الكمية' %}</th>
+          <th class="text-center">{% trans 'الوحدة' %}</th>
+          <th>{% trans 'المواصفات' %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in rfq.items.all %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>
+            <div class="fw-medium">{{ item.product.name }}</div>
+            <div class="small text-muted">{{ item.product.code }}</div>
+          </td>
+          <td class="text-center fw-medium">{{ item.quantity }}</td>
+          <td class="text-center">{{ item.product.unit }}</td>
+          <td class="text-muted">{{ item.specs|default:"-" }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="text-center text-muted py-4">
+            {% trans 'لا توجد أصناف' %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Quotations Summary #}
+{% if rfq.quotations.count > 0 %}
+<div class="quotations-summary">
+  <h5>
+    <i class="bi bi-file-earmark-ruled"></i>
+    {% trans 'عروض الأسعار المستلمة' %}
+    <span class="badge bg-success ms-2">{{ rfq.quotations.count }}</span>
+  </h5>
+  
+  {% for quotation in rfq.quotations.all %}
+  <div class="quotation-mini-card">
+    <div>
+      <div class="supplier">{{ quotation.supplier.name }}</div>
+      <div class="small text-muted">{{ quotation.quotation_date|date:"Y/m/d" }}</div>
+    </div>
+    <div class="text-end">
+      <div class="price">{{ quotation.total|floatformat:2 }} {% trans 'ج.م' %}</div>
+      <a href="{% url 'purchases:quotation_detail' quotation.pk %}" class="small">{% trans 'عرض' %}</a>
+    </div>
+  </div>
+  {% endfor %}
+  
+  <div class="mt-3 text-center">
+    <a href="{% url 'purchases:quotation_compare' %}?rfq={{ rfq.pk }}" class="btn btn-outline-primary">
+      <i class="bi bi-columns-gap me-1"></i>{% trans 'مقارنة العروض' %}
+    </a>
+  </div>
+</div>
+{% endif %}
+
+{# Internal Notes #}
+{% if rfq.internal_notes %}
+<div class="info-section mt-4">
+  <h5 class="section-title">
+    <i class="bi bi-sticky me-2"></i>{% trans 'ملاحظات داخلية' %}
+  </h5>
+  <div class="p-3 bg-body-tertiary rounded-3">
+    <p class="mb-0">{{ rfq.internal_notes }}</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block bottom_actions %}
+<a href="{% url 'purchases:rfq_list' %}" class="btn btn-outline-secondary">
+  <i class="bi bi-arrow-right me-1"></i>{% trans 'رجوع' %}
+</a>
+<div class="d-flex gap-2">
+  <button type="button" class="btn btn-outline-primary" onclick="window.print()">
+    <i class="bi bi-printer me-1"></i>{% trans 'طباعة' %}
+  </button>
+  {% if rfq.status == 'draft' %}
+  <a href="{% url 'purchases:rfq_send' rfq.pk %}" class="btn btn-success">
+    <i class="bi bi-send me-1"></i>{% trans 'إرسال للموردين' %}
+  </a>
+  {% elif rfq.status == 'sent' %}
+  <a href="{% url 'purchases:quotation_create' %}?rfq={{ rfq.pk }}" class="btn btn-success">
+    <i class="bi bi-plus-circle me-1"></i>{% trans 'إضافة عرض سعر' %}
+  </a>
+  {% endif %}
+</div>
+{% endblock %}
+

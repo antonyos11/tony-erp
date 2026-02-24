@@ -1,0 +1,164 @@
+{% extends 'ecommerce/store_base_new.html' %}
+{% load static i18n %}
+
+{% block title %}تصاميمي - {{ store_settings.store_name|default:"Tony Store" }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .designs-hero {
+        background: linear-gradient(135deg, var(--primary, #1B2A4A) 0%, #2c3e6b 100%);
+        padding: 2rem 0; color: white;
+    }
+    .design-card {
+        border: 1px solid #e9ecef; border-radius: 1rem;
+        background: white; transition: all 0.3s; height: 100%;
+    }
+    .design-card:hover { border-color: var(--secondary, #C8A962); box-shadow: 0 8px 25px rgba(0,0,0,0.08); }
+    .design-card-body { padding: 1.5rem; }
+    .design-card-body h3 { font-weight: 700; font-size: 1.1rem; margin-bottom: 0.75rem; }
+
+    .status-badge {
+        display: inline-block; padding: 0.3rem 0.75rem;
+        border-radius: 50px; font-size: 0.78rem; font-weight: 600;
+    }
+    .status-draft { background: #f1f3f5; color: #495057; }
+    .status-in_review { background: #dbeafe; color: #1e40af; }
+    .status-approved { background: #d1fae5; color: #065f46; }
+    .status-rejected { background: #fee2e2; color: #991b1b; }
+    .status-in_production { background: #fef3c7; color: #92400e; }
+    .status-ready { background: #ede9fe; color: #5b21b6; }
+    .status-completed { background: #d1fae5; color: #065f46; }
+
+    .design-meta { margin-bottom: 1rem; }
+    .design-meta-row {
+        display: flex; justify-content: space-between;
+        padding: 0.4rem 0; font-size: 0.88rem;
+        border-bottom: 1px solid #f8f9fa;
+    }
+    .design-meta-row:last-child { border: none; }
+    .design-meta-row .label { color: #6c757d; }
+    .design-meta-row .value { font-weight: 600; }
+
+    .empty-state {
+        text-align: center; padding: 4rem 2rem;
+        background: white; border-radius: 1rem;
+        border: 2px dashed #e9ecef;
+    }
+    .empty-state i { font-size: 4rem; color: #dee2e6; margin-bottom: 1rem; display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero -->
+<div class="designs-hero">
+    <div class="container">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-2" style="--bs-breadcrumb-divider: '>';">
+                <li class="breadcrumb-item"><a href="{% url 'ecommerce:store_home' %}" class="text-white-50">الرئيسية</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'ecommerce:mattress_builder:home' %}" class="text-white-50">صمم مرتبتك</a></li>
+                <li class="breadcrumb-item active text-white" aria-current="page">تصاميمي</li>
+            </ol>
+        </nav>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h1 class="fw-bold mb-1"><i class="bi bi-bookmark-star ms-2"></i> تصاميمي المحفوظة</h1>
+                <p class="mb-0" style="opacity:0.85;">جميع تصاميمك وحالتها</p>
+            </div>
+            <a href="{% url 'ecommerce:mattress_builder:builder' %}" class="btn btn-lg fw-bold rounded-pill" style="background:var(--secondary,#C8A962);color:#1B2A4A;">
+                <i class="bi bi-plus-lg ms-1"></i> تصميم جديد
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="container py-4" id="app">
+    <!-- Empty State -->
+    <div v-if="designs.length === 0" class="empty-state">
+        <i class="bi bi-bookmark"></i>
+        <h3 class="fw-bold mb-2">لا توجد تصاميم بعد</h3>
+        <p class="text-muted mb-4">ابدأ بتصميم مرتبتك الأولى الآن</p>
+        <a href="{% url 'ecommerce:mattress_builder:builder' %}" class="btn btn-lg fw-bold px-5 rounded-pill" style="background:var(--primary,#1B2A4A);color:white;">
+            <i class="bi bi-palette2 ms-1"></i> ابدأ التصميم
+        </a>
+    </div>
+
+    <!-- Designs Grid -->
+    <div v-else class="row g-4">
+        <div class="col-md-6 col-lg-4" v-for="design in designs" :key="design.id">
+            <div class="design-card">
+                <div class="design-card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h3>[[ design.name ]]</h3>
+                        <span :class="'status-badge status-' + design.status">[[ getStatusLabel(design.status) ]]</span>
+                    </div>
+
+                    <div class="design-meta">
+                        <div class="design-meta-row">
+                            <span class="label">المقاس:</span>
+                            <span class="value">[[ design.size_name ]]</span>
+                        </div>
+                        <div class="design-meta-row">
+                            <span class="label">المكونات:</span>
+                            <span class="value">[[ design.components_count ]] مكون</span>
+                        </div>
+                        <div class="design-meta-row">
+                            <span class="label">السعر:</span>
+                            <span class="value" style="color:var(--secondary,#C8A962);">[[ design.total_price ]] ج.م</span>
+                        </div>
+                        <div class="design-meta-row">
+                            <span class="label">التاريخ:</span>
+                            <span class="value">[[ formatDate(design.created_at) ]]</span>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <a :href="'/ecommerce/mattress-builder/design/' + design.id + '/'" class="btn btn-sm flex-fill fw-bold" style="background:var(--primary,#1B2A4A);color:white;">
+                            <i class="bi bi-eye ms-1"></i> عرض التفاصيل
+                        </a>
+                        <button v-if="design.status === 'draft'" @click="deleteDesign(design.id)" class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+const { createApp } = Vue;
+createApp({
+    delimiters: ['[[', ']]'],
+    data() { return { designs: [] } },
+    methods: {
+        async loadDesigns() {
+            try {
+                const res = await axios.get('/ecommerce/mattress-builder/api/designs/');
+                this.designs = res.data.results || res.data;
+            } catch (e) { console.error('خطأ:', e); }
+        },
+        getStatusLabel(s) {
+            return { 'draft':'مسودة','in_review':'قيد المراجعة','approved':'معتمد','rejected':'مرفوض','in_production':'قيد الإنتاج','ready':'جاهز','completed':'مكتمل' }[s] || s;
+        },
+        formatDate(d) {
+            if (!d) return '';
+            const date = new Date(d);
+            return date.toLocaleDateString('ar-EG', { year:'numeric', month:'short', day:'numeric' });
+        },
+        async deleteDesign(id) {
+            if (!confirm('هل أنت متأكد من حذف هذا التصميم؟')) return;
+            try {
+                await axios.delete(`/ecommerce/mattress-builder/api/designs/${id}/`);
+                this.designs = this.designs.filter(d => d.id !== id);
+                if (typeof showToast==='function') showToast('تم حذف التصميم');
+            } catch (e) { console.error('خطأ:', e); }
+        }
+    },
+    mounted() { this.loadDesigns(); }
+}).mount('#app');
+</script>
+{% endblock %}

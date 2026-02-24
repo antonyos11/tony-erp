@@ -1,0 +1,155 @@
+{% extends 'base_v2.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'توفر المنتج في المعارض' %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-geo-alt me-2"></i>{% trans 'توفر المنتج في المعارض' %}</h2>
+            <p class="text-muted mb-0">{% trans 'عرض توفر المنتج في جميع فروع الشركة' %}</p>
+        </div>
+        <a href="{% url 'showrooms:product_search' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i>{% trans 'بحث جديد' %}
+        </a>
+    </div>
+
+    <!-- معلومات المنتج -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="d-flex align-items-center">
+                        {% if product.image %}
+                        <img src="{{ product.image.url }}" class="rounded me-3" style="width: 80px; height: 80px; object-fit: cover;" alt=""
+                        {% else %}
+                        <div class="bg-light rounded me-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                            <i class="bi bi-box text-muted" style="font-size: 2rem;"></i>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <h3 class="mb-1">{{ product.name }}</h3>
+                            <p class="mb-0">
+                                <span class="badge bg-secondary me-2">{{ product.sku }}</span>
+                                {% if product.barcode %}
+                                <span class="badge bg-light text-dark">{{ product.barcode }}</span>
+                                {% endif %}
+                            </p>
+                            {% if product.category %}
+                            <small class="text-muted">{{ product.category.name }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <h4 class="text-primary mb-1">{{ product.price|floatformat:2 }} ج.م</h4>
+                    <small class="text-muted">{% trans 'السعر' %}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ملخص التوفر -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm text-center p-4">
+                <i class="bi bi-boxes text-primary" style="font-size: 2.5rem;"></i>
+                <h3 class="mt-2 mb-0">{{ total_available }}</h3>
+                <p class="text-muted mb-0">{% trans 'إجمالي الكمية المتاحة' %}</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm text-center p-4">
+                <i class="bi bi-shop text-success" style="font-size: 2.5rem;"></i>
+                <h3 class="mt-2 mb-0">{{ showrooms_with_stock }}</h3>
+                <p class="text-muted mb-0">{% trans 'معارض لديها مخزون' %}</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm text-center p-4">
+                <i class="bi bi-building text-warning" style="font-size: 2.5rem;"></i>
+                <h3 class="mt-2 mb-0">{{ search_results|length }}</h3>
+                <p class="text-muted mb-0">{% trans 'إجمالي المعارض' %}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- جدول التوفر -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>{% trans 'تفاصيل التوفر في كل معرض' %}</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% trans 'المعرض' %}</th>
+                            <th>{% trans 'المدينة' %}</th>
+                            <th>{% trans 'الكمية المتاحة' %}</th>
+                            <th>{% trans 'الحالة' %}</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in search_results %}
+                        <tr class="{% if result.is_current %}table-primary{% endif %}">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-shop me-2 {% if result.available %}text-success{% else %}text-danger{% endif %}"></i>
+                                    <div>
+                                        <strong>{{ result.showroom.name_ar|default:result.showroom.name }}</strong>
+                                        <br><small class="text-muted">{{ result.showroom.code }}</small>
+                                        {% if result.is_current %}
+                                        <span class="badge bg-primary ms-1">{% trans 'معرضك' %}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ result.showroom.city|default:"-" }}</td>
+                            <td>
+                                <span class="fw-bold {% if result.quantity > 10 %}text-success{% elif result.quantity > 0 %}text-warning{% else %}text-danger{% endif %}">
+                                    {{ result.quantity }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if result.available %}
+                                <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>{% trans 'متوفر' %}</span>
+                                {% else %}
+                                <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>{% trans 'غير متوفر' %}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if result.available and not result.is_current %}
+                                <a href="{% url 'showrooms:detail' result.showroom.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-telephone me-1"></i>{% trans 'تواصل' %}
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- نصيحة إذا كان المنتج غير متوفر في المعرض الحالي -->
+    {% if current_showroom %}
+    {% for result in search_results %}
+    {% if result.is_current and not result.available %}
+    <div class="alert alert-warning mt-4">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        <strong>{% trans 'المنتج غير متوفر في معرضك!' %}</strong>
+        {% trans 'يمكنك طلب تحويل مخزني من أحد المعارض التي لديها مخزون.' %}
+        <a href="{% url 'inventory:stock_transfer_create' %}" class="btn btn-sm btn-warning ms-2">
+            <i class="bi bi-truck me-1"></i>{% trans 'طلب تحويل' %}
+        </a>
+    </div>
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+</div>
+{% endblock %}

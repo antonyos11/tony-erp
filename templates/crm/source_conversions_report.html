@@ -1,0 +1,111 @@
+﻿{% extends BASE_TEMPLATE %}
+{% block title %}تقرير التحويلات حسب المصدر{% endblock %}
+{% block content %}
+<div class="container mt-4">
+  <h3 class="mb-3">تقرير التحويلات حسب المصدر</h3>
+
+  <form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+      <label class="form-label">من</label>
+      <input type="date" name="start" value="{{ start|default:'' }}" class="form-control" />
+    </div>
+    <div class="col-auto">
+      <label class="form-label">إلى</label>
+      <input type="date" name="end" value="{{ end|default:'' }}" class="form-control" />
+    </div>
+    <div class="col-auto align-self-end">
+      <button class="btn btn-primary">تطبيق</button>
+    </div>
+      <div class="col-auto">
+        <a class="btn btn-outline-secondary" href="?{% if start %}start={{ start }}&{% endif %}{% if end %}end={{ end }}&{% endif %}export=csv">تصدير CSV</a>
+      </div>
+  </form>
+
+  <div class="table-responsive">
+    <table class="table table-striped table-bordered align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>المصدر</th>
+          <th class="text-center">العملاء</th>
+          <th class="text-center">الفرص (إجمالي)</th>
+          <th class="text-center">الفرص (مغلقة ربح)</th>
+          <th class="text-center">الفرص (مغلقة خسارة)</th>
+          <th class="text-center">الفرص (مفتوحة)</th>
+          <th class="text-center">عروض الأسعار (إجمالي)</th>
+          <th class="text-center">عروض (مقبولة)</th>
+          <th class="text-center">نسبة ربح الفرص %</th>
+          <th class="text-center">نسبة قبول العروض %</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.source.name }}</td>
+          <td class="text-center">{{ row.customers }}</td>
+          <td class="text-center">{{ row.opp_total }}</td>
+          <td class="text-center text-success">{{ row.opp_won }}</td>
+          <td class="text-center text-danger">{{ row.opp_lost }}</td>
+          <td class="text-center">{{ row.opp_open }}</td>
+          <td class="text-center">{{ row.quo_total }}</td>
+          <td class="text-center text-success">{{ row.quo_accepted }}</td>
+          <td class="text-center {% if row.win_rate >= 50 %}text-success{% elif row.win_rate >= 25 %}text-warning{% else %}text-danger{% endif %}">{{ row.win_rate|floatformat:2 }}%</td>
+          <td class="text-center {% if row.acceptance_rate >= 50 %}text-success{% elif row.acceptance_rate >= 25 %}text-warning{% else %}text-danger{% endif %}">{{ row.acceptance_rate|floatformat:2 }}%</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="10" class="text-center">لا توجد بيانات للفترة المحددة.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light">
+        <tr>
+          <th>الإجمالي</th>
+          <th class="text-center">{{ totals.customers }}</th>
+          <th class="text-center">{{ totals.opp_total }}</th>
+          <th class="text-center text-success">{{ totals.opp_won }}</th>
+          <th class="text-center text-danger">{{ totals.opp_lost }}</th>
+          <th class="text-center">{{ totals.opp_open }}</th>
+          <th class="text-center">{{ totals.quo_total }}</th>
+          <th class="text-center text-success">{{ totals.quo_accepted }}</th>
+          <th class="text-center {% if totals_win_rate >= 50 %}text-success{% elif totals_win_rate >= 25 %}text-warning{% else %}text-danger{% endif %}">{{ totals_win_rate|floatformat:2 }}%</th>
+          <th class="text-center {% if totals_acceptance_rate >= 50 %}text-success{% elif totals_acceptance_rate >= 25 %}text-warning{% else %}text-danger{% endif %}">{{ totals_acceptance_rate|floatformat:2 }}%</th>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <div class="mt-4">
+    <h5 class="mb-2">مقارنة نسب الربح حسب المصدر</h5>
+    <canvas id="winRateChart" height="100"></canvas>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  (function(){
+    const labels = {{ chart_labels|safe }};
+    const data = {{ chart_win_rates|safe }};
+    const ctx = document.getElementById('winRateChart');
+    if (ctx) {
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'نسبة ربح الفرص %',
+            data: data,
+            backgroundColor: 'rgba(25, 135, 84, 0.6)'
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: { y: { beginAtZero: true, max: 100 } }
+        }
+      });
+    }
+  })();
+</script>
+{% endblock %}

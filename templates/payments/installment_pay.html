@@ -1,0 +1,160 @@
+﻿{% extends "base_v2.html" %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "دفع الأقساط" %}{% endblock %}
+
+{% block extra_head %}
+<style>
+:root { --hero-gradient: linear-gradient(135deg, #0f172a, #f59e0b); }
+.hero { background: var(--hero-gradient); color:#fff; border-radius:18px; padding:1.4rem; position:relative; overflow:hidden; }
+.hero::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 20% 20%,rgba(255,255,255,.1),transparent 45%);opacity:.8;}
+.hero .content{position:relative;z-index:1;}
+.timeline{position:relative;padding-inline-start:1.4rem;}
+.timeline::before{content:"";position:absolute;inset-inline-start:.6rem;top:.3rem;bottom:.3rem;width:2px;background:var(--border-color,#e5e7eb);} 
+.timeline-item{position:relative;padding-bottom:.85rem;} 
+.timeline-item:last-child{padding-bottom:0;} 
+.timeline-dot{position:absolute;inset-inline-start:-0.2rem;top:.1rem;width:12px;height:12px;border-radius:50%;background:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,.2);} 
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <section class="hero shadow-sm mb-3">
+    <div class="content d-flex justify-content-between flex-wrap gap-3 align-items-start">
+      <div>
+        <p class="small mb-1 text-white-75 d-flex gap-2 align-items-center"><i class="bi bi-calendar-check"></i>{% trans "المدفوعات / الأقساط" %}</p>
+        <h1 class="h5 mb-1">{% trans "دفع الأقساط" %}</h1>
+        <p class="mb-0 text-white-75">{% trans "اختر القسط، حدّد طريقة السداد، وأكّد عملية الدفع." %}</p>
+      </div>
+      <span class="badge bg-light text-dark align-self-center">{% trans "الرصيد المتبقي" %}: {{ summary.remaining|default:0|floatformat:2|intcomma }}</span>
+    </div>
+  </section>
+
+  <nav aria-label="{% trans 'مسار التنقل' %}" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/">{% trans "الرئيسية" %}</a></li>
+      <li class="breadcrumb-item"><a href="/payments/">{% trans "المدفوعات" %}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{% trans "الأقساط" %}</li>
+    </ol>
+  </nav>
+
+  <div class="row g-3">
+    <div class="col-lg-7">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="mb-3 d-flex align-items-center gap-2"><i class="bi bi-list-check text-primary"></i>{% trans "جدول الأقساط" %}</h6>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>{% trans "القسط" %}</th>
+                  <th>{% trans "المبلغ" %}</th>
+                  <th>{% trans "تاريخ الاستحقاق" %}</th>
+                  <th>{% trans "الحالة" %}</th>
+                  <th class="text-center" style="width:120px;">{% trans "دفع" %}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for inst in installments %}
+                  <tr>
+                    <td>{{ inst.name }}</td>
+                    <td>{{ inst.amount|default:0|floatformat:2|intcomma }}</td>
+                    <td>{{ inst.due_date|date:"Y-m-d" }}</td>
+                    <td><span class="badge bg-{{ inst.status_color|default:'secondary' }} bg-opacity-10 text-{{ inst.status_color|default:'secondary' }}">{{ inst.status_display }}</span></td>
+                    <td class="text-center">
+                      <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#payModal" data-id="{{ inst.id }}" {% if inst.status == 'paid' %}disabled{% endif %}>{% trans "دفع" %}</button>
+                    </td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="5" class="text-center text-muted py-3">{% trans "لا توجد أقساط" %}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="card shadow-sm mb-3">
+        <div class="card-body">
+          <h6 class="mb-3 d-flex align-items-center gap-2"><i class="bi bi-credit-card text-primary"></i>{% trans "دفع الآن" %}</h6>
+          <form id="payForm" method="post" action="{{ pay_url|default:request.path }}" class="vstack gap-3">
+            {% csrf_token %}
+            <input type="hidden" name="installment_id" id="installmentId">
+            <div class="form-floating"><input type="number" step="0.01" min="0" class="form-control" id="amount" name="amount" placeholder="0" required><label for="amount">{% trans "المبلغ" %}</label></div>
+            <div class="form-floating">
+              <select class="form-select" id="method" name="method" required>
+                <option value="cash">{% trans "نقدي" %}</option>
+                <option value="bank">{% trans "حوالة بنكية" %}</option>
+                <option value="card">{% trans "بطاقة" %}</option>
+              </select>
+              <label for="method">{% trans "طريقة الدفع" %}</label>
+            </div>
+            <div class="form-floating">
+              <textarea class="form-control" id="note" name="note" placeholder="." style="height:90px"></textarea>
+              <label for="note">{% trans "ملاحظات" %}</label>
+            </div>
+            
+            <!-- وجهة الدفع/التحصيل -->
+            {% include 'partials/_payment_destination.html' %}
+            
+            <div class="d-flex gap-2 flex-wrap">
+              <a href="{{ back_url|default:'/payments/' }}" class="btn btn-outline-secondary flex-fill">{% trans "إلغاء" %}</a>
+              <button class="btn btn-primary flex-fill" type="submit"><i class="bi bi-check2"></i> {% trans "تأكيد الدفع" %}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="mb-3 d-flex align-items-center gap-2"><i class="bi bi-activity text-primary"></i>{% trans "سجل الحركة" %}</h6>
+          <div class="timeline">
+            {% for log in timeline %}
+              <div class="timeline-item">
+                <span class="timeline-dot"></span>
+                <div class="d-flex justify-content-between"><strong>{{ log.title }}</strong><span class="text-muted small">{{ log.date|date:"Y-m-d H:i" }}</span></div>
+                <div class="text-muted small">{{ log.note }}</div>
+              </div>
+            {% empty %}
+              <div class="text-muted">{% trans "لا توجد حركات" %}</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="payModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title"><i class="bi bi-shield-check text-primary"></i> {% trans "تأكيد الدفع" %}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <p class="mb-1">{% trans "سيتم تسجيل سداد هذا القسط." %}</p>
+        <p class="text-muted small mb-0">{% trans "تأكد من صحة المبلغ وطريقة الدفع." %}</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">{% trans "إلغاء" %}</button>
+        <button class="btn btn-primary" type="submit" form="payForm">{% trans "تأكيد" %}</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  const modal = document.getElementById('payModal');
+  modal?.addEventListener('show.bs.modal', function(ev){
+    const btn = ev.relatedTarget;
+    const id = btn?.getAttribute('data-id');
+    if(id) document.getElementById('installmentId').value = id;
+  });
+})();
+</script>
+{% endblock %}

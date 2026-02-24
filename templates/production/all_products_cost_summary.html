@@ -1,0 +1,169 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}ملخص تكاليف جميع المنتجات - الإنتاج{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cost-summary-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        margin-bottom: 20px;
+    }
+    .cost-table th {
+        background: linear-gradient(135deg, #3d9e74, #2d7a5a);
+        color: #fff;
+        font-weight: 600;
+        padding: 12px 16px;
+    }
+    .cost-table td {
+        padding: 12px 16px;
+        vertical-align: middle;
+    }
+    .cost-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    .cost-badge.low { background: #dcfce7; color: #166534; }
+    .cost-badge.medium { background: #fef3c7; color: #92400e; }
+    .cost-badge.high { background: #fee2e2; color: #991b1b; }
+    .summary-stat {
+        text-align: center;
+        padding: 20px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    }
+    .summary-stat .value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #166534;
+    }
+    .summary-stat .label {
+        color: #6b7280;
+        font-size: 0.9rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-calculator me-2 text-success"></i>ملخص تكاليف جميع المنتجات</h2>
+            <p class="text-muted mb-0">تحليل شامل لتكاليف الإنتاج لكل منتج</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-success" onclick="exportToExcel()">
+                <i class="fas fa-file-excel me-1"></i> تصدير Excel
+            </button>
+            <button class="btn btn-outline-primary" onclick="window.print()">
+                <i class="fas fa-print me-1"></i> طباعة
+            </button>
+        </div>
+    </div>
+
+    <!-- ملخص إحصائي -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="summary-stat">
+                <div class="value">{{ total_products|default:"0" }}</div>
+                <div class="label">إجمالي المنتجات</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="summary-stat" style="background: linear-gradient(135deg, #eff6ff, #dbeafe);">
+                <div class="value" style="color: #1d4ed8;">{{ avg_cost|default:"0.00" }} ج.م</div>
+                <div class="label">متوسط التكلفة</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="summary-stat" style="background: linear-gradient(135deg, #fefce8, #fef9c3);">
+                <div class="value" style="color: #a16207;">{{ min_cost|default:"0.00" }} ج.م</div>
+                <div class="label">أقل تكلفة</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="summary-stat" style="background: linear-gradient(135deg, #fef2f2, #fecaca);">
+                <div class="value" style="color: #dc2626;">{{ max_cost|default:"0.00" }} ج.م</div>
+                <div class="label">أعلى تكلفة</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- جدول التكاليف -->
+    <div class="cost-summary-card">
+        <div class="table-responsive">
+            <table class="table cost-table mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>المنتج</th>
+                        <th>تكلفة المواد</th>
+                        <th>تكلفة العمالة</th>
+                        <th>تكلفة غير مباشرة</th>
+                        <th>إجمالي التكلفة</th>
+                        <th>سعر البيع</th>
+                        <th>هامش الربح</th>
+                        <th>الحالة</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>
+                            <strong>{{ product.name }}</strong>
+                            <br><small class="text-muted">{{ product.sku }}</small>
+                        </td>
+                        <td>{{ product.material_cost|default:"0.00" }} ج.م</td>
+                        <td>{{ product.labor_cost|default:"0.00" }} ج.م</td>
+                        <td>{{ product.overhead_cost|default:"0.00" }} ج.م</td>
+                        <td><strong>{{ product.total_cost|default:"0.00" }} ج.م</strong></td>
+                        <td>{{ product.selling_price|default:"0.00" }} ج.م</td>
+                        <td>
+                            <span class="cost-badge {% if product.margin >= 30 %}low{% elif product.margin >= 15 %}medium{% else %}high{% endif %}">
+                                {{ product.margin|default:"0" }}%
+                            </span>
+                        </td>
+                        <td>
+                            {% if product.margin >= 20 %}
+                            <span class="badge bg-success">ربحي</span>
+                            {% elif product.margin >= 0 %}
+                            <span class="badge bg-warning">منخفض</span>
+                            {% else %}
+                            <span class="badge bg-danger">خاسر</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center py-5">
+                            <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">لا توجد بيانات تكاليف متاحة</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function exportToExcel() {
+    // تصدير للإكسل
+    alert('جاري تصدير البيانات...');
+}
+</script>
+{% endblock %}
+

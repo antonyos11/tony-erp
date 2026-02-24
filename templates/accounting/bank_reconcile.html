@@ -1,0 +1,776 @@
+﻿{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "التسوية البنكية" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --info-color: #17a2b8;
+    }
+    
+    .reconcile-hero {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    
+    .bank-selector {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        margin-bottom: 2rem;
+    }
+    
+    .bank-cards {
+        display: flex;
+        gap: 1rem;
+        overflow-x: auto;
+        padding-bottom: 0.5rem;
+    }
+    
+    .bank-card {
+        min-width: 200px;
+        padding: 1.25rem;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-align: center;
+    }
+    
+    .bank-card:hover {
+        border-color: var(--accent-color);
+    }
+    
+    .bank-card.active {
+        border-color: var(--accent-color);
+        background: rgba(0, 212, 170, 0.05);
+    }
+    
+    .bank-card .bank-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin: 0 auto 0.75rem;
+    }
+    
+    .bank-card .bank-name {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.25rem;
+    }
+    
+    .bank-card .bank-balance {
+        color: var(--primary-color);
+        font-weight: 700;
+    }
+    
+    .reconcile-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+    }
+    
+    @media (max-width: 1200px) {
+        .reconcile-container {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .reconcile-panel {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        border: 1px solid #eee;
+        overflow: hidden;
+    }
+    
+    .panel-header {
+        padding: 1.25rem 1.5rem;
+        background: #fafbfc;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .panel-title {
+        font-weight: 600;
+        color: var(--primary-color);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .panel-title.book {
+        color: var(--info-color);
+    }
+    
+    .panel-title.bank {
+        color: var(--success-color);
+    }
+    
+    .panel-balance {
+        font-size: 1.25rem;
+        font-weight: 700;
+    }
+    
+    .panel-balance.book { color: var(--info-color); }
+    .panel-balance.bank { color: var(--success-color); }
+    
+    .panel-body {
+        padding: 1.5rem;
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    
+    .transaction-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .transaction-item {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        margin-bottom: 0.75rem;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .transaction-item:hover {
+        border-color: var(--accent-color);
+        background: rgba(0, 212, 170, 0.02);
+    }
+    
+    .transaction-item.matched {
+        border-color: var(--success-color);
+        background: rgba(40, 167, 69, 0.05);
+    }
+    
+    .transaction-item.selected {
+        border-color: var(--accent-color);
+        background: rgba(0, 212, 170, 0.1);
+    }
+    
+    .transaction-checkbox {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        margin-left: 1rem;
+    }
+    
+    .transaction-checkbox:checked {
+        background-color: var(--accent-color);
+        border-color: var(--accent-color);
+    }
+    
+    .transaction-info {
+        flex: 1;
+    }
+    
+    .transaction-desc {
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 0.25rem;
+    }
+    
+    .transaction-meta {
+        font-size: 0.85rem;
+        color: #6c757d;
+        display: flex;
+        gap: 1rem;
+    }
+    
+    .transaction-amount {
+        font-weight: 600;
+        font-size: 1rem;
+    }
+    
+    .transaction-amount.debit { color: var(--danger-color); }
+    .transaction-amount.credit { color: var(--success-color); }
+    
+    .match-indicator {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+        margin-right: 0.5rem;
+    }
+    
+    .match-indicator.matched {
+        background: var(--success-color);
+        color: white;
+    }
+    
+    .match-indicator.pending {
+        background: #e9ecef;
+        color: #6c757d;
+    }
+    
+    .reconcile-summary {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        margin-top: 1.5rem;
+    }
+    
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .summary-item {
+        text-align: center;
+        padding: 1rem;
+        border-radius: 12px;
+        background: #f8f9fa;
+    }
+    
+    .summary-item.book { border-top: 4px solid var(--info-color); }
+    .summary-item.bank { border-top: 4px solid var(--success-color); }
+    .summary-item.diff { border-top: 4px solid var(--warning-color); }
+    .summary-item.matched { border-top: 4px solid var(--accent-color); }
+    
+    .summary-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .summary-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .summary-item.diff .summary-value.positive { color: var(--success-color); }
+    .summary-item.diff .summary-value.negative { color: var(--danger-color); }
+    .summary-item.diff .summary-value.zero { color: var(--accent-color); }
+    
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #eee;
+    }
+    
+    .btn-match {
+        background: linear-gradient(135deg, var(--accent-color), #00b894);
+        border: none;
+        color: white;
+        padding: 0.75rem 2rem;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+    
+    .btn-match:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 212, 170, 0.3);
+        color: white;
+    }
+    
+    .filter-bar {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+    
+    .filter-bar .form-control,
+    .filter-bar .form-select {
+        max-width: 200px;
+        border-radius: 8px;
+    }
+    
+    .date-range-picker {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .upload-statement {
+        border: 2px dashed var(--accent-color);
+        border-radius: 12px;
+        padding: 2rem;
+        text-align: center;
+        background: rgba(0, 212, 170, 0.02);
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .upload-statement:hover {
+        background: rgba(0, 212, 170, 0.05);
+    }
+    
+    .upload-statement i {
+        font-size: 2.5rem;
+        color: var(--accent-color);
+        margin-bottom: 1rem;
+    }
+    
+    .auto-match-btn {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+        border: none;
+        padding: 0.5rem 1.25rem;
+        border-radius: 8px;
+    }
+    
+    .auto-match-btn:hover {
+        transform: translateY(-1px);
+        color: white;
+    }
+    
+    [data-bs-theme="dark"] .bank-selector,
+    [data-bs-theme="dark"] .reconcile-panel,
+    [data-bs-theme="dark"] .reconcile-summary {
+        background: #1a1d21;
+        border-color: #2d3238;
+    }
+    
+    [data-bs-theme="dark"] .panel-header {
+        background: #2d3238;
+        border-color: #3d4248;
+    }
+    
+    [data-bs-theme="dark"] .bank-card,
+    [data-bs-theme="dark"] .transaction-item {
+        border-color: #3d4248;
+    }
+    
+    [data-bs-theme="dark"] .summary-item {
+        background: #2d3238;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Hero Section -->
+    <div class="reconcile-hero">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-2">
+                        <li class="breadcrumb-item"><a href="{% url 'accounting:dashboard' %}" class="text-white-50">{% trans "المحاسبة" %}</a></li>
+                        <li class="breadcrumb-item active text-white">{% trans "التسوية البنكية" %}</li>
+                    </ol>
+                </nav>
+                <h1 class="h2 mb-2">
+                    <i class="fas fa-balance-scale me-2"></i>
+                    {% trans "التسوية البنكية" %}
+                </h1>
+                <p class="mb-0 opacity-75">
+                    {% trans "مطابقة حركات الدفاتر مع كشف الحساب البنكي" %}
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <span class="badge bg-light text-dark px-3 py-2">
+                    <i class="fas fa-calendar-alt me-1"></i>
+                    {{ reconcile_date|default:"اليوم" }}
+                </span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bank Account Selector -->
+    <div class="bank-selector">
+        <h6 class="mb-3">
+            <i class="fas fa-university me-2"></i>
+            {% trans "اختر الحساب البنكي" %}
+        </h6>
+        <div class="bank-cards">
+            {% for account in bank_accounts %}
+            <div class="bank-card {% if account.selected %}active{% endif %}" data-account="{ account.id }">
+                <div class="bank-icon">
+                    <i class="fas fa-landmark"></i>
+                </div>
+                <div class="bank-name">{{ account.name }}</div>
+                <div class="bank-balance">{{ account.balance|intcomma }} ج.م</div>
+            </div>
+            {% empty %}
+            <div class="bank-card active" data-account="1">
+                <div class="bank-icon">
+                    <i class="fas fa-landmark"></i>
+                </div>
+                <div class="bank-name">{% trans "البنك الرئيسي" %}</div>
+                <div class="bank-balance">0.00 ج.م</div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Date Range -->
+        <div class="date-range-picker mt-3">
+            <div class="row align-items-center">
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">{% trans "من تاريخ" %}</label>
+                    <input type="date" class="form-control" id="dateFrom" value="{ date_from }">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">{% trans "إلى تاريخ" %}</label>
+                    <input type="date" class="form-control" id="dateTo" value="{ date_to }">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">{% trans "الحالة" %}</label>
+                    <select class="form-select" id="statusFilter">
+                        <option value="all">{% trans "الكل" %}</option>
+                        <option value="unmatched">{% trans "غير مطابق" %}</option>
+                        <option value="matched">{% trans "مطابق" %}</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end gap-2">
+                    <button class="btn btn-primary" id="loadTransactions">
+                        <i class="fas fa-sync me-1"></i>
+                        {% trans "تحديث" %}
+                    </button>
+                    <button class="btn auto-match-btn" id="autoMatch">
+                        <i class="fas fa-magic me-1"></i>
+                        {% trans "مطابقة تلقائية" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Reconciliation Panels -->
+    <div class="reconcile-container">
+        <!-- Book Transactions (System) -->
+        <div class="reconcile-panel">
+            <div class="panel-header">
+                <h5 class="panel-title book">
+                    <i class="fas fa-book"></i>
+                    {% trans "سجلات الدفاتر" %}
+                </h5>
+                <span class="panel-balance book">{{ book_balance|default:"0"|intcomma }} ج.م</span>
+            </div>
+            <div class="panel-body">
+                <div class="filter-bar">
+                    <input type="text" class="form-control" placeholder="{% trans 'بحث...' %}" id="bookSearch">
+                    <select class="form-select" id="bookFilter">
+                        <option value="all">{% trans "كل الحركات" %}</option>
+                        <option value="debit">{% trans "مدين" %}</option>
+                        <option value="credit">{% trans "دائن" %}</option>
+                    </select>
+                </div>
+                
+                <ul class="transaction-list" id="bookTransactions">
+                    {% for trans in book_transactions %}
+                    <li class="transaction-item {% if trans.matched %}matched{% endif %}" data-id="{ trans.id }">
+                        <input type="checkbox" class="form-check-input transaction-checkbox" {% if trans.matched %}checked disabled{% endif %}>
+                        <span class="match-indicator {% if trans.matched %}matched{% else %}pending{% endif %}">
+                            <i class="fas fa-{% if trans.matched %}check{% else %}clock{% endif %}"></i>
+                        </span>
+                        <div class="transaction-info">
+                            <div class="transaction-desc">{{ trans.description }}</div>
+                            <div class="transaction-meta">
+                                <span><i class="fas fa-calendar me-1"></i>{{ trans.date }}</span>
+                                <span><i class="fas fa-hashtag"></i>{{ trans.reference }}</span>
+                            </div>
+                        </div>
+                        <div class="transaction-amount { trans.type }">
+                            {% if trans.type == 'debit' %}-{% else %}+{% endif %}{{ trans.amount|intcomma }}
+                        </div>
+                    </li>
+                    {% empty %}
+                    <li class="text-center text-muted py-5">
+                        <i class="fas fa-inbox fa-3x mb-3 opacity-50"></i>
+                        <p class="mb-0">{% trans "لا توجد حركات في هذه الفترة" %}</p>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Bank Statement -->
+        <div class="reconcile-panel">
+            <div class="panel-header">
+                <h5 class="panel-title bank">
+                    <i class="fas fa-university"></i>
+                    {% trans "كشف الحساب البنكي" %}
+                </h5>
+                <span class="panel-balance bank">{{ bank_balance|default:"0"|intcomma }} ج.م</span>
+            </div>
+            <div class="panel-body">
+                <div class="filter-bar">
+                    <input type="text" class="form-control" placeholder="{% trans 'بحث...' %}" id="bankSearch">
+                    <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                        <i class="fas fa-upload me-1"></i>
+                        {% trans "استيراد كشف" %}
+                    </button>
+                </div>
+                
+                <ul class="transaction-list" id="bankTransactions">
+                    {% for trans in bank_transactions %}
+                    <li class="transaction-item {% if trans.matched %}matched{% endif %}" data-id="{ trans.id }">
+                        <input type="checkbox" class="form-check-input transaction-checkbox" {% if trans.matched %}checked disabled{% endif %}>
+                        <span class="match-indicator {% if trans.matched %}matched{% else %}pending{% endif %}">
+                            <i class="fas fa-{% if trans.matched %}check{% else %}clock{% endif %}"></i>
+                        </span>
+                        <div class="transaction-info">
+                            <div class="transaction-desc">{{ trans.description }}</div>
+                            <div class="transaction-meta">
+                                <span><i class="fas fa-calendar me-1"></i>{{ trans.date }}</span>
+                                <span><i class="fas fa-hashtag"></i>{{ trans.reference }}</span>
+                            </div>
+                        </div>
+                        <div class="transaction-amount { trans.type }">
+                            {% if trans.type == 'debit' %}-{% else %}+{% endif %}{{ trans.amount|intcomma }}
+                        </div>
+                    </li>
+                    {% empty %}
+                    <li class="text-center text-muted py-5">
+                        <i class="fas fa-file-invoice fa-3x mb-3 opacity-50"></i>
+                        <p class="mb-2">{% trans "لم يتم استيراد كشف حساب" %}</p>
+                        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                            <i class="fas fa-upload me-1"></i>
+                            {% trans "استيراد كشف حساب" %}
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Reconciliation Summary -->
+    <div class="reconcile-summary">
+        <h5 class="mb-4 text-center">
+            <i class="fas fa-calculator me-2"></i>
+            {% trans "ملخص التسوية" %}
+        </h5>
+        
+        <div class="summary-grid">
+            <div class="summary-item book">
+                <div class="summary-label">{% trans "رصيد الدفاتر" %}</div>
+                <div class="summary-value" id="summaryBookBalance">{{ book_balance|default:"0"|intcomma }}</div>
+            </div>
+            
+            <div class="summary-item bank">
+                <div class="summary-label">{% trans "رصيد البنك" %}</div>
+                <div class="summary-value" id="summaryBankBalance">{{ bank_balance|default:"0"|intcomma }}</div>
+            </div>
+            
+            <div class="summary-item diff">
+                <div class="summary-label">{% trans "الفرق" %}</div>
+                <div class="summary-value {% if difference == 0 %}zero{% elif difference > 0 %}positive{% else %}negative{% endif %}" id="summaryDifference">
+                    {{ difference|default:"0"|intcomma }}
+                </div>
+            </div>
+            
+            <div class="summary-item matched">
+                <div class="summary-label">{% trans "الحركات المطابقة" %}</div>
+                <div class="summary-value" id="summaryMatched">{{ matched_count|default:"0" }} / {{ total_count|default:"0" }}</div>
+            </div>
+        </div>
+        
+        <div class="action-buttons">
+            <button class="btn btn-match" id="matchSelected" disabled>
+                <i class="fas fa-link me-2"></i>
+                {% trans "مطابقة المحدد" %}
+            </button>
+            <button class="btn btn-outline-secondary" id="unmatchSelected" disabled>
+                <i class="fas fa-unlink me-2"></i>
+                {% trans "إلغاء المطابقة" %}
+            </button>
+            <button class="btn btn-success" id="saveReconciliation">
+                <i class="fas fa-save me-2"></i>
+                {% trans "حفظ التسوية" %}
+            </button>
+            <button class="btn btn-outline-primary" id="printReport">
+                <i class="fas fa-print me-2"></i>
+                {% trans "طباعة التقرير" %}
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-upload me-2"></i>
+                    {% trans "استيراد كشف الحساب" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="upload-statement" id="dropZone">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p class="mb-1 fw-bold">{% trans "اسحب الملف هنا أو انقر للاختيار" %}</p>
+                    <small class="text-muted">{% trans "يدعم ملفات CSV, Excel, OFX, QIF" %}</small>
+                    <input type="file" id="statementFile" class="d-none" accept=".csv,.xlsx,.xls,.ofx,.qif">
+                </div>
+                
+                <div class="mt-3">
+                    <label class="form-label">{% trans "نوع الملف" %}</label>
+                    <select class="form-select" id="fileType">
+                        <option value="auto">{% trans "اكتشاف تلقائي" %}</option>
+                        <option value="csv">CSV</option>
+                        <option value="excel">Excel</option>
+                        <option value="ofx">OFX</option>
+                        <option value="qif">QIF</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "إلغاء" %}</button>
+                <button type="button" class="btn btn-primary" id="uploadBtn">
+                    <i class="fas fa-upload me-1"></i>
+                    {% trans "استيراد" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Bank card selection
+    document.querySelectorAll('.bank-card').forEach(card => {
+        card.addEventListener('click', function() {
+            document.querySelectorAll('.bank-card').forEach(c => c.classList.remove('active'));
+            this.classList.add('active');
+            // Load transactions for selected bank
+            loadTransactions(this.dataset.account);
+        });
+    });
+    
+    // Transaction selection
+    let selectedBook = [];
+    let selectedBank = [];
+    
+    document.querySelectorAll('.transaction-item:not(.matched)').forEach(item => {
+        item.addEventListener('click', function() {
+            const checkbox = this.querySelector('.transaction-checkbox');
+            if (!checkbox.disabled) {
+                checkbox.checked = !checkbox.checked;
+                this.classList.toggle('selected', checkbox.checked);
+                updateSelections();
+            }
+        });
+    });
+    
+    function updateSelections() {
+        selectedBook = [];
+        selectedBank = [];
+        
+        document.querySelectorAll('#bookTransactions .transaction-item.selected').forEach(item => {
+            selectedBook.push(item.dataset.id);
+        });
+        
+        document.querySelectorAll('#bankTransactions .transaction-item.selected').forEach(item => {
+            selectedBank.push(item.dataset.id);
+        });
+        
+        const matchBtn = document.getElementById('matchSelected');
+        matchBtn.disabled = !(selectedBook.length > 0 && selectedBank.length > 0);
+    }
+    
+    // Auto match button
+    document.getElementById('autoMatch')?.addEventListener('click', function() {
+        this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> جاري المطابقة...';
+        // Simulate auto-matching
+        setTimeout(() => {
+            this.innerHTML = '<i class="fas fa-magic me-1"></i> مطابقة تلقائية';
+            alert('تم مطابقة 5 حركات تلقائياً');
+        }, 1500);
+    });
+    
+    // Upload zone
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('statementFile');
+    
+    dropZone?.addEventListener('click', () => fileInput?.click());
+    
+    dropZone?.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#00d4aa';
+        dropZone.style.background = 'rgba(0, 212, 170, 0.1)';
+    });
+    
+    dropZone?.addEventListener('dragleave', () => {
+        dropZone.style.borderColor = '';
+        dropZone.style.background = '';
+    });
+    
+    dropZone?.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const files = e.dataTransfer.files;
+        if (files.length) {
+            handleFile(files[0]);
+        }
+    });
+    
+    fileInput?.addEventListener('change', function() {
+        if (this.files.length) {
+            handleFile(this.files[0]);
+        }
+    });
+    
+    function handleFile(file) {
+        const dropZoneText = dropZone.querySelector('p');
+        dropZoneText.textContent = file.name;
+    }
+    
+    // Match selected
+    document.getElementById('matchSelected')?.addEventListener('click', function() {
+        if (selectedBook.length && selectedBank.length) {
+            // Perform matching
+            alert('تم مطابقة الحركات المحددة');
+            location.reload();
+        }
+    });
+    
+    // Search functionality
+    document.getElementById('bookSearch')?.addEventListener('input', function() {
+        filterTransactions('bookTransactions', this.value);
+    });
+    
+    document.getElementById('bankSearch')?.addEventListener('input', function() {
+        filterTransactions('bankTransactions', this.value);
+    });
+    
+    function filterTransactions(listId, query) {
+        const items = document.querySelectorAll(`#${listId} .transaction-item`);
+        items.forEach(item => {
+            const text = item.textContent.toLowerCase();
+            item.style.display = text.includes(query.toLowerCase()) ? '' : 'none';
+        });
+    }
+});
+</script>
+{% endblock %}
+

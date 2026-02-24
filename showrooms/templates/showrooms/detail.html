@@ -1,0 +1,461 @@
+{% extends 'base.html' %}
+{% load i18n humanize %}
+{% block title %}{{ showroom.name_ar|default:showroom.name }} - {% trans 'تفاصيل المعرض' %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Breadcrumb -->
+  <nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'showrooms:list' %}"><i class="fas fa-store"></i> {% trans 'المعارض' %}</a></li>
+      <li class="breadcrumb-item active">{{ showroom.name_ar|default:showroom.name }}</li>
+    </ol>
+  </nav>
+
+  <!-- Header Card -->
+  <div class="card border-0 shadow-sm mb-4 overflow-hidden">
+    <div class="card-header border-0 py-4" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+      <div class="row align-items-center">
+        <div class="col-md-8">
+          <div class="d-flex align-items-center">
+            <div class="avatar-lg bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center me-4">
+              <i class="fas fa-store fa-2x text-white"></i>
+            </div>
+            <div class="text-white">
+              <span class="badge bg-white text-primary mb-2">{{ showroom.code }}</span>
+              <h2 class="mb-1 text-white">{{ showroom.name_ar|default:showroom.name }}</h2>
+              <p class="mb-0 text-white-50">
+                <i class="fas fa-map-marker-alt me-2"></i>{{ showroom.address|default:showroom.location.name|default:_("غير محدد") }}
+                {% if showroom.city %} - {{ showroom.city }}{% endif %}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4 text-end">
+          <div class="btn-group">
+            <a href="{% url 'showrooms:edit' showroom.id %}" class="btn btn-light">
+              <i class="fas fa-edit"></i> {% trans 'تعديل' %}
+            </a>
+            <button class="btn btn-light dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"></button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="{% url 'showrooms:employees' %}?showroom={{ showroom.id }}">
+                <i class="fas fa-users text-info"></i> {% trans 'الموظفين' %}
+              </a></li>
+              <li><a class="dropdown-item" href="{% url 'showrooms:devices' showroom.id %}">
+                <i class="fas fa-desktop text-success"></i> {% trans 'الأجهزة' %}
+              </a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item text-danger" href="{% url 'showrooms:delete' showroom.id %}">
+                <i class="fas fa-trash"></i> {% trans 'حذف' %}
+              </a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats Cards Row -->
+  <div class="row g-4 mb-4">
+    <!-- مبيعات اليوم -->
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <p class="text-muted mb-1">{% trans 'مبيعات اليوم' %}</p>
+              <h3 class="mb-0 fw-bold text-success">{{ stats.sales_today|floatformat:2|intcomma|default:"0.00" }}</h3>
+              <small class="{% if stats.sales_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                <i class="fas fa-arrow-{% if stats.sales_change >= 0 %}up{% else %}down{% endif %}"></i>
+                {{ stats.sales_change|floatformat:1|default:"0" }}% {% trans 'عن أمس' %}
+              </small>
+            </div>
+            <div class="icon-box bg-success-soft rounded-circle p-3">
+              <i class="fas fa-chart-line fa-2x text-success"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- الطلبات -->
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <p class="text-muted mb-1">{% trans 'طلبات اليوم' %}</p>
+              <h3 class="mb-0 fw-bold text-info">{{ stats.orders_count|default:0 }}</h3>
+              <small class="text-muted">
+                {% trans 'متوسط الفاتورة:' %} {{ stats.avg_ticket|floatformat:2|intcomma|default:"0.00" }}
+              </small>
+            </div>
+            <div class="icon-box bg-info-soft rounded-circle p-3">
+              <i class="fas fa-shopping-cart fa-2x text-info"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- المرتجعات -->
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <p class="text-muted mb-1">{% trans 'مرتجعات اليوم' %}</p>
+              <h3 class="mb-0 fw-bold text-danger">{{ stats.returns_today|floatformat:2|intcomma|default:"0.00" }}</h3>
+              <small class="text-muted">
+                {{ stats.returns_count|default:0 }} {% trans 'عملية' %}
+              </small>
+            </div>
+            <div class="icon-box bg-danger-soft rounded-circle p-3">
+              <i class="fas fa-undo fa-2x text-danger"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- الحضور -->
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <p class="text-muted mb-1">{% trans 'الحضور اليوم' %}</p>
+              <h3 class="mb-0 fw-bold text-primary">{{ stats.attendance_present|default:0 }}/{{ stats.total_employees|default:0 }}</h3>
+              <div class="progress mt-2" style="height: 6px; width: 100px;">
+                {% widthratio stats.attendance_present stats.total_employees 100 as att_pct %}
+                <div class="progress-bar bg-primary" style="width: {{ att_pct|default:0 }}%"></div>
+              </div>
+            </div>
+            <div class="icon-box bg-primary-soft rounded-circle p-3">
+              <i class="fas fa-user-check fa-2x text-primary"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- القسم الأيسر -->
+    <div class="col-lg-8">
+      <!-- رسم بياني للمبيعات -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="fas fa-chart-area text-primary me-2"></i> {% trans 'المبيعات خلال الأسبوع' %}</h5>
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-primary active" data-period="week">{% trans 'أسبوع' %}</button>
+            <button class="btn btn-outline-primary" data-period="month">{% trans 'شهر' %}</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <canvas id="salesChart" height="100"></canvas>
+        </div>
+      </div>
+
+      <!-- أحدث الطلبات -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="fas fa-receipt text-info me-2"></i> {% trans 'أحدث الطلبات' %}</h5>
+          <a href="{% url 'pos:order_list' %}?showroom={{ showroom.id }}" class="btn btn-sm btn-outline-info">
+            {% trans 'عرض الكل' %} <i class="fas fa-arrow-left"></i>
+          </a>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="bg-light">
+                <tr>
+                  <th>{% trans 'رقم الطلب' %}</th>
+                  <th>{% trans 'العميل' %}</th>
+                  <th>{% trans 'المبلغ' %}</th>
+                  <th>{% trans 'الحالة' %}</th>
+                  <th>{% trans 'الوقت' %}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for order in recent_orders %}
+                <tr>
+                  <td>
+                    <a href="{% url 'pos:order_detail' order.id %}" class="text-primary fw-bold">
+                      {{ order.order_number }}
+                    </a>
+                  </td>
+                  <td>{{ order.customer.name|default:_("عميل نقدي") }}</td>
+                  <td class="{% if order.is_return %}text-danger{% else %}text-success{% endif %} fw-bold">
+                    {% if order.is_return %}-{% endif %}{{ order.total|floatformat:2|intcomma }}
+                  </td>
+                  <td>
+                    {% if order.status == 'paid' %}
+                      <span class="badge bg-success">{% trans 'مدفوع' %}</span>
+                    {% elif order.status == 'pending' %}
+                      <span class="badge bg-warning">{% trans 'معلق' %}</span>
+                    {% else %}
+                      <span class="badge bg-secondary">{{ order.get_status_display }}</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-muted">{{ order.created_at|timesince }} {% trans 'منذ' %}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="5" class="text-center py-4 text-muted">
+                    <i class="fas fa-inbox fa-2x mb-2"></i><br>
+                    {% trans 'لا توجد طلبات' %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- المنتجات الأكثر مبيعاً -->
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0">
+          <h5 class="mb-0"><i class="fas fa-fire text-warning me-2"></i> {% trans 'الأكثر مبيعاً اليوم' %}</h5>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            {% for item in top_products %}
+            <div class="col-md-4">
+              <div class="d-flex align-items-center p-3 bg-light rounded">
+                <div class="product-rank bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                  {{ forloop.counter }}
+                </div>
+                <div class="flex-grow-1">
+                  <h6 class="mb-0">{{ item.product__name_ar|default:item.product__name }}</h6>
+                  <small class="text-muted">{{ item.total_qty }} {% trans 'قطعة' %}</small>
+                </div>
+                <div class="text-end">
+                  <span class="fw-bold text-success">{{ item.total_sales|floatformat:2|intcomma }}</span>
+                </div>
+              </div>
+            </div>
+            {% empty %}
+            <div class="col-12 text-center text-muted py-4">
+              {% trans 'لا توجد مبيعات اليوم' %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- القسم الأيمن -->
+    <div class="col-lg-4">
+      <!-- معلومات المعرض -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white border-0">
+          <h5 class="mb-0"><i class="fas fa-info-circle text-primary me-2"></i> {% trans 'معلومات المعرض' %}</h5>
+        </div>
+        <div class="card-body">
+          <ul class="list-group list-group-flush">
+            <li class="list-group-item d-flex justify-content-between px-0">
+              <span class="text-muted">{% trans 'الكود' %}</span>
+              <strong>{{ showroom.code }}</strong>
+            </li>
+            <li class="list-group-item d-flex justify-content-between px-0">
+              <span class="text-muted">{% trans 'المدير' %}</span>
+              <strong>{% if showroom.manager %}{{ showroom.manager.get_full_name|default:showroom.manager.username }}{% else %}{% trans 'غير محدد' %}{% endif %}</strong>
+            </li>
+            <li class="list-group-item d-flex justify-content-between px-0">
+              <span class="text-muted">{% trans 'الموقع المخزني' %}</span>
+              <strong>{{ showroom.location.name|default:_("غير محدد") }}</strong>
+            </li>
+            <li class="list-group-item d-flex justify-content-between px-0">
+              <span class="text-muted">{% trans 'تاريخ الافتتاح' %}</span>
+              <strong>{{ showroom.opening_date|date:"Y/m/d"|default:_("غير محدد") }}</strong>
+            </li>
+            <li class="list-group-item d-flex justify-content-between px-0">
+              <span class="text-muted">{% trans 'هاتف التواصل' %}</span>
+              <strong>{{ showroom.contact_phone|default:_("غير محدد") }}</strong>
+            </li>
+            <li class="list-group-item d-flex justify-content-between px-0">
+              <span class="text-muted">{% trans 'الحالة' %}</span>
+              {% if showroom.is_active %}
+                <span class="badge bg-success">{% trans 'نشط' %}</span>
+              {% else %}
+                <span class="badge bg-danger">{% trans 'غير نشط' %}</span>
+              {% endif %}
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- الموظفين -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="fas fa-users text-info me-2"></i> {% trans 'الموظفين' %}</h5>
+          <span class="badge bg-info">{{ employees|length }}</span>
+        </div>
+        <div class="card-body p-0">
+          <ul class="list-group list-group-flush">
+            {% for emp in employees|slice:":5" %}
+            <li class="list-group-item">
+              <div class="d-flex align-items-center">
+                <div class="avatar-sm bg-{{ forloop.counter|divisibleby:2|yesno:'info,primary' }}-soft rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                  <i class="fas fa-user text-{{ forloop.counter|divisibleby:2|yesno:'info,primary' }}"></i>
+                </div>
+                <div class="flex-grow-1">
+                  <h6 class="mb-0">{{ emp.user.get_full_name|default:emp.user.username }}</h6>
+                  <small class="text-muted">{{ emp.get_role_display }}</small>
+                </div>
+                {% if emp.attendance_today %}
+                  <span class="badge bg-success">{% trans 'حاضر' %}</span>
+                {% else %}
+                  <span class="badge bg-secondary">{% trans 'غائب' %}</span>
+                {% endif %}
+              </div>
+            </li>
+            {% empty %}
+            <li class="list-group-item text-center text-muted py-4">
+              {% trans 'لا يوجد موظفين' %}
+            </li>
+            {% endfor %}
+          </ul>
+          {% if employees|length > 5 %}
+          <div class="card-footer bg-light text-center">
+            <a href="{% url 'showrooms:employees' %}?showroom={{ showroom.id }}" class="text-primary">
+              {% trans 'عرض الكل' %} ({{ employees|length }}) <i class="fas fa-arrow-left"></i>
+            </a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- الأجهزة -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="fas fa-desktop text-success me-2"></i> {% trans 'أجهزة POS' %}</h5>
+          <a href="{% url 'showrooms:devices' showroom.id %}" class="btn btn-sm btn-outline-success">
+            <i class="fas fa-plus"></i>
+          </a>
+        </div>
+        <div class="card-body p-0">
+          <ul class="list-group list-group-flush">
+            {% for device in devices %}
+            <li class="list-group-item">
+              <div class="d-flex align-items-center">
+                <div class="me-3">
+                  {% if device.is_active %}
+                    <i class="fas fa-desktop fa-lg text-success"></i>
+                  {% else %}
+                    <i class="fas fa-desktop fa-lg text-muted"></i>
+                  {% endif %}
+                </div>
+                <div class="flex-grow-1">
+                  <h6 class="mb-0">{{ device.name }}</h6>
+                  <small class="text-muted">{{ device.identifier|truncatechars:20 }}</small>
+                </div>
+                <small class="text-muted">
+                  {% if device.last_seen %}
+                    {{ device.last_seen|timesince }} {% trans 'منذ' %}
+                  {% else %}
+                    {% trans 'لم يتصل' %}
+                  {% endif %}
+                </small>
+              </div>
+            </li>
+            {% empty %}
+            <li class="list-group-item text-center text-muted py-4">
+              <i class="fas fa-desktop fa-2x mb-2"></i><br>
+              {% trans 'لا توجد أجهزة' %}
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+
+      <!-- إجراءات سريعة -->
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0">
+          <h5 class="mb-0"><i class="fas fa-bolt text-warning me-2"></i> {% trans 'إجراءات سريعة' %}</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-grid gap-2">
+            <a href="{% url 'pos:new_order' %}?showroom={{ showroom.id }}" class="btn btn-primary">
+              <i class="fas fa-cash-register me-2"></i> {% trans 'طلب بيع جديد' %}
+            </a>
+            <a href="{% url 'showrooms:expense_add' showroom.id %}" class="btn btn-outline-warning">
+              <i class="fas fa-money-bill me-2"></i> {% trans 'تسجيل مصروف' %}
+            </a>
+            <a href="{% url 'showrooms:transfer' showroom.id %}" class="btn btn-outline-info">
+              <i class="fas fa-exchange-alt me-2"></i> {% trans 'تحويل مخزون' %}
+            </a>
+            <a href="{% url 'showrooms:pnl' %}?showroom={{ showroom.id }}" class="btn btn-outline-success">
+              <i class="fas fa-chart-pie me-2"></i> {% trans 'تقرير الأرباح' %}
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.avatar-lg {
+  width: 80px;
+  height: 80px;
+}
+.icon-box {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bg-success-soft { background-color: rgba(25, 135, 84, 0.1); }
+.bg-info-soft { background-color: rgba(13, 202, 240, 0.1); }
+.bg-danger-soft { background-color: rgba(220, 53, 69, 0.1); }
+.bg-primary-soft { background-color: rgba(13, 110, 253, 0.1); }
+.bg-warning-soft { background-color: rgba(255, 193, 7, 0.1); }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// رسم بياني للمبيعات
+const ctx = document.getElementById('salesChart').getContext('2d');
+const salesData = {
+    labels: {{ chart_labels|safe|default:'["السبت", "الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"]' }},
+    datasets: [{
+        label: '{% trans "المبيعات" %}',
+        data: {{ chart_sales|safe|default:'[0, 0, 0, 0, 0, 0, 0]' }},
+        borderColor: '#667eea',
+        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+        fill: true,
+        tension: 0.4,
+    }, {
+        label: '{% trans "المرتجعات" %}',
+        data: {{ chart_returns|safe|default:'[0, 0, 0, 0, 0, 0, 0]' }},
+        borderColor: '#dc3545',
+        backgroundColor: 'rgba(220, 53, 69, 0.1)',
+        fill: true,
+        tension: 0.4,
+    }]
+};
+
+new Chart(ctx, {
+    type: 'line',
+    data: salesData,
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: {
+                position: 'top',
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

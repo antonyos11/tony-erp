@@ -207,7 +207,7 @@ def product_profitability_report(request):
         # الحصول على التكلفة من BOM أو التكلفة المسجلة
         bom = BillOfMaterials.objects.filter(product=product, is_active=True).first()
         if bom:
-            unit_cost = bom.total_cost or product.cost or Decimal('0')
+            unit_cost = bom.total_cost_per_unit or product.cost or Decimal('0')
         else:
             unit_cost = product.cost or Decimal('0')
         

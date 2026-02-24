@@ -1,0 +1,270 @@
+﻿{% extends 'base_templates/modern_list.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block page_module %}hr{% endblock %}
+{% block page_icon %}bi-people-fill{% endblock %}
+{% block page_title %}{% trans 'الموظفين' %}{% endblock %}
+{% block page_subtitle %}{% trans 'إدارة بيانات الموظفين والموارد البشرية' %}{% endblock %}
+
+{% block breadcrumb %}
+<a href="{% url 'home' %}" class="mp-breadcrumb-link">
+    <i class="bi bi-house-door"></i> {% trans 'الرئيسية' %}
+</a>
+<i class="bi bi-chevron-left"></i>
+<a href="{% url 'hr:dashboard' %}" class="mp-breadcrumb-link">{% trans 'الموارد البشرية' %}</a>
+<i class="bi bi-chevron-left"></i>
+<span>{% trans 'الموظفين' %}</span>
+{% endblock %}
+
+{% block hero_actions %}
+<a href="{% url 'hr:employee_create' %}" class="mp-btn mp-btn-light">
+    <i class="bi bi-person-plus-fill"></i>
+    <span>{% trans 'موظف جديد' %}</span>
+</a>
+{% endblock %}
+
+{% block hero_stats %}
+<div class="mp-hero-stat">
+    <div class="mp-hero-stat-value">{{ stats.total|default:0|intcomma }}</div>
+    <div class="mp-hero-stat-label">{% trans 'إجمالي الموظفين' %}</div>
+</div>
+<div class="mp-hero-stat">
+    <div class="mp-hero-stat-value mp-text-success">{{ stats.active|default:0|intcomma }}</div>
+    <div class="mp-hero-stat-label">{% trans 'نشط' %}</div>
+</div>
+<div class="mp-hero-stat">
+    <div class="mp-hero-stat-value mp-text-warning">{{ stats.on_leave|default:0|intcomma }}</div>
+    <div class="mp-hero-stat-label">{% trans 'في إجازة' %}</div>
+</div>
+<div class="mp-hero-stat">
+    <div class="mp-hero-stat-value mp-text-info">{{ stats.departments|default:0|intcomma }}</div>
+    <div class="mp-hero-stat-label">{% trans 'الأقسام' %}</div>
+</div>
+{% endblock %}
+
+{% block filters %}
+<div class="row g-3">
+    <div class="col-md-4 col-lg-3">
+        <label class="mp-filter-label">{% trans 'بحث' %}</label>
+        <div class="mp-search-box">
+            <i class="bi bi-search"></i>
+            <input type="text" name="search" class="mp-search-input" 
+                   placeholder="{% trans 'اسم الموظف، الرقم الوظيفي...' %}"
+                   value="{{ request.GET.search }}">
+        </div>
+    </div>
+    <div class="col-md-4 col-lg-2">
+        <label class="mp-filter-label">{% trans 'القسم' %}</label>
+        <select name="department" class="mp-filter-select">
+            <option value="">{% trans 'جميع الأقسام' %}</option>
+            {% for dept in departments %}
+            <option value="{{ dept.pk }}" {% if request.GET.department == dept.pk|stringformat:'d' %}selected{% endif %}>
+                {{ dept.name }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-4 col-lg-2">
+        <label class="mp-filter-label">{% trans 'المنصب' %}</label>
+        <select name="position" class="mp-filter-select">
+            <option value="">{% trans 'جميع المناصب' %}</option>
+            {% for pos in positions %}
+            <option value="{{ pos.pk }}" {% if request.GET.position == pos.pk|stringformat:'d' %}selected{% endif %}>
+                {{ pos.name }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-4 col-lg-2">
+        <label class="mp-filter-label">{% trans 'الحالة' %}</label>
+        <select name="status" class="mp-filter-select">
+            <option value="">{% trans 'الكل' %}</option>
+            <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>{% trans 'نشط' %}</option>
+            <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>{% trans 'غير نشط' %}</option>
+            <option value="on_leave" {% if request.GET.status == 'on_leave' %}selected{% endif %}>{% trans 'في إجازة' %}</option>
+        </select>
+    </div>
+    <div class="col-md-4 col-lg-3 d-flex align-items-end gap-2">
+        <button type="submit" class="mp-btn mp-btn-primary flex-grow-1">
+            <i class="bi bi-search"></i> {% trans 'بحث' %}
+        </button>
+        <a href="{% url 'hr:employee_list' %}" class="mp-btn mp-btn-outline">
+            <i class="bi bi-x-lg"></i>
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block table_headers %}
+<th class="mp-th" style="width: 5%">#</th>
+<th class="mp-th" style="width: 25%">{% trans 'الموظف' %}</th>
+<th class="mp-th" style="width: 15%">{% trans 'القسم' %}</th>
+<th class="mp-th" style="width: 15%">{% trans 'المنصب' %}</th>
+<th class="mp-th text-center" style="width: 12%">{% trans 'تاريخ التعيين' %}</th>
+<th class="mp-th text-center" style="width: 10%">{% trans 'الحالة' %}</th>
+<th class="mp-th text-center" style="width: 18%">{% trans 'إجراءات' %}</th>
+{% endblock %}
+
+{% block table_body %}
+{% for employee in employees %}
+<tr class="mp-tr" data-id="{{ employee.pk }}">
+    <td class="mp-td" data-label="#">{{ forloop.counter }}</td>
+    <td class="mp-td" data-label="{% trans 'الموظف' %}">
+        <div class="mp-entity">
+            <div class="mp-avatar mp-avatar-md {% if employee.is_active %}mp-avatar-success{% else %}mp-avatar-secondary{% endif %}">
+                {% if employee.photo %}
+                <img src="{{ employee.photo.url }}" alt="{{ employee.get_full_name }}">
+                {% else %}
+                {{ employee.first_name|slice:":1" }}{{ employee.last_name|slice:":1" }}
+                {% endif %}
+            </div>
+            <div class="mp-entity-info">
+                <a href="{% url 'hr:employee_detail' employee.pk %}" class="mp-entity-name">
+                    {{ employee.get_full_name }}
+                </a>
+                <div class="mp-entity-sub">
+                    <span class="mp-entity-code">{{ employee.employee_number|default:'-' }}</span>
+                    {% if employee.email %}
+                    <span class="mp-entity-email"><i class="bi bi-envelope"></i> {{ employee.email }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </td>
+    <td class="mp-td" data-label="{% trans 'القسم' %}">
+        <span class="mp-badge mp-badge-info">{{ employee.department.name|default:'-' }}</span>
+    </td>
+    <td class="mp-td" data-label="{% trans 'المنصب' %}">
+        {{ employee.position.name|default:'-' }}
+    </td>
+    <td class="mp-td text-center" data-label="{% trans 'تاريخ التعيين' %}">
+        {{ employee.hire_date|date:"Y/m/d"|default:'-' }}
+    </td>
+    <td class="mp-td text-center" data-label="{% trans 'الحالة' %}">
+        {% if employee.is_active %}
+        <span class="mp-status mp-status-success">
+            <i class="bi bi-check-circle"></i> {% trans 'نشط' %}
+        </span>
+        {% elif employee.on_leave %}
+        <span class="mp-status mp-status-warning">
+            <i class="bi bi-calendar-x"></i> {% trans 'إجازة' %}
+        </span>
+        {% else %}
+        <span class="mp-status mp-status-secondary">
+            <i class="bi bi-pause-circle"></i> {% trans 'غير نشط' %}
+        </span>
+        {% endif %}
+    </td>
+    <td class="mp-td text-center" data-label="{% trans 'إجراءات' %}">
+        <div class="mp-actions">
+            <a href="{% url 'hr:employee_detail' employee.pk %}" class="mp-action-btn" title="{% trans 'عرض' %}">
+                <i class="bi bi-eye"></i>
+            </a>
+            <a href="{% url 'hr:employee_edit' employee.pk %}" class="mp-action-btn" title="{% trans 'تعديل' %}">
+                <i class="bi bi-pencil"></i>
+            </a>
+            <a href="{% url 'hr:attendance_employee' employee.pk %}" class="mp-action-btn" title="{% trans 'الحضور' %}">
+                <i class="bi bi-clock-history"></i>
+            </a>
+        </div>
+    </td>
+</tr>
+{% empty %}
+<tr>
+    <td colspan="7">
+        <div class="mp-empty-state">
+            <div class="mp-empty-icon">
+                <i class="bi bi-people"></i>
+            </div>
+            <h5>{% trans 'لا يوجد موظفين' %}</h5>
+            <p>{% trans 'ابدأ بإضافة موظفين جدد إلى النظام' %}</p>
+            <a href="{% url 'hr:employee_create' %}" class="mp-btn mp-btn-primary">
+                <i class="bi bi-person-plus"></i> {% trans 'إضافة موظف' %}
+            </a>
+        </div>
+    </td>
+</tr>
+{% endfor %}
+{% endblock %}
+
+{% block grid_body %}
+{% for employee in employees %}
+<div class="mp-grid-card" data-id="{{ employee.pk }}">
+    <div class="mp-grid-card-header mp-grid-card-header-centered">
+        <div class="mp-avatar mp-avatar-xl {% if employee.is_active %}mp-avatar-success{% else %}mp-avatar-secondary{% endif %}">
+            {% if employee.photo %}
+            <img src="{{ employee.photo.url }}" alt="{{ employee.get_full_name }}">
+            {% else %}
+            {{ employee.first_name|slice:":1" }}{{ employee.last_name|slice:":1" }}
+            {% endif %}
+        </div>
+        {% if employee.is_active %}
+        <span class="mp-grid-card-badge mp-badge-success">{% trans 'نشط' %}</span>
+        {% else %}
+        <span class="mp-grid-card-badge mp-badge-secondary">{% trans 'غير نشط' %}</span>
+        {% endif %}
+    </div>
+    <div class="mp-grid-card-body text-center">
+        <h6 class="mp-grid-card-title">
+            <a href="{% url 'hr:employee_detail' employee.pk %}">{{ employee.get_full_name }}</a>
+        </h6>
+        <div class="mp-grid-card-subtitle">{{ employee.position.name|default:'-' }}</div>
+        <div class="mp-grid-card-meta">
+            <span><i class="bi bi-building"></i> {{ employee.department.name|default:'-' }}</span>
+            <span><i class="bi bi-telephone"></i> {{ employee.phone|default:'-' }}</span>
+        </div>
+    </div>
+    <div class="mp-grid-card-footer">
+        <a href="{% url 'hr:employee_detail' employee.pk %}" class="mp-btn mp-btn-sm mp-btn-outline">
+            <i class="bi bi-eye"></i> {% trans 'عرض' %}
+        </a>
+        <a href="{% url 'hr:employee_edit' employee.pk %}" class="mp-btn mp-btn-sm mp-btn-primary">
+            <i class="bi bi-pencil"></i> {% trans 'تعديل' %}
+        </a>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block pagination %}
+{% if employees.has_other_pages %}
+<div class="mp-pagination">
+    <div class="mp-pagination-info">
+        {% blocktrans with start=employees.start_index end=employees.end_index total=employees.paginator.count %}
+        عرض {{ start }} - {{ end }} من {{ total }}
+        {% endblocktrans %}
+    </div>
+    <div class="mp-pagination-nav">
+        {% if employees.has_previous %}
+        <a href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="mp-page-btn">
+            <i class="bi bi-chevron-double-right"></i>
+        </a>
+        <a href="?page={{ employees.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="mp-page-btn">
+            <i class="bi bi-chevron-right"></i>
+        </a>
+        {% endif %}
+        
+        {% for num in employees.paginator.page_range %}
+            {% if employees.number == num %}
+            <span class="mp-page-btn mp-page-active">{{ num }}</span>
+            {% elif num > employees.number|add:'-3' and num < employees.number|add:'3' %}
+            <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="mp-page-btn">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+        
+        {% if employees.has_next %}
+        <a href="?page={{ employees.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="mp-page-btn">
+            <i class="bi bi-chevron-left"></i>
+        </a>
+        <a href="?page={{ employees.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="mp-page-btn">
+            <i class="bi bi-chevron-double-left"></i>
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+

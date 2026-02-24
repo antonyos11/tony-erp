@@ -1,0 +1,224 @@
+﻿{% extends 'base_templates/modern_detail.html' %}
+{% load static i18n %}
+
+{% block page_module %}maintenance{% endblock %}
+{% block page_icon %}bi-clipboard-check{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block extra_head_content %}
+<style>
+    .status-draft { background-color: #6c757d; color: white; }
+    .status-submitted { background-color: #0dcaf0; color: white; }
+    .status-approved { background-color: #198754; color: white; }
+    .status-in_progress { background-color: #ffc107; color: black; }
+    .status-completed { background-color: #0d6efd; color: white; }
+    .status-cancelled { background-color: #dc3545; color: white; }
+    .status-rejected { background-color: #dc3545; color: white; }
+</style>
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'maintenance:dashboard' %}">{% trans 'الصيانة' %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'maintenance:maintenance_request_list' %}">{% trans 'طلبات الصيانة' %}</a></li>
+<li class="breadcrumb-item active">{{ request.request_number }}</li>
+{% endblock %}
+
+{% block actions %}
+    {% if request.status == 'draft' or request.status == 'submitted' %}
+        <a href="{% url 'maintenance:maintenance_request_edit' request.pk %}" class="btn btn-primary">
+            <i class="bi bi-pencil me-1"></i> {% trans 'تعديل' %}
+        </a>
+    {% endif %}
+
+    {% if request.status == 'in_progress' %}
+      <form action="{% url 'maintenance:maintenance_request_complete' request.pk %}" method="post" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success" onclick="return confirm('هل أنت متأكد من إكمال الطلب؟')">
+                <i class="bi bi-check-lg me-1"></i> {% trans 'إكمال' %}
+            </button>
+        </form>
+    {% endif %}
+
+    {% if request.status == 'submitted' or request.status == 'draft' %}
+         <form action="{% url 'maintenance:maintenance_request_approve' request.pk %}" method="post" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary">
+                <i class="bi bi-check-circle me-1"></i> {% trans 'موافق' %}
+            </button>
+        </form>
+    {% endif %}
+    
+    {% if request.status == 'approved' %}
+         <form action="{% url 'maintenance:maintenance_request_start' request.pk %}" method="post" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-warning text-dark">
+                <i class="bi bi-play-fill me-1"></i> {% trans 'بدء التنفيذ' %}
+            </button>
+        </form>
+    {% endif %}
+    
+    {% if request.status != 'completed' and request.status != 'cancelled' %}
+         <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#cancelModal">
+            <i class="bi bi-x-circle me-1"></i> {% trans 'إلغاء' %}
+        </button>
+    {% endif %}
+{% endblock %}
+
+{% block detail_content %}
+<div class="row">
+    <!-- تفاصيل الطلب -->
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-transparent py-3">
+                <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>{% trans 'تفاصيل الطلب' %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>{% trans 'الماكينة:' %}</strong>
+                        <a href="{% url 'maintenance:machine_detail' request.machine.pk %}" class="text-decoration-none">
+                            {{ request.machine }}
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>{% trans 'نوع الصيانة:' %}</strong> {{ request.maintenance_type }}
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>{% trans 'الأولوية:' %}</strong> 
+                        <span class="badge bg-secondary">{{ request.get_priority_display }}</span>
+                    </div>
+                    <div class="col-md-6">
+                         <strong>{% trans 'الحالة:' %}</strong> 
+                         <span class="badge status-{{ request.status }}">{{ request.get_status_display }}</span>
+                    </div>
+                </div>
+                <hr>
+                <div class="mb-3">
+                    <strong>{% trans 'الوصف:' %}</strong>
+                    <p class="text-muted mt-2">{{ request.description|linebreaks }}</p>
+                </div>
+                {% if request.problem_symptoms %}
+                <div class="mb-3">
+                    <strong>{% trans 'أعراض المشكلة:' %}</strong>
+                    <p class="text-muted mt-2">{{ request.problem_symptoms|linebreaks }}</p>
+                </div>
+                {% endif %}
+                {% if request.cancellation_reason %}
+                <div class="alert alert-danger mt-3">
+                    <strong>{% trans 'سبب الإلغاء:' %}</strong> {{ request.cancellation_reason }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- سجلات الصيانة المرتبطة -->
+        {% if request.maintenance_records.exists %}
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-transparent py-3">
+                <h5 class="mb-0"><i class="bi bi-journal-text me-2"></i>{% trans 'سجلات الصيانة' %}</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">{% trans 'التاريخ' %}</th>
+                                <th>{% trans 'الفني' %}</th>
+                                <th>{% trans 'العمل المنفذ' %}</th>
+                                <th>{% trans 'الحالة' %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in request.maintenance_records.all %}
+                            <tr>
+                                <td class="ps-4"><a href="#">{{ record.start_datetime|date:"Y-m-d H:i" }}</a></td>
+                                <td>{{ record.technician }}</td>
+                                <td>{{ record.work_performed|truncatechars:50 }}</td>
+                                <td>{{ record.get_status_display }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- القائمة الجانبية -->
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-transparent py-3">
+                <h5 class="mb-0"><i class="bi bi-people me-2"></i>{% trans 'المسؤولية والتوقيت' %}</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between px-0">
+                        <span class="text-muted">{% trans 'مقدم الطلب' %}</span>
+                        <span class="fw-bold">{{ request.requested_by.get_full_name|default:request.requested_by.username }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between px-0">
+                        <span class="text-muted">{% trans 'تاريخ الطلب' %}</span>
+                        <span>{{ request.request_date|date:"Y-m-d" }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between px-0">
+                        <span class="text-muted">{% trans 'إسناد إلى' %}</span>
+                        <span>{{ request.assigned_to|default:"-" }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between px-0">
+                        <span class="text-muted">{% trans 'تاريخ الإنجاز المطلوب' %}</span>
+                        <span>{{ request.requested_completion_date|date:"Y-m-d"|default:"-" }}</span>
+                    </li>
+                     {% if request.approved_by %}
+                    <li class="list-group-item d-flex justify-content-between px-0">
+                        <span class="text-muted">{% trans 'تمت الموافقة بواسطة' %}</span>
+                        <span>{{ request.approved_by.get_full_name }}</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-transparent py-3">
+                <h5 class="mb-0"><i class="bi bi-cash me-2"></i>{% trans 'التكاليف' %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">{% trans 'التكلفة التقديرية' %}</span>
+                    <span class="fw-bold">{{ request.estimated_cost }}</span>
+                </div>
+                 <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">{% trans 'التكلفة الفعلية' %}</span>
+                    <span class="fw-bold">{{ request.actual_cost }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cancel Modal -->
+<div class="modal fade" id="cancelModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form action="{% url 'maintenance:maintenance_request_cancel' request.pk %}" method="post" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans 'إلغاء الطلب' %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">{% trans 'سبب الإلغاء:' %}</label>
+                    <textarea name="cancellation_reason" class="form-control" rows="3" required></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans 'خروج' %}</button>
+                <button type="submit" class="btn btn-danger">{% trans 'تأكيد الإلغاء' %}</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

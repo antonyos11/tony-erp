@@ -1,0 +1,109 @@
+<!-- Print Agent Heartbeat Indicator — include in base template -->
+<div id="print-agent-heartbeat" class="fixed bottom-4 right-4 z-50">
+    <div id="heartbeat-dot"
+         class="flex items-center gap-2 bg-gray-800 text-white text-xs px-3 py-2 rounded-full shadow-lg cursor-pointer transition-all duration-300 hover:bg-gray-700"
+         onclick="toggleHeartbeatDetails()" title="حالة وكيل الطباعة">
+        <span id="heartbeat-icon" class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+        <span id="heartbeat-text">وكيل الطباعة: غير متصل</span>
+    </div>
+    <!-- Expandable details panel -->
+    <div id="heartbeat-details"
+         class="hidden mt-2 bg-gray-800 text-white text-xs p-3 rounded-lg shadow-xl max-w-xs"
+         dir="rtl">
+        <div class="font-bold mb-2 text-sm">📡 معلومات الاتصال</div>
+        <div id="hb-station" class="mb-1">المحطة: —</div>
+        <div id="hb-printers" class="mb-1">الطابعات: —</div>
+        <div id="hb-version" class="mb-1">الإصدار: —</div>
+        <div id="hb-last-ping" class="text-gray-400 mt-2">آخر فحص: —</div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const HEARTBEAT_URL = '/printing/api/status/';
+    const AGENT_WS_URL = 'ws://127.0.0.1:9876';
+    const INTERVAL_MS = 5000;
+
+    const dot = document.getElementById('heartbeat-icon');
+    const text = document.getElementById('heartbeat-text');
+    const details = document.getElementById('heartbeat-details');
+    const hbStation = document.getElementById('hb-station');
+    const hbPrinters = document.getElementById('hb-printers');
+    const hbVersion = document.getElementById('hb-version');
+    const hbLastPing = document.getElementById('hb-last-ping');
+
+    let detailsVisible = false;
+
+    window.toggleHeartbeatDetails = function() {
+        detailsVisible = !detailsVisible;
+        details.classList.toggle('hidden', !detailsVisible);
+    };
+
+    function updateUI(online, data) {
+        const now = new Date().toLocaleTimeString('ar-EG');
+        hbLastPing.textContent = 'آخر فحص: ' + now;
+
+        if (online) {
+            dot.className = 'w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse';
+            const stations = data.online_stations || 0;
+            const printers = (data.discovered_printers || []).length;
+            text.textContent = 'وكيل الطباعة: متصل (' + stations + ' محطة، ' + printers + ' طابعة)';
+            hbStation.textContent = 'المحطات المتصلة: ' + stations;
+            hbPrinters.textContent = 'الطابعات: ' + printers;
+            hbVersion.textContent = 'الإصدار: ' + (data.agent_version || '—');
+        } else {
+            dot.className = 'w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse';
+            text.textContent = 'وكيل الطباعة: غير متصل';
+            hbStation.textContent = 'المحطة: غير متصل';
+            hbPrinters.textContent = 'الطابعات: —';
+            hbVersion.textContent = 'الإصدار: —';
+        }
+    }
+
+    async function pingServer() {
+        try {
+            const resp = await fetch(HEARTBEAT_URL, {
+                credentials: 'same-origin',
+                headers: {'X-Requested-With': 'XMLHttpRequest'},
+            });
+            if (!resp.ok) throw new Error(resp.status);
+            const data = await resp.json();
+            updateUI(data.online !== false, data);
+            return;
+        } catch (e) {
+            // Server endpoint not reachable, try direct WebSocket
+        }
+
+        // Fallback: ping local agent directly
+        try {
+            const ws = new WebSocket(AGENT_WS_URL);
+            const timeout = setTimeout(() => { ws.close(); updateUI(false, {}); }, 2000);
+            ws.onopen = function() {
+                clearTimeout(timeout);
+                ws.send(JSON.stringify({type: 'ping'}));
+            };
+            ws.onmessage = function(evt) {
+                clearTimeout(timeout);
+                try {
+                    const msg = JSON.parse(evt.data);
+                    updateUI(true, {
+                        online_stations: 1,
+                        discovered_printers: msg.printers || [],
+                        agent_version: msg.agent_version || '—',
+                    });
+                } catch(e) {
+                    updateUI(true, {online_stations: 1});
+                }
+                ws.close();
+            };
+            ws.onerror = function() { clearTimeout(timeout); updateUI(false, {}); };
+        } catch(e) {
+            updateUI(false, {});
+        }
+    }
+
+    // Initial ping + interval
+    pingServer();
+    setInterval(pingServer, INTERVAL_MS);
+})();
+</script>

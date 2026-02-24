@@ -1,0 +1,204 @@
+﻿{% extends 'base_templates/_list_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'طلبات عروض الأسعار' %}{% endblock %}
+{% block hero_icon %}bi-send{% endblock %}
+{% block hero_title %}{% trans 'طلبات عروض الأسعار' %}{% endblock %}
+{% block hero_subtitle %}{% trans 'إرسال طلبات عروض الأسعار للموردين والمتابعة' %}{% endblock %}
+
+{% block add_button_url %}{% url 'purchases:rfq_create' %}{% endblock %}
+{% block add_button_text %}{% trans 'إنشاء RFQ' %}{% endblock %}
+
+{% block stats_cards %}
+<div class="col-6 col-lg-3">
+  <div class="stat-card">
+    <div class="stat-icon primary">
+      <i class="bi bi-send"></i>
+    </div>
+    <div class="stat-content">
+      <div class="stat-value">{{ stats.total|default:0 }}</div>
+      <div class="stat-label">{% trans 'إجمالي الطلبات' %}</div>
+    </div>
+  </div>
+</div>
+<div class="col-6 col-lg-3">
+  <div class="stat-card">
+    <div class="stat-icon warning">
+      <i class="bi bi-hourglass-split"></i>
+    </div>
+    <div class="stat-content">
+      <div class="stat-value">{{ stats.pending|default:0 }}</div>
+      <div class="stat-label">{% trans 'بانتظار الرد' %}</div>
+    </div>
+  </div>
+</div>
+<div class="col-6 col-lg-3">
+  <div class="stat-card">
+    <div class="stat-icon success">
+      <i class="bi bi-check-circle"></i>
+    </div>
+    <div class="stat-content">
+      <div class="stat-value">{{ stats.responded|default:0 }}</div>
+      <div class="stat-label">{% trans 'تم الرد' %}</div>
+    </div>
+  </div>
+</div>
+<div class="col-6 col-lg-3">
+  <div class="stat-card">
+    <div class="stat-icon danger">
+      <i class="bi bi-clock-history"></i>
+    </div>
+    <div class="stat-content">
+      <div class="stat-value">{{ stats.expired|default:0 }}</div>
+      <div class="stat-label">{% trans 'منتهي الصلاحية' %}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block filter_fields %}
+<div class="col-md-3">
+  <label class="form-label small">{% trans 'الحالة' %}</label>
+  <select name="status" class="form-select form-select-sm">
+    <option value="">{% trans 'الكل' %}</option>
+    <option value="draft" {% if request.GET.status == 'draft' %}selected{% endif %}>{% trans 'مسودة' %}</option>
+    <option value="sent" {% if request.GET.status == 'sent' %}selected{% endif %}>{% trans 'مرسل' %}</option>
+    <option value="responded" {% if request.GET.status == 'responded' %}selected{% endif %}>{% trans 'تم الرد' %}</option>
+    <option value="expired" {% if request.GET.status == 'expired' %}selected{% endif %}>{% trans 'منتهي' %}</option>
+    <option value="cancelled" {% if request.GET.status == 'cancelled' %}selected{% endif %}>{% trans 'ملغى' %}</option>
+  </select>
+</div>
+<div class="col-md-3">
+  <label class="form-label small">{% trans 'المورد' %}</label>
+  <select name="supplier" class="form-select form-select-sm">
+    <option value="">{% trans 'الكل' %}</option>
+    {% for supplier in suppliers %}
+    <option value="{{ supplier.pk }}" {% if request.GET.supplier == supplier.pk|stringformat:'d' %}selected{% endif %}>
+      {{ supplier.name }}
+    </option>
+    {% endfor %}
+  </select>
+</div>
+<div class="col-md-3">
+  <label class="form-label small">{% trans 'من تاريخ' %}</label>
+  <input type="date" name="from_date" class="form-control form-control-sm" value="{{ request.GET.from_date }}">
+</div>
+<div class="col-md-3">
+  <label class="form-label small">{% trans 'إلى تاريخ' %}</label>
+  <input type="date" name="to_date" class="form-control form-control-sm" value="{{ request.GET.to_date }}">
+</div>
+{% endblock %}
+
+{% block table_headers %}
+<th style="width: 5%">#</th>
+<th style="width: 12%">{% trans 'رقم الطلب' %}</th>
+<th style="width: 20%">{% trans 'المورد' %}</th>
+<th class="text-center" style="width: 10%">{% trans 'التاريخ' %}</th>
+<th class="text-center" style="width: 10%">{% trans 'صالح حتى' %}</th>
+<th class="text-center" style="width: 8%">{% trans 'الأصناف' %}</th>
+<th class="text-center" style="width: 10%">{% trans 'الحالة' %}</th>
+<th class="text-center" style="width: 10%">{% trans 'العروض' %}</th>
+<th class="text-center" style="width: 15%">{% trans 'الإجراءات' %}</th>
+{% endblock %}
+
+{% block table_rows %}
+{% for rfq in rfqs %}
+<tr>
+  <td>{{ forloop.counter }}</td>
+  <td>
+    <a href="{% url 'purchases:rfq_detail' rfq.pk %}" class="fw-semibold text-primary">
+      {{ rfq.rfq_number }}
+    </a>
+  </td>
+  <td>
+    <div class="d-flex align-items-center gap-2">
+      <div class="avatar-sm bg-primary-subtle text-primary">
+        <i class="bi bi-building"></i>
+      </div>
+      <div>
+        <div class="fw-medium">{{ rfq.supplier.name }}</div>
+        <div class="small text-muted">{{ rfq.supplier.contact_person|default:'' }}</div>
+      </div>
+    </div>
+  </td>
+  <td class="text-center">{{ rfq.date|date:"Y/m/d" }}</td>
+  <td class="text-center">
+    {% if rfq.valid_until %}
+    <span class="{% if rfq.is_expired %}text-danger{% endif %}">
+      {{ rfq.valid_until|date:"Y/m/d" }}
+    </span>
+    {% else %}-{% endif %}
+  </td>
+  <td class="text-center">
+    <span class="badge bg-secondary">{{ rfq.items.count }}</span>
+  </td>
+  <td class="text-center">
+    {% if rfq.status == 'draft' %}
+    <span class="badge badge-status draft">{% trans 'مسودة' %}</span>
+    {% elif rfq.status == 'sent' %}
+    <span class="badge badge-status pending">{% trans 'مرسل' %}</span>
+    {% elif rfq.status == 'responded' %}
+    <span class="badge badge-status approved">{% trans 'تم الرد' %}</span>
+    {% elif rfq.status == 'expired' %}
+    <span class="badge badge-status cancelled">{% trans 'منتهي' %}</span>
+    {% elif rfq.status == 'cancelled' %}
+    <span class="badge badge-status cancelled">{% trans 'ملغى' %}</span>
+    {% endif %}
+  </td>
+  <td class="text-center">
+    {% if rfq.quotations_count > 0 %}
+    <a href="{% url 'purchases:quotation_list' %}?rfq={{ rfq.pk }}" class="badge bg-success">
+      {{ rfq.quotations_count }} {% trans 'عرض' %}
+    </a>
+    {% else %}
+    <span class="text-muted">-</span>
+    {% endif %}
+  </td>
+  <td class="text-center">
+    <div class="btn-group btn-group-sm">
+      <a href="{% url 'purchases:rfq_detail' rfq.pk %}" class="btn btn-outline-primary" title="{% trans 'عرض' %}">
+        <i class="bi bi-eye"></i>
+      </a>
+      {% if rfq.status == 'draft' %}
+      <a href="{% url 'purchases:rfq_edit' rfq.pk %}" class="btn btn-outline-secondary" title="{% trans 'تعديل' %}">
+        <i class="bi bi-pencil"></i>
+      </a>
+      <button type="button" class="btn btn-outline-success" title="{% trans 'إرسال' %}" 
+              onclick="sendRFQ({{ rfq.pk }})">
+        <i class="bi bi-send"></i>
+      </button>
+      {% endif %}
+      {% if rfq.status == 'sent' %}
+      <a href="{% url 'purchases:quotation_create' %}?rfq={{ rfq.pk }}" class="btn btn-outline-success" title="{% trans 'إضافة عرض' %}">
+        <i class="bi bi-plus-circle"></i>
+      </a>
+      {% endif %}
+    </div>
+  </td>
+</tr>
+{% empty %}
+<tr>
+  <td colspan="9">
+    <div class="empty-state">
+      <i class="bi bi-send"></i>
+      <h5>{% trans 'لا توجد طلبات عروض أسعار' %}</h5>
+      <p>{% trans 'ابدأ بإنشاء طلب عرض سعر جديد للموردين' %}</p>
+      <a href="{% url 'purchases:rfq_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i>{% trans 'إنشاء RFQ' %}
+      </a>
+    </div>
+  </td>
+</tr>
+{% endfor %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function sendRFQ(id) {
+  if (confirm('{% trans "هل تريد إرسال طلب عرض السعر للمورد؟" %}')) {
+    window.location.href = '{% url "purchases:rfq_send" 0 %}'.replace('0', id);
+  }
+}
+</script>
+{% endblock %}

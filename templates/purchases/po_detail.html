@@ -1,0 +1,399 @@
+﻿{% extends 'base_templates/_detail_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'تفاصيل أمر الشراء' %}{% endblock %}
+{% block hero_icon %}bi-cart-check{% endblock %}
+{% block hero_title %}{% trans 'أمر الشراء' %} - {{ po.po_number }}{% endblock %}
+{% block hero_subtitle %}{{ po.supplier.name }}{% endblock %}
+
+{% block hero_badge %}
+{% if po.status == 'draft' %}
+<span class="badge bg-secondary">{% trans 'مسودة' %}</span>
+{% elif po.status == 'pending' %}
+<span class="badge bg-warning text-dark">{% trans 'بانتظار الموافقة' %}</span>
+{% elif po.status == 'approved' %}
+<span class="badge bg-info">{% trans 'معتمد' %}</span>
+{% elif po.status == 'sent' %}
+<span class="badge bg-primary">{% trans 'مرسل للمورد' %}</span>
+{% elif po.status == 'partial' %}
+<span class="badge bg-warning text-dark">{% trans 'استلام جزئي' %}</span>
+{% elif po.status == 'completed' %}
+<span class="badge bg-success">{% trans 'مكتمل' %}</span>
+{% elif po.status == 'cancelled' %}
+<span class="badge bg-danger">{% trans 'ملغى' %}</span>
+{% endif %}
+{% endblock %}
+
+{% block hero_actions %}
+<a href="{% url 'purchases:po_edit' po.pk %}" class="btn btn-outline-light">
+  <i class="bi bi-pencil me-1"></i>{% trans 'تعديل' %}
+</a>
+{% if po.status == 'approved' or po.status == 'sent' %}
+<a href="{% url 'purchases:po_receive' po.pk %}" class="btn btn-light">
+  <i class="bi bi-box-arrow-in-down me-1"></i>{% trans 'استلام' %}
+</a>
+{% endif %}
+{% endblock %}
+
+{% block back_url %}{% url 'purchases:po_list' %}{% endblock %}
+
+{% block detail_styles %}
+<style>
+.supplier-hero {
+  background: linear-gradient(135deg, var(--color-brand-primary) 0%, #2d5a8a 100%);
+  color: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.supplier-hero .supplier-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+.supplier-hero .supplier-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+.supplier-hero .supplier-details span {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.po-progress {
+  margin-bottom: 1.5rem;
+}
+.po-progress .progress-steps {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  margin-bottom: 0.5rem;
+}
+.po-progress .progress-steps::before {
+  content: '';
+  position: absolute;
+  top: 15px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--bs-border-color);
+  z-index: 0;
+}
+.po-progress .progress-step {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  flex: 1;
+}
+.po-progress .step-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bs-border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--bs-secondary-color);
+}
+.po-progress .progress-step.completed .step-circle {
+  background: #198754;
+  color: white;
+}
+.po-progress .progress-step.current .step-circle {
+  background: var(--color-brand-primary);
+  color: white;
+  box-shadow: 0 0 0 4px rgba(var(--color-brand-primary-rgb),0.2);
+}
+.po-progress .step-label {
+  font-size: 0.75rem;
+  color: var(--bs-secondary-color);
+}
+.po-progress .progress-step.completed .step-label,
+.po-progress .progress-step.current .step-label {
+  color: var(--bs-body-color);
+  font-weight: 600;
+}
+.delivery-timeline {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.timeline-item {
+  background: var(--bs-tertiary-bg);
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+}
+.timeline-item .item-label {
+  font-size: 0.75rem;
+  color: var(--bs-secondary-color);
+  text-transform: uppercase;
+}
+.timeline-item .item-value {
+  font-weight: 700;
+  margin-top: 0.25rem;
+}
+.totals-card {
+  background: linear-gradient(135deg, rgba(var(--color-brand-accent-rgb),0.1) 0%, rgba(var(--color-brand-accent-rgb),0.03) 100%);
+  border: 1px solid var(--color-brand-accent);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-top: 1rem;
+}
+.totals-card .total-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  font-size: 0.95rem;
+}
+.totals-card .total-row:last-child {
+  border-top: 2px solid var(--color-brand-accent);
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+.totals-card .total-row:last-child .total-value {
+  color: var(--color-brand-accent);
+}
+</style>
+{% endblock %}
+
+{% block info_cards %}
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon primary">
+      <i class="bi bi-hash"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'رقم الأمر' %}</div>
+      <div class="info-value">{{ po.po_number }}</div>
+    </div>
+  </div>
+</div>
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon success">
+      <i class="bi bi-calendar-check"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'تاريخ الأمر' %}</div>
+      <div class="info-value">{{ po.date|date:"Y/m/d" }}</div>
+    </div>
+  </div>
+</div>
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon warning">
+      <i class="bi bi-truck"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'تاريخ التوريد' %}</div>
+      <div class="info-value">{{ po.delivery_date|date:"Y/m/d"|default:"-" }}</div>
+    </div>
+  </div>
+</div>
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon accent">
+      <i class="bi bi-cash-stack"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'الإجمالي' %}</div>
+      <div class="info-value">{{ po.total|floatformat:2 }} {% trans 'ج.م' %}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block main_content %}
+{# Supplier Hero #}
+<div class="supplier-hero">
+  <div class="d-flex justify-content-between align-items-start">
+    <div>
+      <div class="supplier-name">
+        <i class="bi bi-building me-2"></i>{{ po.supplier.name }}
+      </div>
+      <div class="supplier-details">
+        {% if po.supplier.phone %}
+        <span><i class="bi bi-telephone"></i> {{ po.supplier.phone }}</span>
+        {% endif %}
+        {% if po.supplier.email %}
+        <span><i class="bi bi-envelope"></i> {{ po.supplier.email }}</span>
+        {% endif %}
+        {% if po.supplier.address %}
+        <span><i class="bi bi-geo-alt"></i> {{ po.supplier.address }}</span>
+        {% endif %}
+      </div>
+    </div>
+    <a href="{% url 'partners:partner_detail' po.supplier.pk %}" class="btn btn-sm btn-light">
+      <i class="bi bi-eye me-1"></i>{% trans 'عرض المورد' %}
+    </a>
+  </div>
+</div>
+
+{# Progress Steps #}
+<div class="po-progress">
+  <div class="progress-steps">
+    <div class="progress-step {% if po.status != 'draft' %}completed{% elif po.status == 'draft' %}current{% endif %}">
+      <div class="step-circle"><i class="bi bi-file-earmark"></i></div>
+      <div class="step-label">{% trans 'إنشاء' %}</div>
+    </div>
+    <div class="progress-step {% if po.status in 'approved,sent,partial,completed' %}completed{% elif po.status == 'pending' %}current{% endif %}">
+      <div class="step-circle"><i class="bi bi-check"></i></div>
+      <div class="step-label">{% trans 'اعتماد' %}</div>
+    </div>
+    <div class="progress-step {% if po.status in 'partial,completed' %}completed{% elif po.status == 'sent' %}current{% endif %}">
+      <div class="step-circle"><i class="bi bi-send"></i></div>
+      <div class="step-label">{% trans 'إرسال' %}</div>
+    </div>
+    <div class="progress-step {% if po.status == 'completed' %}completed{% elif po.status == 'partial' %}current{% endif %}">
+      <div class="step-circle"><i class="bi bi-box-arrow-in-down"></i></div>
+      <div class="step-label">{% trans 'استلام' %}</div>
+    </div>
+    <div class="progress-step {% if po.status == 'completed' %}completed current{% endif %}">
+      <div class="step-circle"><i class="bi bi-check-all"></i></div>
+      <div class="step-label">{% trans 'مكتمل' %}</div>
+    </div>
+  </div>
+</div>
+
+{# Delivery Timeline #}
+<div class="delivery-timeline">
+  <div class="timeline-item">
+    <div class="item-label">{% trans 'شروط الدفع' %}</div>
+    <div class="item-value">{{ po.get_payment_terms_display|default:"-" }}</div>
+  </div>
+  <div class="timeline-item">
+    <div class="item-label">{% trans 'مكان التسليم' %}</div>
+    <div class="item-value">{{ po.delivery_location|default:"-" }}</div>
+  </div>
+  <div class="timeline-item">
+    <div class="item-label">{% trans 'المستودع' %}</div>
+    <div class="item-value">{{ po.warehouse.name|default:"-" }}</div>
+  </div>
+  <div class="timeline-item">
+    <div class="item-label">{% trans 'نسبة الاستلام' %}</div>
+    <div class="item-value text-{% if po.received_percentage >= 100 %}success{% elif po.received_percentage > 0 %}warning{% else %}secondary{% endif %}">
+      {{ po.received_percentage|default:0 }}%
+    </div>
+  </div>
+</div>
+
+{# Items Table #}
+<div class="items-section mb-4">
+  <h5 class="section-title">
+    <i class="bi bi-box-seam me-2"></i>{% trans 'أصناف الأمر' %}
+    <span class="badge bg-primary ms-2">{{ po.items.count }}</span>
+  </h5>
+  
+  <div class="table-responsive">
+    <table class="table pro-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>{% trans 'الصنف' %}</th>
+          <th class="text-center">{% trans 'الكمية' %}</th>
+          <th class="text-center">{% trans 'المستلم' %}</th>
+          <th class="text-center">{% trans 'الوحدة' %}</th>
+          <th class="text-end">{% trans 'السعر' %}</th>
+          <th class="text-center">{% trans 'الخصم' %}</th>
+          <th class="text-end">{% trans 'الإجمالي' %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in po.items.all %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>
+            <div class="fw-medium">{{ item.product.name }}</div>
+            <div class="small text-muted">{{ item.product.code }}</div>
+          </td>
+          <td class="text-center">{{ item.quantity }}</td>
+          <td class="text-center">
+            <span class="{% if item.received_qty >= item.quantity %}text-success{% elif item.received_qty > 0 %}text-warning{% endif %}">
+              {{ item.received_qty|default:0 }}
+            </span>
+          </td>
+          <td class="text-center">{{ item.product.unit }}</td>
+          <td class="text-end">{{ item.unit_price|floatformat:2 }}</td>
+          <td class="text-center">
+            {% if item.discount_percent %}
+            <span class="badge bg-success">{{ item.discount_percent }}%</span>
+            {% else %}-{% endif %}
+          </td>
+          <td class="text-end fw-medium">{{ item.line_total|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8" class="text-center text-muted py-4">
+            {% trans 'لا توجد أصناف' %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  
+  {# Totals #}
+  <div class="totals-card">
+    <div class="total-row">
+      <span>{% trans 'المجموع الفرعي' %}</span>
+      <span>{{ po.subtotal|floatformat:2 }} {% trans 'ج.م' %}</span>
+    </div>
+    {% if po.discount_amount %}
+    <div class="total-row">
+      <span>{% trans 'الخصم' %}</span>
+      <span class="text-danger">-{{ po.discount_amount|floatformat:2 }} {% trans 'ج.م' %}</span>
+    </div>
+    {% endif %}
+    {% if po.tax_amount %}
+    <div class="total-row">
+      <span>{% trans 'الضريبة' %} ({{ po.tax_rate }}%)</span>
+      <span>{{ po.tax_amount|floatformat:2 }} {% trans 'ج.م' %}</span>
+    </div>
+    {% endif %}
+    <div class="total-row">
+      <span>{% trans 'الإجمالي' %}</span>
+      <span class="total-value">{{ po.total|floatformat:2 }} {% trans 'ج.م' %}</span>
+    </div>
+  </div>
+</div>
+
+{# Notes #}
+{% if po.notes %}
+<div class="info-section">
+  <h5 class="section-title">
+    <i class="bi bi-sticky me-2"></i>{% trans 'ملاحظات' %}
+  </h5>
+  <div class="p-3 bg-body-tertiary rounded-3">
+    <p class="mb-0">{{ po.notes }}</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block bottom_actions %}
+<a href="{% url 'purchases:po_list' %}" class="btn btn-outline-secondary">
+  <i class="bi bi-arrow-right me-1"></i>{% trans 'رجوع' %}
+</a>
+<div class="d-flex gap-2">
+  <button type="button" class="btn btn-outline-primary" onclick="window.print()">
+    <i class="bi bi-printer me-1"></i>{% trans 'طباعة' %}
+  </button>
+  {% if po.status == 'approved' or po.status == 'sent' %}
+  <a href="{% url 'purchases:po_receive' po.pk %}" class="btn btn-success">
+    <i class="bi bi-box-arrow-in-down me-1"></i>{% trans 'استلام البضائع' %}
+  </a>
+  {% endif %}
+</div>
+{% endblock %}
+

@@ -1,0 +1,248 @@
+﻿{% extends 'base_templates/modern_form.html' %}
+
+{% block page_module %}core{% endblock %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block form_content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">
+                <i class="bi bi-{% if preparation %}pencil{% else %}plus-lg{% endif %} text-primary me-2"></i>
+                {{ title }}
+            </h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">الرئيسية</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'mosool:preparation_dashboard' %}">موصول التحضير</a></li>
+                    <li class="breadcrumb-item active">{{ title }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+    
+    <form method="post" enctype="multipart/form-data" id="preparationForm">
+        {% csrf_token %}
+        
+        <div class="row g-4">
+            <!-- البيانات الأساسية -->
+            <div class="col-lg-8">
+                <div class="card border-0">
+                    <div class="card-header bg-transparent border-0">
+                        <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>بيانات الطلب</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">نوع الطلب *</label>
+                                {{ form.request_type }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">الأولوية</label>
+                                {{ form.priority }}
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">العنوان *</label>
+                                {{ form.title }}
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">الوصف</label>
+                                {{ form.description }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- البنود -->
+                <div class="card border-0 mt-4">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-list-check me-2"></i>بنود الطلب</h5>
+                        <button type="button" class="btn btn-sm btn-success" id="addItem">
+                            <i class="bi bi-plus-lg me-1"></i> إضافة بند
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        {{ formset.management_form }}
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="itemsTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 30%">الوصف *</th>
+                                        <th style="width: 15%">المنتج</th>
+                                        <th style="width: 12%">الكمية *</th>
+                                        <th style="width: 10%">الوحدة</th>
+                                        <th style="width: 15%">السعر التقديري</th>
+                                        <th style="width: 13%">المجموع</th>
+                                        <th style="width: 5%"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="itemsBody">
+                                    {% for item_form in formset %}
+                                    <tr class="item-row">
+                                        <td>
+                                            {{ item_form.id }}
+                                            {{ item_form.description }}
+                                        </td>
+                                        <td>{{ item_form.product }}</td>
+                                        <td>{{ item_form.quantity_requested }}</td>
+                                        <td>{{ item_form.unit }}</td>
+                                        <td>{{ item_form.estimated_unit_price }}</td>
+                                        <td class="item-total">0.00</td>
+                                        <td>
+                                            {% if item_form.DELETE %}
+                                            {{ item_form.DELETE }}
+                                            {% endif %}
+                                            <button type="button" class="btn btn-sm btn-outline-danger remove-item">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr class="table-light">
+                                        <td colspan="5" class="text-start"><strong>المجموع الكلي</strong></td>
+                                        <td colspan="2"><strong id="grandTotal">0.00</strong></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- الإعدادات الجانبية -->
+            <div class="col-lg-4">
+                <div class="card border-0">
+                    <div class="card-header bg-transparent border-0">
+                        <h5 class="mb-0"><i class="bi bi-gear me-2"></i>إعدادات إضافية</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">تاريخ الاحتياج</label>
+                            {{ form.required_date }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">القسم</label>
+                            {{ form.department }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">مركز التكلفة</label>
+                            {{ form.cost_center }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">المشروع</label>
+                            {{ form.project }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">ملاحظات</label>
+                            {{ form.notes }}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- أزرار الإجراءات -->
+                <div class="card border-0 mt-4">
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-check-lg me-1"></i> حفظ
+                            </button>
+                            <button type="submit" name="save_and_submit" value="1" class="btn btn-success">
+                                <i class="bi bi-send me-1"></i> حفظ وتقديم للمراجعة
+                            </button>
+                            <a href="{% url 'mosool:preparation_list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-lg me-1"></i> إلغاء
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const formsetPrefix = 'items';
+    const tbody = document.getElementById('itemsBody');
+    const totalForms = document.getElementById(`id_${formsetPrefix}-TOTAL_FORMS`);
+    
+    // حساب مجموع البند
+    function calculateItemTotal(row) {
+        const qty = parseFloat(row.querySelector('[name$="-quantity_requested"]')?.value) || 0;
+        const price = parseFloat(row.querySelector('[name$="-estimated_unit_price"]')?.value) || 0;
+        const total = qty * price;
+        row.querySelector('.item-total').textContent = total.toFixed(2);
+        return total;
+    }
+    
+    // حساب المجموع الكلي
+    function calculateGrandTotal() {
+        let grandTotal = 0;
+        document.querySelectorAll('.item-row').forEach(row => {
+            if (!row.querySelector('[name$="-DELETE"]')?.checked) {
+                grandTotal += calculateItemTotal(row);
+            }
+        });
+        document.getElementById('grandTotal').textContent = grandTotal.toFixed(2);
+    }
+    
+    // إضافة بند جديد
+    document.getElementById('addItem').addEventListener('click', function() {
+        const rowCount = parseInt(totalForms.value);
+        const newRow = tbody.querySelector('.item-row').cloneNode(true);
+        
+        // تحديث أسماء وأرقام الحقول
+        newRow.querySelectorAll('input, select, textarea').forEach(field => {
+            const name = field.name.replace(/-\d+-/, `-${rowCount}-`);
+            const id = field.id.replace(/-\d+-/, `-${rowCount}-`);
+            field.name = name;
+            field.id = id;
+            if (field.type !== 'hidden') {
+                field.value = '';
+            }
+        });
+        
+        newRow.querySelector('.item-total').textContent = '0.00';
+        tbody.appendChild(newRow);
+        totalForms.value = rowCount + 1;
+        
+        // إضافة مستمعات الأحداث للصف الجديد
+        attachRowEvents(newRow);
+    });
+    
+    // إرفاق الأحداث للصف
+    function attachRowEvents(row) {
+        row.querySelector('.remove-item')?.addEventListener('click', function() {
+            const deleteCheckbox = row.querySelector('[name$="-DELETE"]');
+            if (deleteCheckbox) {
+                deleteCheckbox.checked = true;
+                row.style.display = 'none';
+            } else {
+                row.remove();
+                // تحديث TOTAL_FORMS
+                totalForms.value = document.querySelectorAll('.item-row').length;
+            }
+            calculateGrandTotal();
+        });
+        
+        row.querySelectorAll('[name$="-quantity_requested"], [name$="-estimated_unit_price"]').forEach(field => {
+            field.addEventListener('input', calculateGrandTotal);
+        });
+    }
+    
+    // إرفاق الأحداث للصفوف الموجودة
+    document.querySelectorAll('.item-row').forEach(attachRowEvents);
+    
+    // حساب المجموع عند التحميل
+    calculateGrandTotal();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,128 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}إنشاء بطاقة تكلفة جديدة{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'accounting:dashboard' %}">المحاسبة</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'accounting:costing_dashboard' %}">التكاليف</a></li>
+                    <li class="breadcrumb-item active">بطاقة تكلفة جديدة</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-plus-circle"></i> إنشاء بطاقة تكلفة جديدة</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="costingForm">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="product_id" class="form-label">المنتج *</label>
+                            {% if product %}
+                                <input type="hidden" name="product_id" value="{{ product.id }}">
+                                <div class="form-control-plaintext">
+                                    <strong>{{ product.name }}</strong><br>
+                                    <small class="text-muted">كود: {{ product.sku }}</small>
+                                </div>
+                            {% else %}
+                                <select class="form-select" id="product_id" name="product_id" required>
+                                    <option value="">-- اختر المنتج --</option>
+                                    {% for p in products %}
+                                    <option value="{{ p.id }}">{{ p.name }} ({{ p.sku }})</option>
+                                    {% endfor %}
+                                </select>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="costing_method" class="form-label">طريقة التكلفة *</label>
+                            <select class="form-select" id="costing_method" name="costing_method" required>
+                                <option value="standard">تكلفة معيارية (Standard Cost)</option>
+                                <option value="actual">تكلفة فعلية (Actual Cost)</option>
+                                <option value="average">متوسط متحرك (Moving Average)</option>
+                            </select>
+                            <div class="form-text">
+                                <strong>معيارية:</strong> تكلفة محددة مسبقاً للتخطيط<br>
+                                <strong>فعلية:</strong> التكلفة الحقيقية من الفواتير<br>
+                                <strong>متوسط:</strong> متوسط تكلفة المشتريات
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="target_profit_margin" class="form-label">هامش الربح المستهدف %</label>
+                            <input type="number" class="form-control" id="target_profit_margin" 
+                                   name="target_profit_margin" step="0.01" min="0" max="100" value="20">
+                            <div class="form-text">
+                                سيتم حساب السعر المقترح بناءً على هذا الهامش
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="effective_from" class="form-label">ساري من *</label>
+                            <input type="date" class="form-control" id="effective_from" 
+                                   name="effective_from" value="{{ today|date:'Y-m-d' }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">ملاحظات</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>ملاحظة:</strong> بعد إنشاء البطاقة، ستتمكن من إضافة مكونات التكلفة التفصيلية (مواد، عمالة، تكاليف صناعية).
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'accounting:costing_dashboard' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> إلغاء
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> حفظ وإضافة المكونات
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- نصائح سريعة -->
+            <div class="card mt-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="fas fa-lightbulb"></i> نصائح</h6>
+                </div>
+                <div class="card-body">
+                    <ol class="mb-0">
+                        <li>اختر طريقة التكلفة المناسبة لنشاطك</li>
+                        <li>حدد هامش ربح مناسب (عادة بين 15-40%)</li>
+                        <li>بعد الحفظ، أضف مكونات التكلفة التفصيلية</li>
+                        <li>راجع إجمالي التكلفة والسعر المقترح</li>
+                        <li>فعّل البطاقة لتحديث تكلفة المنتج</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('costingForm').addEventListener('submit', function(e) {
+    const productId = document.getElementById('product_id') ? document.getElementById('product_id').value : '{{ product.id }}';
+    if (!productId) {
+        e.preventDefault();
+        alert('يرجى اختيار المنتج');
+        return false;
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,164 @@
+﻿{% extends 'ecommerce/admin/base_admin.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - لوحة تحكم المتجر{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-1">
+                        <i class="fas fa-credit-card text-success me-2"></i>
+                        {{ page_title }}
+                    </h4>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">الرئيسية</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'ecommerce:admin_dashboard' %}">المتجر</a></li>
+                            <li class="breadcrumb-item active">بوابات الدفع</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div>
+                    <a href="{% url 'ecommerce:admin_payment_gateway_add' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>
+                        إضافة بوابة دفع
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- البوابات المتاحة -->
+    <div class="row g-4">
+        {% for gateway in gateways %}
+        <div class="col-lg-4 col-md-6">
+            <div class="card border-0 shadow-sm h-100 {% if gateway.is_active %}border-success{% endif %}">
+                <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        {% if gateway.icon %}
+                            <img src="{{ gateway.icon.url }}" alt="{{ gateway.name }}" 
+                                 class="me-2" style="width: 32px; height: 32px; object-fit: contain;">
+                        {% else %}
+                            <i class="fas fa-credit-card fa-2x text-muted me-2"></i>
+                        {% endif %}
+                        <h6 class="mb-0">{{ gateway.name }}</h6>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" 
+                               {% if gateway.is_active %}checked{% endif %}
+                               onchange="toggleGateway({{ gateway.pk }})">
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        {{ gateway.description|default:"لا يوجد وصف" }}
+                    </p>
+                    
+                    <div class="mb-3">
+                        <span class="badge {% if gateway.is_sandbox %}bg-warning{% else %}bg-success{% endif %}">
+                            {% if gateway.is_sandbox %}
+                                <i class="fas fa-flask me-1"></i> وضع الاختبار
+                            {% else %}
+                                <i class="fas fa-check me-1"></i> وضع الإنتاج
+                            {% endif %}
+                        </span>
+                        <span class="badge bg-secondary">{{ gateway.get_gateway_type_display }}</span>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'ecommerce:admin_payment_gateway_edit' gateway.pk %}" 
+                           class="btn btn-sm btn-outline-primary flex-grow-1">
+                            <i class="fas fa-edit me-1"></i> تعديل
+                        </a>
+                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                onclick="confirmDelete('{% url 'ecommerce:admin_payment_gateway_delete' gateway.pk %}', '{{ gateway.name }}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-credit-card fa-4x text-muted mb-3"></i>
+                    <h5>لا توجد بوابات دفع</h5>
+                    <p class="text-muted">أضف بوابات الدفع لتمكين العملاء من الدفع الإلكتروني</p>
+                    <a href="{% url 'ecommerce:admin_payment_gateway_add' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>
+                        إضافة بوابة دفع
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- البوابات المقترحة -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <h5 class="mb-3">
+                <i class="fas fa-lightbulb text-warning me-2"></i>
+                بوابات الدفع المدعومة
+            </h5>
+            <div class="row g-3">
+                {% for code, name in available_gateways %}
+                <div class="col-lg-2 col-md-3 col-4">
+                    <div class="card border-0 bg-dark bg-opacity-50 text-center p-3">
+                        <i class="fas fa-credit-card fa-2x text-muted mb-2"></i>
+                        <small>{{ name }}</small>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal تأكيد الحذف -->
+<div class="modal fade" id="deleteModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تأكيد الحذف</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>هل أنت متأكد من حذف بوابة الدفع <strong id="gatewayName"></strong>؟</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <a href="#" id="deleteBtn" class="btn btn-danger">حذف</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleGateway(id) {
+    fetch(`/store/admin/payment-gateways/${id}/toggle/`, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    }).then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+function confirmDelete(url, name) {
+    document.getElementById('gatewayName').textContent = name;
+    document.getElementById('deleteBtn').href = url;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+{% endblock %}

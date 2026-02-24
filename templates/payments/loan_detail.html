@@ -1,0 +1,215 @@
+﻿{% extends 'base_templates/modern_detail.html' %}
+
+{% block page_module %}payments{% endblock %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "تفاصيل القرض" %}: {{ loan.loan_number }} - {{ SYSTEM_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="bi bi-bank me-2"></i>{% trans "تفاصيل القرض" %}: {{ loan.loan_number }}</h2>
+            <p class="text-muted mb-0">{{ loan.borrower.name }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'payments:loan_edit' loan.pk %}" class="btn btn-warning">
+                <i class="bi bi-pencil me-1"></i>{% trans "تعديل" %}
+            </a>
+            <a href="{% url 'payments:loan_delete' loan.pk %}" class="btn btn-outline-danger">
+                <i class="bi bi-trash me-1"></i>{% trans "حذف" %}
+            </a>
+            <a href="{% url 'payments:loans_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-right me-1"></i>{% trans "العودة" %}
+            </a>
+        </div>
+    </div>
+    
+    <div class="row g-4">
+        <!-- Loan Info -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0"><i class="bi bi-info-circle me-2"></i>{% trans "معلومات القرض" %}</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr>
+                            <td class="text-muted">{% trans "رقم القرض" %}</td>
+                            <td class="fw-bold">{{ loan.loan_number }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">{% trans "المقترض" %}</td>
+                            <td>{{ loan.borrower.name }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">{% trans "نوع القرض" %}</td>
+                            <td>{{ loan.get_loan_type_display }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">{% trans "الحالة" %}</td>
+                            <td>
+                                {% if loan.status == 'active' %}
+                                <span class="badge bg-success">{% trans "نشط" %}</span>
+                                {% elif loan.status == 'completed' %}
+                                <span class="badge bg-info">{% trans "مكتمل" %}</span>
+                                {% elif loan.status == 'defaulted' %}
+                                <span class="badge bg-danger">{% trans "متعثر" %}</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ loan.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">{% trans "تاريخ البدء" %}</td>
+                            <td>{{ loan.start_date }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">{% trans "تاريخ الانتهاء" %}</td>
+                            <td>{{ loan.end_date }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">{% trans "المدة" %}</td>
+                            <td>{{ loan.duration_months }} {% trans "شهر" %}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Financial Summary -->
+        <div class="col-lg-8">
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm bg-primary text-white">
+                        <div class="card-body">
+                            <h6 class="opacity-75"><i class="bi bi-cash me-2"></i>{% trans "المبلغ الأساسي" %}</h6>
+                            <h3 class="mb-0">{{ loan.principal_amount|floatformat:2|intcomma }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm bg-warning text-dark">
+                        <div class="card-body">
+                            <h6 class="opacity-75"><i class="bi bi-percent me-2"></i>{% trans "الفائدة" %} ({{ loan.interest_rate }}%)</h6>
+                            <h3 class="mb-0">{{ loan.total_interest|floatformat:2|intcomma }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm bg-info text-white">
+                        <div class="card-body">
+                            <h6 class="opacity-75"><i class="bi bi-calculator me-2"></i>{% trans "الإجمالي" %}</h6>
+                            <h3 class="mb-0">{{ loan.total_amount|floatformat:2|intcomma }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm bg-success text-white">
+                        <div class="card-body">
+                            <h6 class="opacity-75"><i class="bi bi-check-circle me-2"></i>{% trans "المدفوع" %}</h6>
+                            <h3 class="mb-0">{{ total_paid|floatformat:2|intcomma }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span>{% trans "التقدم" %}</span>
+                                <span class="fw-bold">{% widthratio total_paid loan.total_amount 100 %}%</span>
+                            </div>
+                            <div class="progress" style="height: 10px;">
+                                <div class="progress-bar bg-success" role="progressbar" style="width: {% widthratio total_paid loan.total_amount 100 %}%"></div>
+                            </div>
+                            <div class="d-flex justify-content-between mt-2 small text-muted">
+                                <span>{% trans "المتبقي" %}: {{ remaining_balance|floatformat:2|intcomma }}</span>
+                                <span>{% trans "القسط الشهري" %}: {{ loan.monthly_payment|floatformat:2|intcomma }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Installments -->
+    <div class="card border-0 shadow-sm mt-4">
+        <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0"><i class="bi bi-calendar-check me-2"></i>{% trans "جدول الأقساط" %}</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>{% trans "رقم القسط" %}</th>
+                            <th>{% trans "تاريخ الاستحقاق" %}</th>
+                            <th>{% trans "مبلغ القسط" %}</th>
+                            <th>{% trans "المدفوع" %}</th>
+                            <th>{% trans "المتبقي" %}</th>
+                            <th>{% trans "رسوم التأخير" %}</th>
+                            <th>{% trans "الحالة" %}</th>
+                            <th class="text-center">{% trans "الإجراءات" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inst in installments %}
+                        <tr class="{% if inst.is_overdue %}table-danger{% elif inst.status == 'paid' %}table-success{% endif %}">
+                            <td class="fw-bold">{{ inst.installment_number }}</td>
+                            <td>{{ inst.due_date }}</td>
+                            <td>{{ inst.amount|floatformat:2|intcomma }}</td>
+                            <td>{{ inst.paid_amount|floatformat:2|intcomma }}</td>
+                            <td>{{ inst.remaining_amount|floatformat:2|intcomma }}</td>
+                            <td>{{ inst.late_fee|floatformat:2|intcomma }}</td>
+                            <td>
+                                {% if inst.status == 'paid' %}
+                                <span class="badge bg-success">{% trans "مدفوع" %}</span>
+                                {% elif inst.is_overdue %}
+                                <span class="badge bg-danger">{% trans "متأخر" %}</span>
+                                {% elif inst.status == 'partially_paid' %}
+                                <span class="badge bg-warning text-dark">{% trans "جزئي" %}</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{% trans "معلق" %}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if inst.status != 'paid' %}
+                                <a href="{% url 'payments:installment_pay' inst.pk %}" class="btn btn-sm btn-success" title="{% trans 'تسجيل دفعة' %}">
+                                    <i class="bi bi-cash"></i> {% trans "دفع" %}
+                                </a>
+                                {% endif %}
+                                <a href="{% url 'payments:installment_detail' inst.pk %}" class="btn btn-sm btn-outline-primary" title="{% trans 'تفاصيل' %}">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">
+                                {% trans "لا توجد أقساط" %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Notes -->
+    {% if loan.notes %}
+    <div class="card border-0 shadow-sm mt-4">
+        <div class="card-header bg-transparent">
+            <h5 class="card-title mb-0"><i class="bi bi-sticky me-2"></i>{% trans "ملاحظات" %}</h5>
+        </div>
+        <div class="card-body">
+            <p class="mb-0">{{ loan.notes|linebreaks }}</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,464 @@
+﻿{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "تقرير أعمار الذمم المدينة" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+    }
+    
+    .page-hero {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    @media (max-width: 992px) {
+        .summary-cards {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .summary-cards {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+    
+    .summary-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        text-align: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        border-top: 4px solid;
+        transition: transform 0.2s ease;
+    }
+    
+    .summary-card:hover {
+        transform: translateY(-3px);
+    }
+    
+    .summary-card.current { border-color: var(--success-color); }
+    .summary-card.days30 { border-color: #17a2b8; }
+    .summary-card.days60 { border-color: var(--warning-color); }
+    .summary-card.days90 { border-color: #fd7e14; }
+    .summary-card.over90 { border-color: var(--danger-color); }
+    
+    .age-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #6c757d;
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+    }
+    
+    .age-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .age-count {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    
+    .filter-bar {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        margin-bottom: 1.5rem;
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    
+    .report-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .report-header {
+        padding: 1.25rem 1.5rem;
+        background: #fafbfc;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .aging-table {
+        width: 100%;
+        margin: 0;
+    }
+    
+    .aging-table th {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        font-weight: 600;
+        color: var(--primary-color);
+        padding: 1rem;
+        border: none;
+        text-align: center;
+        white-space: nowrap;
+    }
+    
+    .aging-table th:first-child {
+        text-align: right;
+    }
+    
+    .aging-table th.current { background: rgba(40, 167, 69, 0.1); color: var(--success-color); }
+    .aging-table th.days30 { background: rgba(23, 162, 184, 0.1); color: #17a2b8; }
+    .aging-table th.days60 { background: rgba(255, 193, 7, 0.1); color: #b38600; }
+    .aging-table th.days90 { background: rgba(253, 126, 20, 0.1); color: #fd7e14; }
+    .aging-table th.over90 { background: rgba(220, 53, 69, 0.1); color: var(--danger-color); }
+    
+    .aging-table td {
+        padding: 1rem;
+        border-bottom: 1px solid #eee;
+        text-align: center;
+        vertical-align: middle;
+    }
+    
+    .aging-table td:first-child {
+        text-align: right;
+    }
+    
+    .aging-table tbody tr {
+        transition: background 0.2s ease;
+    }
+    
+    .aging-table tbody tr:hover {
+        background: rgba(0, 212, 170, 0.03);
+    }
+    
+    .customer-cell {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .customer-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+    }
+    
+    .customer-info {
+        text-align: right;
+    }
+    
+    .customer-name {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+    
+    .customer-code {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    .amount-cell {
+        font-weight: 600;
+    }
+    
+    .amount-cell.has-value {
+        background: rgba(0, 0, 0, 0.02);
+    }
+    
+    .amount-current { color: var(--success-color); }
+    .amount-30 { color: #17a2b8; }
+    .amount-60 { color: #b38600; }
+    .amount-90 { color: #fd7e14; }
+    .amount-over90 { color: var(--danger-color); }
+    
+    .total-cell {
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: var(--primary-color);
+    }
+    
+    .aging-table tfoot td {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        font-weight: 700;
+        border-top: 2px solid var(--accent-color);
+    }
+    
+    .chart-section {
+        padding: 1.5rem;
+        border-top: 1px solid #eee;
+    }
+    
+    .chart-container {
+        height: 300px;
+    }
+    
+    .btn-export {
+        background: linear-gradient(135deg, var(--accent-color), #00b894);
+        border: none;
+        color: white;
+        padding: 0.6rem 1.25rem;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+    
+    .btn-export:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 212, 170, 0.3);
+        color: white;
+    }
+    
+    [data-bs-theme="dark"] .summary-card,
+    [data-bs-theme="dark"] .filter-bar,
+    [data-bs-theme="dark"] .report-card {
+        background: #1a1d21;
+    }
+    
+    [data-bs-theme="dark"] .report-header,
+    [data-bs-theme="dark"] .aging-table th {
+        background: #2d3238;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Hero Section -->
+    <div class="page-hero">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="h2 mb-2">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    {% trans "تقرير أعمار الذمم المدينة" %}
+                </h1>
+                <p class="mb-0 opacity-75">
+                    {% trans "تحليل المستحقات حسب فترات التأخير للتحصيل الفعال" %}
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <button class="btn btn-export">
+                    <i class="fas fa-file-excel me-1"></i>
+                    {% trans "تصدير Excel" %}
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="summary-cards">
+        <div class="summary-card current">
+            <div class="age-label">{% trans "جاري" %}</div>
+            <div class="age-value">{{ current_amount|default:"125,000"|intcomma }}</div>
+            <div class="age-count">12 {% trans "عميل" %}</div>
+        </div>
+        <div class="summary-card days30">
+            <div class="age-label">1-30 {% trans "يوم" %}</div>
+            <div class="age-value">{{ days30_amount|default:"85,000"|intcomma }}</div>
+            <div class="age-count">8 {% trans "عملاء" %}</div>
+        </div>
+        <div class="summary-card days60">
+            <div class="age-label">31-60 {% trans "يوم" %}</div>
+            <div class="age-value">{{ days60_amount|default:"45,000"|intcomma }}</div>
+            <div class="age-count">5 {% trans "عملاء" %}</div>
+        </div>
+        <div class="summary-card days90">
+            <div class="age-label">61-90 {% trans "يوم" %}</div>
+            <div class="age-value">{{ days90_amount|default:"28,000"|intcomma }}</div>
+            <div class="age-count">3 {% trans "عملاء" %}</div>
+        </div>
+        <div class="summary-card over90">
+            <div class="age-label">+90 {% trans "يوم" %}</div>
+            <div class="age-value">{{ over90_amount|default:"15,000"|intcomma }}</div>
+            <div class="age-count">2 {% trans "عملاء" %}</div>
+        </div>
+    </div>
+    
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+        <label class="fw-bold">{% trans "كما في:" %}</label>
+        <input type="date" class="form-control" style="width: auto;" value="{% now 'Y-m-d' %}">
+        <select class="form-select" style="width: auto;">
+            <option value="">{% trans "كل العملاء" %}</option>
+        </select>
+        <select class="form-select" style="width: auto;">
+            <option value="">{% trans "كل الفروع" %}</option>
+        </select>
+        <button class="btn btn-primary">
+            <i class="fas fa-sync me-1"></i>
+            {% trans "تحديث" %}
+        </button>
+    </div>
+    
+    <!-- Report Table -->
+    <div class="report-card">
+        <div class="report-header">
+            <h5 class="mb-0">
+                <i class="fas fa-table me-2"></i>
+                {% trans "تفاصيل الذمم المدينة" %}
+            </h5>
+            <span class="badge bg-secondary">{% trans "الإجمالي:" %} 298,000 ج.م</span>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table aging-table">
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">{% trans "العميل" %}</th>
+                        <th class="current">{% trans "جاري" %}</th>
+                        <th class="days30">1-30</th>
+                        <th class="days60">31-60</th>
+                        <th class="days90">61-90</th>
+                        <th class="over90">+90</th>
+                        <th>{% trans "الإجمالي" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <div class="customer-cell">
+                                <div class="customer-avatar">ش</div>
+                                <div class="customer-info">
+                                    <div class="customer-name">{% trans "شركة الفلاح للتجارة" %}</div>
+                                    <div class="customer-code">CUST-001</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="amount-cell amount-current has-value">35,000</td>
+                        <td class="amount-cell amount-30 has-value">20,000</td>
+                        <td class="amount-cell">-</td>
+                        <td class="amount-cell">-</td>
+                        <td class="amount-cell">-</td>
+                        <td class="total-cell">55,000</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="customer-cell">
+                                <div class="customer-avatar">م</div>
+                                <div class="customer-info">
+                                    <div class="customer-name">{% trans "مؤسسة النور" %}</div>
+                                    <div class="customer-code">CUST-002</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="amount-cell amount-current has-value">25,000</td>
+                        <td class="amount-cell amount-30 has-value">15,000</td>
+                        <td class="amount-cell amount-60 has-value">12,000</td>
+                        <td class="amount-cell">-</td>
+                        <td class="amount-cell">-</td>
+                        <td class="total-cell">52,000</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="customer-cell">
+                                <div class="customer-avatar">أ</div>
+                                <div class="customer-info">
+                                    <div class="customer-name">{% trans "أحمد للمقاولات" %}</div>
+                                    <div class="customer-code">CUST-003</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="amount-cell">-</td>
+                        <td class="amount-cell amount-30 has-value">25,000</td>
+                        <td class="amount-cell amount-60 has-value">18,000</td>
+                        <td class="amount-cell amount-90 has-value">15,000</td>
+                        <td class="amount-cell">-</td>
+                        <td class="total-cell">58,000</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="customer-cell">
+                                <div class="customer-avatar">ع</div>
+                                <div class="customer-info">
+                                    <div class="customer-name">{% trans "عبدالله التجارية" %}</div>
+                                    <div class="customer-code">CUST-004</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="amount-cell">-</td>
+                        <td class="amount-cell">-</td>
+                        <td class="amount-cell amount-60 has-value">15,000</td>
+                        <td class="amount-cell amount-90 has-value">13,000</td>
+                        <td class="amount-cell amount-over90 has-value">15,000</td>
+                        <td class="total-cell">43,000</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td><strong>{% trans "الإجمالي" %}</strong></td>
+                        <td class="amount-current">125,000</td>
+                        <td class="amount-30">85,000</td>
+                        <td class="amount-60">45,000</td>
+                        <td class="amount-90">28,000</td>
+                        <td class="amount-over90">15,000</td>
+                        <td class="total-cell">298,000</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        
+        <!-- Chart Section -->
+        <div class="chart-section">
+            <h6 class="mb-3">{% trans "التوزيع حسب العمر" %}</h6>
+            <div class="chart-container">
+                <canvas id="agingChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('agingChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['{% trans "جاري" %}', '1-30 {% trans "يوم" %}', '31-60 {% trans "يوم" %}', '61-90 {% trans "يوم" %}', '+90 {% trans "يوم" %}'],
+            datasets: [{
+                data: [125000, 85000, 45000, 28000, 15000],
+                backgroundColor: ['#28a745', '#17a2b8', '#ffc107', '#fd7e14', '#dc3545']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right'
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}
+

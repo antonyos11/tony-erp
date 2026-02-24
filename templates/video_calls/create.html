@@ -1,0 +1,130 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}جدولة اجتماع - Tony ERP{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-calendar-plus me-2"></i>جدولة اجتماع جديد</h5>
+                </div>
+                <div class="card-body">
+                    <form id="createForm">
+                        <div class="mb-3">
+                            <label class="form-label">اسم الاجتماع</label>
+                            <input type="text" class="form-control" name="name" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">الوصف</label>
+                            <textarea class="form-control" name="description" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">نوع الاجتماع</label>
+                                <select class="form-select" name="room_type">
+                                    <option value="instant">فوري</option>
+                                    <option value="scheduled">مجدول</option>
+                                    <option value="recurring">متكرر</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">أقصى عدد مشاركين</label>
+                                <input type="number" class="form-control" name="max_participants" value="10">
+                            </div>
+                        </div>
+                        
+                        <div class="row" id="scheduleFields" style="display: none;">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">تاريخ ووقت الاجتماع</label>
+                                <input type="datetime-local" class="form-control" name="scheduled_at">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">المدة (دقيقة)</label>
+                                <input type="number" class="form-control" name="duration" value="60">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">كلمة المرور (اختياري)</label>
+                            <input type="text" class="form-control" name="password">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" name="recording" id="recording">
+                                <label class="form-check-label" for="recording">
+                                    تمكين التسجيل
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">دعوة مشاركين</label>
+                            <select class="form-select" name="participants" multiple size="5">
+                                {% for user in users %}
+                                <option value="{{ user.id }}">{{ user.get_full_name|default:user.username }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">اضغط Ctrl للاختيار المتعدد</small>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-check me-2"></i>إنشاء الاجتماع
+                            </button>
+                            <a href="{% url 'video_calls:dashboard' %}" class="btn btn-secondary">إلغاء</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.querySelector('[name="room_type"]').addEventListener('change', function() {
+    document.getElementById('scheduleFields').style.display = 
+        this.value !== 'instant' ? 'flex' : 'none';
+});
+
+document.getElementById('createForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const form = new FormData(this);
+    const participants = Array.from(document.querySelector('[name="participants"]').selectedOptions)
+        .map(opt => parseInt(opt.value));
+    
+    fetch('{% url "video_calls:create" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            name: form.get('name'),
+            description: form.get('description'),
+            room_type: form.get('room_type'),
+            max_participants: parseInt(form.get('max_participants')),
+            scheduled_at: form.get('scheduled_at'),
+            duration: parseInt(form.get('duration')),
+            password: form.get('password'),
+            recording: form.get('recording') === 'on',
+            participants: participants
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = data.join_url;
+        } else {
+            alert('حدث خطأ: ' + data.error);
+        }
+    });
+});
+</script>
+{% endblock %}

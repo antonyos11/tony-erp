@@ -1,0 +1,326 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}قائمة الدخل - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .financial-statement {
+        font-family: 'Courier New', monospace;
+    }
+    .statement-header {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: white;
+        padding: 2rem;
+        text-align: center;
+        border-radius: 15px 15px 0 0;
+    }
+    .section-title {
+        background: #f8f9fa;
+        padding: 0.75rem 1rem;
+        font-weight: bold;
+        border-right: 4px solid #28a745;
+        margin-top: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    .account-row {
+        padding: 0.5rem 1rem;
+        border-bottom: 1px dotted #dee2e6;
+        transition: background 0.2s;
+    }
+    .account-row:hover {
+        background: #f8f9fa;
+    }
+    .subtotal-row {
+        background: #e9ecef;
+        font-weight: bold;
+        padding: 0.75rem 1rem;
+        border-top: 1px solid #adb5bd;
+    }
+    .total-row {
+        background: #d1ecf1;
+        font-weight: bold;
+        padding: 0.75rem 1rem;
+        border-top: 2px solid #17a2b8;
+        border-bottom: 2px solid #17a2b8;
+    }
+    .net-income-profit {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        font-weight: bold;
+        font-size: 1.2rem;
+        padding: 1rem;
+        border-radius: 5px;
+    }
+    .net-income-loss {
+        background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);
+        color: white;
+        font-weight: bold;
+        font-size: 1.2rem;
+        padding: 1rem;
+        border-radius: 5px;
+    }
+    .ratio-card {
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+    }
+    @media print {
+        .no-print { display: none !important; }
+        .card { border: none !important; box-shadow: none !important; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Toolbar -->
+    <div class="row mb-4 no-print">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <form method="get" class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label">من تاريخ</label>
+                            <input type="date" name="start_date" class="form-control" 
+                                   value="{{ start_date|date:'Y-m-d'|default:'' }}" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">إلى تاريخ</label>
+                            <input type="date" name="end_date" class="form-control" 
+                                   value="{{ end_date|date:'Y-m-d'|default:'' }}" required>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-sync"></i> تحديث
+                            </button>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button type="button" onclick="window.print()" class="btn btn-success">
+                                <i class="fas fa-print"></i> طباعة
+                            </button>
+                            <button type="button" onclick="exportToExcel()" class="btn btn-info">
+                                <i class="fas fa-file-excel"></i> Excel
+                            </button>
+                            <button type="button" onclick="exportToPDF()" class="btn btn-danger">
+                                <i class="fas fa-file-pdf"></i> PDF
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Financial Statement -->
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card border-0 shadow-lg financial-statement">
+                <!-- Header -->
+                <div class="statement-header">
+                    <h2 class="mb-2">قائمة الدخل</h2>
+                    <h5 class="mb-0">من {{ start_date|date:"Y/m/d" }} إلى {{ end_date|date:"Y/m/d" }}</h5>
+                </div>
+
+                <div class="card-body p-4">
+                    <!-- REVENUES -->
+                    <div class="section-title text-success">الإيرادات</div>
+                    {% for revenue in revenues %}
+                    <div class="account-row d-flex justify-content-between">
+                        <span>{{ revenue.name }}</span>
+                        <span>{{ revenue.balance|floatformat:2 }}</span>
+                    </div>
+                    {% endfor %}
+                    <div class="total-row d-flex justify-content-between">
+                        <span>إجمالي الإيرادات</span>
+                        <span>{{ total_revenues|floatformat:2 }}</span>
+                    </div>
+
+                    <!-- COST OF GOODS SOLD -->
+                    <div class="section-title text-danger">تكلفة البضاعة المباعة</div>
+                    {% for cogs in cost_of_goods_sold %}
+                    <div class="account-row d-flex justify-content-between">
+                        <span>{{ cogs.name }}</span>
+                        <span>({{ cogs.balance|floatformat:2 }})</span>
+                    </div>
+                    {% endfor %}
+                    <div class="subtotal-row d-flex justify-content-between">
+                        <span>إجمالي تكلفة البضاعة المباعة</span>
+                        <span>({{ total_cogs|floatformat:2 }})</span>
+                    </div>
+
+                    <!-- GROSS PROFIT -->
+                    <div class="total-row bg-success text-white d-flex justify-content-between">
+                        <span>مجمل الربح</span>
+                        <span>{{ gross_profit|floatformat:2 }}</span>
+                    </div>
+                    <div class="text-end px-3 py-2">
+                        <small class="text-muted">
+                            نسبة مجمل الربح: 
+                            <strong>{{ gross_profit_margin|floatformat:1 }}%</strong>
+                        </small>
+                    </div>
+
+                    <!-- OPERATING EXPENSES -->
+                    <div class="section-title text-warning">المصروفات التشغيلية</div>
+                    
+                    <!-- Selling Expenses -->
+                    {% if selling_expenses %}
+                    <div class="mt-3">
+                        <h6 class="text-muted px-3">مصروفات البيع والتوزيع</h6>
+                        {% for expense in selling_expenses %}
+                        <div class="account-row d-flex justify-content-between">
+                            <span>{{ expense.name }}</span>
+                            <span>({{ expense.balance|floatformat:2 }})</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Administrative Expenses -->
+                    {% if admin_expenses %}
+                    <div class="mt-3">
+                        <h6 class="text-muted px-3">مصروفات إدارية وعمومية</h6>
+                        {% for expense in admin_expenses %}
+                        <div class="account-row d-flex justify-content-between">
+                            <span>{{ expense.name }}</span>
+                            <span>({{ expense.balance|floatformat:2 }})</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Other Operating Expenses -->
+                    {% if other_operating_expenses %}
+                    <div class="mt-3">
+                        <h6 class="text-muted px-3">مصروفات تشغيلية أخرى</h6>
+                        {% for expense in other_operating_expenses %}
+                        <div class="account-row d-flex justify-content-between">
+                            <span>{{ expense.name }}</span>
+                            <span>({{ expense.balance|floatformat:2 }})</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="subtotal-row d-flex justify-content-between">
+                        <span>إجمالي المصروفات التشغيلية</span>
+                        <span>({{ total_operating_expenses|floatformat:2 }})</span>
+                    </div>
+
+                    <!-- OPERATING INCOME -->
+                    <div class="total-row bg-info text-white d-flex justify-content-between">
+                        <span>الدخل التشغيلي</span>
+                        <span>{{ operating_income|floatformat:2 }}</span>
+                    </div>
+                    <div class="text-end px-3 py-2">
+                        <small class="text-muted">
+                            نسبة الدخل التشغيلي: 
+                            <strong>{{ operating_margin|floatformat:1 }}%</strong>
+                        </small>
+                    </div>
+
+                    <!-- OTHER INCOME & EXPENSES -->
+                    {% if other_income or other_expenses %}
+                    <div class="section-title">الإيرادات والمصروفات الأخرى</div>
+                    
+                    {% if other_income %}
+                    <div class="mt-2">
+                        <h6 class="text-muted px-3">إيرادات أخرى</h6>
+                        {% for item in other_income %}
+                        <div class="account-row d-flex justify-content-between">
+                            <span>{{ item.name }}</span>
+                            <span>{{ item.balance|floatformat:2 }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% if other_expenses %}
+                    <div class="mt-2">
+                        <h6 class="text-muted px-3">مصروفات أخرى</h6>
+                        {% for item in other_expenses %}
+                        <div class="account-row d-flex justify-content-between">
+                            <span>{{ item.name }}</span>
+                            <span>({{ item.balance|floatformat:2 }})</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="subtotal-row d-flex justify-content-between">
+                        <span>صافي الإيرادات/المصروفات الأخرى</span>
+                        <span>{{ net_other|floatformat:2 }}</span>
+                    </div>
+                    {% endif %}
+
+                    <!-- NET INCOME -->
+                    <div class="{% if net_income >= 0 %}net-income-profit{% else %}net-income-loss{% endif %} d-flex justify-content-between mt-4">
+                        <span>{% if net_income >= 0 %}صافي الربح{% else %}صافي الخسارة{% endif %}</span>
+                        <span>{{ net_income|floatformat:2 }}</span>
+                    </div>
+                    <div class="text-end px-3 py-2">
+                        <small class="text-muted">
+                            نسبة صافي الربح: 
+                            <strong>{{ net_profit_margin|floatformat:1 }}%</strong>
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="card-footer bg-light text-center no-print">
+                    <small class="text-muted">
+                        تم الإنشاء بواسطة نظام Tony ERP في {{ now|date:"Y-m-d H:i" }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Key Ratios -->
+    <div class="row mt-4 no-print">
+        <div class="col-12">
+            <h5 class="mb-3">المؤشرات الرئيسية</h5>
+        </div>
+        <div class="col-md-3">
+            <div class="ratio-card bg-success text-white">
+                <h6>نسبة مجمل الربح</h6>
+                <h3>{{ gross_profit_margin|floatformat:1 }}%</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="ratio-card bg-info text-white">
+                <h6>نسبة الدخل التشغيلي</h6>
+                <h3>{{ operating_margin|floatformat:1 }}%</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="ratio-card bg-primary text-white">
+                <h6>نسبة صافي الربح</h6>
+                <h3>{{ net_profit_margin|floatformat:1 }}%</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="ratio-card bg-warning text-dark">
+                <h6>نسبة المصروفات</h6>
+                <h3>{{ expense_ratio|floatformat:1 }}%</h3>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function exportToExcel() {
+    alert('سيتم تصدير قائمة الدخل إلى Excel');
+    // Implementation
+}
+
+function exportToPDF() {
+    alert('سيتم تصدير قائمة الدخل إلى PDF');
+    // Implementation
+}
+</script>
+{% endblock %}

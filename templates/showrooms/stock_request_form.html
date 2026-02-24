@@ -1,0 +1,253 @@
+{% extends 'base_v2.html' %}
+{% load i18n %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-card {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    .section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #0d6efd;
+        display: inline-block;
+    }
+    .product-search-container {
+        position: relative;
+    }
+    .product-search-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        max-height: 300px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .product-search-results.show {
+        display: block;
+    }
+    .product-item {
+        padding: 10px 15px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+    }
+    .product-item:hover {
+        background: #f8f9fa;
+    }
+    .product-item:last-child {
+        border-bottom: none;
+    }
+    .selected-product {
+        background: #e3f2fd;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">📦 {{ page_title }}</h1>
+            <p class="text-muted mb-0">{% trans 'طلب نقل منتج من معرض لآخر' %}</p>
+        </div>
+        <a href="{% url 'showrooms:stock_request_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-2"></i>{% trans 'العودة للقائمة' %}
+        </a>
+    </div>
+    
+    <form method="post" class="form-card">
+        {% csrf_token %}
+        
+        <!-- معلومات المعارض -->
+        <h5 class="section-title">🏪 {% trans 'معلومات النقل' %}</h5>
+        <div class="row g-4 mb-4">
+            <div class="col-md-6">
+                <label class="form-label">{% trans 'المعرض الطالب (المستلم)' %} <span class="text-danger">*</span></label>
+                <select name="requesting_showroom" class="form-select" required>
+                    <option value="">{% trans '-- اختر المعرض --' %}</option>
+                    {% for showroom in showrooms %}
+                    <option value="{{ showroom.pk }}">{{ showroom.code }} - {{ showroom.name_ar|default:showroom.name }}</option>
+                    {% endfor %}
+                </select>
+                <small class="text-muted">{% trans 'المعرض الذي سيستلم المنتج' %}</small>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">{% trans 'المعرض المصدر (المرسل)' %} <span class="text-danger">*</span></label>
+                <select name="source_showroom" class="form-select" required>
+                    <option value="">{% trans '-- اختر المعرض --' %}</option>
+                    {% for showroom in all_showrooms %}
+                    <option value="{{ showroom.pk }}">{{ showroom.code }} - {{ showroom.name_ar|default:showroom.name }}</option>
+                    {% endfor %}
+                </select>
+                <small class="text-muted">{% trans 'المعرض الذي سيرسل المنتج' %}</small>
+            </div>
+        </div>
+        
+        <!-- معلومات المنتج -->
+        <h5 class="section-title">📦 {% trans 'معلومات المنتج' %}</h5>
+        <div class="row g-4 mb-4">
+            <div class="col-md-8">
+                <label class="form-label">{% trans 'المنتج' %} <span class="text-danger">*</span></label>
+                <div class="product-search-container">
+                    <input type="text" id="product-search" class="form-control" placeholder="{% trans 'ابحث بالاسم أو الباركود...' %}" autocomplete="off">
+                    <input type="hidden" name="product" id="product-id" required>
+                    <div id="product-results" class="product-search-results"></div>
+                </div>
+                <div id="selected-product" class="selected-product d-none">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong id="product-name"></strong>
+                            <div class="text-muted small" id="product-sku"></div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearProduct()">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">{% trans 'الكمية' %} <span class="text-danger">*</span></label>
+                <input type="number" name="quantity" class="form-control" value="1" min="1" required>
+            </div>
+        </div>
+        
+        <!-- الأولوية والتاريخ -->
+        <h5 class="section-title">⏱️ {% trans 'الأولوية والتوقيت' %}</h5>
+        <div class="row g-4 mb-4">
+            <div class="col-md-6">
+                <label class="form-label">{% trans 'الأولوية' %}</label>
+                <select name="priority" class="form-select">
+                    {% for val, label in priority_choices %}
+                    <option value="{{ val }}" {% if val == 'normal' %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">{% trans 'مطلوب بحلول' %}</label>
+                <input type="date" name="needed_by" class="form-control">
+            </div>
+        </div>
+        
+        <!-- سبب الطلب -->
+        <h5 class="section-title">📝 {% trans 'سبب الطلب' %}</h5>
+        <div class="row g-4 mb-4">
+            <div class="col-12">
+                <label class="form-label">{% trans 'سبب الطلب' %}</label>
+                <textarea name="reason" class="form-control" rows="2" placeholder="{% trans 'مثال: طلب عميل، نفاد المخزون...' %}"></textarea>
+            </div>
+        </div>
+        
+        <!-- معلومات العميل (اختياري) -->
+        <h5 class="section-title">👤 {% trans 'معلومات العميل (اختياري)' %}</h5>
+        <div class="row g-4 mb-4">
+            <div class="col-md-6">
+                <label class="form-label">{% trans 'اسم العميل' %}</label>
+                <input type="text" name="customer_name" class="form-control">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">{% trans 'هاتف العميل' %}</label>
+                <input type="tel" name="customer_phone" class="form-control">
+            </div>
+        </div>
+        
+        <!-- ملاحظات -->
+        <div class="row g-4 mb-4">
+            <div class="col-12">
+                <label class="form-label">{% trans 'ملاحظات إضافية' %}</label>
+                <textarea name="notes" class="form-control" rows="2"></textarea>
+            </div>
+        </div>
+        
+        <!-- Submit -->
+        <div class="d-flex gap-3">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="bi bi-check-circle me-2"></i>{% trans 'إنشاء الطلب' %}
+            </button>
+            <a href="{% url 'showrooms:stock_request_list' %}" class="btn btn-outline-secondary btn-lg">
+                {% trans 'إلغاء' %}
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const products = [
+        {% for product in products %}
+        { id: {{ product.pk }}, name: "{{ product.name|escapejs }}", sku: "{{ product.sku|default:''|escapejs }}", barcode: "{{ product.barcode|default:''|escapejs }}" },
+        {% endfor %}
+    ];
+    
+    const searchInput = document.getElementById('product-search');
+    const resultsContainer = document.getElementById('product-results');
+    const productIdInput = document.getElementById('product-id');
+    const selectedProductDiv = document.getElementById('selected-product');
+    const productNameSpan = document.getElementById('product-name');
+    const productSkuSpan = document.getElementById('product-sku');
+    
+    searchInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase();
+        if (query.length < 2) {
+            resultsContainer.classList.remove('show');
+            return;
+        }
+        
+        const filtered = products.filter(p => 
+            p.name.toLowerCase().includes(query) || 
+            p.sku.toLowerCase().includes(query) ||
+            p.barcode.toLowerCase().includes(query)
+        ).slice(0, 10);
+        
+        if (filtered.length > 0) {
+            resultsContainer.innerHTML = filtered.map(p => `
+                <div class="product-item" onclick="selectProduct(${p.id}, '${p.name.replace(/'/g, "\\'")}', '${p.sku}')">
+                    <strong>${p.name}</strong>
+                    <div class="text-muted small">${p.sku || p.barcode || ''}</div>
+                </div>
+            `).join('');
+            resultsContainer.classList.add('show');
+        } else {
+            resultsContainer.classList.remove('show');
+        }
+    });
+    
+    function selectProduct(id, name, sku) {
+        productIdInput.value = id;
+        productNameSpan.textContent = name;
+        productSkuSpan.textContent = sku;
+        selectedProductDiv.classList.remove('d-none');
+        searchInput.value = '';
+        resultsContainer.classList.remove('show');
+    }
+    
+    function clearProduct() {
+        productIdInput.value = '';
+        selectedProductDiv.classList.add('d-none');
+    }
+    
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.product-search-container')) {
+            resultsContainer.classList.remove('show');
+        }
+    });
+</script>
+{% endblock %}

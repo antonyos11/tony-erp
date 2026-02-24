@@ -1,0 +1,264 @@
+{% extends 'base_v2.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-1"><i class="bi bi-clock-history me-2"></i>الحضور والانصراف</h4>
+            <p class="text-muted mb-0">سجل حضور وانصراف موظفي الفروع</p>
+        </div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#punchModal">
+            <i class="bi bi-plus-lg me-1"></i>تسجيل حضور/انصراف
+        </button>
+    </div>
+
+    <!-- الإحصائيات -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="card border-0 bg-success text-white">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ stats.present|default:0 }}</h3>
+                    <small>حاضرين اليوم</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-0 bg-danger text-white">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ stats.absent|default:0 }}</h3>
+                    <small>غائبين اليوم</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-0 bg-warning text-white">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ stats.not_out|default:0 }}</h3>
+                    <small>لم ينصرفوا</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-0 bg-info text-white">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ stats.total|default:0 }}</h3>
+                    <small>إجمالي السجلات</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- الفلاتر -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">الفرع</label>
+                    <select name="branch" class="form-select">
+                        <option value="">جميع الفروع</option>
+                        {% for branch in branches %}
+                        <option value="{{ branch.id }}" {% if request.GET.branch == branch.id|stringformat:"s" %}selected{% endif %}>
+                            {{ branch.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">التاريخ</label>
+                    <input type="date" name="date" class="form-control" value="{{ request.GET.date }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search me-1"></i>بحث
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- السجلات -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>الموظف</th>
+                            <th>الفرع</th>
+                            <th>التاريخ</th>
+                            <th>وقت الحضور</th>
+                            <th>وقت الانصراف</th>
+                            <th>ساعات العمل</th>
+                            <th>الحالة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in records %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold">{{ record.user.get_full_name|default:record.user.username }}</div>
+                                <small class="text-muted">{{ record.employee.position }}</small>
+                            </td>
+                            <td>{{ record.branch.name }}</td>
+                            <td>{{ record.date|date:"Y/m/d" }}</td>
+                            <td>
+                                {% if record.in_time %}
+                                    <span class="badge bg-success">{{ record.in_time|time:"H:i" }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.out_time %}
+                                    <span class="badge bg-info">{{ record.out_time|time:"H:i" }}</span>
+                                {% else %}
+                                    <span class="badge bg-warning">لم ينصرف</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.in_time and record.out_time %}
+                                    {{ record.working_hours|floatformat:1 }} ساعة
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.in_time and record.out_time %}
+                                    <span class="badge bg-success">اكتمل</span>
+                                {% elif record.in_time %}
+                                    <span class="badge bg-warning">جاري</span>
+                                {% else %}
+                                    <span class="badge bg-danger">غائب</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                                <p>لا توجد سجلات</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if records.has_other_pages %}
+            <nav>
+                <ul class="pagination justify-content-center mt-3">
+                    {% if records.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if request.GET.branch %}&branch={{ request.GET.branch }}{% endif %}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}">الأولى</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ records.previous_page_number }}{% if request.GET.branch %}&branch={{ request.GET.branch }}{% endif %}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}">السابقة</a>
+                    </li>
+                    {% endif %}
+
+                    <li class="page-item active">
+                        <span class="page-link">{{ records.number }} من {{ records.paginator.num_pages }}</span>
+                    </li>
+
+                    {% if records.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ records.next_page_number }}{% if request.GET.branch %}&branch={{ request.GET.branch }}{% endif %}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}">التالية</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ records.paginator.num_pages }}{% if request.GET.branch %}&branch={{ request.GET.branch }}{% endif %}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}">الأخيرة</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal تسجيل حضور/انصراف -->
+<div class="modal fade" id="punchModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'branches:attendance_punch' %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">تسجيل حضور/انصراف</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">الفرع</label>
+                        <select name="branch" class="form-select" required>
+                            <option value="">اختر الفرع</option>
+                            {% for branch in branches %}
+                            <option value="{{ branch.id }}">{{ branch.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الموظف</label>
+                        <select name="employee" class="form-select" required>
+                            <option value="">اختر الموظف</option>
+                            <!-- سيتم ملؤها بناءً على الفرع المحدد -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الإجراء</label>
+                        <select name="action" class="form-select" required>
+                            <option value="in">حضور</option>
+                            <option value="out">انصراف</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">تسجيل</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const branchSelect = document.querySelector('select[name="branch"]');
+    const employeeSelect = document.querySelector('select[name="employee"]');
+    
+    if (branchSelect && employeeSelect) {
+        branchSelect.addEventListener('change', function() {
+            const branchId = this.value;
+            
+            // Clear employee select
+            employeeSelect.innerHTML = '<option value="">اختر الموظف</option>';
+            
+            if (!branchId) return;
+            
+            // Fetch employees for selected branch
+            fetch(`/branches/api/staff/?branch=${branchId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.staff && data.staff.length > 0) {
+                        data.staff.forEach(staff => {
+                            const option = document.createElement('option');
+                            option.value = staff.id;
+                            option.textContent = staff.name + ' - ' + staff.position;
+                            employeeSelect.appendChild(option);
+                        });
+                    } else {
+                        employeeSelect.innerHTML = '<option value="">لا يوجد موظفين في هذا الفرع</option>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    employeeSelect.innerHTML = '<option value="">خطأ في تحميل البيانات</option>';
+                });
+        });
+    }
+});
+</script>
+{% endblock %}

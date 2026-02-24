@@ -1,0 +1,375 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load currency_tags %}
+
+{% block title %}قائمة الوظائف الشاغرة{% endblock %}
+
+{% block extra_css %}
+<style>
+    .vacancy-card {
+        transition: all 0.3s ease;
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .vacancy-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        border-color: #007bff;
+    }
+    .vacancy-header {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        color: white;
+        padding: 15px;
+    }
+    .vacancy-body {
+        padding: 20px;
+    }
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+    .status-open {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    .status-closed {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    .status-on_hold {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    .salary-range {
+        background-color: #e9ecef;
+        padding: 8px 12px;
+        border-radius: 5px;
+        font-weight: 600;
+        color: #495057;
+    }
+    .vacancy-meta {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    .filter-card {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 30px;
+        border-left: 4px solid #28a745;
+    }
+    .btn-create {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        padding: 12px 24px;
+        font-weight: 600;
+        border-radius: 8px;
+    }
+    .applications-count {
+        background-color: #17a2b8;
+        color: white;
+        border-radius: 50%;
+        padding: 2px 8px;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3">
+                    <i class="fas fa-briefcase me-2"></i>قائمة الوظائف الشاغرة
+                </h1>
+                                <div class="btn-group">
+                                    <a href="{% url 'hr:job_vacancy_create' %}" class="btn btn-outline-secondary">نموذج متقدم</a>
+                                    <button type="button" class="btn btn-success btn-create" data-bs-toggle="modal" data-bs-target="#quickVacancyModal">
+                                        <i class="fas fa-plus"></i> وظيفة سريعة
+                                    </button>
+                                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- فلاتر البحث -->
+    <div class="filter-card">
+        <h5 class="mb-3">
+            <i class="fas fa-filter me-2"></i>البحث والفلترة
+        </h5>
+        <form method="get" class="row">
+            <div class="col-md-3">
+                <label class="form-label">البحث في العنوان</label>
+                <input type="text" class="form-control" name="search" 
+                       value="{{ request.GET.search|default:'' }}" placeholder="ابحث عن وظيفة...">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">الحالة</label>
+                <select class="form-select" name="status">
+                    <option value="">جميع الحالات</option>
+                    <option value="open" {% if request.GET.status == 'open' %}selected{% endif %}>مفتوحة</option>
+                    <option value="closed" {% if request.GET.status == 'closed' %}selected{% endif %}>مغلقة</option>
+                    <option value="on_hold" {% if request.GET.status == 'on_hold' %}selected{% endif %}>معلقة</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">القسم</label>
+                <select class="form-select" name="department">
+                    <option value="">جميع الأقسام</option>
+                    <!-- يمكن إضافة الأقسام هنا -->
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">من تاريخ</label>
+                <input type="date" class="form-control" name="date_from" 
+                       value="{{ request.GET.date_from|default:'' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">إلى تاريخ</label>
+                <input type="date" class="form-control" name="date_to" 
+                       value="{{ request.GET.date_to|default:'' }}">
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- إحصائيات سريعة -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h3>{{ vacancies|length }}</h3>
+                    <small>إجمالي الوظائف</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h3>{{ vacancies|length }}</h3>
+                    <small>الوظائف المفتوحة</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body text-center">
+                    <h3>0</h3>
+                    <small>الوظائف المعلقة</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h3>0</h3>
+                    <small>إجمالي الطلبات</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- قائمة الوظائف -->
+    <div class="row">
+        {% for vacancy in vacancies %}
+        <div class="col-lg-6 col-xl-4 mb-4">
+            <div class="card vacancy-card h-100">
+                <div class="vacancy-header">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h5 class="card-title mb-1">{{ vacancy.title }}</h5>
+                            <small class="opacity-75">{{ vacancy.position.department.name }}</small>
+                        </div>
+                        <span class="status-badge status-{{ vacancy.status }}">
+                            {% if vacancy.status == 'open' %}مفتوحة
+                            {% elif vacancy.status == 'closed' %}مغلقة
+                            {% elif vacancy.status == 'on_hold' %}معلقة
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="vacancy-body">
+                    <div class="mb-3">
+                        <h6 class="text-primary">
+                            <i class="fas fa-map-marker-alt me-1"></i>{{ vacancy.position.title }}
+                        </h6>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <small class="text-muted d-block">وصف الوظيفة:</small>
+                        <p class="text-muted mb-0">
+                            {{ vacancy.description|truncatewords:15 }}
+                        </p>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <small class="text-muted d-block">النطاق السالاري:</small>
+                        <span class="salary-range">
+                            {{ vacancy.salary_range_min|floatformat:0 }} - {{ vacancy.salary_range_max|money:'|0' }}
+                        </span>
+                    </div>
+                    
+                    <div class="vacancy-meta">
+                        <div class="row">
+                            <div class="col-6">
+                                <small>
+                                    <i class="fas fa-users me-1"></i>
+                                    {{ vacancy.number_of_positions }} منصب
+                                </small>
+                            </div>
+                            <div class="col-6">
+                                <small>
+                                    <i class="fas fa-calendar me-1"></i>
+                                    {{ vacancy.posting_date }}
+                                </small>
+                            </div>
+                            <div class="col-6 mt-1">
+                                <small>
+                                    <i class="fas fa-clock me-1"></i>
+                                    ينتهي: {{ vacancy.closing_date }}
+                                </small>
+                            </div>
+                            <div class="col-6 mt-1">
+                                <small>
+                                    <i class="fas fa-file-alt me-1"></i>
+                                    <span class="applications-count">0</span> طلب
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3 pt-3 border-top">
+                        <div class="row">
+                            <div class="col-6">
+                                <a href="#" class="btn btn-outline-primary btn-sm w-100">
+                                    <i class="fas fa-eye"></i> عرض
+                                </a>
+                            </div>
+                            <div class="col-6">
+                                <a href="#" class="btn btn-outline-secondary btn-sm w-100">
+                                    <i class="fas fa-edit"></i> تعديل
+                                </a>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-12">
+                                <a href="{% url 'hr:job_application_list' %}?vacancy={{ vacancy.id }}" 
+                                   class="btn btn-outline-info btn-sm w-100">
+                                    <i class="fas fa-file-alt"></i> طلبات التوظيف
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-briefcase fa-4x text-muted mb-3"></i>
+                    <h4 class="text-muted">لا توجد وظائف شاغرة</h4>
+                    <p class="text-muted">لم يتم العثور على أي وظائف شاغرة تطابق معايير البحث.</p>
+                    <a href="{% url 'hr:job_vacancy_create' %}" class="btn btn-success">
+                        <i class="fas fa-plus"></i> إضافة وظيفة جديدة
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if vacancies.has_other_pages %}
+    <nav aria-label="pagination" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if vacancies.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ vacancies.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">السابق</a>
+                </li>
+            {% endif %}
+
+            {% for i in vacancies.paginator.page_range %}
+                {% if vacancies.number == i %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ i }}</span>
+                    </li>
+                {% else %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ i }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">{{ i }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if vacancies.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ vacancies.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">التالي</a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+<div class="modal fade" id="quickVacancyModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post">{% csrf_token %}
+                <div class="modal-header"><h5 class="modal-title">وظيفة شاغرة سريعة</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">{{ form.as_p }}</div>
+                <div class="modal-footer"><button type="submit" class="btn btn-success">حفظ</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// تطبيق الفلاتر تلقائياً عند التغيير
+document.querySelectorAll('.filter-card select').forEach(select => {
+    select.addEventListener('change', function() {
+        this.closest('form').submit();
+    });
+});
+
+// مسح الفلاتر
+function clearFilters() {
+    window.location.href = '{% url "hr:job_vacancy_list" %}';
+}
+
+// تأكيد الحذف
+function confirmDelete(vacancyId, vacancyTitle) {
+    if (confirm(`هل أنت متأكد من حذف الوظيفة: ${vacancyTitle}؟`)) {
+        // إرسال طلب حذف
+        fetch(`/hr/recruitment/vacancies/${vacancyId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert('حدث خطأ أثناء الحذف');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('حدث خطأ أثناء الحذف');
+        });
+    }
+}
+</script>
+{% endblock %}

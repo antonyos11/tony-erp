@@ -1,0 +1,181 @@
+# ============================================================
+# Tony ERP - Docker Compose for Production
+# Usage: docker-compose -f docker-compose.production.yml up -d
+# ============================================================
+
+version: '3.8'
+
+services:
+  # ============================================================
+  # Django Application
+  # ============================================================
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      gunicorn accountant_pro.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 4
+      --threads 2
+      --timeout 120
+      --access-logfile logs/access.log
+      --error-logfile logs/error.log
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+      - logs_volume:/app/logs
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=accountant_pro.settings_production
+      - DB_ENGINE=postgresql
+      - POSTGRES_HOST=db
+      - REDIS_URL=redis://redis:6379/1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - tony_network
+
+  # ============================================================
+  # PostgreSQL Database
+  # ============================================================
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-tony_erp}
+      - POSTGRES_USER=${POSTGRES_USER:-tony}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tony} -d ${POSTGRES_DB:-tony_erp}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - tony_network
+
+  # ============================================================
+  # Redis (Cache + Celery broker)
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - tony_network
+
+  # ============================================================
+  # Celery Worker (background tasks)
+  # ============================================================
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A accountant_pro worker --loglevel=info --concurrency=4
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=accountant_pro.settings_production
+      - DB_ENGINE=postgresql
+      - POSTGRES_HOST=db
+      - REDIS_URL=redis://redis:6379/1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - tony_network
+
+  # ============================================================
+  # Celery Beat (scheduled tasks)
+  # ============================================================
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A accountant_pro beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=accountant_pro.settings_production
+      - DB_ENGINE=postgresql
+      - POSTGRES_HOST=db
+      - REDIS_URL=redis://redis:6379/1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - tony_network
+
+  # ============================================================
+  # Nginx (Reverse Proxy)
+  # ============================================================
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/production.conf:/etc/nginx/conf.d/default.conf:ro
+      - static_volume:/app/staticfiles:ro
+      - media_volume:/app/media:ro
+      # Uncomment for SSL:
+      # - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - web
+    restart: unless-stopped
+    networks:
+      - tony_network
+
+# ============================================================
+# Volumes
+# ============================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  static_volume:
+    driver: local
+  media_volume:
+    driver: local
+  logs_volume:
+    driver: local
+
+# ============================================================
+# Networks
+# ============================================================
+networks:
+  tony_network:
+    driver: bridge

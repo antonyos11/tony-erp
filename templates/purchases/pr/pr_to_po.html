@@ -1,0 +1,143 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تحويل طلب الشراء لأمر شراء{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card border-0 shadow-lg rounded-4">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="mb-0"><i class="fas fa-exchange-alt me-2 text-success"></i>تحويل طلب الشراء #{{ pr.pr_number }} إلى أمر شراء</h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <!-- اختيار المورد -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label">المورد <span class="text-danger">*</span></label>
+                                <select name="vendor_id" class="form-select" required>
+                                    <option value="">اختر المورد...</option>
+                                    {% for vendor in vendors %}
+                                    <option value="{{ vendor.id }}" {% if vendor.id == pr.preferred_vendor_id %}selected{% endif %}>
+                                        {{ vendor.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">تاريخ التسليم المتوقع</label>
+                                <input type="date" name="expected_delivery" class="form-control" 
+                                       value="{{ pr.required_date|date:'Y-m-d' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">طريقة الدفع</label>
+                                <select name="payment_terms" class="form-select">
+                                    <option value="cash">نقدي</option>
+                                    <option value="credit_30">آجل 30 يوم</option>
+                                    <option value="credit_60">آجل 60 يوم</option>
+                                    <option value="credit_90">آجل 90 يوم</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">طريقة الشحن</label>
+                                <select name="shipping_method" class="form-select">
+                                    <option value="vendor">توصيل المورد</option>
+                                    <option value="pickup">استلام ذاتي</option>
+                                    <option value="third_party">شركة شحن</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- المواد -->
+                        <h6 class="mb-3">تحديث أسعار المواد</h6>
+                        <div class="table-responsive mb-4">
+                            <table class="table">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th><input type="checkbox" id="selectAll" checked></th>
+                                        <th>المادة</th>
+                                        <th>الكمية</th>
+                                        <th>السعر التقديري</th>
+                                        <th>السعر الفعلي</th>
+                                        <th>الإجمالي</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in pr.items.all %}
+                                    <tr>
+                                        <td><input type="checkbox" name="include_item" value="{{ item.id }}" checked></td>
+                                        <td>
+                                            <strong>{{ item.product.name }}</strong>
+                                            <input type="hidden" name="item_id_{{ item.id }}" value="{{ item.id }}">
+                                        </td>
+                                        <td>
+                                            <input type="number" name="qty_{{ item.id }}" class="form-control form-control-sm qty-input" 
+                                                   value="{{ item.quantity }}" min="1" style="width: 80px;">
+                                        </td>
+                                        <td class="text-muted">{{ item.estimated_price }} ج.م</td>
+                                        <td>
+                                            <input type="number" name="price_{{ item.id }}" class="form-control form-control-sm price-input" 
+                                                   value="{{ item.estimated_price }}" step="0.01" min="0" style="width: 100px;">
+                                        </td>
+                                        <td class="total-cell">{{ item.total_price }} ج.م</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot class="bg-success bg-opacity-10">
+                                    <tr>
+                                        <th colspan="5" class="text-end">الإجمالي:</th>
+                                        <th id="grandTotal">{{ pr.total_amount }} ج.م</th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label">ملاحظات لأمر الشراء</label>
+                            <textarea name="po_notes" class="form-control" rows="2"></textarea>
+                        </div>
+
+                        <div class="d-flex gap-2 justify-content-end">
+                            <a href="{% url 'purchases:pr_detail' pr.pk %}" class="btn btn-outline-secondary">إلغاء</a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-file-invoice me-1"></i> إنشاء أمر الشراء
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('selectAll').addEventListener('change', function() {
+    document.querySelectorAll('input[name="include_item"]').forEach(cb => cb.checked = this.checked);
+});
+
+function calculateTotals() {
+    let grandTotal = 0;
+    document.querySelectorAll('tbody tr').forEach(row => {
+        const qty = parseFloat(row.querySelector('.qty-input')?.value) || 0;
+        const price = parseFloat(row.querySelector('.price-input')?.value) || 0;
+        const total = qty * price;
+        row.querySelector('.total-cell').textContent = total.toFixed(2) + ' ج.م';
+        if (row.querySelector('input[name="include_item"]').checked) {
+            grandTotal += total;
+        }
+    });
+    document.getElementById('grandTotal').textContent = grandTotal.toFixed(2) + ' ج.م';
+}
+
+document.querySelectorAll('.qty-input, .price-input, input[name="include_item"]').forEach(el => {
+    el.addEventListener('input', calculateTotals);
+    el.addEventListener('change', calculateTotals);
+});
+</script>
+{% endblock %}

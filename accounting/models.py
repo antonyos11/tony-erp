@@ -322,6 +322,8 @@ class JournalEntry(models.Model):
     @property
     def total_debit(self):
         """إجمالي المدين"""
+        if not getattr(self, 'pk', None):
+            return Decimal('0')
         # items علاقة عكسية من JournalEntryItem
         return self.items.filter(type='debit').aggregate(  # type: ignore[attr-defined]
             total=models.Sum('amount'))['total'] or Decimal('0')
@@ -329,6 +331,8 @@ class JournalEntry(models.Model):
     @property
     def total_credit(self):
         """إجمالي الدائن"""
+        if not getattr(self, 'pk', None):
+            return Decimal('0')
         # type: ignore[attr-defined]
         return self.items.filter(type='credit').aggregate(  # type: ignore[attr-defined]
             total=models.Sum('amount'))['total'] or Decimal('0')
@@ -342,12 +346,10 @@ class JournalEntry(models.Model):
         # منع إنشاء أو تعديل قيد مرحل غير متوازن
         is_new = self.pk is None
         if not self.number:
-            from datetime import datetime
-            year = datetime.now().year
-            # ملاحظة: هذه الآلية قد تنتج تضارب عند الحمل العالي، يمكن لاحقاً استبدالها
-            # بتسلسل في قاعدة البيانات أو قفل صف. نحتفظ بها الآن لتجنب تغيير هيكلي.
-            count = JournalEntry.objects.filter(number__startswith=f'JE-{year}').count() + 1
-            self.number = f'JE-{year}-{count:06d}'
+            # PHASE-1 STEP-1: replaced COUNT()+1 with sequence-backed generator
+            # to eliminate duplicate number collisions under concurrent load.
+            from accounting.journal_number_service import generate_journal_number
+            self.number = generate_journal_number()
         # تحقق من السنة المالية فقط عند محاولة ترحيل القيد
         if self.is_posted:
             try:
@@ -361,6 +363,8 @@ class JournalEntry(models.Model):
 
     def clean(self):  # type: ignore[override]
         # التحقق من وجود سنة مالية تغطي التاريخ ومن عدم إغلاقها عند الترحيل
+        if not self.is_balanced:
+            raise ValidationError(_('Entry must be balanced (debit = credit)'))
         if self.is_posted:
             from django.db.models import Q
             fy = FiscalYear.objects.filter(start_date__lte=self.date, end_date__gte=self.date).first()
@@ -448,10 +452,16 @@ class FiscalYear(models.Model):
         return f"{self.name} ({self.start_date} - {self.end_date})"
     
     def save(self, *args, **kwargs):
+        self.full_clean()
         if self.is_active:
             # إزالة الفعالية من السنوات الأخرى
             FiscalYear.objects.exclude(pk=self.pk).update(is_active=False)
         super().save(*args, **kwargs)
+
+    def clean(self):  # type: ignore[override]
+        if self.end_date < self.start_date:
+            raise ValidationError({'end_date': _('End date must be after start date')})
+        return super().clean()
 
 
 class CostCenterBudget(models.Model):
@@ -923,7 +933,7 @@ class AccountTransfer(models.Model):
     reference_number = models.CharField(max_length=100, blank=True, verbose_name=_("رقم المرجع"))
     
     created_by = models.ForeignKey(User, on_delete=models.PROTECT,
-                                  related_name='created_account_transfers',
+                                  related_name='created_transfers',
                                   verbose_name=_("أنشئ بواسطة"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("تاريخ الإنشاء"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("تاريخ التحديث"))
@@ -1169,7 +1179,7 @@ class Cheque(models.Model):
     # supplier = models.ForeignKey('purchases.Supplier', on_delete=models.SET_NULL,
     #                            null=True, blank=True, verbose_name=_('المورد'))
     amount = models.DecimalField(_("المبلغ"), max_digits=15, decimal_places=2)
-    issue_date = models.DateField(_("تاريخ الإصدار"), default=timezone.now)
+    issue_date = models.DateField(_("تاريخ الإصدار"), default=timezone.localdate)
     due_date = models.DateField(_("تاريخ الاستحقاق"), null=True, blank=True)
     collection_date = models.DateField(_("تاريخ التحصيل"), null=True, blank=True)
     deposit_date = models.DateField(_("تاريخ الإيداع"), null=True, blank=True)
@@ -1660,7 +1670,7 @@ class ProductCosting(models.Model):
                                          max_digits=15, decimal_places=2, default=Decimal('0'))
     
     # بيانات إدارية
-    effective_from = models.DateField(_('ساري من'), default=timezone.now)
+    effective_from = models.DateField(_('ساري من'), default=timezone.localdate)
     effective_to = models.DateField(_('ساري حتى'), null=True, blank=True)
     notes = models.TextField(_('ملاحظات'), blank=True)
     
@@ -1957,7 +1967,7 @@ class AccountEntry(models.Model):
     
     id = models.AutoField(primary_key=True)
     entry_type = models.CharField(max_length=10, choices=ENTRY_TYPES, verbose_name=_("نوع القيد"))
-    date = models.DateField(default=timezone.now, verbose_name=_("التاريخ"))
+    date = models.DateField(default=timezone.localdate, verbose_name=_("التاريخ"))
     amount = models.DecimalField(max_digits=15, decimal_places=2, verbose_name=_("المبلغ"),
                                 validators=[MinValueValidator(Decimal('0.01'))])
     description = models.TextField(verbose_name=_("البيان"))

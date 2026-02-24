@@ -1,0 +1,140 @@
+{% extends 'base_v2.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'تحويل أموال جديد' %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-plus-circle me-2"></i>{% trans 'تحويل أموال جديد' %}</h2>
+            <p class="text-muted mb-0">{% trans 'إنشاء طلب تحويل أموال بين المعارض' %}</p>
+        </div>
+        <a href="{% url 'showrooms:money_transfer_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i>{% trans 'العودة' %}
+        </a>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <form method="post" id="transferForm">
+                {% csrf_token %}
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h5 class="border-bottom pb-2 mb-3">
+                            <i class="bi bi-arrow-up-circle text-danger me-2"></i>{% trans 'من معرض' %}
+                        </h5>
+                        <select name="from_showroom" class="form-select form-select-lg" required>
+                            <option value="">{% trans 'اختر المعرض المُرسِل' %}</option>
+                            {% for s in showrooms %}
+                            <option value="{{ s.id }}">{{ s.code }} - {{ s.name_ar|default:s.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <h5 class="border-bottom pb-2 mb-3">
+                            <i class="bi bi-arrow-down-circle text-success me-2"></i>{% trans 'إلى معرض' %}
+                        </h5>
+                        <select name="to_showroom" class="form-select form-select-lg" required>
+                            <option value="">{% trans 'اختر المعرض المُستَقبِل' %}</option>
+                            {% for s in showrooms %}
+                            <option value="{{ s.id }}">{{ s.code }} - {{ s.name_ar|default:s.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{% trans 'المبلغ' %} <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input type="number" name="amount" class="form-control form-control-lg" 
+                                   placeholder="0.00" step="0.01" min="0.01" required>
+                            <span class="input-group-text">ج.م</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{% trans 'طريقة التحويل' %} <span class="text-danger">*</span></label>
+                        <select name="transfer_method" class="form-select form-select-lg" id="transferMethod" required>
+                            {% for value, label in transfer_methods %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- حقول البنك -->
+                <div id="bankFields" class="row d-none">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{% trans 'اسم البنك' %}</label>
+                        <input type="text" name="bank_name" class="form-control" placeholder="{% trans 'اسم البنك' %}">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{% trans 'رقم الحساب' %}</label>
+                        <input type="text" name="bank_account" class="form-control" placeholder="{% trans 'رقم الحساب البنكي' %}">
+                    </div>
+                </div>
+
+                <!-- حقول الشيك -->
+                <div id="chequeFields" class="row d-none">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{% trans 'رقم الشيك' %}</label>
+                        <input type="text" name="cheque_number" class="form-control" placeholder="{% trans 'رقم الشيك' %}">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{% trans 'تاريخ الشيك' %}</label>
+                        <input type="date" name="cheque_date" class="form-control">
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{% trans 'رقم المرجع' %}</label>
+                        <input type="text" name="reference_number" class="form-control" placeholder="{% trans 'رقم مرجعي (اختياري)' %}">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">{% trans 'سبب التحويل' %}</label>
+                    <textarea name="reason" class="form-control" rows="2" placeholder="{% trans 'اذكر سبب التحويل...' %}"></textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">{% trans 'ملاحظات إضافية' %}</label>
+                    <textarea name="notes" class="form-control" rows="2" placeholder="{% trans 'أي ملاحظات أخرى...' %}"></textarea>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <a href="{% url 'showrooms:money_transfer_list' %}" class="btn btn-light btn-lg">{% trans 'إلغاء' %}</a>
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="bi bi-send me-1"></i>{% trans 'إرسال طلب التحويل' %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const methodSelect = document.getElementById('transferMethod');
+    const bankFields = document.getElementById('bankFields');
+    const chequeFields = document.getElementById('chequeFields');
+    
+    methodSelect.addEventListener('change', function() {
+        bankFields.classList.add('d-none');
+        chequeFields.classList.add('d-none');
+        
+        if (this.value === 'bank') {
+            bankFields.classList.remove('d-none');
+        } else if (this.value === 'cheque') {
+            chequeFields.classList.remove('d-none');
+        }
+    });
+});
+</script>
+{% endblock %}

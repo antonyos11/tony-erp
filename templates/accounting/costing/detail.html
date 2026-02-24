@@ -1,0 +1,267 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}{{ costing.product.name }} - بطاقة التكلفة{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cost-breakdown {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    .cost-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .cost-item:last-child {
+        border-bottom: none;
+        font-weight: bold;
+        font-size: 1.1em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'accounting:costing_dashboard' %}">التكاليف</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'accounting:costing_list' %}">البطاقات</a></li>
+                    <li class="breadcrumb-item active">{{ costing.product.name }}</li>
+                </ol>
+            </nav>
+        </div>
+        <div class="col-md-4 text-end">
+            {% if costing.status == 'draft' %}
+            <a href="{% url 'accounting:costing_edit' costing.pk %}" class="btn btn-sm btn-warning">
+                <i class="fas fa-edit"></i> تعديل
+            </a>
+            <form method="post" action="{% url 'accounting:costing_activate' costing.pk %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-success" 
+                        onclick="return confirm('هل تريد تفعيل هذه البطاقة؟\nسيتم تحديث تكلفة المنتج تلقائياً.')">
+                    <i class="fas fa-check-circle"></i> تفعيل
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- معلومات البطاقة -->
+        <div class="col-md-4">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">معلومات البطاقة</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>المنتج:</strong> {{ costing.product.name }}</p>
+                    <p><strong>الكود:</strong> {{ costing.product.sku }}</p>
+                    <p><strong>الإصدار:</strong> {{ costing.version }}</p>
+                    <p><strong>الطريقة:</strong> {{ costing.get_costing_method_display }}</p>
+                    <p><strong>الحالة:</strong> 
+                        {% if costing.status == 'active' %}
+                        <span class="badge bg-success">نشطة</span>
+                        {% elif costing.status == 'draft' %}
+                        <span class="badge bg-warning">مسودة</span>
+                        {% else %}
+                        <span class="badge bg-secondary">مؤرشفة</span>
+                        {% endif %}
+                    </p>
+                    <p><strong>ساري من:</strong> {{ costing.effective_from|date:"Y-m-d" }}</p>
+                    <p><strong>أنشأه:</strong> {{ costing.created_by.username }}</p>
+                    {% if costing.notes %}
+                    <hr>
+                    <p class="text-muted small">{{ costing.notes }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- ملخص التكلفة -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">ملخص التكلفة</h5>
+                </div>
+                <div class="card-body">
+                    <div class="cost-breakdown">
+                        <div class="cost-item">
+                            <span>المواد المباشرة:</span>
+                            <span>{{ costing.direct_material_cost|floatformat:2 }}</span>
+                        </div>
+                        <div class="cost-item">
+                            <span>العمالة المباشرة:</span>
+                            <span>{{ costing.direct_labor_cost|floatformat:2 }}</span>
+                        </div>
+                        <div class="cost-item">
+                            <span>التكاليف الصناعية:</span>
+                            <span>{{ costing.overhead_cost|floatformat:2 }}</span>
+                        </div>
+                        <div class="cost-item">
+                            <span>تكاليف أخرى:</span>
+                            <span>{{ costing.other_cost|floatformat:2 }}</span>
+                        </div>
+                        <div class="cost-item">
+                            <span>إجمالي التكلفة:</span>
+                            <span class="text-primary">{{ costing.total_cost|floatformat:2 }}</span>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <p><strong>السعر الحالي:</strong> {{ costing.product.price|floatformat:2 }}</p>
+                    <p><strong>السعر المقترح:</strong> {{ costing.suggested_price|floatformat:2 }}</p>
+                    <p><strong>هامش الربح المستهدف:</strong> {{ costing.target_profit_margin }}%</p>
+                    <p><strong>هامش الربح الفعلي:</strong> 
+                        <span class="badge {% if costing.actual_profit_margin < 10 %}bg-danger{% elif costing.actual_profit_margin < 20 %}bg-warning{% else %}bg-success{% endif %}">
+                            {{ costing.actual_profit_margin|floatformat:1 }}%
+                        </span>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- مكونات التكلفة -->
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">مكونات التكلفة</h5>
+                    {% if costing.status == 'draft' %}
+                    <a href="{% url 'accounting:component_create' costing.pk %}" class="btn btn-sm btn-light">
+                        <i class="fas fa-plus"></i> إضافة مكون
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="card-body p-0">
+                    {% if components_by_type %}
+                        {% for type_name, type_components in components_by_type.items %}
+                        <div class="p-3 border-bottom">
+                            <h6 class="text-primary"><i class="fas fa-folder"></i> {{ type_name }}</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>الوصف</th>
+                                            <th>الكمية</th>
+                                            <th>الوحدة</th>
+                                            <th>تكلفة الوحدة</th>
+                                            <th>الإجمالي</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for comp in type_components %}
+                                        <tr>
+                                            <td>
+                                                {{ comp.description }}
+                                                {% if comp.item %}
+                                                <br><small class="text-muted">{{ comp.item.name }}</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ comp.quantity|floatformat:2 }}</td>
+                                            <td>{{ comp.unit }}</td>
+                                            <td>{{ comp.unit_cost|floatformat:2 }}</td>
+                                            <td><strong>{{ comp.total_cost|floatformat:2 }}</strong></td>
+                                            <td>
+                                                {% if costing.status == 'draft' %}
+                                                <a href="{% url 'accounting:component_edit' comp.pk %}" 
+                                                   class="btn btn-sm btn-outline-primary" title="تعديل">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <button class="btn btn-sm btn-outline-danger" 
+                                                        onclick="deleteComponent({ comp.pk })" title="حذف">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-inbox fa-3x mb-3"></i><br>
+                        لا توجد مكونات تكلفة<br>
+                        <a href="{% url 'accounting:component_create' costing.pk %}" class="btn btn-primary mt-3">
+                            <i class="fas fa-plus"></i> إضافة مكون الآن
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- سجل التكلفة -->
+            {% if history %}
+            <div class="card shadow-sm mt-3">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">سجل التكلفة</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>التاريخ</th>
+                                    <th>التكلفة القديمة</th>
+                                    <th>التكلفة الجديدة</th>
+                                    <th>التغيير</th>
+                                    <th>السبب</th>
+                                    <th>بواسطة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for h in history %}
+                                <tr>
+                                    <td>{{ h.changed_at|date:"Y-m-d H:i" }}</td>
+                                    <td>{{ h.old_cost|floatformat:2 }}</td>
+                                    <td>{{ h.new_cost|floatformat:2 }}</td>
+                                    <td>
+                                        <span class="badge {% if h.change_amount > 0 %}bg-danger{% else %}bg-success{% endif %}">
+                                            {% if h.change_amount > 0 %}+{% endif %}{{ h.change_percentage|floatformat:1 }}%
+                                        </span>
+                                    </td>
+                                    <td>{{ h.change_reason }}</td>
+                                    <td>{{ h.changed_by.username }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function deleteComponent(id) {
+    if (confirm('هل تريد حذف هذا المكون؟')) {
+        fetch(`/accounting/costing/component/${id}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{ csrf_token }',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('خطأ في الحذف: ' + data.error);
+            }
+        });
+    }
+}
+</script>
+{% endblock %}
+

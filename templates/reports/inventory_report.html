@@ -1,0 +1,160 @@
+﻿{% extends BASE_TEMPLATE %}
+{% block title %}تقارير المخزون - المحاسب الشامل{% endblock %}
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+  .metric-box{border:1px solid #e3e6ef;border-radius:8px;padding:14px;position:relative;background:#fff;height:100%;}
+  .metric-box h6{font-size:.8rem;font-weight:600;color:#555;margin-bottom:4px;}
+  .metric-value{font-size:1.25rem;font-weight:700;direction:ltr;}
+  .table-sm td,.table-sm th{padding:.4rem .5rem;}
+  .badge-stock{font-size:.65rem;}
+  .scroll-x{overflow-x:auto;}
+  .sticky-header th{position:sticky;top:0;background:#f8f9fa;z-index:2;}
+  .spark-bar{display:inline-block;width:4px;margin-inline:1px;background:#198754;}
+  .spark-bar.neg{background:#dc3545;}
+  .section-title{font-size:1rem;font-weight:600;margin:0 0 10px;display:flex;align-items:center;gap:.4rem;}
+  .card{margin-bottom:1rem;}
+</style>
+{% endblock %}
+{% block content %}
+{% include 'reports/partials/report_actions.html' %}
+<div class="row g-3">
+  <div class="col-12 col-xl-3 col-lg-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="section-title"><i class="bi bi-boxes text-success"></i> لمحة سريعة</div>
+        <div class="row g-2 small">
+          <div class="col-6"><div class="metric-box"><h6>إجمالي الأصناف</h6><div class="metric-value text-primary">{{ stock_analysis.total_products|default:0 }}</div></div></div>
+          <div class="col-6"><div class="metric-box"><h6>قيمة المخزون</h6><div class="metric-value text-success">{{ stock_analysis.total_value|floatformat:2 }}</div></div></div>
+          <div class="col-6"><div class="metric-box"><h6>منعدم المخزون</h6><div class="metric-value text-danger">{{ stock_analysis.out_of_stock }}</div></div></div>
+          <div class="col-6"><div class="metric-box"><h6>منخفض المخزون</h6><div class="metric-value text-warning">{{ stock_analysis.low_stock }}</div></div></div>
+          <div class="col-6"><div class="metric-box"><h6>مستقر</h6><div class="metric-value text-secondary">{{ stock_analysis.good_stock }}</div></div></div>
+          <div class="col-6"><div class="metric-box"><h6>مواقع التخزين</h6><div class="metric-value text-info">{{ locations_stock|length }}</div></div></div>
+        </div>
+        <hr>
+        <div class="d-grid gap-2">
+          <a href="{% url 'inventory:stock_management' %}" class="btn btn-sm btn-outline-success">إدارة المخزون</a>
+          <a href="?export=csv" class="btn btn-sm btn-outline-primary">تصدير CSV (المنتجات الحرجة)</a>
+          <a href="?export=locations_csv" class="btn btn-sm btn-outline-secondary">تصدير CSV (حسب الموقع)</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-xl-9 col-lg-8">
+    <div class="row g-3">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-body">
+            <div class="section-title"><i class="bi bi-exclamation-triangle text-warning"></i> المنتجات الحرجة</div>
+            <div class="row g-2">
+              <div class="col-md-6">
+                <h6 class="fw-bold small mb-1">منعدم المخزون</h6>
+                <div class="scroll-x">
+                <div class="table-responsive"><table class="table table-sm table-bordered align-middle mb-0">
+                  <thead class="table-light sticky-header">
+                    <tr><th>#</th><th>الصنف</th><th class="text-center">المخزون</th></tr>
+                  </thead>
+                  <tbody>
+                    {% for p in out_of_stock_products %}
+                    <tr><td>{{ forloop.counter }}</td><td>{{ p.name }}</td><td class="text-center"><span class="badge bg-danger">0</span></td></tr>
+                    {% empty %}<tr><td colspan="3" class="text-center text-muted">لا يوجد</td></tr>{% endfor %}
+                  </tbody>
+                </table></div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <h6 class="fw-bold small mb-1">منخفض المخزون</h6>
+                <div class="scroll-x">
+                <div class="table-responsive"><table class="table table-sm table-bordered align-middle mb-0">
+                  <thead class="table-light sticky-header">
+                    <tr><th>#</th><th>الصنف</th><th class="text-center">الكمية</th><th class="text-center">الحد الأدنى</th></tr>
+                  </thead>
+                  <tbody>
+                    {% for p in low_stock_products %}
+                    <tr>
+                      <td>{{ forloop.counter }}</td>
+                      <td>{{ p.name }}</td>
+                      <td class="text-center"><span class="badge bg-warning text-dark">{{ p.total_stock|default:0 }}</span></td>
+                      <td class="text-center"><span class="badge bg-light text-dark">{{ p.min_stock }}</span></td>
+                    </tr>
+                    {% empty %}<tr><td colspan="4" class="text-center text-muted">لا يوجد</td></tr>{% endfor %}
+      </div>
+      <div class="col-12">
+        <div class="card">
+          <div class="card-body">
+            <div class="section-title"><i class="bi bi-gem text-info"></i> أعلى قيمة</div>
+            <div class="scroll-x">
+            <div class="table-responsive"><table class="table table-sm table-hover mb-0">
+              <thead class="table-light sticky-header"><tr><th>#</th><th>الصنف</th><th>المخزون</th><th>القيمة</th></tr></thead>
+              <tbody>
+              {% for p in high_value_products %}
+                <tr>
+                  <td>{{ forloop.counter }}</td>
+                  <td>{{ p.name }}</td>
+                  <td>{{ p.total_stock|default:0 }}</td>
+                  <td>{{ p.stock_value|default:0|floatformat:2 }}</td>
+                </tr>
+              {% empty %}<tr><td colspan="4" class="text-center text-muted">لا يوجد بيانات</td></tr>{% endfor %}
+              </tbody>
+            </table></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="card">
+          <div class="card-body">
+            <div class="section-title"><i class="bi bi-geo-alt text-primary"></i> المخزون حسب الموقع</div>
+            <div class="scroll-x">
+            <div class="table-responsive"><table class="table table-sm table-striped mb-0">
+              <thead class="table-light sticky-header"><tr><th>#</th><th>الموقع</th><th>عدد الأصناف</th><th>إجمالي الكمية</th><th>القيمة</th></tr></thead>
+              <tbody>
+                {% for r in locations_stock %}
+                <tr>
+                  <td>{{ forloop.counter }}</td>
+                  <td>{% if r.name %}{{ r.name }}{% else %}{{ r.code }}{% endif %}</td>
+                  <td>{{ r.products_count|default:0 }}</td>
+                  <td>{{ r.total_items|default:0 }}</td>
+                  <td>{{ r.stock_value_total|default:0|floatformat:2 }}</td>
+                </tr>
+                {% empty %}<tr><td colspan="5" class="text-center text-muted">لا يوجد مواقع</td></tr>{% endfor %}
+              </tbody>
+            </table></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="card">
+          <div class="card-body">
+            <div class="section-title"><i class="bi bi-arrow-repeat text-secondary"></i> أحدث تحركات (مشتريات)</div>
+            <div class="scroll-x">
+            <div class="table-responsive"><table class="table table-sm mb-0">
+              <thead class="table-light sticky-header"><tr><th>#</th><th>التاريخ</th><th>الصنف</th><th>الموقع</th><th>الكمية</th><th>التكلفة</th></tr></thead>
+              <tbody>
+                {% for mv in recent_movements %}
+                <tr>
+                  <td>{{ forloop.counter }}</td>
+                  <td>{{ mv.bill.date|date:'Y-m-d' }}</td>
+                  <td>{{ mv.product.name }}</td>
+                  <td>{{ mv.location.name }}</td>
+                  <td>{{ mv.quantity }}</td>
+                  <td>{{ mv.cost|floatformat:2 }}</td>
+                </tr>
+                {% empty %}<tr><td colspan="6" class="text-center text-muted">لا يوجد بيانات</td></tr>{% endfor %}
+              </tbody>
+            </table></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+Now let me test the system to make sure everything is working properly. Let me check the Django server status first:
+
+<function_calls>
+<invoke name="ExecuteShellCommand">
+<parameter name="command">Get-Process python -ErrorAction SilentlyContinue

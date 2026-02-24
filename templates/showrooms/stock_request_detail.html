@@ -1,0 +1,399 @@
+{% extends 'base_v2.html' %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-card {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        margin-bottom: 1.5rem;
+    }
+    .status-badge {
+        padding: 8px 20px;
+        border-radius: 25px;
+        font-size: 1rem;
+        font-weight: 600;
+    }
+    .status-pending { background: #fff8e1; color: #f57f17; }
+    .status-approved { background: #e3f2fd; color: #1565c0; }
+    .status-in_transit { background: #f3e5f5; color: #7b1fa2; }
+    .status-delivered { background: #e8f5e9; color: #2e7d32; }
+    .status-rejected { background: #ffebee; color: #c62828; }
+    .status-cancelled { background: #eceff1; color: #546e7a; }
+    .priority-badge {
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    .priority-low { background: #e3f2fd; color: #1976d2; }
+    .priority-normal { background: #e8f5e9; color: #388e3c; }
+    .priority-high { background: #fff3e0; color: #f57c00; }
+    .priority-urgent { background: #ffebee; color: #c62828; animation: pulse 2s infinite; }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+    .showroom-card {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+    }
+    .showroom-card.source {
+        border: 2px solid #dc3545;
+    }
+    .showroom-card.requester {
+        border: 2px solid #28a745;
+    }
+    .flow-arrow {
+        font-size: 3rem;
+        color: #0d6efd;
+    }
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #eee;
+    }
+    .info-row:last-child {
+        border-bottom: none;
+    }
+    .info-label {
+        color: #666;
+    }
+    .info-value {
+        font-weight: 600;
+    }
+    .timeline {
+        position: relative;
+        padding-right: 30px;
+    }
+    .timeline::before {
+        content: '';
+        position: absolute;
+        right: 10px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e0e0e0;
+    }
+    .timeline-item {
+        position: relative;
+        padding-bottom: 1.5rem;
+    }
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        right: -25px;
+        top: 5px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #e0e0e0;
+    }
+    .timeline-item.active::before {
+        background: #0d6efd;
+    }
+    .timeline-item.completed::before {
+        background: #28a745;
+    }
+    .product-info {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+    }
+    .quantity-box {
+        background: rgba(255,255,255,0.2);
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+    }
+    .quantity-box h3 {
+        font-size: 2.5rem;
+        margin-bottom: 0;
+    }
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="h3 mb-1">
+                📦 {{ request_obj.request_number }}
+                <span class="status-badge status-{{ request_obj.status }}">{{ request_obj.get_status_display }}</span>
+            </h1>
+            <p class="text-muted mb-0">
+                <i class="bi bi-clock me-1"></i>{{ request_obj.request_date|date:"Y/m/d H:i" }}
+                <span class="priority-badge priority-{{ request_obj.priority }} ms-2">{{ request_obj.get_priority_display }}</span>
+            </p>
+        </div>
+        <a href="{% url 'showrooms:stock_request_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-2"></i>{% trans 'العودة للقائمة' %}
+        </a>
+    </div>
+    
+    <!-- Product Info -->
+    <div class="product-info">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h2 class="mb-2">{{ request_obj.product.name }}</h2>
+                <p class="mb-0 opacity-75">
+                    {% if request_obj.product.sku %}SKU: {{ request_obj.product.sku }}{% endif %}
+                    {% if request_obj.product.barcode %} | باركود: {{ request_obj.product.barcode }}{% endif %}
+                </p>
+            </div>
+            <div class="col-md-4">
+                <div class="row g-2">
+                    <div class="col-4">
+                        <div class="quantity-box">
+                            <h3>{{ request_obj.quantity_requested }}</h3>
+                            <small>{% trans 'مطلوب' %}</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="quantity-box">
+                            <h3>{{ request_obj.quantity_approved|default:'-' }}</h3>
+                            <small>{% trans 'معتمد' %}</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="quantity-box">
+                            <h3>{{ request_obj.quantity_delivered|default:'-' }}</h3>
+                            <small>{% trans 'مستلم' %}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Showroom Flow -->
+    <div class="detail-card">
+        <h5 class="mb-4">🏪 {% trans 'مسار النقل' %}</h5>
+        <div class="row align-items-center text-center">
+            <div class="col-md-5">
+                <div class="showroom-card source">
+                    <i class="bi bi-shop display-4 text-danger mb-2"></i>
+                    <h5 class="mb-1">{{ request_obj.source_showroom.name_ar|default:request_obj.source_showroom.name }}</h5>
+                    <p class="text-muted mb-1">{{ request_obj.source_showroom.code }}</p>
+                    <small class="text-muted">{% trans 'المعرض المصدر' %}</small>
+                    <div class="mt-2 text-info">
+                        <i class="bi bi-box-seam me-1"></i>{% trans 'متوفر:' %} {{ available_stock }}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <i class="bi bi-arrow-left flow-arrow"></i>
+            </div>
+            <div class="col-md-5">
+                <div class="showroom-card requester">
+                    <i class="bi bi-shop display-4 text-success mb-2"></i>
+                    <h5 class="mb-1">{{ request_obj.requesting_showroom.name_ar|default:request_obj.requesting_showroom.name }}</h5>
+                    <p class="text-muted mb-1">{{ request_obj.requesting_showroom.code }}</p>
+                    <small class="text-muted">{% trans 'المعرض الطالب' %}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Details -->
+        <div class="col-lg-8">
+            <!-- Request Details -->
+            <div class="detail-card">
+                <h5 class="mb-4">📋 {% trans 'تفاصيل الطلب' %}</h5>
+                
+                <div class="info-row">
+                    <span class="info-label">{% trans 'سبب الطلب' %}</span>
+                    <span class="info-value">{{ request_obj.reason|default:'-' }}</span>
+                </div>
+                
+                {% if request_obj.customer_name %}
+                <div class="info-row">
+                    <span class="info-label">{% trans 'اسم العميل' %}</span>
+                    <span class="info-value">{{ request_obj.customer_name }}</span>
+                </div>
+                {% endif %}
+                
+                {% if request_obj.customer_phone %}
+                <div class="info-row">
+                    <span class="info-label">{% trans 'هاتف العميل' %}</span>
+                    <span class="info-value">{{ request_obj.customer_phone }}</span>
+                </div>
+                {% endif %}
+                
+                {% if request_obj.needed_by %}
+                <div class="info-row">
+                    <span class="info-label">{% trans 'مطلوب بحلول' %}</span>
+                    <span class="info-value {% if request_obj.is_overdue %}text-danger{% endif %}">
+                        {{ request_obj.needed_by|date:"Y/m/d" }}
+                        {% if request_obj.is_overdue %}<i class="bi bi-exclamation-triangle ms-1"></i>{% endif %}
+                    </span>
+                </div>
+                {% endif %}
+                
+                {% if request_obj.notes %}
+                <div class="info-row">
+                    <span class="info-label">{% trans 'ملاحظات' %}</span>
+                    <span class="info-value">{{ request_obj.notes }}</span>
+                </div>
+                {% endif %}
+                
+                {% if request_obj.rejection_reason %}
+                <div class="info-row">
+                    <span class="info-label text-danger">{% trans 'سبب الرفض' %}</span>
+                    <span class="info-value text-danger">{{ request_obj.rejection_reason }}</span>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Action Buttons -->
+            {% if request_obj.status != 'delivered' and request_obj.status != 'cancelled' and request_obj.status != 'rejected' %}
+            <div class="detail-card">
+                <h5 class="mb-4">⚡ {% trans 'الإجراءات' %}</h5>
+                <div class="action-buttons">
+                    {% if request_obj.status == 'pending' and is_source %}
+                    <form method="post" action="{% url 'showrooms:stock_request_action' pk=request_obj.pk action='approve' %}" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="quantity" value="{{ request_obj.quantity_requested }}">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="bi bi-check-circle me-2"></i>{% trans 'اعتماد الطلب' %}
+                        </button>
+                    </form>
+                    <button type="button" class="btn btn-danger btn-lg" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                        <i class="bi bi-x-circle me-2"></i>{% trans 'رفض الطلب' %}
+                    </button>
+                    {% endif %}
+                    
+                    {% if request_obj.status == 'approved' and is_source %}
+                    <form method="post" action="{% url 'showrooms:stock_request_action' pk=request_obj.pk action='ship' %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-truck me-2"></i>{% trans 'بدء الشحن' %}
+                        </button>
+                    </form>
+                    {% endif %}
+                    
+                    {% if request_obj.status == 'in_transit' and is_requester %}
+                    <form method="post" action="{% url 'showrooms:stock_request_action' pk=request_obj.pk action='deliver' %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="bi bi-box-seam me-2"></i>{% trans 'تأكيد الاستلام' %}
+                        </button>
+                    </form>
+                    {% endif %}
+                    
+                    <form method="post" action="{% url 'showrooms:stock_request_action' pk=request_obj.pk action='cancel' %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-danger btn-lg" onclick="return confirm('{% trans 'هل أنت متأكد من إلغاء هذا الطلب؟' %}')">
+                            <i class="bi bi-x-lg me-2"></i>{% trans 'إلغاء الطلب' %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Timeline -->
+        <div class="col-lg-4">
+            <div class="detail-card">
+                <h5 class="mb-4">📅 {% trans 'الجدول الزمني' %}</h5>
+                <div class="timeline">
+                    <div class="timeline-item completed">
+                        <strong>{% trans 'تم إنشاء الطلب' %}</strong>
+                        <div class="text-muted small">{{ request_obj.request_date|date:"Y/m/d H:i" }}</div>
+                        <div class="small">{{ request_obj.requested_by.get_full_name|default:request_obj.requested_by.username }}</div>
+                    </div>
+                    
+                    {% if request_obj.approved_at %}
+                    <div class="timeline-item completed">
+                        <strong>{% trans 'تم الاعتماد' %}</strong>
+                        <div class="text-muted small">{{ request_obj.approved_at|date:"Y/m/d H:i" }}</div>
+                        <div class="small">{{ request_obj.approved_by.get_full_name|default:request_obj.approved_by.username }}</div>
+                    </div>
+                    {% elif request_obj.status == 'pending' %}
+                    <div class="timeline-item active">
+                        <strong>{% trans 'في انتظار الاعتماد' %}</strong>
+                    </div>
+                    {% endif %}
+                    
+                    {% if request_obj.shipped_at %}
+                    <div class="timeline-item completed">
+                        <strong>{% trans 'تم الشحن' %}</strong>
+                        <div class="text-muted small">{{ request_obj.shipped_at|date:"Y/m/d H:i" }}</div>
+                        <div class="small">{{ request_obj.shipped_by.get_full_name|default:request_obj.shipped_by.username }}</div>
+                    </div>
+                    {% elif request_obj.status == 'approved' %}
+                    <div class="timeline-item active">
+                        <strong>{% trans 'في انتظار الشحن' %}</strong>
+                    </div>
+                    {% endif %}
+                    
+                    {% if request_obj.delivered_at %}
+                    <div class="timeline-item completed">
+                        <strong>{% trans 'تم التسليم' %}</strong>
+                        <div class="text-muted small">{{ request_obj.delivered_at|date:"Y/m/d H:i" }}</div>
+                        <div class="small">{{ request_obj.received_by.get_full_name|default:request_obj.received_by.username }}</div>
+                    </div>
+                    {% elif request_obj.status == 'in_transit' %}
+                    <div class="timeline-item active">
+                        <strong>{% trans 'في الطريق' %}</strong>
+                    </div>
+                    {% endif %}
+                    
+                    {% if request_obj.status == 'rejected' %}
+                    <div class="timeline-item">
+                        <strong class="text-danger">{% trans 'تم الرفض' %}</strong>
+                        <div class="text-muted small">{{ request_obj.rejection_reason }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if request_obj.status == 'cancelled' %}
+                    <div class="timeline-item">
+                        <strong class="text-muted">{% trans 'تم الإلغاء' %}</strong>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'showrooms:stock_request_action' pk=request_obj.pk action='reject' %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans 'رفض الطلب' %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label">{% trans 'سبب الرفض' %}</label>
+                    <textarea name="reason" class="form-control" rows="3" required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans 'إلغاء' %}</button>
+                    <button type="submit" class="btn btn-danger">{% trans 'تأكيد الرفض' %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

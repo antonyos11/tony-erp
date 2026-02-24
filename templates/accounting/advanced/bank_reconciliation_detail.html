@@ -1,0 +1,587 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}تفاصيل التسوية البنكية #{{ reconciliation.id }} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .reconciliation-header {
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+    }
+    .match-area {
+        min-height: 400px;
+        border: 2px dashed #dee2e6;
+        border-radius: 10px;
+        padding: 1rem;
+        background: #f8f9fa;
+    }
+    .transaction-item {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .transaction-item:hover {
+        border-color: #007bff;
+        box-shadow: 0 2px 8px rgba(0,123,255,0.2);
+    }
+    .transaction-item.selected {
+        background: #e3f2fd;
+        border-color: #007bff;
+    }
+    .transaction-item.matched {
+        background: #d4edda;
+        border-color: #28a745;
+        opacity: 0.7;
+    }
+    .amount-debit { color: #dc3545; }
+    .amount-credit { color: #28a745; }
+    .match-button {
+        position: fixed;
+        bottom: 2rem;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+    }
+    .difference-card {
+        position: sticky;
+        top: 20px;
+    }
+    .unmatched-count {
+        position: absolute;
+        top: -10px;
+        right: -10px;
+        width: 25px;
+        height: 25px;
+        background: #dc3545;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'accounting:bank_reconciliation_list' %}">التسويات البنكية</a></li>
+            <li class="breadcrumb-item active">تسوية #{{ reconciliation.id }}</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="reconciliation-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h2 class="mb-2">
+                    <i class="fas fa-balance-scale"></i>
+                    تسوية {{ reconciliation.bank_account.name }}
+                </h2>
+                <p class="mb-0 opacity-75">
+                    الفترة: {{ reconciliation.period_start|date:"Y-m-d" }} إلى {{ reconciliation.period_end|date:"Y-m-d" }}
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <span class="badge 
+                    {% if reconciliation.status == 'approved' %}bg-success
+                    {% elif reconciliation.status == 'completed' %}bg-info
+                    {% elif reconciliation.status == 'needs_review' %}bg-warning
+                    {% else %}bg-secondary{% endif %} fs-5 mb-2">
+                    {{ reconciliation.get_status_display }}
+                </span>
+                <div class="mt-2">
+                    {% if reconciliation.status == 'in_progress' %}
+                        <button class="btn btn-success" onclick="completeReconciliation()">
+                            <i class="fas fa-check"></i> إكمال التسوية
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-primary text-white">
+                <div class="card-body text-center">
+                    <h6 class="opacity-75">رصيد كشف البنك</h6>
+                    <h3 class="mb-0">{{ reconciliation.statement_balance|floatformat:2 }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-success text-white">
+                <div class="card-body text-center">
+                    <h6 class="opacity-75">رصيد الدفاتر</h6>
+                    <h3 class="mb-0">{{ reconciliation.book_balance|floatformat:2 }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm {% if reconciliation.difference == 0 %}bg-info{% else %}bg-danger{% endif %} text-white">
+                <div class="card-body text-center">
+                    <h6 class="opacity-75">الفرق</h6>
+                    <h3 class="mb-0">{{ reconciliation.difference|floatformat:2 }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-warning text-dark">
+                <div class="card-body text-center">
+                    <h6 class="opacity-75">نسبة المطابقة</h6>
+                    <h3 class="mb-0">{{ match_percentage|floatformat:1 }}%</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="row">
+        <!-- Bank Statement Transactions -->
+        <div class="col-md-5">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-university"></i>
+                        حركات كشف البنك
+                    </h6>
+                    <span class="badge bg-white text-primary" style="position: relative;">
+                        {{ bank_transactions|length }}
+                        {% if unmatched_bank_count > 0 %}
+                        <span class="unmatched-count">{{ unmatched_bank_count }}</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="card-body match-area" id="bankTransactions">
+                    {% for txn in bank_transactions %}
+                    <div class="transaction-item {% if txn.matched %}matched{% endif %}" 
+                         data-id="{{ txn.id }}" data-type="bank" data-amount="{{ txn.amount }}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>{{ txn.reference }}</strong>
+                                <p class="mb-0 small text-muted">{{ txn.description|truncatewords:10 }}</p>
+                                <small class="text-muted">{{ txn.date|date:"Y-m-d" }}</small>
+                            </div>
+                            <div class="text-end">
+                                {% if txn.amount > 0 %}
+                                    <span class="amount-credit">+{{ txn.amount|floatformat:2 }}</span>
+                                {% else %}
+                                    <span class="amount-debit">{{ txn.amount|floatformat:2 }}</span>
+                                {% endif %}
+                                {% if txn.matched %}
+                                    <br><span class="badge bg-success small">مطابق</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-2x mb-2"></i>
+                        <p>لا توجد حركات</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Match Arrow -->
+        <div class="col-md-2 d-flex align-items-center justify-content-center">
+            <div class="text-center">
+                <button class="btn btn-lg btn-success rounded-circle mb-3" id="matchBtn" 
+                        onclick="matchSelected()" disabled style="width: 80px; height: 80px;">
+                    <i class="fas fa-link fa-2x"></i>
+                </button>
+                <p class="text-muted small">اختر حركات متطابقة ثم اضغط للمطابقة</p>
+                
+                <hr>
+                
+                <button class="btn btn-outline-warning btn-sm" onclick="autoMatch()">
+                    <i class="fas fa-magic"></i> مطابقة تلقائية
+                </button>
+            </div>
+        </div>
+
+        <!-- Book Transactions -->
+        <div class="col-md-5">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-book"></i>
+                        حركات الدفاتر
+                    </h6>
+                    <span class="badge bg-white text-success" style="position: relative;">
+                        {{ book_transactions|length }}
+                        {% if unmatched_book_count > 0 %}
+                        <span class="unmatched-count">{{ unmatched_book_count }}</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="card-body match-area" id="bookTransactions">
+                    {% for txn in book_transactions %}
+                    <div class="transaction-item {% if txn.matched %}matched{% endif %}" 
+                         data-id="{{ txn.id }}" data-type="book" data-amount="{{ txn.amount }}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>{{ txn.reference }}</strong>
+                                <p class="mb-0 small text-muted">{{ txn.description|truncatewords:10 }}</p>
+                                <small class="text-muted">{{ txn.date|date:"Y-m-d" }}</small>
+                            </div>
+                            <div class="text-end">
+                                {% if txn.amount > 0 %}
+                                    <span class="amount-credit">+{{ txn.amount|floatformat:2 }}</span>
+                                {% else %}
+                                    <span class="amount-debit">{{ txn.amount|floatformat:2 }}</span>
+                                {% endif %}
+                                {% if txn.matched %}
+                                    <br><span class="badge bg-success small">مطابق</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-2x mb-2"></i>
+                        <p>لا توجد حركات</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reconciliation Items -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list-check"></i>
+                        بنود التسوية
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Outstanding Checks -->
+                    <h6 class="mb-3">
+                        <i class="fas fa-money-check text-warning"></i>
+                        شيكات صادرة لم تصرف
+                    </h6>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-sm">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>رقم الشيك</th>
+                                    <th>التاريخ</th>
+                                    <th>المستفيد</th>
+                                    <th>المبلغ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for check in outstanding_checks %}
+                                <tr>
+                                    <td>{{ check.number }}</td>
+                                    <td>{{ check.date|date:"Y-m-d" }}</td>
+                                    <td>{{ check.payee }}</td>
+                                    <td class="amount-debit">({{ check.amount|floatformat:2 }})</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="4" class="text-center text-muted">لا توجد شيكات معلقة</td></tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="bg-light">
+                                    <th colspan="3">الإجمالي</th>
+                                    <th class="amount-debit">({{ total_outstanding_checks|floatformat:2 }})</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <!-- Deposits in Transit -->
+                    <h6 class="mb-3">
+                        <i class="fas fa-piggy-bank text-success"></i>
+                        إيداعات في الطريق
+                    </h6>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-sm">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>المرجع</th>
+                                    <th>التاريخ</th>
+                                    <th>الوصف</th>
+                                    <th>المبلغ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for deposit in deposits_in_transit %}
+                                <tr>
+                                    <td>{{ deposit.reference }}</td>
+                                    <td>{{ deposit.date|date:"Y-m-d" }}</td>
+                                    <td>{{ deposit.description }}</td>
+                                    <td class="amount-credit">{{ deposit.amount|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="4" class="text-center text-muted">لا توجد إيداعات معلقة</td></tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="bg-light">
+                                    <th colspan="3">الإجمالي</th>
+                                    <th class="amount-credit">{{ total_deposits_in_transit|floatformat:2 }}</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <!-- Bank Charges -->
+                    <h6 class="mb-3">
+                        <i class="fas fa-receipt text-danger"></i>
+                        مصاريف وعمولات بنكية
+                    </h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>الوصف</th>
+                                    <th>التاريخ</th>
+                                    <th>المبلغ</th>
+                                    <th>الحالة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for charge in bank_charges %}
+                                <tr>
+                                    <td>{{ charge.description }}</td>
+                                    <td>{{ charge.date|date:"Y-m-d" }}</td>
+                                    <td class="amount-debit">({{ charge.amount|floatformat:2 }})</td>
+                                    <td>
+                                        {% if charge.recorded %}
+                                            <span class="badge bg-success">مسجل</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">غير مسجل</span>
+                                            <button class="btn btn-sm btn-outline-primary" onclick="recordCharge({{ charge.id }})">
+                                                <i class="fas fa-plus"></i> تسجيل
+                                            </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="4" class="text-center text-muted">لا توجد مصاريف بنكية</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reconciliation Summary -->
+    <div class="row mt-4">
+        <div class="col-md-6 offset-md-3">
+            <div class="card border-0 shadow-lg">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0 text-center">
+                        <i class="fas fa-calculator"></i>
+                        ملخص التسوية
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr>
+                            <td>رصيد كشف البنك</td>
+                            <td class="text-end"><strong>{{ reconciliation.statement_balance|floatformat:2 }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-success">+ إيداعات في الطريق</td>
+                            <td class="text-end text-success">{{ total_deposits_in_transit|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-danger">- شيكات صادرة لم تصرف</td>
+                            <td class="text-end text-danger">({{ total_outstanding_checks|floatformat:2 }})</td>
+                        </tr>
+                        <tr class="border-top">
+                            <td><strong>الرصيد المعدل للبنك</strong></td>
+                            <td class="text-end"><strong>{{ adjusted_bank_balance|floatformat:2 }}</strong></td>
+                        </tr>
+                    </table>
+                    
+                    <hr>
+                    
+                    <table class="table table-borderless">
+                        <tr>
+                            <td>رصيد الدفاتر</td>
+                            <td class="text-end"><strong>{{ reconciliation.book_balance|floatformat:2 }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-danger">- مصاريف بنكية</td>
+                            <td class="text-end text-danger">({{ total_bank_charges|floatformat:2 }})</td>
+                        </tr>
+                        <tr>
+                            <td class="text-success">+ فوائد دائنة</td>
+                            <td class="text-end text-success">{{ total_interest|floatformat:2 }}</td>
+                        </tr>
+                        <tr class="border-top">
+                            <td><strong>الرصيد المعدل للدفاتر</strong></td>
+                            <td class="text-end"><strong>{{ adjusted_book_balance|floatformat:2 }}</strong></td>
+                        </tr>
+                    </table>
+
+                    <div class="alert {% if final_difference == 0 %}alert-success{% else %}alert-danger{% endif %} text-center">
+                        <h5 class="mb-0">
+                            {% if final_difference == 0 %}
+                                <i class="fas fa-check-circle"></i>
+                                التسوية متوازنة!
+                            {% else %}
+                                <i class="fas fa-exclamation-triangle"></i>
+                                الفرق: {{ final_difference|floatformat:2 }}
+                            {% endif %}
+                        </h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes & Attachments -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0"><i class="fas fa-sticky-note"></i> ملاحظات</h6>
+                </div>
+                <div class="card-body">
+                    {{ reconciliation.notes|default:"لا توجد ملاحظات"|linebreaks }}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0"><i class="fas fa-paperclip"></i> المرفقات</h6>
+                </div>
+                <div class="card-body">
+                    {% if reconciliation.attachment %}
+                        <a href="{{ reconciliation.attachment.url }}" target="_blank" class="btn btn-outline-primary">
+                            <i class="fas fa-download"></i> تحميل كشف البنك
+                        </a>
+                    {% else %}
+                        <p class="text-muted">لا توجد مرفقات</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedBank = [];
+let selectedBook = [];
+
+$(document).ready(function() {
+    // Handle transaction selection
+    $('.transaction-item:not(.matched)').click(function() {
+        $(this).toggleClass('selected');
+        updateSelectedArrays();
+        updateMatchButton();
+    });
+});
+
+function updateSelectedArrays() {
+    selectedBank = [];
+    selectedBook = [];
+    
+    $('#bankTransactions .transaction-item.selected').each(function() {
+        selectedBank.push({
+            id: $(this).data('id'),
+            amount: parseFloat($(this).data('amount'))
+        });
+    });
+    
+    $('#bookTransactions .transaction-item.selected').each(function() {
+        selectedBook.push({
+            id: $(this).data('id'),
+            amount: parseFloat($(this).data('amount'))
+        });
+    });
+}
+
+function updateMatchButton() {
+    const btn = $('#matchBtn');
+    const bankTotal = selectedBank.reduce((sum, t) => sum + t.amount, 0);
+    const bookTotal = selectedBook.reduce((sum, t) => sum + t.amount, 0);
+    
+    if (selectedBank.length > 0 && selectedBook.length > 0 && Math.abs(bankTotal - bookTotal) < 0.01) {
+        btn.prop('disabled', false);
+        btn.removeClass('btn-secondary').addClass('btn-success');
+    } else {
+        btn.prop('disabled', true);
+        btn.removeClass('btn-success').addClass('btn-secondary');
+    }
+}
+
+function matchSelected() {
+    if (selectedBank.length === 0 || selectedBook.length === 0) {
+        alert('يرجى اختيار حركات من كلا الجانبين');
+        return;
+    }
+    
+    // Send match request
+    $.ajax({
+        url: '{% url "accounting:match_transactions" reconciliation.id %}',
+        method: 'POST',
+        data: {
+            bank_ids: selectedBank.map(t => t.id),
+            book_ids: selectedBook.map(t => t.id),
+            csrfmiddlewaretoken: '{{ csrf_token }}'
+        },
+        success: function(response) {
+            location.reload();
+        },
+        error: function() {
+            alert('حدث خطأ أثناء المطابقة');
+        }
+    });
+}
+
+function autoMatch() {
+    if (confirm('هل تريد تنفيذ المطابقة التلقائية؟ سيتم مطابقة الحركات المتطابقة في المبلغ والتاريخ.')) {
+        $.ajax({
+            url: '{% url "accounting:auto_match" reconciliation.id %}',
+            method: 'POST',
+            data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+            success: function(response) {
+                alert('تم مطابقة ' + response.matched_count + ' حركة');
+                location.reload();
+            }
+        });
+    }
+}
+
+function completeReconciliation() {
+    if (confirm('هل أنت متأكد من إكمال هذه التسوية؟')) {
+        window.location.href = '{% url "accounting:complete_reconciliation" reconciliation.id %}';
+    }
+}
+
+function recordCharge(chargeId) {
+    // Open modal to create journal entry for bank charge
+    alert('سيتم فتح نافذة لتسجيل المصاريف البنكية');
+}
+</script>
+{% endblock %}

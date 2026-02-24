@@ -1,0 +1,164 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تقرير انحراف التكاليف{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        margin-bottom: 20px;
+    }
+    .variance-positive { color: #dc2626; }
+    .variance-negative { color: #16a34a; }
+    .variance-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    .variance-badge.over { background: #fee2e2; color: #991b1b; }
+    .variance-badge.under { background: #dcfce7; color: #166534; }
+    .variance-badge.normal { background: #e5e7eb; color: #374151; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-balance-scale me-2 text-warning"></i>تقرير انحراف التكاليف</h2>
+            <p class="text-muted mb-0">مقارنة التكاليف الفعلية بالمعيارية</p>
+        </div>
+        <div class="d-flex gap-2">
+            <select class="form-select" style="width: 200px;">
+                <option value="month">هذا الشهر</option>
+                <option value="quarter">هذا الربع</option>
+                <option value="year">هذا العام</option>
+            </select>
+            <button class="btn btn-outline-success">
+                <i class="fas fa-file-excel me-1"></i> تصدير
+            </button>
+        </div>
+    </div>
+
+    <!-- ملخص الانحرافات -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="report-card text-center">
+                <h6 class="text-muted mb-2">التكاليف المعيارية</h6>
+                <h3 class="text-primary mb-0">{{ standard_cost|default:"250,000" }} ج.م</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center">
+                <h6 class="text-muted mb-2">التكاليف الفعلية</h6>
+                <h3 class="text-info mb-0">{{ actual_cost|default:"265,000" }} ج.م</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center">
+                <h6 class="text-muted mb-2">إجمالي الانحراف</h6>
+                <h3 class="{% if total_variance > 0 %}variance-positive{% else %}variance-negative{% endif %} mb-0">
+                    {{ total_variance|default:"+15,000" }} ج.م
+                </h3>
+                <small class="text-muted">({{ variance_percentage|default:"6" }}%)</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- تفصيل الانحرافات حسب النوع -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <div class="report-card">
+                <h5 class="mb-4">انحراف المواد الخام</h5>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>المادة</th>
+                                <th>معياري</th>
+                                <th>فعلي</th>
+                                <th>الانحراف</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in material_variances %}
+                            <tr>
+                                <td>{{ item.material }}</td>
+                                <td>{{ item.standard }}</td>
+                                <td>{{ item.actual }}</td>
+                                <td>
+                                    <span class="variance-badge {% if item.variance > 0 %}over{% elif item.variance < 0 %}under{% else %}normal{% endif %}">
+                                        {{ item.variance_formatted }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="4" class="text-center text-muted">لا توجد بيانات</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="report-card">
+                <h5 class="mb-4">انحراف العمالة</h5>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>البند</th>
+                                <th>معياري</th>
+                                <th>فعلي</th>
+                                <th>الانحراف</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in labor_variances %}
+                            <tr>
+                                <td>{{ item.item }}</td>
+                                <td>{{ item.standard }}</td>
+                                <td>{{ item.actual }}</td>
+                                <td>
+                                    <span class="variance-badge {% if item.variance > 0 %}over{% elif item.variance < 0 %}under{% else %}normal{% endif %}">
+                                        {{ item.variance_formatted }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="4" class="text-center text-muted">لا توجد بيانات</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- أسباب الانحرافات -->
+    <div class="report-card">
+        <h5 class="mb-4"><i class="fas fa-search me-2"></i>تحليل أسباب الانحرافات</h5>
+        <div class="row g-4">
+            {% for cause in variance_causes %}
+            <div class="col-md-6">
+                <div class="d-flex align-items-start">
+                    <i class="fas fa-exclamation-triangle text-warning me-3 mt-1"></i>
+                    <div>
+                        <strong>{{ cause.title }}</strong>
+                        <p class="text-muted mb-0 small">{{ cause.description }}</p>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12 text-center text-muted py-3">لم يتم تحديد أسباب</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+

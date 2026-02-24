@@ -1,0 +1,184 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تحليل الطاقة الإنتاجية{% endblock %}
+
+{% block extra_css %}
+<style>
+    .capacity-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        margin-bottom: 20px;
+    }
+    .capacity-gauge {
+        position: relative;
+        width: 120px;
+        height: 120px;
+        margin: 0 auto;
+    }
+    .capacity-gauge svg {
+        transform: rotate(-90deg);
+    }
+    .capacity-gauge .value {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    .resource-bar {
+        height: 24px;
+        border-radius: 12px;
+        background: #e5e7eb;
+        overflow: hidden;
+        position: relative;
+    }
+    .resource-bar .fill {
+        height: 100%;
+        border-radius: 12px;
+        transition: width 0.3s ease;
+    }
+    .resource-bar .label {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-chart-area me-2 text-info"></i>تحليل الطاقة الإنتاجية</h2>
+            <p class="text-muted mb-0">استخدام الموارد والطاقة المتاحة</p>
+        </div>
+        <button class="btn btn-primary">
+            <i class="fas fa-sync-alt me-1"></i> تحديث البيانات
+        </button>
+    </div>
+
+    <!-- ملخص الطاقة -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="capacity-card text-center">
+                <div class="capacity-gauge mb-3">
+                    <svg viewBox="0 0 120 120">
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="#e5e7eb" stroke-width="10"/>
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="#10b981" stroke-width="10"
+                                stroke-dasharray="314" stroke-dashoffset="{ overall_offset|default:62 }"
+                                stroke-linecap="round"/>
+                    </svg>
+                    <div class="value text-success">{{ overall_capacity|default:"80" }}%</div>
+                </div>
+                <strong>الطاقة الإجمالية</strong>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="capacity-card text-center">
+                <div class="capacity-gauge mb-3">
+                    <svg viewBox="0 0 120 120">
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="#e5e7eb" stroke-width="10"/>
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="#3b82f6" stroke-width="10"
+                                stroke-dasharray="314" stroke-dashoffset="{ machine_offset|default:47 }"
+                                stroke-linecap="round"/>
+                    </svg>
+                    <div class="value text-primary">{{ machine_capacity|default:"85" }}%</div>
+                </div>
+                <strong>طاقة المعدات</strong>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="capacity-card text-center">
+                <div class="capacity-gauge mb-3">
+                    <svg viewBox="0 0 120 120">
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="#e5e7eb" stroke-width="10"/>
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="#f59e0b" stroke-width="10"
+                                stroke-dasharray="314" stroke-dashoffset="{ labor_offset|default:78 }"
+                                stroke-linecap="round"/>
+                    </svg>
+                    <div class="value text-warning">{{ labor_capacity|default:"75" }}%</div>
+                </div>
+                <strong>طاقة العمالة</strong>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="capacity-card text-center">
+                <div class="capacity-gauge mb-3">
+                    <svg viewBox="0 0 120 120">
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="#e5e7eb" stroke-width="10"/>
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="#8b5cf6" stroke-width="10"
+                                stroke-dasharray="314" stroke-dashoffset="{ material_offset|default:31 }"
+                                stroke-linecap="round"/>
+                    </svg>
+                    <div class="value text-purple">{{ material_capacity|default:"90" }}%</div>
+                </div>
+                <strong>توفر المواد</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- تفاصيل خطوط الإنتاج -->
+    <div class="capacity-card">
+        <h5 class="mb-4">طاقة خطوط الإنتاج</h5>
+        {% for line in production_lines %}
+        <div class="mb-4">
+            <div class="d-flex justify-content-between mb-2">
+                <strong>{{ line.name }}</strong>
+                <span>{{ line.used }}/{{ line.total }} وحدة</span>
+            </div>
+            <div class="resource-bar">
+                <div class="fill bg-{% if line.percentage >= 90 %}danger{% elif line.percentage >= 70 %}warning{% else %}success{% endif %}" 
+                     style="width: { line.percentage }%"></div>
+                <span class="label">{{ line.percentage }}%</span>
+            </div>
+        </div>
+        {% empty %}
+        <p class="text-center text-muted py-4">لا توجد بيانات</p>
+        {% endfor %}
+    </div>
+
+    <!-- التوقعات والاختناقات -->
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="capacity-card">
+                <h5 class="mb-4"><i class="fas fa-exclamation-triangle text-warning me-2"></i>اختناقات الإنتاج</h5>
+                {% for bottleneck in bottlenecks %}
+                <div class="d-flex align-items-center mb-3 p-3 bg-light rounded-3">
+                    <i class="fas fa-{{ bottleneck.icon }} text-{ bottleneck.color } me-3"></i>
+                    <div class="flex-grow-1">
+                        <strong>{{ bottleneck.resource }}</strong>
+                        <div class="small text-muted">{{ bottleneck.description }}</div>
+                    </div>
+                    <span class="badge bg-{ bottleneck.severity }">{{ bottleneck.impact }}</span>
+                </div>
+                {% empty %}
+                <p class="text-center text-muted py-4">لا توجد اختناقات حالياً</p>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="capacity-card">
+                <h5 class="mb-4"><i class="fas fa-lightbulb text-info me-2"></i>توصيات التحسين</h5>
+                <ul class="list-unstyled mb-0">
+                    {% for rec in recommendations %}
+                    <li class="mb-3 d-flex align-items-start">
+                        <i class="fas fa-check-circle text-success me-2 mt-1"></i>
+                        <span>{{ rec }}</span>
+                    </li>
+                    {% empty %}
+                    <li class="text-center text-muted py-4">لا توجد توصيات</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

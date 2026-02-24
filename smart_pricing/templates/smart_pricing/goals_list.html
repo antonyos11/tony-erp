@@ -1,0 +1,283 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "أهداف التسعير" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .goal-card {
+        border-radius: 15px;
+        border: none;
+        transition: all 0.3s ease;
+    }
+    .goal-card:hover {
+        transform: translateY(-3px);
+    }
+    .progress-circle {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .goal-status {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'smart_pricing:dashboard' %}">{% trans "التسعير الذكي" %}</a>
+                        </li>
+                        <li class="breadcrumb-item active">{% trans "الأهداف" %}</li>
+                    </ol>
+                </nav>
+                <h2>
+                    <i class="fas fa-bullseye text-primary"></i>
+                    {% trans "أهداف التسعير" %}
+                </h2>
+            </div>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addGoalModal">
+                <i class="fas fa-plus"></i> {% trans "هدف جديد" %}
+            </button>
+        </div>
+    </div>
+
+    <!-- إحصائيات سريعة -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card goal-card shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="text-primary mb-0">{{ total_goals|default:0 }}</h3>
+                    <small class="text-muted">{% trans "إجمالي الأهداف" %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card goal-card shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="text-success mb-0">{{ achieved_goals|default:0 }}</h3>
+                    <small class="text-muted">{% trans "أهداف محققة" %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card goal-card shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="text-warning mb-0">{{ in_progress_goals|default:0 }}</h3>
+                    <small class="text-muted">{% trans "قيد التنفيذ" %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card goal-card shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="text-danger mb-0">{{ failed_goals|default:0 }}</h3>
+                    <small class="text-muted">{% trans "غير محققة" %}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- قائمة الأهداف -->
+    <div class="row">
+        {% for goal in goals %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card goal-card shadow-sm h-100">
+                <div class="card-body position-relative">
+                    <!-- حالة الهدف -->
+                    <span class="goal-status badge 
+                        {% if goal.status == 'achieved' %}bg-success
+                        {% elif goal.status == 'in_progress' %}bg-warning
+                        {% elif goal.status == 'failed' %}bg-danger
+                        {% else %}bg-secondary{% endif %}">
+                        {{ goal.get_status_display|default:goal.status }}
+                    </span>
+
+                    <!-- معلومات الهدف -->
+                    <div class="text-center mt-4 mb-3">
+                        <h5 class="mb-1">{{ goal.name }}</h5>
+                        <small class="text-muted">{{ goal.get_goal_type_display|default:goal.goal_type }}</small>
+                    </div>
+
+                    <!-- التقدم -->
+                    <div class="text-center mb-3">
+                        <div class="progress-circle mx-auto 
+                            {% if goal.achievement_percentage >= 100 %}bg-success-subtle
+                            {% elif goal.achievement_percentage >= 50 %}bg-warning-subtle
+                            {% else %}bg-secondary-subtle{% endif %}">
+                            <h4 class="mb-0 
+                                {% if goal.achievement_percentage >= 100 %}text-success
+                                {% elif goal.achievement_percentage >= 50 %}text-warning
+                                {% else %}text-secondary{% endif %}">
+                                {{ goal.achievement_percentage|floatformat:0 }}%
+                            </h4>
+                        </div>
+                    </div>
+
+                    <!-- تفاصيل -->
+                    <div class="row text-center border-top pt-3">
+                        <div class="col-6">
+                            <small class="text-muted d-block">{% trans "القيمة المستهدفة" %}</small>
+                            <strong>{{ goal.target_value|floatformat:2 }}</strong>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">{% trans "القيمة الحالية" %}</small>
+                            <strong>{{ goal.current_value|floatformat:2 }}</strong>
+                        </div>
+                    </div>
+
+                    <!-- الفترة -->
+                    <div class="text-center mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-calendar"></i>
+                            {{ goal.start_date|date:"Y/m/d" }} - {{ goal.end_date|date:"Y/m/d" }}
+                        </small>
+                    </div>
+
+                    <!-- الأيام المتبقية -->
+                    {% if goal.days_remaining > 0 %}
+                    <div class="text-center mt-2">
+                        <span class="badge bg-light text-dark">
+                            <i class="fas fa-clock"></i>
+                            {{ goal.days_remaining }} {% trans "يوم متبقي" %}
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-white border-0">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-primary flex-grow-1"
+                                onclick="editGoal({{ goal.id }})">
+                            <i class="fas fa-edit"></i> {% trans "تعديل" %}
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger"
+                                onclick="deleteGoal({{ goal.id }})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card goal-card shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-bullseye fa-4x text-muted mb-3"></i>
+                    <h4 class="text-muted">{% trans "لا توجد أهداف" %}</h4>
+                    <p class="text-muted mb-4">{% trans "قم بإضافة أهداف لتتبع أداء التسعير" %}</p>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addGoalModal">
+                        <i class="fas fa-plus"></i> {% trans "إضافة أول هدف" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal إضافة هدف -->
+<div class="modal fade" id="addGoalModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "إضافة هدف جديد" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'smart_pricing:goals_list' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "اسم الهدف" %}</label>
+                            <input type="text" name="name" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "نوع الهدف" %}</label>
+                            <select name="goal_type" class="form-select" required>
+                                <option value="margin">{% trans "هامش الربح" %}</option>
+                                <option value="revenue">{% trans "الإيرادات" %}</option>
+                                <option value="market_share">{% trans "الحصة السوقية" %}</option>
+                                <option value="sales_volume">{% trans "حجم المبيعات" %}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "القيمة المستهدفة" %}</label>
+                            <input type="number" name="target_value" class="form-control" step="0.01" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "القيمة الحالية" %}</label>
+                            <input type="number" name="current_value" class="form-control" step="0.01" value="0">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "تاريخ البداية" %}</label>
+                            <input type="date" name="start_date" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "تاريخ النهاية" %}</label>
+                            <input type="date" name="end_date" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "الوصف" %}</label>
+                        <textarea name="description" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "إلغاء" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        {% trans "حفظ الهدف" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var MSG_CONFIRM_DELETE_GOAL = "{{ 'هل أنت متأكد من حذف هذا الهدف؟'|escapejs }}";
+
+function editGoal(goalId) {
+    // TODO: Implement edit modal
+    alert('تعديل الهدف: ' + goalId);
+}
+
+function deleteGoal(goalId) {
+    if (confirm(MSG_CONFIRM_DELETE_GOAL)) {
+        fetch(`/smart-pricing/goals/${goalId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

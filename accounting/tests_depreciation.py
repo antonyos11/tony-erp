@@ -8,7 +8,17 @@ class AssetDepreciationViewTests(TestCase):
         self.user.is_staff = True
         self.user.is_superuser = True
         self.user.save()
-        self.client = Client(); self.client.login(username='tester', password='pw')
+        # تعطيل إلزام تغيير كلمة المرور
+        try:
+            from users.models import UserProfile
+            profile = UserProfile.objects.get(user=self.user)
+            profile.must_change_password = False
+            profile.is_approved = True
+            profile.save()
+        except Exception:
+            pass
+        self.client = Client()
+        self.client.force_login(self.user)
 
     def test_depreciation_json_basic(self):
         url = reverse('accounting:asset_depreciation') + '?format=json'

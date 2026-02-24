@@ -3,12 +3,12 @@ from reportlab.pdfgen import canvas
 import json
 import hashlib
 from decimal import Decimal, InvalidOperation
+from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.core.cache import cache
 from django.utils import timezone
-from django.db.models import Q
-from django.db.models import Sum
+from django.db.models import Q, Sum, F, Count
 from django.db import models
 from django.urls import reverse
 import logging
@@ -85,6 +85,294 @@ def export_purchase_bills_excel(request):
     response['Content-Disposition'] = 'attachment; filename="purchase_bills.xlsx"'
     wb.save(response)
     return response
+
+# --- Trial Balance / Financial Reports Exports ---
+@login_required
+def export_trial_balance_excel(request):
+    """تصدير ميزان المراجعة كملف Excel"""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'ميزان المراجعة'
+    ws.sheet_properties.sheetView = openpyxl.worksheet.views.SheetView(rightToLeft=True) if hasattr(openpyxl.worksheet, 'views') else None
+    # Headers
+    headers = ['الكود', 'اسم الحساب', 'نوع الحساب', 'مدين', 'دائن']
+    ws.append(headers)
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    header_font = Font(bold=True, size=12)
+    header_fill = PatternFill(start_color='1e3a5f', end_color='1e3a5f', fill_type='solid')
+    header_font_white = Font(bold=True, size=12, color='FFFFFF')
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num)
+        cell.font = header_font_white
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+    # Data
+    total_debit = Decimal('0')
+    total_credit = Decimal('0')
+    row_num = 2
+    for acc in Account.objects.filter(is_active=True).order_by('code'):
+        bal = acc.balance
+        debit = credit = Decimal('0')
+        if acc.account_type in ['asset', 'expense']:
+            if bal >= 0: debit = bal
+            else: credit = -bal
+        else:
+            if bal >= 0: credit = bal
+            else: debit = -bal
+        total_debit += debit
+        total_credit += credit
+        ws.append([acc.code, acc.name, acc.get_account_type_display() if hasattr(acc, 'get_account_type_display') else acc.account_type, float(debit), float(credit)])
+        row_num += 1
+    # Total row
+    ws.append(['', 'الإجمالي', '', float(total_debit), float(total_credit)])
+    total_font = Font(bold=True, size=12)
+    for col in range(1, 6):
+        cell = ws.cell(row=row_num, column=col)
+        cell.font = total_font
+    # Column widths
+    ws.column_dimensions['A'].width = 12
+    ws.column_dimensions['B'].width = 35
+    ws.column_dimensions['C'].width = 18
+    ws.column_dimensions['D'].width = 18
+    ws.column_dimensions['E'].width = 18
+    # Number format
+    for row in ws.iter_rows(min_row=2, min_col=4, max_col=5, max_row=row_num):
+        for cell in row:
+            cell.number_format = '#,##0.00'
+            cell.alignment = Alignment(horizontal='center')
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="trial_balance.xlsx"'
+    wb.save(response)
+    return response
+
+
+@login_required
+def export_trial_balance_pdf(request):
+    """تصدير ميزان المراجعة كملف PDF"""
+    from io import BytesIO
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer)
+    p.setTitle('ميزان المراجعة')
+    p.drawString(250, 800, 'Trial Balance - ميزان المراجعة')
+    p.drawString(100, 780, '-' * 80)
+    y = 760
+    total_debit = Decimal('0')
+    total_credit = Decimal('0')
+    p.drawString(50, y, 'Code')
+    p.drawString(120, y, 'Account')
+    p.drawString(380, y, 'Debit')
+    p.drawString(470, y, 'Credit')
+    y -= 20
+    for acc in Account.objects.filter(is_active=True).order_by('code'):
+        bal = acc.balance
+        debit = credit = Decimal('0')
+        if acc.account_type in ['asset', 'expense']:
+            if bal >= 0: debit = bal
+            else: credit = -bal
+        else:
+            if bal >= 0: credit = bal
+            else: debit = -bal
+        total_debit += debit
+        total_credit += credit
+        p.drawString(50, y, str(acc.code))
+        p.drawString(120, y, str(acc.name)[:40])
+        p.drawString(380, y, f'{debit:,.2f}' if debit else '-')
+        p.drawString(470, y, f'{credit:,.2f}' if credit else '-')
+        y -= 18
+        if y < 50:
+            p.showPage()
+            y = 800
+    p.drawString(100, y - 10, '-' * 80)
+    y -= 30
+    p.drawString(120, y, 'TOTAL')
+    p.drawString(380, y, f'{total_debit:,.2f}')
+    p.drawString(470, y, f'{total_credit:,.2f}')
+    p.save()
+    buffer.seek(0)
+    response = HttpResponse(buffer.read(), content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="trial_balance.pdf"'
+    return response
+
+
+@login_required
+def export_balance_sheet_excel(request):
+    """تصدير الميزانية العمومية كملف Excel"""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'الميزانية العمومية'
+    from openpyxl.styles import Font, Alignment, PatternFill
+    header_font = Font(bold=True, size=12, color='FFFFFF')
+    header_fill = PatternFill(start_color='1e3a5f', end_color='1e3a5f', fill_type='solid')
+    ws.append(['نوع الحساب', 'الكود', 'اسم الحساب', 'الرصيد'])
+    for col in range(1, 5):
+        cell = ws.cell(row=1, column=col)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+    row_n = 2
+    total_assets = Decimal('0')
+    total_liabilities = Decimal('0')
+    total_equity = Decimal('0')
+    for acc in Account.objects.filter(is_active=True).order_by('code'):
+        bal = acc.balance
+        if acc.account_type == 'asset':
+            ws.append(['أصول', acc.code, acc.name, float(bal)])
+            total_assets += bal
+        elif acc.account_type == 'liability':
+            ws.append(['خصوم', acc.code, acc.name, float(bal)])
+            total_liabilities += bal
+        elif acc.account_type == 'equity':
+            ws.append(['حقوق ملكية', acc.code, acc.name, float(bal)])
+            total_equity += bal
+        else:
+            continue
+        row_n += 1
+    ws.append([])
+    ws.append(['', '', 'إجمالي الأصول', float(total_assets)])
+    ws.append(['', '', 'إجمالي الخصوم + حقوق الملكية', float(total_liabilities + total_equity)])
+    ws.column_dimensions['A'].width = 15
+    ws.column_dimensions['B'].width = 12
+    ws.column_dimensions['C'].width = 35
+    ws.column_dimensions['D'].width = 18
+    for row in ws.iter_rows(min_row=2, min_col=4, max_col=4):
+        for cell in row:
+            cell.number_format = '#,##0.00'
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="balance_sheet.xlsx"'
+    wb.save(response)
+    return response
+
+
+@login_required
+def export_income_statement_excel(request):
+    """تصدير قائمة الدخل كملف Excel"""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'قائمة الدخل'
+    from openpyxl.styles import Font, Alignment, PatternFill
+    header_font = Font(bold=True, size=12, color='FFFFFF')
+    header_fill = PatternFill(start_color='1e3a5f', end_color='1e3a5f', fill_type='solid')
+    ws.append(['نوع', 'الكود', 'اسم الحساب', 'المبلغ'])
+    for col in range(1, 5):
+        cell = ws.cell(row=1, column=col)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+    total_revenue = Decimal('0')
+    total_expenses = Decimal('0')
+    for acc in Account.objects.filter(is_active=True, account_type='revenue').order_by('code'):
+        bal = acc.balance
+        ws.append(['إيرادات', acc.code, acc.name, float(bal)])
+        total_revenue += bal
+    for acc in Account.objects.filter(is_active=True, account_type='expense').order_by('code'):
+        bal = acc.balance
+        ws.append(['مصروفات', acc.code, acc.name, float(bal)])
+        total_expenses += bal
+    ws.append([])
+    ws.append(['', '', 'إجمالي الإيرادات', float(total_revenue)])
+    ws.append(['', '', 'إجمالي المصروفات', float(total_expenses)])
+    ws.append(['', '', 'صافي الربح / الخسارة', float(total_revenue - total_expenses)])
+    ws.column_dimensions['A'].width = 12
+    ws.column_dimensions['B'].width = 12
+    ws.column_dimensions['C'].width = 35
+    ws.column_dimensions['D'].width = 18
+    for row in ws.iter_rows(min_row=2, min_col=4, max_col=4):
+        for cell in row:
+            cell.number_format = '#,##0.00'
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="income_statement.xlsx"'
+    wb.save(response)
+    return response
+
+
+@login_required
+def export_cash_flow_excel(request):
+    """تصدير التدفقات النقدية كملف Excel"""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'التدفقات النقدية'
+    from openpyxl.styles import Font, Alignment, PatternFill
+    header_font = Font(bold=True, size=12, color='FFFFFF')
+    header_fill = PatternFill(start_color='1e3a5f', end_color='1e3a5f', fill_type='solid')
+    ws.append(['النشاط', 'الكود', 'اسم الحساب', 'المبلغ'])
+    for col in range(1, 5):
+        cell = ws.cell(row=1, column=col)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+    # Simple cash flow: operating = revenue - expenses, investing = assets, financing = liabilities + equity changes
+    for acc in Account.objects.filter(is_active=True).order_by('code'):
+        bal = acc.balance
+        if not bal: continue
+        if acc.account_type in ['revenue', 'expense']:
+            activity = 'أنشطة تشغيلية'
+        elif acc.account_type == 'asset':
+            activity = 'أنشطة استثمارية'
+        elif acc.account_type in ['liability', 'equity']:
+            activity = 'أنشطة تمويلية'
+        else:
+            continue
+        ws.append([activity, acc.code, acc.name, float(bal)])
+    ws.column_dimensions['A'].width = 18
+    ws.column_dimensions['B'].width = 12
+    ws.column_dimensions['C'].width = 35
+    ws.column_dimensions['D'].width = 18
+    for row in ws.iter_rows(min_row=2, min_col=4, max_col=4):
+        for cell in row:
+            cell.number_format = '#,##0.00'
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="cash_flow.xlsx"'
+    wb.save(response)
+    return response
+
+
+@login_required
+def export_general_ledger_excel(request):
+    """تصدير دفتر الأستاذ كملف Excel"""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'دفتر الأستاذ'
+    from openpyxl.styles import Font, Alignment, PatternFill
+    header_font = Font(bold=True, size=12, color='FFFFFF')
+    header_fill = PatternFill(start_color='1e3a5f', end_color='1e3a5f', fill_type='solid')
+    ws.append(['التاريخ', 'رقم القيد', 'الكود', 'اسم الحساب', 'البيان', 'مدين', 'دائن', 'الرصيد'])
+    for col in range(1, 9):
+        cell = ws.cell(row=1, column=col)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+    items = JournalEntryItem.objects.filter(
+        journal_entry__is_posted=True
+    ).select_related('journal_entry', 'account').order_by('journal_entry__date', 'journal_entry__id')
+    running_balance = Decimal('0')
+    for item in items:
+        debit = float(item.amount) if item.type == 'debit' else 0
+        credit = float(item.amount) if item.type == 'credit' else 0
+        running_balance += Decimal(str(debit)) - Decimal(str(credit))
+        ws.append([
+            item.journal_entry.date.strftime('%Y-%m-%d') if item.journal_entry.date else '',
+            getattr(item.journal_entry, 'entry_number', item.journal_entry.id),
+            item.account.code if item.account else '',
+            item.account.name if item.account else '',
+            item.description or item.journal_entry.description or '',
+            debit, credit, float(running_balance)
+        ])
+    ws.column_dimensions['A'].width = 14
+    ws.column_dimensions['B'].width = 12
+    ws.column_dimensions['C'].width = 10
+    ws.column_dimensions['D'].width = 30
+    ws.column_dimensions['E'].width = 30
+    ws.column_dimensions['F'].width = 16
+    ws.column_dimensions['G'].width = 16
+    ws.column_dimensions['H'].width = 16
+    for row in ws.iter_rows(min_row=2, min_col=6, max_col=8):
+        for cell in row:
+            cell.number_format = '#,##0.00'
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="general_ledger.xlsx"'
+    wb.save(response)
+    return response
+
 
 # --- PDF Export Placeholders ---
 def export_accounts_pdf(request):
@@ -1795,6 +2083,7 @@ def trial_balance(request):
         'rows': rows,
         'total_debit': total_debit,
         'total_credit': total_credit,
+        'difference': total_debit - total_credit,
         'page': page,
         'page_size': page_size,
         'total_accounts': total_accounts,
@@ -2493,6 +2782,7 @@ def aging_receivables_report(request):
         cache_meta = None
 
     total_before_overdue = len(rows)
+    total_after_overdue = None
     if overdue_only:
         # بعد التطبيق يكون total_after_overdue = len(rows) (تم بالفعل فوق)
         total_after_overdue = len(rows)
@@ -2655,6 +2945,45 @@ def aging_payables_report(request):
         'grand_total': grand_total,
     }
     return render(request, 'accounting/aging_payables.html', context)
+
+
+@login_required
+def daily_expenses_report(request):
+    """تقرير المصاريف اليومية مع حدود تاريخ مرنة."""
+    from datetime import datetime as _dt, timedelta
+    from .models import Expense
+
+    today = timezone.localdate()
+    try:
+        date_from = _dt.strptime(request.GET.get('date_from', ''), '%Y-%m-%d').date()
+    except Exception:
+        date_from = today - timedelta(days=30)
+    try:
+        date_to = _dt.strptime(request.GET.get('date_to', ''), '%Y-%m-%d').date()
+    except Exception:
+        date_to = today
+    if date_to < date_from:
+        date_from, date_to = date_to, date_from
+
+    expenses_qs = Expense.objects.filter(date__range=(date_from, date_to))
+    daily_expenses = (
+        expenses_qs
+        .values('date')
+        .annotate(total=Sum('amount'), count=Count('id'))
+        .order_by('-date')
+    )
+    total = expenses_qs.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    expense_list = expenses_qs.order_by('-date', '-id')[:500]
+
+    context = {
+        'report_title': 'تقرير المصاريف اليومية',
+        'date_from': date_from.isoformat(),
+        'date_to': date_to.isoformat(),
+        'daily_expenses': daily_expenses,
+        'expense_list': expense_list,
+        'total': total,
+    }
+    return render(request, 'reports/daily_expenses.html', context)
 
 
 @login_required
@@ -4144,6 +4473,7 @@ def calculate_dashboard_badges(user):
     badges = {}
     
     try:
+        from bank_integration.models import BankAccount
         # قيود المسودة
         badges['draft_journal_count'] = JournalEntry.objects.filter(
             is_posted=False
@@ -6072,46 +6402,3 @@ def create_entry_journal(request, pk):
         'entry': entry,
     }
     return render(request, 'accounting/create_entry_journal.html', context)
-@login_required
-def daily_expenses_report(request):
-    """تقرير المصاريف اليومية."""
-    from django.db.models import Sum
-    from django.utils import timezone
-    from datetime import datetime, timedelta
-    
-    today = timezone.now().date()
-    date_str = request.GET.get('date')
-    
-    try:
-        report_date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else today
-    except ValueError:
-        report_date = today
-        
-    # Get expense accounts (typically type 'expense')
-    expense_accounts = Account.objects.filter(account_type='expense')
-    
-    # Get journal entry items for these accounts on the specific date
-    # Debits increase expenses
-    expenses = JournalEntryItem.objects.filter(
-        account__in=expense_accounts,
-        journal_entry__date=report_date,
-        journal_entry__is_posted=True
-    ).select_related('account', 'journal_entry', 'cost_center')
-    
-    total_amount = expenses.aggregate(sum=Sum('amount'))['sum'] or 0
-    
-    # Group by account
-    by_account = expenses.values('account__name', 'account__code').annotate(total=Sum('amount')).order_by('-total')
-    
-    # Group by cost center
-    by_cost_center = expenses.values('cost_center__name').annotate(total=Sum('amount')).order_by('-total')
-    
-    context = {
-        'title': f'تقرير المصاريف اليومية - {report_date}',
-        'report_date': report_date,
-        'expenses': expenses,
-        'total_amount': total_amount,
-        'by_account': by_account,
-        'by_cost_center': by_cost_center,
-    }
-    return render(request, 'accounting/daily_expenses_report.html', context)

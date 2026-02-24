@@ -1,0 +1,525 @@
+﻿{% extends 'base_templates/_dashboard_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'تقسيم العملاء' %}{% endblock %}
+{% block dashboard_hero_icon %}bi-pie-chart{% endblock %}
+{% block dashboard_hero_title %}{% trans 'تحليل شرائح العملاء' %}{% endblock %}
+{% block dashboard_hero_subtitle %}{% trans 'تقسيم العملاء حسب القيمة والسلوك والخصائص' %}{% endblock %}
+
+{% block dashboard_actions %}
+<a href="{% url 'sales:segment_create' %}" class="btn btn-primary">
+  <i class="bi bi-plus-lg me-1"></i>{% trans 'شريحة جديدة' %}
+</a>
+<button class="btn btn-outline-primary" onclick="recalculateSegments()">
+  <i class="bi bi-arrow-clockwise me-1"></i>{% trans 'إعادة الحساب' %}
+</button>
+{% endblock %}
+
+{% block kpi_cards %}
+<style>
+  .segment-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .segment-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: var(--transition);
+  }
+  .segment-card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+  .segment-header {
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .segment-header.vip { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); }
+  .segment-header.active { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); }
+  .segment-header.at-risk { background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); }
+  .segment-header.dormant { background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%); }
+  .segment-header.new { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); }
+  .segment-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    background: rgba(255,255,255,0.8);
+  }
+  .segment-icon.vip { color: #f59e0b; }
+  .segment-icon.active { color: #10b981; }
+  .segment-icon.at-risk { color: #ef4444; }
+  .segment-icon.dormant { color: #6b7280; }
+  .segment-icon.new { color: #3b82f6; }
+  .segment-info h5 {
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+  .segment-info .count {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .segment-info .percent {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+  .segment-body {
+    padding: 1.5rem;
+  }
+  .segment-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .segment-stat {
+    text-align: center;
+    padding: 0.75rem;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+  }
+  .segment-stat .value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .segment-stat .label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+  .segment-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .segment-actions .btn {
+    flex: 1;
+  }
+  .rfm-matrix {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .rfm-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.5rem;
+  }
+  .rfm-cell {
+    aspect-ratio: 1;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition);
+    font-size: 0.85rem;
+  }
+  .rfm-cell:hover {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-md);
+  }
+  .rfm-cell.champions { background: #10b981; color: white; }
+  .rfm-cell.loyal { background: #3b82f6; color: white; }
+  .rfm-cell.potential { background: #8b5cf6; color: white; }
+  .rfm-cell.new { background: #06b6d4; color: white; }
+  .rfm-cell.at-risk { background: #f59e0b; color: white; }
+  .rfm-cell.cant-lose { background: #ef4444; color: white; }
+  .rfm-cell.hibernating { background: #6b7280; color: white; }
+  .rfm-cell .count {
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+  .rfm-cell .label {
+    font-size: 0.65rem;
+    opacity: 0.9;
+  }
+  .rfm-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+  }
+  .rfm-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+  }
+  .rfm-legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+  }
+  .segment-trends {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+  }
+  .trend-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .trend-row:last-child {
+    border-bottom: none;
+  }
+  .trend-segment {
+    width: 120px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .trend-bar {
+    flex: 1;
+    height: 24px;
+    background: var(--bg-light);
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+  }
+  .trend-bar-fill {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 0.75rem;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    transition: width 0.5s ease;
+  }
+  .trend-bar-fill.vip { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+  .trend-bar-fill.active { background: linear-gradient(90deg, #10b981, #34d399); }
+  .trend-bar-fill.at-risk { background: linear-gradient(90deg, #ef4444, #f87171); }
+  .trend-bar-fill.dormant { background: linear-gradient(90deg, #6b7280, #9ca3af); }
+  .trend-bar-fill.new { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+  .trend-change {
+    width: 80px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+  .trend-change.up { color: #10b981; }
+  .trend-change.down { color: #ef4444; }
+</style>
+
+<!-- KPIs -->
+<div class="kpi-card">
+  <div class="kpi-icon text-primary"><i class="bi bi-people"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ total_customers|default:"1,248" }}</div>
+    <div class="kpi-label">{% trans 'إجمالي العملاء' %}</div>
+  </div>
+</div>
+
+<div class="kpi-card">
+  <div class="kpi-icon text-warning"><i class="bi bi-star"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ vip_percent|default:"5.4" }}%</div>
+    <div class="kpi-label">{% trans 'نسبة VIP' %}</div>
+  </div>
+</div>
+
+<div class="kpi-card">
+  <div class="kpi-icon text-success"><i class="bi bi-check-circle"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ active_percent|default:"68" }}%</div>
+    <div class="kpi-label">{% trans 'نشطون' %}</div>
+  </div>
+</div>
+
+<div class="kpi-card">
+  <div class="kpi-icon text-danger"><i class="bi bi-exclamation-triangle"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ at_risk_percent|default:"12" }}%</div>
+    <div class="kpi-label">{% trans 'معرضون للخطر' %}</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block dashboard_content %}
+<!-- Segment Overview -->
+<div class="segment-overview">
+  <div class="segment-card">
+    <div class="segment-header vip">
+      <div class="segment-icon vip"><i class="bi bi-star-fill"></i></div>
+      <div class="segment-info">
+        <h5>{% trans 'عملاء VIP' %}</h5>
+        <span class="count">{{ vip_count|default:"68" }}</span>
+        <span class="percent">(5.4%)</span>
+      </div>
+    </div>
+    <div class="segment-body">
+      <div class="segment-stats">
+        <div class="segment-stat">
+          <div class="value">{{ vip_revenue|default:"1.2M" }}</div>
+          <div class="label">{% trans 'الإيرادات' %}</div>
+        </div>
+        <div class="segment-stat">
+          <div class="value">{{ vip_avg|default:"18.5K" }}</div>
+          <div class="label">{% trans 'متوسط القيمة' %}</div>
+        </div>
+      </div>
+      <div class="segment-actions">
+        <a href="#" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye me-1"></i>{% trans 'عرض' %}</a>
+        <a href="#" class="btn btn-sm btn-outline-secondary"><i class="bi bi-envelope me-1"></i>{% trans 'حملة' %}</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="segment-card">
+    <div class="segment-header active">
+      <div class="segment-icon active"><i class="bi bi-check-circle-fill"></i></div>
+      <div class="segment-info">
+        <h5>{% trans 'نشطون' %}</h5>
+        <span class="count">{{ active_count|default:"856" }}</span>
+        <span class="percent">(68.6%)</span>
+      </div>
+    </div>
+    <div class="segment-body">
+      <div class="segment-stats">
+        <div class="segment-stat">
+          <div class="value">{{ active_revenue|default:"3.8M" }}</div>
+          <div class="label">{% trans 'الإيرادات' %}</div>
+        </div>
+        <div class="segment-stat">
+          <div class="value">{{ active_avg|default:"4.4K" }}</div>
+          <div class="label">{% trans 'متوسط القيمة' %}</div>
+        </div>
+      </div>
+      <div class="segment-actions">
+        <a href="#" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye me-1"></i>{% trans 'عرض' %}</a>
+        <a href="#" class="btn btn-sm btn-outline-secondary"><i class="bi bi-envelope me-1"></i>{% trans 'حملة' %}</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="segment-card">
+    <div class="segment-header at-risk">
+      <div class="segment-icon at-risk"><i class="bi bi-exclamation-triangle-fill"></i></div>
+      <div class="segment-info">
+        <h5>{% trans 'معرضون للخطر' %}</h5>
+        <span class="count">{{ at_risk_count|default:"145" }}</span>
+        <span class="percent">(11.6%)</span>
+      </div>
+    </div>
+    <div class="segment-body">
+      <div class="segment-stats">
+        <div class="segment-stat">
+          <div class="value">{{ at_risk_revenue|default:"580K" }}</div>
+          <div class="label">{% trans 'الإيرادات المهددة' %}</div>
+        </div>
+        <div class="segment-stat">
+          <div class="value">{{ at_risk_days|default:"45" }}</div>
+          <div class="label">{% trans 'أيام بلا نشاط' %}</div>
+        </div>
+      </div>
+      <div class="segment-actions">
+        <a href="#" class="btn btn-sm btn-outline-danger"><i class="bi bi-eye me-1"></i>{% trans 'عرض' %}</a>
+        <a href="#" class="btn btn-sm btn-danger"><i class="bi bi-telephone me-1"></i>{% trans 'تواصل' %}</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="segment-card">
+    <div class="segment-header new">
+      <div class="segment-icon new"><i class="bi bi-person-plus-fill"></i></div>
+      <div class="segment-info">
+        <h5>{% trans 'عملاء جدد' %}</h5>
+        <span class="count">{{ new_count|default:"124" }}</span>
+        <span class="percent">(9.9%)</span>
+      </div>
+    </div>
+    <div class="segment-body">
+      <div class="segment-stats">
+        <div class="segment-stat">
+          <div class="value">{{ new_revenue|default:"320K" }}</div>
+          <div class="label">{% trans 'الإيرادات' %}</div>
+        </div>
+        <div class="segment-stat">
+          <div class="value">{{ new_avg|default:"2.6K" }}</div>
+          <div class="label">{% trans 'متوسط أول طلب' %}</div>
+        </div>
+      </div>
+      <div class="segment-actions">
+        <a href="#" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye me-1"></i>{% trans 'عرض' %}</a>
+        <a href="#" class="btn btn-sm btn-outline-secondary"><i class="bi bi-gift me-1"></i>{% trans 'ترحيب' %}</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- RFM Matrix -->
+  <div class="col-lg-7">
+    <div class="rfm-matrix">
+      <h6 class="fw-bold mb-3"><i class="bi bi-grid-3x3 me-2"></i>{% trans 'مصفوفة RFM' %}</h6>
+      <div class="rfm-grid">
+        <div class="rfm-cell champions">
+          <span class="count">45</span>
+          <span class="label">{% trans 'أبطال' %}</span>
+        </div>
+        <div class="rfm-cell loyal">
+          <span class="count">68</span>
+          <span class="label">{% trans 'مخلصون' %}</span>
+        </div>
+        <div class="rfm-cell potential">
+          <span class="count">89</span>
+          <span class="label">{% trans 'محتملون' %}</span>
+        </div>
+        <div class="rfm-cell new">
+          <span class="count">124</span>
+          <span class="label">{% trans 'جدد' %}</span>
+        </div>
+        <div class="rfm-cell">
+          <span class="count">156</span>
+          <span class="label">{% trans 'واعدون' %}</span>
+        </div>
+        <div class="rfm-cell loyal">
+          <span class="count">78</span>
+          <span class="label">{% trans 'نشط' %}</span>
+        </div>
+        <div class="rfm-cell potential">
+          <span class="count">92</span>
+          <span class="label">{% trans 'محتمل' %}</span>
+        </div>
+        <div class="rfm-cell at-risk">
+          <span class="count">45</span>
+          <span class="label">{% trans 'خطر' %}</span>
+        </div>
+        <div class="rfm-cell at-risk">
+          <span class="count">67</span>
+          <span class="label">{% trans 'يحتاج اهتمام' %}</span>
+        </div>
+        <div class="rfm-cell">
+          <span class="count">134</span>
+          <span class="label">{% trans 'متوسط' %}</span>
+        </div>
+        <div class="rfm-cell cant-lose">
+          <span class="count">23</span>
+          <span class="label">{% trans 'لا تخسره' %}</span>
+        </div>
+        <div class="rfm-cell at-risk">
+          <span class="count">56</span>
+          <span class="label">{% trans 'معرض' %}</span>
+        </div>
+        <div class="rfm-cell hibernating">
+          <span class="count">89</span>
+          <span class="label">{% trans 'خامل' %}</span>
+        </div>
+        <div class="rfm-cell hibernating">
+          <span class="count">112</span>
+          <span class="label">{% trans 'نائم' %}</span>
+        </div>
+        <div class="rfm-cell hibernating">
+          <span class="count">70</span>
+          <span class="label">{% trans 'مفقود' %}</span>
+        </div>
+      </div>
+      <div class="rfm-legend">
+        <div class="rfm-legend-item">
+          <div class="rfm-legend-color" style="background: #10b981;"></div>
+          <span>{% trans 'أبطال' %}</span>
+        </div>
+        <div class="rfm-legend-item">
+          <div class="rfm-legend-color" style="background: #3b82f6;"></div>
+          <span>{% trans 'مخلصون' %}</span>
+        </div>
+        <div class="rfm-legend-item">
+          <div class="rfm-legend-color" style="background: #8b5cf6;"></div>
+          <span>{% trans 'محتملون' %}</span>
+        </div>
+        <div class="rfm-legend-item">
+          <div class="rfm-legend-color" style="background: #f59e0b;"></div>
+          <span>{% trans 'معرضون للخطر' %}</span>
+        </div>
+        <div class="rfm-legend-item">
+          <div class="rfm-legend-color" style="background: #ef4444;"></div>
+          <span>{% trans 'لا تخسره' %}</span>
+        </div>
+        <div class="rfm-legend-item">
+          <div class="rfm-legend-color" style="background: #6b7280;"></div>
+          <span>{% trans 'خاملون' %}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Segment Trends -->
+  <div class="col-lg-5">
+    <div class="segment-trends">
+      <h6 class="fw-bold mb-3"><i class="bi bi-graph-up me-2"></i>{% trans 'تطور الشرائح' %}</h6>
+      
+      <div class="trend-row">
+        <span class="trend-segment">{% trans 'VIP' %}</span>
+        <div class="trend-bar">
+          <div class="trend-bar-fill vip" style="width: 45%;">68</div>
+        </div>
+        <span class="trend-change up">+12%</span>
+      </div>
+      
+      <div class="trend-row">
+        <span class="trend-segment">{% trans 'نشط' %}</span>
+        <div class="trend-bar">
+          <div class="trend-bar-fill active" style="width: 85%;">856</div>
+        </div>
+        <span class="trend-change up">+8%</span>
+      </div>
+      
+      <div class="trend-row">
+        <span class="trend-segment">{% trans 'جديد' %}</span>
+        <div class="trend-bar">
+          <div class="trend-bar-fill new" style="width: 35%;">124</div>
+        </div>
+        <span class="trend-change up">+15%</span>
+      </div>
+      
+      <div class="trend-row">
+        <span class="trend-segment">{% trans 'معرض للخطر' %}</span>
+        <div class="trend-bar">
+          <div class="trend-bar-fill at-risk" style="width: 28%;">145</div>
+        </div>
+        <span class="trend-change down">-5%</span>
+      </div>
+      
+      <div class="trend-row">
+        <span class="trend-segment">{% trans 'خامل' %}</span>
+        <div class="trend-bar">
+          <div class="trend-bar-fill dormant" style="width: 15%;">55</div>
+        </div>
+        <span class="trend-change down">-10%</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function recalculateSegments() {
+    // API call to recalculate segments
+    alert('{% trans "جاري إعادة حساب الشرائح..." %}');
+  }
+</script>
+{% endblock %}
+

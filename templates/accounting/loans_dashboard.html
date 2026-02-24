@@ -1,0 +1,534 @@
+{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "لوحة تحكم القروض" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+    }
+    
+    .page-hero {
+        background: linear-gradient(135deg, #0984e3 0%, #6c5ce7 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    
+    .hero-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+    
+    .btn-hero {
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-hero-primary {
+        background: var(--accent-color);
+        color: white;
+    }
+    
+    .btn-hero-primary:hover {
+        background: #00b894;
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    .btn-hero-secondary {
+        background: rgba(255,255,255,0.2);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+    
+    /* Stats Grid */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 4px;
+        height: 100%;
+    }
+    
+    .stat-card.given::before { background: #0984e3; }
+    .stat-card.received::before { background: #6c5ce7; }
+    .stat-card.installments::before { background: var(--accent-color); }
+    .stat-card.overdue::before { background: var(--danger-color); }
+    
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+    }
+    
+    .stat-card.given .stat-icon { background: rgba(9, 132, 227, 0.15); color: #0984e3; }
+    .stat-card.received .stat-icon { background: rgba(108, 92, 231, 0.15); color: #6c5ce7; }
+    .stat-card.installments .stat-icon { background: rgba(0, 212, 170, 0.15); color: var(--accent-color); }
+    .stat-card.overdue .stat-icon { background: rgba(220, 53, 69, 0.15); color: var(--danger-color); }
+    
+    .stat-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin-bottom: 0.25rem;
+    }
+    
+    .stat-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .stat-change {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 15px;
+    }
+    
+    .stat-change.up { background: rgba(40, 167, 69, 0.15); color: var(--success-color); }
+    .stat-change.down { background: rgba(220, 53, 69, 0.15); color: var(--danger-color); }
+    
+    /* Main Content Grid */
+    .content-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 1.5rem;
+    }
+    
+    @media (max-width: 992px) {
+        .content-grid { grid-template-columns: 1fr; }
+    }
+    
+    .section-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .section-header h5 {
+        margin: 0;
+        color: var(--primary-color);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .section-body { padding: 1.5rem; }
+    
+    /* Loans List */
+    .loan-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+        margin-bottom: 0.75rem;
+        transition: all 0.2s ease;
+    }
+    
+    .loan-item:hover {
+        background: #f0f4f8;
+    }
+    
+    .loan-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        color: white;
+    }
+    
+    .loan-avatar.given { background: linear-gradient(135deg, #0984e3, #0652DD); }
+    .loan-avatar.received { background: linear-gradient(135deg, #6c5ce7, #a29bfe); }
+    
+    .loan-info { flex: 1; }
+    .loan-name { font-weight: 600; color: var(--primary-color); }
+    .loan-type { font-size: 0.85rem; color: #6c757d; }
+    
+    .loan-amount {
+        text-align: left;
+    }
+    
+    .loan-amount .total {
+        font-weight: 700;
+        color: var(--primary-color);
+        font-size: 1.1rem;
+    }
+    
+    .loan-amount .remaining {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .loan-progress {
+        width: 100%;
+        height: 6px;
+        background: #e9ecef;
+        border-radius: 3px;
+        margin-top: 0.5rem;
+        overflow: hidden;
+    }
+    
+    .loan-progress-bar {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.3s ease;
+    }
+    
+    .loan-progress-bar.given { background: #0984e3; }
+    .loan-progress-bar.received { background: #6c5ce7; }
+    
+    /* Upcoming Payments */
+    .payment-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .payment-item:last-child { border-bottom: none; }
+    
+    .payment-date {
+        width: 60px;
+        height: 60px;
+        background: #f8f9fa;
+        border-radius: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .payment-date .day {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .payment-date .month {
+        font-size: 0.75rem;
+        color: #6c757d;
+    }
+    
+    .payment-info { flex: 1; }
+    .payment-name { font-weight: 600; color: var(--primary-color); }
+    .payment-type { font-size: 0.85rem; color: #6c757d; }
+    
+    .payment-amount {
+        font-weight: 700;
+        color: var(--accent-color);
+        font-size: 1.1rem;
+    }
+    
+    /* Chart Container */
+    .chart-container {
+        height: 300px;
+        padding: 1rem;
+    }
+    
+    /* Quick Actions */
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+    
+    .quick-action {
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+        text-align: center;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+    
+    .quick-action:hover {
+        background: var(--accent-color);
+        color: white;
+    }
+    
+    .quick-action i {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+        display: block;
+        color: var(--accent-color);
+    }
+    
+    .quick-action:hover i { color: white; }
+    
+    .quick-action span {
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: var(--primary-color);
+    }
+    
+    .quick-action:hover span { color: white; }
+    
+    [data-bs-theme="dark"] .stat-card,
+    [data-bs-theme="dark"] .section-card {
+        background: #1a1d21;
+    }
+    
+    [data-bs-theme="dark"] .loan-item,
+    [data-bs-theme="dark"] .quick-action,
+    [data-bs-theme="dark"] .payment-date {
+        background: #2d3238;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Hero Section -->
+    <div class="page-hero">
+        <h1 class="h2 mb-2">
+            <i class="fas fa-hand-holding-usd me-2"></i>
+            {% trans "إدارة القروض والسلف" %}
+        </h1>
+        <p class="mb-0 opacity-75">
+            {% trans "متابعة القروض الممنوحة والمستلمة وجدول السداد" %}
+        </p>
+        <div class="hero-actions">
+            <a href="{% url 'accounting:loan_create' %}" class="btn-hero btn-hero-primary">
+                <i class="fas fa-plus"></i>
+                {% trans "قرض جديد" %}
+            </a>
+            <a href="{% url 'accounting:loan_list' %}" class="btn-hero btn-hero-secondary">
+                <i class="fas fa-list"></i>
+                {% trans "جميع القروض" %}
+            </a>
+        </div>
+    </div>
+    
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card given">
+            <span class="stat-change up">+2 {% trans "هذا الشهر" %}</span>
+            <div class="stat-icon">
+                <i class="fas fa-arrow-up"></i>
+            </div>
+            <div class="stat-value">185,000</div>
+            <div class="stat-label">{% trans "قروض ممنوحة" %}</div>
+        </div>
+        
+        <div class="stat-card received">
+            <div class="stat-icon">
+                <i class="fas fa-arrow-down"></i>
+            </div>
+            <div class="stat-value">95,000</div>
+            <div class="stat-label">{% trans "قروض مستلمة" %}</div>
+        </div>
+        
+        <div class="stat-card installments">
+            <div class="stat-icon">
+                <i class="fas fa-calendar-check"></i>
+            </div>
+            <div class="stat-value">12</div>
+            <div class="stat-label">{% trans "أقساط هذا الشهر" %}</div>
+        </div>
+        
+        <div class="stat-card overdue">
+            <span class="stat-change down">3 {% trans "متأخرة" %}</span>
+            <div class="stat-icon">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div class="stat-value">28,000</div>
+            <div class="stat-label">{% trans "أقساط متأخرة" %}</div>
+        </div>
+    </div>
+    
+    <!-- Content Grid -->
+    <div class="content-grid">
+        <!-- Active Loans -->
+        <div class="section-card">
+            <div class="section-header">
+                <h5>
+                    <i class="fas fa-coins"></i>
+                    {% trans "القروض النشطة" %}
+                </h5>
+                <a href="{% url 'accounting:loan_list' %}" class="btn btn-sm btn-outline-primary">{% trans "عرض الكل" %}</a>
+            </div>
+            <div class="section-body">
+                <div class="loan-item">
+                    <div class="loan-avatar given">أ.م</div>
+                    <div class="loan-info">
+                        <div class="loan-name">{% trans "أحمد محمد - موظف" %}</div>
+                        <div class="loan-type">{% trans "سلفة ممنوحة" %} - 12 {% trans "شهر" %}</div>
+                        <div class="loan-progress">
+                            <div class="loan-progress-bar given" style="width: 60%;"></div>
+                        </div>
+                    </div>
+                    <div class="loan-amount">
+                        <div class="total">30,000</div>
+                        <div class="remaining">{% trans "متبقي:" %} 12,000</div>
+                    </div>
+                </div>
+                
+                <div class="loan-item">
+                    <div class="loan-avatar given">م.خ</div>
+                    <div class="loan-info">
+                        <div class="loan-name">{% trans "محمد خالد - شريك" %}</div>
+                        <div class="loan-type">{% trans "قرض ممنوح" %} - 24 {% trans "شهر" %}</div>
+                        <div class="loan-progress">
+                            <div class="loan-progress-bar given" style="width: 25%;"></div>
+                        </div>
+                    </div>
+                    <div class="loan-amount">
+                        <div class="total">100,000</div>
+                        <div class="remaining">{% trans "متبقي:" %} 75,000</div>
+                    </div>
+                </div>
+                
+                <div class="loan-item">
+                    <div class="loan-avatar received">ب.س</div>
+                    <div class="loan-info">
+                        <div class="loan-name">{% trans "بنك السعودي الفرنسي" %}</div>
+                        <div class="loan-type">{% trans "قرض مستلم" %} - 36 {% trans "شهر" %}</div>
+                        <div class="loan-progress">
+                            <div class="loan-progress-bar received" style="width: 45%;"></div>
+                        </div>
+                    </div>
+                    <div class="loan-amount">
+                        <div class="total">500,000</div>
+                        <div class="remaining">{% trans "متبقي:" %} 275,000</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Column -->
+        <div>
+            <!-- Upcoming Payments -->
+            <div class="section-card mb-4">
+                <div class="section-header">
+                    <h5>
+                        <i class="fas fa-clock"></i>
+                        {% trans "الأقساط القادمة" %}
+                    </h5>
+                </div>
+                <div class="section-body">
+                    <div class="payment-item">
+                        <div class="payment-date">
+                            <div class="day">15</div>
+                            <div class="month">{% trans "يوليو" %}</div>
+                        </div>
+                        <div class="payment-info">
+                            <div class="payment-name">{% trans "أحمد محمد" %}</div>
+                            <div class="payment-type">{% trans "قسط شهري" %}</div>
+                        </div>
+                        <div class="payment-amount">1,500</div>
+                    </div>
+                    
+                    <div class="payment-item">
+                        <div class="payment-date">
+                            <div class="day">20</div>
+                            <div class="month">{% trans "يوليو" %}</div>
+                        </div>
+                        <div class="payment-info">
+                            <div class="payment-name">{% trans "البنك السعودي" %}</div>
+                            <div class="payment-type">{% trans "قسط قرض" %}</div>
+                        </div>
+                        <div class="payment-amount">15,000</div>
+                    </div>
+                    
+                    <div class="payment-item">
+                        <div class="payment-date">
+                            <div class="day">25</div>
+                            <div class="month">{% trans "يوليو" %}</div>
+                        </div>
+                        <div class="payment-info">
+                            <div class="payment-name">{% trans "محمد خالد" %}</div>
+                            <div class="payment-type">{% trans "قسط شهري" %}</div>
+                        </div>
+                        <div class="payment-amount">4,500</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="section-card">
+                <div class="section-header">
+                    <h5>
+                        <i class="fas fa-bolt"></i>
+                        {% trans "إجراءات سريعة" %}
+                    </h5>
+                </div>
+                <div class="section-body">
+                    <div class="quick-actions">
+                        <a href="#" class="quick-action">
+                            <i class="fas fa-money-bill-wave"></i>
+                            <span>{% trans "تسجيل سداد" %}</span>
+                        </a>
+                        <a href="{% url 'accounting:loan_create' %}" class="quick-action">
+                            <i class="fas fa-plus-circle"></i>
+                            <span>{% trans "قرض جديد" %}</span>
+                        </a>
+                        <a href="#" class="quick-action">
+                            <i class="fas fa-file-alt"></i>
+                            <span>{% trans "تقرير القروض" %}</span>
+                        </a>
+                        <a href="#" class="quick-action">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span>{% trans "جدول السداد" %}</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

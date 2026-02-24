@@ -1,0 +1,221 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}منشئ التقارير - Tony ERP{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="bi bi-file-earmark-bar-graph text-primary me-2"></i>منشئ التقارير</h2>
+                <a href="{% url 'report_builder:create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-lg me-2"></i>تقرير جديد
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- التقارير الجاهزة -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h5 class="mb-3"><i class="bi bi-lightning text-warning me-2"></i>تقارير سريعة</h5>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-cart-check fa-2x text-success mb-3"></i>
+                    <h6>تقرير المبيعات</h6>
+                    <p class="small text-muted">مبيعات اليوم/الأسبوع/الشهر</p>
+                    <a href="{% url 'report_builder:create' %}?type=sales" class="btn btn-sm btn-outline-success">
+                        عرض التقرير
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-box-seam fa-2x text-info mb-3"></i>
+                    <h6>تقرير المخزون</h6>
+                    <p class="small text-muted">المنتجات والكميات</p>
+                    <a href="{% url 'report_builder:create' %}?type=inventory" class="btn btn-sm btn-outline-info">
+                        عرض التقرير
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-people fa-2x text-primary mb-3"></i>
+                    <h6>تقرير العملاء</h6>
+                    <p class="small text-muted">بيانات العملاء والمشتريات</p>
+                    <a href="{% url 'report_builder:create' %}?type=customers" class="btn btn-sm btn-outline-primary">
+                        عرض التقرير
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-cash-stack fa-2x text-warning mb-3"></i>
+                    <h6>التقرير المالي</h6>
+                    <p class="small text-muted">الإيرادات والمصروفات</p>
+                    <a href="{% url 'report_builder:create' %}?type=financial" class="btn btn-sm btn-outline-warning">
+                        عرض التقرير
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- تقاريري -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-folder me-2"></i>تقاريري المحفوظة</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary active">الكل</button>
+                        <button class="btn btn-outline-secondary">المفضلة</button>
+                        <button class="btn btn-outline-secondary">مجدولة</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>اسم التقرير</th>
+                                <th>النوع</th>
+                                <th>آخر تشغيل</th>
+                                <th>الجدولة</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for report in reports %}
+                            <tr>
+                                <td>
+                                    <button class="btn btn-link p-0" onclick="toggleFavorite({{ report.id }})">
+                                        <i class="bi bi-{% if report.is_favorite %}star-fill text-warning{% else %}star{% endif %}"></i>
+                                    </button>
+                                </td>
+                                <td>
+                                    <strong>{{ report.name }}</strong>
+                                    {% if report.description %}
+                                    <br><small class="text-muted">{{ report.description|truncatewords:8 }}</small>
+                                    {% endif %}
+                                </td>
+                                <td><span class="badge bg-secondary">{{ report.get_report_type_display }}</span></td>
+                                <td>{{ report.last_run|date:"Y/m/d H:i"|default:"-" }}</td>
+                                <td>
+                                    {% if report.is_scheduled %}
+                                    <span class="badge bg-info">{{ report.schedule }}</span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'report_builder:run' report.id %}" class="btn btn-primary" title="تشغيل">
+                                            <i class="bi bi-play-fill"></i>
+                                        </a>
+                                        <a href="{% url 'report_builder:edit' report.id %}" class="btn btn-outline-secondary" title="تعديل">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <button class="btn btn-outline-danger" onclick="deleteReport({{ report.id }})" title="حذف">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <i class="bi bi-file-earmark-x fa-3x text-muted mb-3"></i>
+                                    <p class="text-muted">لا توجد تقارير محفوظة</p>
+                                    <a href="{% url 'report_builder:create' %}" class="btn btn-primary">
+                                        إنشاء تقرير جديد
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- القوالب -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-collection me-2"></i>قوالب التقارير</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for template in templates %}
+                    <a href="{% url 'report_builder:create' %}?template={{ template.id }}" class="list-group-item list-group-item-action">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-file-earmark-text fa-lg text-primary me-3"></i>
+                            <div>
+                                <h6 class="mb-0">{{ template.name }}</h6>
+                                <small class="text-muted">{{ template.description|truncatewords:10 }}</small>
+                            </div>
+                        </div>
+                    </a>
+                    {% empty %}
+                    <div class="list-group-item text-center text-muted py-4">
+                        لا توجد قوالب
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- التقارير المجدولة -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-calendar-check me-2"></i>التقارير المجدولة</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for scheduled in scheduled_reports %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="mb-0">{{ scheduled.report.name }}</h6>
+                                <small class="text-muted">{{ scheduled.schedule_display }}</small>
+                            </div>
+                            <span class="badge bg-success">نشط</span>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-center text-muted py-4">
+                        لا توجد تقارير مجدولة
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function deleteReport(reportId) {
+    if (confirm('هل تريد حذف هذا التقرير؟')) {
+        fetch(`/report-builder/${reportId}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        }).then(() => location.reload());
+    }
+}
+
+function toggleFavorite(reportId) {
+    fetch(`/report-builder/${reportId}/favorite/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    }).then(() => location.reload());
+}
+</script>
+{% endblock %}

@@ -1,0 +1,67 @@
+﻿{% extends BASE_TEMPLATE %}
+{% block title %}مخالفات السائقين{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <h1 class="h4 mb-3">مخالفات السائقين</h1>
+  <form method="get" class="row g-2 align-items-end mb-3 small">
+    <div class="col-md-2">
+      <label class="form-label mb-0">سائق</label>
+      <select name="driver" class="form-select form-select-sm">
+        <option value="">الكل</option>
+        {% for d in drivers %}<option value="{{ d.id }}" {% if filters.driver|default:''|stringformat:'s' == d.id|stringformat:'s' %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label mb-0">مدفوعة؟</label>
+      <select name="paid" class="form-select form-select-sm">
+        <option value="">الكل</option>
+  <option value="yes" {% if filters.paid == 'yes' %}selected{% endif %}>نعم</option>
+  <option value="no" {% if filters.paid == 'no' %}selected{% endif %}>لا</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label mb-0">من</label>
+      <input type="date" name="from" value="{{ filters.from|date:'Y-m-d' }}" class="form-control form-control-sm" />
+    </div>
+    <div class="col-md-2">
+      <label class="form-label mb-0">إلى</label>
+      <input type="date" name="to" value="{{ filters.to|date:'Y-m-d' }}" class="form-control form-control-sm" />
+    </div>
+    <div class="col-md-2">
+      <label class="form-label mb-0">بحث</label>
+      <input type="text" name="q" value="{{ filters.q }}" placeholder="كلمة.." class="form-control form-control-sm" />
+    </div>
+    <div class="col-md-2 d-flex gap-1">
+      <button class="btn btn-sm btn-primary flex-fill">تصفية</button>
+      <a href="?export=csv" class="btn btn-sm btn-outline-secondary">CSV</a>
+      <a href="{% url 'fleet:violation_create' %}" class="btn btn-sm btn-success">+</a>
+    </div>
+  </form>
+  <div class="table-responsive"><table class="table table-sm table-striped align-middle small">
+    <thead class="table-light"><tr><th>#</th><th>السائق</th><th>المركبة</th><th>النوع</th><th>التاريخ</th><th>القيمة</th><th>مدفوعة</th><th></th></tr></thead>
+    <tbody>
+      {% for v in violations %}
+        <tr>
+          <td>{{ v.id }}</td>
+          <td>{{ v.driver.name }}</td>
+          <td>{% if v.vehicle %}{{ v.vehicle.plate_number }}{% else %}-{% endif %}</td>
+          <td>{{ v.violation_type }}</td>
+          <td>{{ v.date }}</td>
+          <td>{{ v.amount|floatformat:2 }}</td>
+            <td>{% if v.is_paid %}نعم{% else %}لا{% endif %}</td>
+          <td>
+            <a href="{% url 'fleet:violation_update' v.id %}" class="btn btn-outline-secondary btn-sm">تعديل</a>
+            <form method="post" action="{% url 'fleet:violation_delete' v.id %}" style="display:inline">{% csrf_token %}<button class="btn btn-danger btn-sm" onclick="return confirm('حذف؟');">حذف</button></form>
+            {% if v.receipt %}<a href="{{ v.receipt.url }}" target="_blank" class="btn btn-info btn-sm">مرفق</a>{% endif %}
+          </td>
+        </tr>
+      {% empty %}<tr><td colspan="8">لا بيانات</td></tr>{% endfor %}
+    </tbody>
+    {% if violations %}
+    <tfoot class="table-secondary">
+      <tr><th colspan="5">الإجمالي</th><th>{{ violations_total_amount|floatformat:2 }}</th><th colspan="2"></th></tr>
+    </tfoot>
+    {% endif %}
+  </table></div>
+</div>
+{% endblock %}

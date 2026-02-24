@@ -154,6 +154,7 @@ class AutoJournalEntryTest(TestCase):
             entry_type='revenue',
             amount=Decimal('1000.00'),
             description='إيراد اختباري',
+            ledger_account=self.revenue_account,
             created_by=self.user
         )
         

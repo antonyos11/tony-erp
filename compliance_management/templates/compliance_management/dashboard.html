@@ -1,0 +1,201 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mb-0"><i class="bi bi-clipboard-check me-2"></i>{{ page_title }}</h2>
+        </div>
+    </div>
+
+    <!-- بطاقات الإحصائيات -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">معايير الامتثال</h5>
+                    <h2>{{ total_standards }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">إجمالي المراجعات</h5>
+                    <h2>{{ total_audits }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5 class="card-title">مراجعات مكتملة</h5>
+                    <h2>{{ completed_audits }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">الملاحظات</h5>
+                    <h2>{{ total_findings }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- أزرار الإجراءات -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <a href="{% url 'compliance_management:requirement_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-1"></i>إضافة متطلب
+            </a>
+            <a href="{% url 'compliance_management:requirement_list' %}" class="btn btn-secondary">
+                <i class="bi bi-list me-1"></i>قائمة المتطلبات
+            </a>
+        </div>
+    </div>
+
+    <!-- المعايير والمراجعات -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-bookmark-check me-2"></i>معايير الامتثال</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>الكود</th>
+                                    <th>الاسم</th>
+                                    <th>الفئة</th>
+                                    <th>الحالة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for standard in standards %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'compliance_management:requirement_detail' standard.pk %}">
+                                            {{ standard.code|default:"-" }}
+                                        </a>
+                                    </td>
+                                    <td>{{ standard.name|truncatechars:25 }}</td>
+                                    <td>{{ standard.get_category_display|default:standard.category }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if standard.is_active %}success{% else %}secondary{% endif %}">
+                                            {% if standard.is_active %}نشط{% else %}غير نشط{% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">
+                                        لا توجد معايير
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- المراجعات -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-search me-2"></i>آخر المراجعات</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>العنوان</th>
+                                    <th>الحالة</th>
+                                    <th>التاريخ المجدول</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for audit in audits %}
+                                <tr>
+                                    <td>{{ audit.title|truncatechars:30|default:"-" }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if audit.status == 'completed' %}success{% elif audit.status == 'in_progress' %}warning{% else %}secondary{% endif %}">
+                                            {{ audit.get_status_display|default:audit.status }}
+                                        </span>
+                                    </td>
+                                    <td>{{ audit.scheduled_date|date:"Y-m-d" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted">
+                                        لا توجد مراجعات
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- الملاحظات والتقارير -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-circle me-2"></i>آخر الملاحظات</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        {% for finding in findings %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ finding.title|truncatechars:35|default:finding.description|truncatechars:35 }}
+                            <span class="badge bg-{% if finding.severity == 'critical' %}danger{% elif finding.severity == 'major' %}warning{% else %}info{% endif %} rounded-pill">
+                                {{ finding.get_severity_display|default:finding.severity }}
+                            </span>
+                        </li>
+                        {% empty %}
+                        <li class="list-group-item text-center text-muted">
+                            لا توجد ملاحظات
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-file-text me-2"></i>آخر التقارير</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        {% for report in reports %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ report.title|truncatechars:35|default:"-" }}
+                            <small class="text-muted">{{ report.report_date|date:"Y-m-d" }}</small>
+                        </li>
+                        {% empty %}
+                        <li class="list-group-item text-center text-muted">
+                            لا توجد تقارير
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,589 @@
+{% extends 'base_templates/modern_form.html' %}
+{% load static i18n %}
+
+{% block page_module %}crm{% endblock %}
+{% block page_icon %}bi-headset{% endblock %}
+{% block page_title %}{% trans 'الإجمالي: ${totalAmount} ${currency}' %}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/modern_pages.css' %}">
+<style>
+    .quotation-header {background: linear-gradient(135deg,#28a745 0%,#20c997 100%);color:#fff;border-radius:15px;padding:25px;margin-bottom:25px;}
+    .form-section {background:#fff;border-radius:10px;padding:20px;margin-bottom:20px;box-shadow:0 2px 10px rgba(0,0,0,.08);border:1px solid #e9ecef;}
+    .section-title {color:#495057;font-weight:600;margin-bottom:15px;}
+    .totals-section .total-amount {font-size:1.05rem;font-weight:600;color:#1d7438;}
+</style>
+{% endblock %}
+
+{% block form_content %}
+<div class="container">
+    <h2 class="mb-4">{% if quotation %}تعديل عرض سعر{% else %}إنشاء عرض سعر{% endif %}</h2>
+    <form id="quotationForm" method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="form-section">
+            <h5 class="section-title"><i class="fas fa-info-circle me-2"></i>البيانات الأساسية</h5>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{ form.customer.id_for_label }}" class="form-label">العميل *</label>
+                        {{ form.customer }}
+                        <div class="form-text d-flex flex-wrap gap-3 align-items-center small mt-1">
+                            <button type="button" class="btn btn-link p-0 small d-inline-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#quickCustomerModal">
+                                <i class="fas fa-plus-circle"></i><span>إضافة عميل جديد</span>
+                            </button>
+                            <button type="button" class="btn btn-link p-0 small" id="refreshCustomers" aria-label="تحديث قائمة العملاء">
+                                <i class="fas fa-sync"></i> تحديث القائمة
+                            </button>
+                            <a class="btn btn-link p-0 small" href="{% url 'partners:customer_create' %}?next={ request.path|urlencode }}" target="_blank" rel="noopener">فتح صفحة كاملة</a>
+                        </div>
+                        {% if form.customer.errors %}<div class="invalid-feedback d-block">{{ form.customer.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{ form.contact_person.id_for_label }}" class="form-label">جهة الاتصال</label>
+                        {{ form.contact_person }}
+                        <div class="form-text d-flex flex-wrap gap-3 align-items-center small mt-1">
+                            <button type="button" class="btn btn-link p-0 small d-inline-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#quickContactModal">
+                                <i class="fas fa-user-plus"></i><span>إضافة جهة اتصال</span>
+                            </button>
+                            <button type="button" class="btn btn-link p-0 small" id="refreshContacts"><i class="fas fa-sync"></i> تحديث جهات الاتصال</button>
+                        </div>
+                        {% if form.contact_person.errors %}<div class="invalid-feedback d-block">{{ form.contact_person.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{ form.status.id_for_label }}" class="form-label">الحالة</label>
+                        {{ form.status }}
+                        {% if form.status.errors %}<div class="invalid-feedback d-block">{{ form.status.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{ form.quotation_date.id_for_label }}" class="form-label">تاريخ العرض *</label>
+                        {{ form.quotation_date }}
+                        {% if form.quotation_date.errors %}<div class="invalid-feedback d-block">{{ form.quotation_date.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{ form.valid_until.id_for_label }}" class="form-label">صالح حتى *</label>
+                        {{ form.valid_until }}
+                        {% if form.valid_until.errors %}<div class="invalid-feedback d-block">{{ form.valid_until.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{ form.terms_and_conditions.id_for_label }}" class="form-label">الشروط والأحكام</label>
+                        {{ form.terms_and_conditions }}
+                        {% if form.terms_and_conditions.errors %}<div class="invalid-feedback d-block">{{ form.terms_and_conditions.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+            {% if form.notes %}
+                <div class="mb-3">
+                    <label for="{ form.notes.id_for_label }}" class="form-label">ملاحظات</label>
+                    {{ form.notes }}
+                    {% if form.notes.errors %}<div class="invalid-feedback d-block">{{ form.notes.errors.0 }}</div>{% endif %}
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- الأصناف -->
+        <div class="form-section">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="section-title mb-0"><i class="fas fa-list me-2"></i>الأصناف</h5>
+                <button type="button" class="btn btn-success" onclick="addItem()"><i class="fas fa-plus me-1"></i>إضافة صنف</button>
+            </div>
+            {{ formset.management_form }}
+            {{ formset.non_form_errors }}
+            <div id="items-container">
+                {% for item_form in formset %}
+                    <div class="item-row" data-form-index="{ forloop.counter0 }">
+                        {% for hidden in item_form.hidden_fields %}{{ hidden }}{% endfor %}
+                        {{ item_form.non_field_errors }}
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6>الصنف {{ forloop.counter }}</h6>
+                            {% if not forloop.first %}<button type="button" class="delete-item-btn" onclick="removeItem(this)"><i class="fas fa-trash"></i></button>{% endif %}
+                        </div>
+                        <div class="row">
+                            <div class="col-md-3"><div class="mb-3"><label class="form-label">المنتج *</label>{{ item_form.product }}<div class="form-text"><small class="stock-info text-muted" data-empty="المخزون: -">المخزون: -</small></div>{% if item_form.product.errors %}<div class="invalid-feedback d-block">{{ item_form.product.errors.0 }}</div>{% endif %}</div></div>
+                            <div class="col-md-2"><div class="mb-3"><label class="form-label">الكمية *</label>{{ item_form.quantity }}{% if item_form.quantity.errors %}<div class="invalid-feedback d-block">{{ item_form.quantity.errors.0 }}</div>{% endif %}</div></div>
+                            <div class="col-md-2"><div class="mb-3"><label class="form-label">سعر الوحدة *</label>{{ item_form.unit_price }}{% if item_form.unit_price.errors %}<div class="invalid-feedback d-block">{{ item_form.unit_price.errors.0 }}</div>{% endif %}</div></div>
+                            <div class="col-md-2"><div class="mb-3"><label class="form-label">خصم الصنف (%)</label>{{ item_form.discount_percentage }}</div></div>
+                            <div class="col-md-2"><div class="mb-3"><label class="form-label">ضريبة الصنف (%)</label>{{ item_form.tax_percentage }}</div></div>
+                            <div class="col-md-1"><div class="mb-3"><label class="form-label">الصافي</label><input type="number" class="form-control item-total" readonly></div></div>
+                        </div>
+                        <div class="mb-3"><label class="form-label">وصف إضافي</label>{{ item_form.description }}</div>
+                    </div>
+                {% endfor %}
+            </div>
+            {# قالب صف فارغ لإضافة عناصر جديدة بشكل صحيح #}
+            <script type="text/template" id="empty-form-template">
+                {% for hidden in formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+                {{ formset.empty_form.non_field_errors }}
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6>الصنف</h6>
+                    <button type="button" class="delete-item-btn" onclick="removeItem(this)"><i class="fas fa-trash"></i></button>
+                </div>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">المنتج *</label>
+                            {{ formset.empty_form.product }}
+                            <div class="form-text"><small class="stock-info text-muted" data-empty="المخزون: -">المخزون: -</small></div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="mb-3">
+                            <label class="form-label">الكمية *</label>
+                            {{ formset.empty_form.quantity }}
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="mb-3">
+                            <label class="form-label">سعر الوحدة *</label>
+                            {{ formset.empty_form.unit_price }}
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="mb-3">
+                            <label class="form-label">خصم الصنف (%)</label>
+                            {{ formset.empty_form.discount_percentage }}
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="mb-3">
+                            <label class="form-label">ضريبة الصنف (%)</label>
+                            {{ formset.empty_form.tax_percentage }}
+                        </div>
+                    </div>
+                    <div class="col-md-1">
+                        <div class="mb-3">
+                            <label class="form-label">الصافي</label>
+                            <input type="number" class="form-control item-total" readonly>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">وصف إضافي</label>
+                    {{ formset.empty_form.description }}
+                </div>
+            </script>
+        </div>
+
+        <!-- المجاميع -->
+        <div class="totals-section">
+            <h5 class="section-title"><i class="fas fa-calculator me-2"></i>المجاميع</h5>
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{ form.discount_percentage.id_for_label }}" class="form-label">نسبة الخصم (%)</label>
+                                {{ form.discount_percentage }}
+                                <div id="global-discount-hint" class="form-text text-warning d-none">سيتم تجاهل الخصم العام لوجود خصومات على مستوى الأصناف.</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{ form.tax_percentage.id_for_label }}" class="form-label">نسبة الضريبة (%)</label>
+                                {{ form.tax_percentage }}
+                                <div id="global-tax-hint" class="form-text text-warning d-none">سيتم تجاهل الضريبة العامة لوجود ضرائب على مستوى الأصناف.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-end">
+                        <div class="mb-2"><strong>المجموع الفرعي: </strong><span id="subtotal">0.00</span> {% currency_symbol %}</div>
+                        <div class="mb-2"><strong>الخصم: </strong><span id="discount-amount">0.00</span> {% currency_symbol %}</div>
+                        <div class="mb-2"><strong>الضريبة: </strong><span id="tax-amount">0.00</span> {% currency_symbol %}</div>
+                        <hr>
+                        <div class="total-amount"><strong>الإجمالي النهائي: </strong><span id="total-amount">0.00</span> {% currency_symbol %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- أزرار التحكم -->
+        <div class="form-section">
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'crm:quotation_list' %}" class="btn btn-secondary btn-lg"><i class="fas fa-arrow-right me-2"></i>العودة للقائمة</a>
+                <div>
+                    <button type="button" class="btn btn-outline-secondary btn-lg me-2" onclick="printDraftQuotation()"><i class="fas fa-print me-1"></i>طباعة مسودة</button>
+                    {% if quotation %}
+                    <a href="{% url 'crm:quotation_print' quotation.pk %}" target="_blank" class="btn btn-outline-secondary btn-lg me-2"><i class="fas fa-print me-1"></i>طباعة</a>
+                    <a href="{% url 'crm:quotation_pdf' quotation.pk %}" target="_blank" class="btn btn-outline-secondary btn-lg me-2"><i class="fas fa-file-pdf me-1"></i>PDF</a>
+                    {% endif %}
+                    <button type="button" class="btn btn-outline-warning btn-lg me-2" onclick="resetForm()"><i class="fas fa-undo me-2"></i>إعادة تعيين</button>
+                    <button type="submit" class="btn btn-success btn-lg"><i class="fas fa-save me-2"></i>{% if quotation %}تحديث العرض{% else %}حفظ العرض{% endif %}</button>
+                </div>
+            </div>
+        </div>
+    </form>
+    <!-- Quick Add Customer Modal (outside main form) -->
+    <div class="modal fade" id="quickCustomerModal" tabindex="-1" aria-labelledby="quickCustomerLabel" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="quickCustomerLabel">إضافة عميل سريع</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="إغلاق"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="quickCustomerForm" class="row g-2">
+                        <input type="hidden" name="partner_type" value="customer">
+                        <div class="col-12">
+                            <label class="form-label small">الاسم *</label>
+                            <input type="text" name="name" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">الهاتف</label>
+                            <input type="text" name="phone" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">البريد</label>
+                            <input type="email" name="email" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small">العنوان</label>
+                            <input type="text" name="address" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-12">
+                            <div id="quickCustomerFeedback" class="small text-danger d-none"></div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="saveQuickCustomer"><i class="fas fa-save"></i> حفظ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function computeQuotationTotals(){
+    const fmt = (num)=>{
+        if(!Number.isFinite(num)) return '0.00';
+        try { return new Intl.NumberFormat('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num); }
+        catch(e){ return num.toFixed(2); }
+    };
+    let subtotal=0;
+    let perLineDiscountTotal=0;
+    let perLineTaxTotal=0;
+    let hasLineDiscount=false;
+    let hasLineTax=false;
+    document.querySelectorAll('.item-row').forEach(row=>{
+        // تخطي الصفوف المحذوفة
+        if(row.classList.contains('is-deleted') || row.style.display==='none') return;
+        const delField=row.querySelector('input[name$="-DELETE"]');
+        if(delField){
+            const val=String(delField.type==='checkbox'? delField.checked : delField.value).toLowerCase();
+            if(val==='true' || val==='on' || val==='1') return;
+        }
+        const q=parseFloat(row.querySelector('input[name$="-quantity"]')?.value||0);
+        const p=parseFloat(row.querySelector('input[name$="-unit_price"]')?.value||0);
+        const dp=parseFloat(row.querySelector('input[name$="-discount_percentage"]')?.value||0);
+        const tp=parseFloat(row.querySelector('input[name$="-tax_percentage"]')?.value||0);
+        const lineSubtotal=q*p;
+        const lineDisc=lineSubtotal*(dp/100);
+        const afterDisc=lineSubtotal-lineDisc;
+        const lineTax=afterDisc*(tp/100);
+        const lineNet=afterDisc+lineTax;
+    const totalInput=row.querySelector('.item-total');
+    if(totalInput) totalInput.value=lineNet.toFixed(2); // إبقائها رقمية بدون تنسيق عملة
+        subtotal+=lineSubtotal;
+        perLineDiscountTotal+=lineDisc;
+        perLineTaxTotal+=lineTax;
+        if(dp>0) hasLineDiscount=true;
+        if(tp>0) hasLineTax=true;
+    });
+    const globalDiscountPercent=parseFloat(document.querySelector('input[name="discount_percentage"]')?.value||0);
+    const globalTaxPercent=parseFloat(document.querySelector('input[name="tax_percentage"]')?.value||0);
+    const discountAmount = hasLineDiscount ? perLineDiscountTotal : (subtotal*(globalDiscountPercent/100));
+    const afterDiscount=subtotal-discountAmount;
+    const taxAmount = hasLineTax ? perLineTaxTotal : (afterDiscount*(globalTaxPercent/100));
+    const totalAmount=afterDiscount+taxAmount;
+    const map={subtotal, 'discount-amount':discountAmount, 'tax-amount':taxAmount, 'total-amount':totalAmount};
+    Object.entries(map).forEach(([id,val])=>{const el=document.getElementById(id); if(el) el.textContent=fmt(val);});
+
+    // تعطيل الحقول العامة وإظهار التلميحات إذا كان هناك خصم/ضريبة على مستوى الأصناف
+    const gDisc = document.querySelector('input[name="discount_percentage"]');
+    const gTax = document.querySelector('input[name="tax_percentage"]');
+    const discHint = document.getElementById('global-discount-hint');
+    const taxHint = document.getElementById('global-tax-hint');
+    if(gDisc){ gDisc.disabled = hasLineDiscount; }
+    if(gTax){ gTax.disabled = hasLineTax; }
+    if(discHint){ discHint.classList.toggle('d-none', !hasLineDiscount); }
+    if(taxHint){ taxHint.classList.toggle('d-none', !hasLineTax); }
+}
+function resetForm(){ if(confirm('إعادة تعيين النموذج؟')){ document.getElementById('quotationForm').reset(); computeQuotationTotals(); } }
+document.addEventListener('DOMContentLoaded',()=>{
+    // تقليم القيم غير الصحيحة قبل إعادة الحساب
+    const clampValue = (el)=>{
+        const name = el.getAttribute('name') || '';
+        let v = parseFloat(el.value || '0');
+        if(Number.isNaN(v)) v = 0;
+        if(name.endsWith('-quantity') || name.endsWith('-unit_price')){
+            if(v < 0) v = 0;
+        }
+        if(name.endsWith('-discount_percentage') || name.endsWith('-tax_percentage') || name === 'discount_percentage' || name === 'tax_percentage'){
+            if(v < 0) v = 0; if(v > 100) v = 100;
+        }
+        // ثبات خانتين عشريتين للمدخلات الرقمية
+        if(el.type === 'number') el.value = v.toString();
+    };
+    document.addEventListener('input',e=>{
+        if(e.target.matches('input[name$="-quantity"], input[name$="-unit_price"], input[name$="-discount_percentage"], input[name$="-tax_percentage"], input[name="discount_percentage"], input[name="tax_percentage"]')){
+            clampValue(e.target);
+            computeQuotationTotals();
+        }
+    });
+    computeQuotationTotals();
+    const customerSelect=document.querySelector('select[name="customer"]');
+    const contactSelect=document.querySelector('select[name="contact_person"]');
+    if(customerSelect&&contactSelect){
+        customerSelect.addEventListener('change',function(){
+            const customerId=this.value;
+            if(customerId){
+                fetch(`/crm/ajax/contacts/${customerId}/`).then(r=>r.json()).then(data=>{
+                    contactSelect.innerHTML='<option value="">اختر جهة الاتصال</option>';
+                    data.contacts.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name+(c.position?` - ${c.position}`:'');contactSelect.appendChild(o);});
+                }).catch(err=>console.error('خطأ في جهات الاتصال:',err));
+            }
+        });
+        // جلب جهات الاتصال فوراً إذا كان العميل محدداً عند فتح الصفحة
+        if(customerSelect.value){
+            const evt = new Event('change');
+            customerSelect.dispatchEvent(evt);
+        }
+    }
+
+    // تهيئة مراقبة اختيار المنتج لكل صف
+    attachProductPriceAutoFill();
+    // زر تحديث قائمة العملاء
+    const refreshBtn=document.getElementById('refreshCustomers');
+    if(refreshBtn){ refreshBtn.addEventListener('click',()=>window.location.reload()); }
+    const refreshContactsBtn=document.getElementById('refreshContacts');
+    if(refreshContactsBtn && customerSelect && contactSelect){
+        refreshContactsBtn.addEventListener('click',()=>{
+            if(!customerSelect.value) return;
+            customerSelect.dispatchEvent(new Event('change'));
+        });
+    }
+});
+
+function addItem(){
+    const container=document.getElementById('items-container');
+    if(!container) return;
+    const totalFormsInput=document.querySelector('#id_quotationitem_set-TOTAL_FORMS, input[name$="-TOTAL_FORMS"]');
+    let total=parseInt(totalFormsInput.value,10);
+    const emptyFormTemplate=document.getElementById('empty-form-template');
+    let html="";
+    if(emptyFormTemplate){
+        html=emptyFormTemplate.innerHTML.replace(/__prefix__/g,total);
+    }else{
+        // fallback clone last
+        const last=container.querySelector('.item-row:last-child');
+        if(!last) return;
+        html=last.outerHTML.replace(new RegExp(`-${total-1}-`,'g'),`-${total}-`);
+    }
+    const wrapper=document.createElement('div');
+    wrapper.className='item-row';
+    wrapper.dataset.formIndex=total;
+    wrapper.innerHTML=html;
+    container.appendChild(wrapper);
+    // تحديث عنوان الصف
+    const header=wrapper.querySelector('h6');
+    if(header){ header.textContent=`الصنف ${total+1}`; }
+    totalFormsInput.value=total+1;
+    computeQuotationTotals();
+    attachProductPriceAutoFill();
+}
+
+function removeItem(btn){
+    const row=btn.closest('.item-row');
+    if(!row) return;
+    const delField=row.querySelector('input[name$="-DELETE"]');
+    if(delField){
+        if(delField.type==='checkbox'){ delField.checked=true; }
+        else { delField.value='on'; }
+        row.classList.add('is-deleted');
+        row.style.display='none';
+    }else{
+        // إعادة فهرسة الصفوف التالية وتحديث TOTAL_FORMS
+        const container=document.getElementById('items-container');
+        const totalFormsInput=document.querySelector('#id_quotationitem_set-TOTAL_FORMS, input[name$="-TOTAL_FORMS"]');
+        const rows=Array.from(container.querySelectorAll('.item-row'));
+        const index=rows.indexOf(row);
+        row.remove();
+        for(let i=index;i<rows.length-1;i++){
+            const curr=container.querySelectorAll('.item-row')[i];
+            const oldIdx=i+1; // كان بعد المحذوف
+            const newIdx=i;
+            curr.querySelectorAll('input, select, textarea, label').forEach(el=>{
+                ['name','id','for'].forEach(attr=>{
+                    if(el[attr] && el[attr].includes(`-${oldIdx}-`)){
+                        el[attr]=el[attr].replace(new RegExp(`-${oldIdx}-`,'g'),`-${newIdx}-`);
+                    }
+                });
+            });
+            curr.dataset.formIndex=newIdx;
+            const h=curr.querySelector('h6');
+            if(h) h.textContent=`الصنف ${newIdx+1}`;
+        }
+        totalFormsInput.value=Math.max(0, parseInt(totalFormsInput.value,10)-1);
+    }
+    computeQuotationTotals();
+}
+
+function printDraftQuotation(){
+    computeQuotationTotals();
+    const win=window.open('', '_blank');
+    if(!win) return alert('تعذر فتح نافذة الطباعة');
+    const currency='{% currency_symbol %}';
+    const customer=document.querySelector('select[name="customer"] option:checked')?.textContent?.trim()||'-';
+    const status=document.querySelector('select[name="status"] option:checked')?.textContent?.trim()||'-';
+    const quotationDate=document.querySelector('input[name="quotation_date"]')?.value||'';
+    const validUntil=document.querySelector('input[name="valid_until"]')?.value||'';
+    const discount=document.querySelector('input[name="discount_percentage"]')?.value||'0';
+    const tax=document.querySelector('input[name="tax_percentage"]')?.value||'0';
+    const notes=document.querySelector('textarea[name="notes"]')?.value||'';
+    const terms=document.querySelector('textarea[name="terms_and_conditions"]')?.value||'';
+    let rowsHtml='';
+    document.querySelectorAll('#items-container .item-row').forEach((row,i)=>{
+        const productSel=row.querySelector('select[name$="-product"]');
+        const product=productSel?productSel.options[productSel.selectedIndex]?.text.trim()||'-':'-';
+        const qty=row.querySelector('input[name$="-quantity"]')?.value||'';
+        const price=row.querySelector('input[name$="-unit_price"]')?.value||'';
+        const dp=row.querySelector('input[name$="-discount_percentage"]')?.value||'0';
+        const tp=row.querySelector('input[name$="-tax_percentage"]')?.value||'0';
+        const desc=row.querySelector('input[name$="-description"]')?.value||'';
+        const total=row.querySelector('.item-total')?.value||'';
+        if(product.trim()==='-' && !qty && !price) return; // skip empty
+        rowsHtml+=`<tr><td>${i+1}</td><td>${product}</td><td>${desc||'-'}</td><td>${qty}</td><td>${price} ${currency}</td><td>${dp}% / ${tp}%</td><td>${total} ${currency}</td></tr>`;
+    });
+    const subtotal=document.getElementById('subtotal')?.textContent||'0.00';
+    const discountAmount=document.getElementById('discount-amount')?.textContent||'0.00';
+    const taxAmount=document.getElementById('tax-amount')?.textContent||'0.00';
+    const totalAmount=document.getElementById('total-amount')?.textContent||'0.00';
+    win.document.write(`<!DOCTYPE html><html lang="ar"><head><meta charset="utf-8"><title>مسودة عرض سعر</title><style>body{font-family:Arial,Helvetica,sans-serif;direction:rtl;margin:20px;font-size:13px} h2{margin-top:0} table{width:100%;border-collapse:collapse;margin-top:10px} th,td{border:1px solid #ccc;padding:6px;text-align:center} th{background:#f5f5f5} .totals{text-align:end;margin-top:10px} .totals p{margin:2px 0}</style></head><body>`);
+    win.document.write(`<h2>مسودة عرض سعر (غير محفوظة)</h2>`);
+    win.document.write(`<p><strong>العميل:</strong> ${customer} &nbsp; | &nbsp; <strong>التاريخ:</strong> ${quotationDate} &nbsp; | &nbsp; <strong>صالح حتى:</strong> ${validUntil}</p>`);
+    win.document.write(`<p><strong>الحالة:</strong> ${status}</p>`);
+    win.document.write(`<div class="table-responsive"><table><thead><tr><th>#</th><th>المنتج</th><th>الوصف</th><th>الكمية</th><th>سعر الوحدة</th><th>خصم/ضريبة</th><th>الصافي</th></tr></thead><tbody>${rowsHtml||'<tr><td colspan="7">لا توجد أصناف</td></tr>'}</tbody></table></div>`);
+    win.document.write(`<div class="totals"><p>المجموع الفرعي: ${subtotal} ${currency}</p><p>الخصم (${discount}%): ${discountAmount} ${currency}</p><p>الضريبة (${tax}%): ${taxAmount} ${currency}</p><h3>الإجمالي: ${totalAmount} ${currency}</h3></div>`);
+    if(terms) win.document.write(`<p><strong>الشروط والأحكام:</strong><br>${terms.replace(/\n/g,'<br>')}</p>`);
+    if(notes) win.document.write(`<p><strong>ملاحظات:</strong><br>${notes.replace(/\n/g,'<br>')}</p>`);
+    win.document.write(`<hr><small>تم توليد هذه المسودة للطباعة فقط ولم يتم حفظها في النظام.</small>`);
+    win.document.write('</body></html>');
+    win.document.close();
+    win.focus();
+    win.print();
+}
+
+function attachProductPriceAutoFill(){
+    document.querySelectorAll('.item-row select[name$="-product"]').forEach(sel=>{
+        if(sel.dataset.boundPrice) return; // avoid duplicate binding
+        sel.dataset.boundPrice='1';
+        sel.addEventListener('change', function(){
+            const productId=this.value;
+            if(!productId) return;
+            fetch(`/crm/ajax/product/${productId}/price/`).then(r=>r.json()).then(data=>{
+                const row=this.closest('.item-row');
+                const priceInput=row.querySelector('input[name$="-unit_price"]');
+                if(priceInput){ priceInput.value=data.effective_price; computeQuotationTotals(); }
+                const stockSpan=row.querySelector('.stock-info');
+                if(stockSpan){
+                    stockSpan.textContent=`المخزون: ${data.current_stock}`;
+                    if(data.is_low_stock){ stockSpan.classList.add('text-danger'); stockSpan.classList.remove('text-muted'); }
+                    else { stockSpan.classList.remove('text-danger'); stockSpan.classList.add('text-muted'); }
+                }
+                console.log('Fetched product info', data);
+            }).catch(err=>console.error('خطأ في جلب سعر المنتج',err));
+        });
+        if(sel.value){ sel.dispatchEvent(new Event('change')); }
+    });
+}
+
+// حفظ عميل سريع عبر النافذة المنبثقة
+(function(){
+    const form=document.getElementById('quickCustomerForm');
+    const saveBtn=document.getElementById('saveQuickCustomer');
+    const feedback=document.getElementById('quickCustomerFeedback');
+    const customerSelect=document.querySelector('select[name="customer"]');
+    function showErr(msg){ if(!feedback) return; feedback.textContent=msg; feedback.classList.remove('d-none'); }
+    async function saveCustomer(){
+        if(!form) return; if(!form.reportValidity()) return; if(feedback) feedback.classList.add('d-none');
+        const data=new FormData(form);
+        try{
+            const csrf=document.querySelector('input[name=csrfmiddlewaretoken]')?.value || (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] || '{ csrf_token }';
+            const res=await fetch('{% url 'crm:ajax_create_customer' %}',{
+                method:'POST',
+                credentials:'same-origin',
+                headers:{'X-Requested-With':'XMLHttpRequest','X-CSRFToken':csrf},
+                body:data
+            });
+            let json={};
+            try{ json=await res.json(); }catch(e){ json={}; }
+            if(!res.ok){
+                if(res.status===409 && json.duplicate){ showErr(json.message||'هذا العميل موجود مسبقاً'); return; }
+                showErr(json.message||('خطأ أثناء الحفظ ('+res.status+')')); return;
+            }
+            if(json.success && json.id){
+                const opt=document.createElement('option'); opt.value=json.id; opt.textContent=json.name;
+                if(customerSelect){ customerSelect.appendChild(opt); customerSelect.value=json.id; customerSelect.dispatchEvent(new Event('change')); }
+                document.querySelector('#quickCustomerModal .btn-close')?.click();
+                if(json.existing){ showErr('تم اختيار عميل موجود بنفس البيانات'); }
+            }else if(json.duplicate){
+                showErr(json.message||'هذا العميل موجود مسبقاً');
+            }else if(json.message){
+                showErr(json.message);
+            }else{
+                showErr('تعذر إنشاء العميل');
+            }
+        }catch(e){ showErr('استثناء غير متوقع في المتصفح'); }
+    }
+    if(saveBtn) saveBtn.addEventListener('click',saveCustomer);
+    // تهيئة النموذج عند فتح المودال
+    const modalEl=document.getElementById('quickCustomerModal');
+    if(modalEl){ modalEl.addEventListener('show.bs.modal',()=>{ if(form) form.reset(); if(feedback) feedback.classList.add('d-none'); }); }
+})();
+// إضافة جهة اتصال سريعة
+(function(){
+    const modalId='quickContactModal';
+    const template=`<div class="modal fade" id="${modalId}" tabindex="-1" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="false"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">إضافة جهة اتصال</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="إغلاق"></button></div><div class="modal-body"><form id="quickContactForm" class="row g-2"><div class="col-12"><label class="form-label small">الاسم *</label><input type="text" name="name" class="form-control form-control-sm" required></div><div class="col-6"><label class="form-label small">المنصب</label><input type="text" name="position" class="form-control form-control-sm"></div><div class="col-6"><label class="form-label small">الهاتف</label><input type="text" name="phone" class="form-control form-control-sm"></div><div class="col-6"><label class="form-label small">الموبايل</label><input type="text" name="mobile" class="form-control form-control-sm"></div><div class="col-6"><label class="form-label small">البريد</label><input type="email" name="email" class="form-control form-control-sm"></div><div class="col-12"><div id="quickContactFeedback" class="small text-danger d-none"></div></div></form></div><div class="modal-footer d-flex justify-content-between"><button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">إلغاء</button><button type="button" class="btn btn-primary btn-sm" id="saveQuickContact"><i class="fas fa-save"></i> حفظ</button></div></div></div></div>`;
+    if(!document.getElementById(modalId)){
+        const wrap=document.createElement('div'); wrap.innerHTML=template; document.body.appendChild(wrap.firstChild);
+    }
+    const customerSelect=document.querySelector('select[name="customer"]');
+    const contactSelect=document.querySelector('select[name="contact_person"]');
+    function getCsrf(){ return document.querySelector('input[name=csrfmiddlewaretoken]')?.value || (document.cookie.match(/csrftoken=([^;]+)/)||[])[1]; }
+    function showErr(msg){ const fb=document.getElementById('quickContactFeedback'); if(!fb) return; fb.textContent=msg; fb.classList.remove('d-none'); }
+    document.getElementById('saveQuickContact')?.addEventListener('click', async ()=>{
+        const form=document.getElementById('quickContactForm');
+        if(!form || !form.reportValidity()) return;
+        if(!customerSelect || !customerSelect.value){ showErr('اختر العميل أولاً'); return; }
+        const fd=new FormData(form); fd.append('customer_id', customerSelect.value);
+        try{
+            const res=await fetch('{% url "crm:ajax_create_contact" %}', { method:'POST', credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest','X-CSRFToken':getCsrf()}, body:fd });
+            const json=await res.json();
+            if(!res.ok || !json.success){ showErr(json.message||'فشل إنشاء جهة الاتصال'); return; }
+            const opt=document.createElement('option'); opt.value=json.id; opt.textContent=json.name + (json.position?` - ${json.position}`:'');
+            if(contactSelect){ contactSelect.appendChild(opt); contactSelect.value=json.id; }
+            document.querySelector('#'+modalId+' .btn-close')?.click();
+        }catch(e){ showErr('حدث خطأ غير متوقع'); }
+    });
+    document.getElementById(modalId)?.addEventListener('show.bs.modal', ()=>{ const f=document.getElementById('quickContactForm'); const fb=document.getElementById('quickContactFeedback'); if(f){ f.reset(); } if(fb){ fb.classList.add('d-none'); } });
+})();
+</script>
+{% endblock %}
+

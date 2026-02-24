@@ -1,0 +1,149 @@
+{% extends 'base_v2.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}التحقق من المستند{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-shield-check me-2"></i>التحقق من صحة المستند</h2>
+        <a href="{% url 'digital_signatures:dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i>العودة
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-patch-check me-2"></i>حالة المستند</h5>
+                </div>
+                <div class="card-body text-center">
+                    {% if request.status == 'signed' %}
+                    <i class="bi bi-check-circle text-success" style="font-size: 4rem;"></i>
+                    <h3 class="mt-3 text-success">مستند موثق وصحيح</h3>
+                    <p class="text-muted">تم التوقيع على هذا المستند بنجاح</p>
+                    {% else %}
+                    <i class="bi bi-hourglass-split text-warning" style="font-size: 4rem;"></i>
+                    <h3 class="mt-3 text-warning">في انتظار التوقيعات</h3>
+                    <p class="text-muted">لم يكتمل التوقيع بعد</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>معلومات المستند</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive"><table class="table table-borderless">
+                        <tr>
+                            <td class="text-muted">العنوان:</td>
+                            <td><strong>{{ request.title }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">المرسل:</td>
+                            <td>{{ request.requester.username }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">تاريخ الإنشاء:</td>
+                            <td>{{ request.created_at|date:"Y-m-d H:i" }}</td>
+                        </tr>
+                        {% if request.completed_at %}
+                        <tr>
+                            <td class="text-muted">تاريخ الاكتمال:</td>
+                            <td>{{ request.completed_at|date:"Y-m-d H:i" }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <td class="text-muted">UUID:</td>
+                            <td><small class="text-monospace">{{ request.uuid }}</small></td>
+                        </tr>
+                    </table></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="bi bi-pen me-2"></i>التوقيعات</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive"><table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>الموقع</th>
+                        <th>البريد الإلكتروني</th>
+                        <th>الحالة</th>
+                        <th>تاريخ التوقيع</th>
+                        <th>عنوان IP</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sig in signatures %}
+                    <tr>
+                        <td>{% if sig.signer.user %}{{ sig.signer.user.username }}{% else %}-{% endif %}</td>
+                        <td>{{ sig.signer.email }}</td>
+                        <td><span class="badge bg-success">موقع</span></td>
+                        <td>{{ sig.created_at|date:"Y-m-d H:i" }}</td>
+                        <td><small>{{ sig.ip_address }}</small></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center text-muted">لا توجد توقيعات بعد</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table></div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>سجل النشاط</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive"><table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>التاريخ</th>
+                        <th>المستخدم</th>
+                        <th>الإجراء</th>
+                        <th>التفاصيل</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in audit_log %}
+                    <tr>
+                        <td>{{ log.timestamp|date:"Y-m-d H:i" }}</td>
+                        <td>{% if log.user %}{{ log.user.username }}{% else %}النظام{% endif %}</td>
+                        <td>
+                            {% if log.action == 'created' %}
+                            <span class="badge bg-primary">إنشاء</span>
+                            {% elif log.action == 'viewed' %}
+                            <span class="badge bg-info">عرض</span>
+                            {% elif log.action == 'signed' %}
+                            <span class="badge bg-success">توقيع</span>
+                            {% elif log.action == 'rejected' %}
+                            <span class="badge bg-danger">رفض</span>
+                            {% elif log.action == 'completed' %}
+                            <span class="badge bg-success">اكتمال</span>
+                            {% elif log.action == 'downloaded' %}
+                            <span class="badge bg-secondary">تحميل</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ log.action }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ log.details|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="text-center text-muted">لا يوجد سجل</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table></div>
+        </div>
+    </div>
+</div>
+{% endblock %}

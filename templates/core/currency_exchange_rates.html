@@ -1,0 +1,386 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تحديث أسعار الصرف - نظام Tony ERP{% endblock %}
+
+{% block extra_css %}
+<style>
+.rates-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.currency-rate-card {
+    border: 1px solid #e3e6f0;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+}
+
+.currency-rate-card:hover {
+    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+}
+
+.currency-info {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.currency-name {
+    font-weight: 600;
+    color: #495057;
+}
+
+.currency-code {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    color: #6c757d;
+}
+
+.rate-input {
+    font-family: 'Courier New', monospace;
+    font-size: 1.1rem;
+    text-align: center;
+}
+
+.rate-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.25);
+}
+
+.default-currency-notice {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.rate-calculator {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.calculation-result {
+    font-weight: bold;
+    color: #856404;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-exchange-alt text-primary"></i>
+            تحديث أسعار الصرف
+        </h1>
+        <a href="{% url 'core:currency_settings' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-right"></i>
+            العودة للعملات
+        </a>
+    </div>
+
+    {% if messages %}
+    <div class="row">
+        <div class="col-12">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% else %}info-circle{% endif %}"></i>
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="rates-container">
+        <!-- إشعار العملة الافتراضية -->
+        <div class="default-currency-notice">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h6 class="mb-2">
+                        <i class="fas fa-star"></i>
+                        العملة الافتراضية
+                    </h6>
+                    <p class="mb-0">
+                        جميع أسعار الصرف محسوبة مقابل العملة الافتراضية
+                        <strong>{{ request.user.company.get_currency.name|default:"الجنيه المصري" }}</strong>
+                    </p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <div class="display-6">1.000000</div>
+                    <small>سعر ثابت</small>
+                </div>
+            </div>
+        </div>
+
+        {% if form.fields %}
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-coins"></i>
+                    أسعار الصرف الحالية
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post" id="exchangeRatesForm">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        {% for field in form %}
+                        <div class="col-lg-6 mb-4">
+                            <div class="currency-rate-card">
+                                <div class="currency-info">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <div class="currency-name">{{ field.label }}</div>
+                                            <div class="currency-code">{{ field.name|slice:"5:" }}</div>
+                                        </div>
+                                        <div class="text-end">
+                                            <i class="fas fa-coins fa-2x text-primary"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="p-3">
+                                    <div class="mb-3">
+                                        <label class="form-label">سعر الصرف مقابل العملة الافتراضية</label>
+                                        {{ field }}
+                                        {% if field.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in field.errors %}
+                                                <div>{{ error }}</div>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <!-- حاسبة بسيطة -->
+                                    <div class="rate-calculator" style="display: none;" id="calc-{{ field.name }}">
+                                        <div class="row align-items-center">
+                                            <div class="col-4">
+                                                <input type="number" class="form-control form-control-sm calc-amount" 
+                                                       placeholder="1000" value="1000" min="0.01" step="0.01">
+                                                <small class="text-muted">{{ field.name|slice:"5:" }}</small>
+                                            </div>
+                                            <div class="col-1 text-center">
+                                                <i class="fas fa-arrow-left"></i>
+                                            </div>
+                                            <div class="col-4">
+                                                <input type="text" class="form-control form-control-sm calc-result" readonly>
+                                                <small class="text-muted">العملة الأساسية</small>
+                                            </div>
+                                            <div class="col-3">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary calc-toggle" 
+                                                        data-target="calc-{{ field.name }}">
+                                                    <i class="fas fa-eye-slash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <button type="button" class="btn btn-sm btn-outline-info calc-toggle" 
+                                            data-target="calc-{{ field.name }}">
+                                        <i class="fas fa-calculator"></i>
+                                        حاسبة التحويل
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="text-center mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg me-3">
+                            <i class="fas fa-save"></i>
+                            حفظ أسعار الصرف
+                        </button>
+                        <button type="button" class="btn btn-warning btn-lg me-3" id="resetRates">
+                            <i class="fas fa-undo"></i>
+                            إعادة تعيين
+                        </button>
+                        <a href="{% url 'core:currency_settings' %}" class="btn btn-secondary btn-lg">
+                            <i class="fas fa-times"></i>
+                            إلغاء
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <div class="card shadow">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-info-circle fa-3x text-info mb-3"></i>
+                <h5 class="text-muted">لا توجد عملات لتحديث أسعار صرفها</h5>
+                <p class="text-muted">جميع العملات في النظام إما افتراضية أو غير نشطة</p>
+                <a href="{% url 'core:currency_settings' %}" class="btn btn-primary">
+                    <i class="fas fa-coins"></i>
+                    إدارة العملات
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- معلومات مساعدة -->
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="m-0 font-weight-bold text-info">
+                            <i class="fas fa-lightbulb"></i>
+                            نصائح مهمة
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled mb-0">
+                            <li class="mb-2">
+                                <i class="fas fa-check text-success"></i>
+                                احرص على تحديث الأسعار بانتظام
+                            </li>
+                            <li class="mb-2">
+                                <i class="fas fa-check text-success"></i>
+                                استخدم أسعار صرف دقيقة من مصادر موثوقة
+                            </li>
+                            <li>
+                                <i class="fas fa-exclamation text-warning"></i>
+                                تأكد من صحة الأسعار قبل الحفظ
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="m-0 font-weight-bold text-warning">
+                            <i class="fas fa-calculator"></i>
+                            مثال على التحويل
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center">
+                            <p class="mb-2">إذا كان سعر الدولار = <strong>31.5</strong></p>
+                            <p class="mb-2">فإن <strong>100 دولار</strong> = <strong>3,150 جنيه</strong></p>
+                            <small class="text-muted">100 × 31.5 = 3150</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('exchangeRatesForm');
+    const resetButton = document.getElementById('resetRates');
+
+    // تفعيل/إخفاء حاسبة التحويل
+    document.querySelectorAll('.calc-toggle').forEach(button => {
+        button.addEventListener('click', function() {
+            const targetId = this.getAttribute('data-target');
+            const calculator = document.getElementById(targetId);
+            
+            if (calculator.style.display === 'none' || !calculator.style.display) {
+                calculator.style.display = 'block';
+                this.innerHTML = '<i class="fas fa-eye-slash"></i>';
+            } else {
+                calculator.style.display = 'none';
+                this.innerHTML = '<i class="fas fa-calculator"></i> حاسبة التحويل';
+            }
+        });
+    });
+
+    // تحديث حاسبة التحويل
+    document.querySelectorAll('.rate-input').forEach(input => {
+        const fieldName = input.name;
+        const calculator = document.getElementById('calc-' + fieldName);
+        
+        if (calculator) {
+            const amountInput = calculator.querySelector('.calc-amount');
+            const resultInput = calculator.querySelector('.calc-result');
+            
+            function updateCalculation() {
+                const rate = parseFloat(input.value) || 0;
+                const amount = parseFloat(amountInput.value) || 0;
+                const result = amount / rate;
+                resultInput.value = result.toFixed(6);
+            }
+            
+            input.addEventListener('input', updateCalculation);
+            amountInput.addEventListener('input', updateCalculation);
+            
+            // تحديث أولي
+            updateCalculation();
+        }
+    });
+
+    // إعادة تعيين القيم
+    resetButton.addEventListener('click', function() {
+        if (confirm('هل أنت متأكد من إعادة تعيين جميع أسعار الصرف؟')) {
+            form.reset();
+            
+            // تحديث جميع الحاسبات
+            document.querySelectorAll('.calc-result').forEach(input => {
+                input.value = '';
+            });
+        }
+    });
+
+    // التحقق من صحة البيانات
+    form.addEventListener('submit', function(e) {
+        let isValid = true;
+        const rateInputs = document.querySelectorAll('.rate-input');
+        
+        rateInputs.forEach(input => {
+            const value = parseFloat(input.value);
+            if (isNaN(value) || value <= 0) {
+                isValid = false;
+                input.classList.add('is-invalid');
+                
+                // إضافة رسالة خطأ إن لم تكن موجودة
+                let errorDiv = input.nextElementSibling;
+                if (!errorDiv || !errorDiv.classList.contains('invalid-feedback')) {
+                    errorDiv = document.createElement('div');
+                    errorDiv.className = 'invalid-feedback d-block';
+                    input.parentNode.insertBefore(errorDiv, input.nextSibling);
+                }
+                errorDiv.textContent = 'سعر الصرف يجب أن يكون أكبر من الصفر';
+            } else {
+                input.classList.remove('is-invalid');
+                
+                // إزالة رسالة الخطأ
+                let errorDiv = input.nextElementSibling;
+                if (errorDiv && errorDiv.classList.contains('invalid-feedback')) {
+                    errorDiv.remove();
+                }
+            }
+        });
+
+        if (!isValid) {
+            e.preventDefault();
+            alert('يرجى التأكد من صحة جميع أسعار الصرف');
+        }
+    });
+
+    // تنسيق الأرقام أثناء الكتابة
+    document.querySelectorAll('.rate-input').forEach(input => {
+        input.addEventListener('blur', function() {
+            const value = parseFloat(this.value);
+            if (!isNaN(value) && value > 0) {
+                this.value = value.toFixed(6);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

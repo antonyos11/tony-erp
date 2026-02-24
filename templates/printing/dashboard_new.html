@@ -1,0 +1,283 @@
+{% extends "base_v2.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{% trans 'إدارة الطباعة الموحدة' %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h2><i class="bi bi-printer me-2"></i>{% trans 'إدارة الطباعة الموحدة' %}</h2>
+                <p class="text-muted mb-0">{% trans 'نظام الطباعة الموحد - يدعم ZPL و ESC-POS و PDF مع طابور مركزي' %}</p>
+            </div>
+            <div>
+                <span id="agent-badge" class="badge fs-6 {% if agent_status.online %}bg-success{% else %}bg-danger{% endif %}">
+                    <i class="bi bi-{% if agent_status.online %}wifi{% else %}wifi-off{% endif %} me-1"></i>
+                    {% if agent_status.online %}{% trans 'الوكيل متصل' %}{% else %}{% trans 'الوكيل غير متصل' %}{% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-printer-fill text-primary" style="font-size: 2.5rem;"></i>
+                    <h3 class="mt-2 mb-0">{{ printers.count }}</h3>
+                    <small class="text-muted">{% trans 'طابعات مُعدّة' %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-hourglass-split text-warning" style="font-size: 2.5rem;"></i>
+                    <h3 class="mt-2 mb-0" id="pending-count">-</h3>
+                    <small class="text-muted">{% trans 'مهام منتظرة' %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-check-circle-fill text-success" style="font-size: 2.5rem;"></i>
+                    <h3 class="mt-2 mb-0" id="completed-count">-</h3>
+                    <small class="text-muted">{% trans 'مهام مكتملة' %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-exclamation-triangle-fill text-danger" style="font-size: 2.5rem;"></i>
+                    <h3 class="mt-2 mb-0" id="failed-count">-</h3>
+                    <small class="text-muted">{% trans 'مهام فاشلة' %}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Configured Printers -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-gear me-2"></i>{% trans 'الطابعات المُعدّة' %}</h5>
+                    <a href="/admin/printing/printerconfiguration/add/" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-plus-lg"></i> {% trans 'إضافة' %}
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for printer in printers %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>{{ printer.name }}</strong>
+                                    {% if printer.is_default %}<span class="badge bg-primary ms-1">★ {% trans 'افتراضي' %}</span>{% endif %}
+                                    <br>
+                                    <small class="text-muted">
+                                        <i class="bi bi-tag me-1"></i>{{ printer.get_document_type_display }}
+                                        <br>
+                                        <i class="bi bi-plug me-1"></i>{{ printer.get_connection_type_display }}
+                                        {% if printer.ip_address %} — {{ printer.ip_address }}:{{ printer.port }}{% endif %}
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-secondary">{{ printer.total_prints }} {% trans 'طبعة' %}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="list-group-item text-center text-muted py-4">
+                            <i class="bi bi-printer" style="font-size: 2rem;"></i>
+                            <p class="mt-2 mb-0">{% trans 'لم يتم إعداد أي طابعات بعد' %}</p>
+                            <a href="/admin/printing/printerconfiguration/add/" class="btn btn-sm btn-primary mt-2">{% trans 'إعداد طابعة' %}</a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Print Actions -->
+        <div class="col-lg-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-lightning me-2"></i>{% trans 'إجراءات سريعة' %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'sales:invoice_list' %}" class="btn btn-outline-success">
+                            <i class="bi bi-receipt me-2"></i>{% trans 'طباعة فاتورة مبيعات' %}
+                        </a>
+                        <button class="btn btn-outline-info" onclick="printTrialBalance()">
+                            <i class="bi bi-journal-text me-2"></i>{% trans 'طباعة ميزان مراجعة' %}
+                        </button>
+                        <a href="{% url 'inventory:product_list' %}" class="btn btn-outline-warning">
+                            <i class="bi bi-upc-scan me-2"></i>{% trans 'طباعة باركود منتج' %}
+                        </a>
+                    </div>
+
+                    <hr>
+                    <h6 class="text-muted mb-2">{% trans 'الصيغ المدعومة' %}</h6>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <span class="badge bg-primary">ZPL</span>
+                        <span class="badge bg-success">ESC/POS</span>
+                        <span class="badge bg-danger">PDF</span>
+                        <span class="badge bg-info">HTML</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Print Jobs -->
+        <div class="col-lg-5">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>{% trans 'آخر المهام' %}</h5>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="refreshJobs()">
+                        <i class="bi bi-arrow-repeat"></i>
+                    </button>
+                </div>
+                <div class="card-body p-0" style="max-height: 450px; overflow-y: auto;">
+                    <div class="table-responsive"><table class="table table-sm table-hover mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>{% trans 'المهمة' %}</th>
+                                <th>{% trans 'الحالة' %}</th>
+                                <th>{% trans 'إجراء' %}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="jobs-tbody">
+                            {% for job in recent_jobs %}
+                            <tr>
+                                <td>
+                                    <small class="d-block fw-bold">{{ job.title|truncatechars:40 }}</small>
+                                    <small class="text-muted">{{ job.created_at|date:"m/d H:i" }}</small>
+                                </td>
+                                <td>
+                                    {% if job.status == 'completed' %}
+                                    <span class="badge bg-success">{% trans 'مكتمل' %}</span>
+                                    {% elif job.status == 'failed' %}
+                                    <span class="badge bg-danger" title="{{ job.error_message }}">{% trans 'فشل' %}</span>
+                                    {% elif job.status == 'sent' %}
+                                    <span class="badge bg-info">{% trans 'أُرسل' %}</span>
+                                    {% elif job.status == 'queued' %}
+                                    <span class="badge bg-warning text-dark">{% trans 'منتظر' %}</span>
+                                    {% elif job.status == 'cancelled' %}
+                                    <span class="badge bg-secondary">{% trans 'ملغى' %}</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ job.get_status_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary btn-sm" onclick="reprintJob('{{ job.pk }}')" title="{% trans 'إعادة طباعة' %}">
+                                            <i class="bi bi-arrow-repeat"></i>
+                                        </button>
+                                        {% if job.pdf_base64 or job.html_content %}
+                                        <a href="{% url 'printing:api_download_fallback' job.pk %}" class="btn btn-outline-secondary btn-sm" title="{% trans 'تنزيل' %}">
+                                            <i class="bi bi-download"></i>
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted py-4">
+                                    {% trans 'لا توجد مهام طباعة حتى الآن' %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agent Offline Warning -->
+    {% if not agent_status.online %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="alert alert-warning d-flex align-items-center" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-3" style="font-size: 1.5rem;"></i>
+                <div>
+                    <strong>{% trans 'وكيل الطباعة غير متصل!' %}</strong>
+                    <p class="mb-0">{% trans 'المهام ستبقى في الطابور حتى اتصال الوكيل. يمكنك تنزيل الملفات يدوياً في هذه الأثناء.' %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                  document.getElementById('django-csrf-token')?.querySelector('input')?.value || '';
+
+function reprintJob(jobId) {
+    fetch(`/printing/api/reprint/${jobId}/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+        body: '{}',
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showToast('تم إرسال مهمة إعادة الطباعة', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast(data.message || 'فشل إعادة الطباعة', 'danger');
+        }
+    })
+    .catch(() => showToast('خطأ في الاتصال', 'danger'));
+}
+
+function printTrialBalance() {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const dateFrom = firstDay.toISOString().split('T')[0];
+    const dateTo = today.toISOString().split('T')[0];
+
+    fetch('/printing/api/print/trial-balance/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date_from: dateFrom, date_to: dateTo }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        showToast(data.message, data.success ? 'success' : 'warning');
+    })
+    .catch(() => showToast('خطأ في الاتصال', 'danger'));
+}
+
+function refreshJobs() {
+    location.reload();
+}
+
+function showToast(msg, type) {
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type} position-fixed bottom-0 end-0 m-3 shadow`;
+    toast.style.zIndex = '9999';
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+// Update stats
+fetch('{% url "printing:api_agent_status" %}')
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('pending-count').textContent = data.pending_jobs || 0;
+        document.getElementById('failed-count').textContent = data.failed_jobs || 0;
+    });
+</script>
+{% endblock %}

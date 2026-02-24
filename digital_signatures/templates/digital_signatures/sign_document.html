@@ -1,0 +1,231 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}توقيع: {{ request.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    #signature-pad {
+        border: 2px dashed #007bff;
+        border-radius: 8px;
+        background: white;
+        cursor: crosshair;
+        width: 100%;
+        max-width: 600px;
+        height: 200px;
+    }
+    .document-preview {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        min-height: 400px;
+    }
+    .saved-signature {
+        border: 2px solid #28a745;
+        border-radius: 8px;
+        padding: 10px;
+        cursor: pointer;
+    }
+    .saved-signature:hover {
+        background: #f8f9fa;
+    }
+    .saved-signature img {
+        max-height: 60px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <!-- المستند -->
+        <div class="col-lg-7 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{{ request.title }}</h5>
+                    <span class="badge bg-warning">بانتظار توقيعك</span>
+                </div>
+                <div class="card-body">
+                    {% if request.message %}
+                    <div class="alert alert-info mb-3">
+                        <i class="fas fa-info-circle"></i>
+                        {{ request.message }}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="document-preview">
+                        <embed src="{{ request.document.url }}" type="application/pdf" width="100%" height="500px">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- التوقيع -->
+        <div class="col-lg-5">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-signature"></i> التوقيع</h5>
+                </div>
+                <div class="card-body">
+                    <!-- استخدام التوقيع المحفوظ -->
+                    {% if profile.signature_data %}
+                    <div class="mb-4">
+                        <p class="text-muted mb-2">استخدم توقيعك المحفوظ:</p>
+                        <div class="saved-signature text-center" onclick="useSavedSignature()">
+                            <img src="{{ profile.signature_data }}" alt="توقيعي">
+                            <p class="mb-0 small text-success mt-2">
+                                <i class="fas fa-check-circle"></i> انقر لاستخدام هذا التوقيع
+                            </p>
+                        </div>
+                    </div>
+                    <hr>
+                    <p class="text-muted mb-2">أو ارسم توقيعاً جديداً:</p>
+                    {% endif %}
+                    
+                    <!-- رسم توقيع جديد -->
+                    <div class="text-center mb-3">
+                        <canvas id="signature-pad"></canvas>
+                    </div>
+                    <input type="hidden" id="signature-data">
+                    
+                    <div class="d-flex gap-2 mb-4">
+                        <button type="button" class="btn btn-outline-secondary" onclick="clearSignature()">
+                            <i class="fas fa-eraser"></i> مسح
+                        </button>
+                        <button type="button" class="btn btn-outline-dark" onclick="changeColor('black')">⬛</button>
+                        <button type="button" class="btn btn-outline-primary" onclick="changeColor('blue')">🔵</button>
+                    </div>
+                    
+                    <!-- أزرار الإجراء -->
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-primary btn-lg" onclick="submitSignature()">
+                            <i class="fas fa-check"></i> توقيع وإرسال
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                            <i class="fas fa-times"></i> رفض التوقيع
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- معلومات إضافية -->
+            <div class="card mt-3">
+                <div class="card-body small">
+                    <p class="mb-1"><strong>من:</strong> {% if request.requester %}{{ request.requester.get_full_name|default:request.requester.username }}{% else %}-{% endif %}</p>
+                    <p class="mb-1"><strong>التاريخ:</strong> {{ request.created_at|date:"Y/m/d - H:i" }}</p>
+                    {% if request.expires_at %}
+                    <p class="mb-0"><strong>ينتهي في:</strong> {{ request.expires_at|date:"Y/m/d" }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal الرفض -->
+<div class="modal fade" id="rejectModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">رفض التوقيع</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">سبب الرفض</label>
+                    <textarea id="rejection-reason" class="form-control" rows="3" required></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-danger" onclick="rejectDocument()">تأكيد الرفض</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+<script>
+const canvas = document.getElementById('signature-pad');
+canvas.width = canvas.offsetWidth;
+canvas.height = 200;
+
+const signaturePad = new SignaturePad(canvas, {
+    backgroundColor: 'rgb(255, 255, 255)',
+    penColor: 'rgb(0, 0, 0)'
+});
+
+function clearSignature() {
+    signaturePad.clear();
+}
+
+function changeColor(color) {
+    signaturePad.penColor = color === 'blue' ? 'rgb(0, 0, 255)' : 'rgb(0, 0, 0)';
+}
+
+function useSavedSignature() {
+    document.getElementById('signature-data').value = '{{ profile.signature_data }}';
+    submitSignature();
+}
+
+function submitSignature() {
+    let signatureData = document.getElementById('signature-data').value;
+    
+    if (!signatureData && signaturePad.isEmpty()) {
+        alert('الرجاء رسم توقيعك أو استخدام التوقيع المحفوظ');
+        return;
+    }
+    
+    if (!signatureData) {
+        signatureData = signaturePad.toDataURL();
+    }
+    
+    fetch('{% url "digital_signatures:sign_document" request.uuid %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: 'signature_data=' + encodeURIComponent(signatureData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('تم التوقيع بنجاح!');
+            window.location.href = '{% url "digital_signatures:dashboard" %}';
+        } else {
+            alert(data.error || 'حدث خطأ');
+        }
+    });
+}
+
+function rejectDocument() {
+    const reason = document.getElementById('rejection-reason').value;
+    if (!reason.trim()) {
+        alert('الرجاء إدخال سبب الرفض');
+        return;
+    }
+    
+    fetch('{% url "digital_signatures:reject_document" request.uuid %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ reason: reason })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('تم رفض المستند');
+            window.location.href = '{% url "digital_signatures:dashboard" %}';
+        } else {
+            alert(data.error || 'حدث خطأ');
+        }
+    });
+}
+</script>
+{% endblock %}

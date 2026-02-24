@@ -1,0 +1,429 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "تعديل قاعدة تسعير" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-card {
+        border-radius: 15px;
+        border: none;
+        overflow: hidden;
+    }
+    .form-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px 20px;
+        margin: 0 -20px 20px -20px;
+        font-weight: 600;
+    }
+    .form-section i {
+        margin-left: 8px;
+    }
+    .method-option {
+        border: 2px solid #dee2e6;
+        border-radius: 12px;
+        padding: 20px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-align: center;
+        height: 100%;
+    }
+    .method-option:hover {
+        border-color: #667eea;
+        background: #f8f9ff;
+    }
+    .method-option.selected {
+        border-color: #667eea;
+        background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+    }
+    .method-option input[type="radio"] {
+        display: none;
+    }
+    .method-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 15px;
+        font-size: 24px;
+    }
+    .range-value {
+        background: #667eea;
+        color: white;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-weight: bold;
+        display: inline-block;
+        min-width: 60px;
+        text-align: center;
+    }
+    .multiplier-card {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 15px;
+        text-align: center;
+    }
+    .preview-card {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 25px;
+    }
+    .btn-submit {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        padding: 15px 40px;
+        font-size: 1.1rem;
+        border-radius: 30px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'smart_pricing:dashboard' %}">{% trans "التسعير الذكي" %}</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'smart_pricing:rules_list' %}">{% trans "قواعد التسعير" %}</a>
+            </li>
+            <li class="breadcrumb-item active">{% trans "تعديل" %}: {{ rule.name }}</li>
+        </ol>
+    </nav>
+
+    <form method="post" id="ruleForm">
+        {% csrf_token %}
+        
+        <div class="row">
+            <!-- النموذج الرئيسي -->
+            <div class="col-lg-8">
+                <!-- المعلومات الأساسية -->
+                <div class="card form-card shadow-sm mb-4">
+                    <div class="card-body p-4">
+                        <div class="form-section">
+                            <i class="fas fa-info-circle"></i>
+                            {% trans "المعلومات الأساسية" %}
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">{% trans "اسم القاعدة" %} <span class="text-danger">*</span></label>
+                                <input type="text" name="name" class="form-control form-control-lg" 
+                                       value="{{ rule.name }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">{% trans "فئة المنتج" %}</label>
+                                <input type="text" name="product_category" class="form-control form-control-lg"
+                                       value="{{ rule.product_category }}">
+                            </div>
+                        </div>
+
+                        <!-- طريقة التسعير -->
+                        <label class="form-label fw-bold mb-3">{% trans "طريقة التسعير" %}</label>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-3">
+                                <label class="method-option {% if rule.method == 'cost_plus' %}selected{% endif %}" 
+                                       onclick="selectMethod(this, 'cost_plus')">
+                                    <input type="radio" name="method" value="cost_plus" 
+                                           {% if rule.method == 'cost_plus' %}checked{% endif %}>
+                                    <div class="method-icon bg-primary-subtle text-primary">
+                                        <i class="fas fa-calculator"></i>
+                                    </div>
+                                    <strong>{% trans "التكلفة + الهامش" %}</strong>
+                                </label>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="method-option {% if rule.method == 'fixed' %}selected{% endif %}" 
+                                       onclick="selectMethod(this, 'fixed')">
+                                    <input type="radio" name="method" value="fixed"
+                                           {% if rule.method == 'fixed' %}checked{% endif %}>
+                                    <div class="method-icon bg-success-subtle text-success">
+                                        <i class="fas fa-tag"></i>
+                                    </div>
+                                    <strong>{% trans "سعر ثابت" %}</strong>
+                                </label>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="method-option {% if rule.method == 'market_based' %}selected{% endif %}" 
+                                       onclick="selectMethod(this, 'market_based')">
+                                    <input type="radio" name="method" value="market_based"
+                                           {% if rule.method == 'market_based' %}checked{% endif %}>
+                                    <div class="method-icon bg-warning-subtle text-warning">
+                                        <i class="fas fa-chart-line"></i>
+                                    </div>
+                                    <strong>{% trans "حسب السوق" %}</strong>
+                                </label>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="method-option {% if rule.method == 'ai_dynamic' %}selected{% endif %}" 
+                                       onclick="selectMethod(this, 'ai_dynamic')">
+                                    <input type="radio" name="method" value="ai_dynamic"
+                                           {% if rule.method == 'ai_dynamic' %}checked{% endif %}>
+                                    <div class="method-icon bg-info-subtle text-info">
+                                        <i class="fas fa-robot"></i>
+                                    </div>
+                                    <strong>{% trans "ذكاء اصطناعي" %}</strong>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-check form-switch mt-3">
+                            <input class="form-check-input" type="checkbox" name="is_active" id="isActive" 
+                                   {% if rule.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="isActive">{% trans "تفعيل القاعدة" %}</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- معاملات التسعير -->
+                <div class="card form-card shadow-sm mb-4">
+                    <div class="card-body p-4">
+                        <div class="form-section">
+                            <i class="fas fa-sliders-h"></i>
+                            {% trans "معاملات التسعير" %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-4">
+                                <label class="form-label">{% trans "معامل التكلفة الأساسية" %}</label>
+                                <div class="input-group">
+                                    <input type="number" name="base_cost_multiplier" class="form-control" 
+                                           step="0.01" min="0.1" max="10" value="{{ rule.base_cost_multiplier }}">
+                                    <span class="input-group-text">×</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-4">
+                                <label class="form-label">{% trans "حد الخصم الكمي" %}</label>
+                                <div class="input-group">
+                                    <input type="number" name="quantity_discount_threshold" class="form-control" 
+                                           min="1" value="{{ rule.quantity_discount_threshold }}">
+                                    <span class="input-group-text">{% trans "وحدة" %}</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-4">
+                                <label class="form-label">{% trans "نسبة الخصم الكمي" %}</label>
+                                <div class="input-group">
+                                    <input type="number" name="quantity_discount_rate" class="form-control" 
+                                           step="0.1" min="0" max="50" value="{{ rule.quantity_discount_rate }}">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- هامش الربح -->
+                <div class="card form-card shadow-sm mb-4">
+                    <div class="card-body p-4">
+                        <div class="form-section">
+                            <i class="fas fa-percentage"></i>
+                            {% trans "هامش الربح" %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-4">
+                                <label class="form-label">{% trans "هامش الربح الأدنى" %}</label>
+                                <div class="d-flex align-items-center">
+                                    <input type="range" name="min_profit_margin" class="form-range me-3" 
+                                           min="0" max="50" step="1" value="{{ rule.min_profit_margin|floatformat:0 }}" 
+                                           oninput="updateRangeValue(this, 'minMarginValue')">
+                                    <span class="range-value" id="minMarginValue">{{ rule.min_profit_margin|floatformat:0 }}%</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-4">
+                                <label class="form-label">{% trans "هامش الربح المستهدف" %}</label>
+                                <div class="d-flex align-items-center">
+                                    <input type="range" name="target_profit_margin" class="form-range me-3" 
+                                           min="0" max="100" step="1" value="{{ rule.target_profit_margin|floatformat:0 }}"
+                                           oninput="updateRangeValue(this, 'targetMarginValue')">
+                                    <span class="range-value" id="targetMarginValue">{{ rule.target_profit_margin|floatformat:0 }}%</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-4">
+                                <label class="form-label">{% trans "هامش الربح الأقصى" %}</label>
+                                <div class="d-flex align-items-center">
+                                    <input type="range" name="max_profit_margin" class="form-range me-3" 
+                                           min="0" max="100" step="1" value="{{ rule.max_profit_margin|floatformat:0 }}"
+                                           oninput="updateRangeValue(this, 'maxMarginValue')">
+                                    <span class="range-value" id="maxMarginValue">{{ rule.max_profit_margin|floatformat:0 }}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- معاملات الحجم -->
+                <div class="card form-card shadow-sm mb-4">
+                    <div class="card-body p-4">
+                        <div class="form-section">
+                            <i class="fas fa-expand-arrows-alt"></i>
+                            {% trans "معاملات الحجم" %}
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <div class="multiplier-card">
+                                    <i class="fas fa-compress text-muted mb-2"></i>
+                                    <h6>{% trans "صغير" %}</h6>
+                                    <input type="number" name="size_multiplier_small" class="form-control text-center" 
+                                           step="0.01" min="0.1" max="5" value="{{ rule.size_multiplier_small }}">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="multiplier-card">
+                                    <i class="fas fa-arrows-alt-h text-muted mb-2"></i>
+                                    <h6>{% trans "متوسط" %}</h6>
+                                    <input type="number" name="size_multiplier_medium" class="form-control text-center" 
+                                           step="0.01" min="0.1" max="5" value="{{ rule.size_multiplier_medium }}">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="multiplier-card">
+                                    <i class="fas fa-expand text-muted mb-2"></i>
+                                    <h6>{% trans "كبير" %}</h6>
+                                    <input type="number" name="size_multiplier_large" class="form-control text-center" 
+                                           step="0.01" min="0.1" max="5" value="{{ rule.size_multiplier_large }}">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="multiplier-card">
+                                    <i class="fas fa-maximize text-muted mb-2"></i>
+                                    <h6>{% trans "ضخم" %}</h6>
+                                    <input type="number" name="size_multiplier_xlarge" class="form-control text-center" 
+                                           step="0.01" min="0.1" max="5" value="{{ rule.size_multiplier_xlarge }}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- معاملات التعقيد -->
+                <div class="card form-card shadow-sm mb-4">
+                    <div class="card-body p-4">
+                        <div class="form-section">
+                            <i class="fas fa-cogs"></i>
+                            {% trans "معاملات التعقيد" %}
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="multiplier-card">
+                                    <i class="fas fa-square text-success mb-2"></i>
+                                    <h6>{% trans "بسيط" %}</h6>
+                                    <input type="number" name="complexity_simple" class="form-control text-center" 
+                                           step="0.01" min="0.1" max="5" value="{{ rule.complexity_simple }}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="multiplier-card">
+                                    <i class="fas fa-th text-warning mb-2"></i>
+                                    <h6>{% trans "متوسط" %}</h6>
+                                    <input type="number" name="complexity_medium" class="form-control text-center" 
+                                           step="0.01" min="0.1" max="5" value="{{ rule.complexity_medium }}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="multiplier-card">
+                                    <i class="fas fa-cubes text-danger mb-2"></i>
+                                    <h6>{% trans "معقد" %}</h6>
+                                    <input type="number" name="complexity_complex" class="form-control text-center" 
+                                           step="0.01" min="0.1" max="5" value="{{ rule.complexity_complex }}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- الشريط الجانبي -->
+            <div class="col-lg-4">
+                <div class="card form-card shadow-sm mb-4 sticky-top" style="top: 20px;">
+                    <div class="card-body p-4">
+                        <h5 class="mb-4">
+                            <i class="fas fa-info-circle text-primary"></i>
+                            {% trans "معلومات القاعدة" %}
+                        </h5>
+
+                        <div class="mb-3">
+                            <small class="text-muted">{% trans "تاريخ الإنشاء" %}</small>
+                            <p class="mb-0">{{ rule.created_at|date:"Y/m/d H:i" }}</p>
+                        </div>
+                        <div class="mb-4">
+                            <small class="text-muted">{% trans "آخر تحديث" %}</small>
+                            <p class="mb-0">{{ rule.updated_at|date:"Y/m/d H:i" }}</p>
+                        </div>
+
+                        <!-- أزرار الحفظ -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-submit">
+                                <i class="fas fa-save me-2"></i>
+                                {% trans "حفظ التغييرات" %}
+                            </button>
+                            <a href="{% url 'smart_pricing:rules_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-2"></i>
+                                {% trans "إلغاء" %}
+                            </a>
+                            <hr>
+                            <button type="button" class="btn btn-outline-danger" onclick="confirmDelete()">
+                                <i class="fas fa-trash me-2"></i>
+                                {% trans "حذف القاعدة" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">{% trans "تأكيد الحذف" %}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "هل أنت متأكد من حذف قاعدة التسعير" %} <strong>{{ rule.name }}</strong>؟</p>
+                <p class="text-danger mb-0">{% trans "هذا الإجراء لا يمكن التراجع عنه." %}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "إلغاء" %}</button>
+                <form method="post" action="{% url 'smart_pricing:rule_delete' rule.id %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">{% trans "نعم، احذف" %}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function selectMethod(element, value) {
+        document.querySelectorAll('.method-option').forEach(function(el) {
+            el.classList.remove('selected');
+        });
+        element.classList.add('selected');
+        element.querySelector('input').checked = true;
+    }
+
+    function updateRangeValue(input, spanId) {
+        document.getElementById(spanId).textContent = input.value + '%';
+    }
+
+    function confirmDelete() {
+        var modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        modal.show();
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,175 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load humanize %}
+
+{% block title %}تقرير الموازنة مقابل الفعلي{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-chart-bar"></i>
+                        تقرير الموازنة مقابل الفعلي
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <!-- Filters -->
+                    <form method="get" class="mb-4">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label>السنة</label>
+                                <select name="year" class="form-control">
+                                    {% for y in years %}
+                                    <option value="{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label>الشهر</label>
+                                <select name="month" class="form-control">
+                                    {% for m in months %}
+                                    <option value="{ m }}" {% if m == month %}selected{% endif %}>
+                                        {{ m }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label>مركز التكلفة</label>
+                                <select name="cost_center" class="form-control">
+                                    <option value="">الكل</option>
+                                    {% for cc in cost_centers %}
+                                    <option value="{ cc.id }}" {% if selected_cost_center == cc.id|stringformat:"s" %}selected{% endif %}>
+                                        {{ cc.code }} - {{ cc.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label>&nbsp;</label>
+                                <button type="submit" class="btn btn-primary btn-block">
+                                    <i class="fas fa-search"></i> عرض
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Summary Cards -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body">
+                                    <h5>إجمالي الموازنة</h5>
+                                    <h3>{{ total_budget|floatformat:2|intcomma }} جنيه</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body">
+                                    <h5>الفعلي</h5>
+                                    <h3>{{ total_actual|floatformat:2|intcomma }} جنيه</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card {% if total_variance >= 0 %}bg-success{% else %}bg-danger{% endif %} text-white">
+                                <div class="card-body">
+                                    <h5>الانحراف</h5>
+                                    <h3>{{ total_variance|floatformat:2|intcomma }} جنيه</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card {% if total_utilization_pct <= 100 %}bg-success{% else %}bg-danger{% endif %} text-white">
+                                <div class="card-body">
+                                    <h5>نسبة الاستخدام</h5>
+                                    <h3>{{ total_utilization_pct|floatformat:1 }}%</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Results Table -->
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th>الكود</th>
+                                    <th>مركز التكلفة</th>
+                                    <th>الموازنة</th>
+                                    <th>الفعلي</th>
+                                    <th>الانحراف</th>
+                                    <th>الانحراف %</th>
+                                    <th>نسبة الاستخدام</th>
+                                    <th>الحالة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for result in results %}
+                                <tr class="{% if result.status == 'danger' %}table-danger{% elif result.status == 'warning' %}table-warning{% endif %}">
+                                    <td>{{ result.cost_center.code }}</td>
+                                    <td>{{ result.cost_center.name }}</td>
+                                    <td class="text-right">{{ result.budget|floatformat:2|intcomma }}</td>
+                                    <td class="text-right">{{ result.actual|floatformat:2|intcomma }}</td>
+                                    <td class="text-right {% if result.variance < 0 %}text-danger{% else %}text-success{% endif %}">
+                                        {{ result.variance|floatformat:2|intcomma }}
+                                    </td>
+                                    <td class="text-right {% if result.variance_pct < 0 %}text-danger{% else %}text-success{% endif %}">
+                                        {{ result.variance_pct|floatformat:1 }}%
+                                    </td>
+                                    <td class="text-right">
+                                        <div class="progress">
+                                            <div class="progress-bar {% if result.utilization_pct > 100 %}bg-danger{% elif result.utilization_pct > 90 %}bg-warning{% else %}bg-success{% endif %}" 
+                                                 style="width: {% if result.utilization_pct > 100 %}100{% else %}{ result.utilization_pct }{% endif %}%">
+                                                {{ result.utilization_pct|floatformat:1 }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if result.status == 'danger' %}
+                                            <span class="badge badge-danger">تجاوز</span>
+                                        {% elif result.status == 'warning' %}
+                                            <span class="badge badge-warning">تحذير</span>
+                                        {% else %}
+                                            <span class="badge badge-success">جيد</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center">لا توجد بيانات للفترة المحددة</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Export Buttons -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <a href="?{{ request.GET.urlencode }}&format=json" class="btn btn-info" target="_blank">
+                                <i class="fas fa-file-code"></i> تصدير JSON
+                            </a>
+                            <button class="btn btn-success" onclick="window.print()">
+                                <i class="fas fa-print"></i> طباعة
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .card-header { background-color: #007bff !important; -webkit-print-color-adjust: exact; }
+    .btn { display: none; }
+    form { display: none; }
+}
+</style>
+{% endblock %}
+

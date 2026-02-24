@@ -1,0 +1,322 @@
+{% load i18n %}
+
+<!-- Modal الدفع -->
+<div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="paymentModalLabel">
+                    <i class="bi bi-cash-stack me-2"></i>{% trans 'إتمام الدفع' %}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- ملخص الطلب -->
+                <div class="d-flex justify-content-between align-items-center mb-3 p-3 bg-light rounded">
+                    <div>
+                        <span class="text-muted">{% trans 'عدد الأصناف' %}:</span>
+                        <span id="itemsCount" class="fw-bold ms-2">0</span>
+                    </div>
+                    <div>
+                        <span class="text-muted">{% trans 'الخصم' %}:</span>
+                        <span id="discountDisplay" class="text-danger fw-bold ms-2">0.00</span>
+                    </div>
+                    <div class="text-end">
+                        <span class="text-muted">{% trans 'الإجمالي' %}:</span>
+                        <span id="paymentTotal" class="fs-4 fw-bold text-success ms-2">0.00</span>
+                        <small class="text-muted">{% trans 'ج.م' %}</small>
+                    </div>
+                </div>
+                
+                <!-- طريقة الدفع -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold">{% trans 'طريقة الدفع' %}</label>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <div class="payment-method-card active" data-method="cash">
+                            <i class="bi bi-cash-coin fs-4"></i>
+                            <span>{% trans 'نقدي' %}</span>
+                        </div>
+                        <div class="payment-method-card" data-method="card">
+                            <i class="bi bi-credit-card fs-4"></i>
+                            <span>{% trans 'بطاقة' %}</span>
+                        </div>
+                        <div class="payment-method-card" data-method="account">
+                            <i class="bi bi-person-badge fs-4"></i>
+                            <span>{% trans 'حساب آجل' %}</span>
+                        </div>
+                        <div class="payment-method-card" data-method="mixed">
+                            <i class="bi bi-pie-chart fs-4"></i>
+                            <span>{% trans 'مختلط' %}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- المبلغ المدفوع والباقي -->
+                <div class="row g-3 mb-3">
+                    <div class="col-6">
+                        <label class="form-label">{% trans 'المبلغ المدفوع' %}</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control form-control-lg text-center" 
+                                   id="paidAmount" step="0.01" min="0" value="0">
+                            <span class="input-group-text">{% trans 'ج.م' %}</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">{% trans 'الباقي' %}</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control form-control-lg text-center bg-light" 
+                                   id="changeAmount" readonly value="0.00">
+                            <span class="input-group-text">{% trans 'ج.م' %}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- مبالغ سريعة -->
+                <div class="mb-3">
+                    <label class="form-label">{% trans 'مبالغ سريعة' %}</label>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="button" class="btn btn-outline-secondary quick-amount" data-amount="exact">المبلغ بالضبط</button>
+                        <button type="button" class="btn btn-outline-secondary quick-amount" data-amount="50">50</button>
+                        <button type="button" class="btn btn-outline-secondary quick-amount" data-amount="100">100</button>
+                        <button type="button" class="btn btn-outline-secondary quick-amount" data-amount="200">200</button>
+                        <button type="button" class="btn btn-outline-secondary quick-amount" data-amount="500">500</button>
+                    </div>
+                </div>
+                
+                <!-- ملاحظات -->
+                <div class="mb-3">
+                    <label class="form-label">{% trans 'ملاحظات (اختياري)' %}</label>
+                    <textarea class="form-control" id="paymentNotes" rows="2" 
+                              placeholder="{% trans 'أي ملاحظات إضافية...' %}"></textarea>
+                </div>
+                
+                <!-- خيارات الطباعة -->
+                <div class="mb-3">
+                    <div class="card bg-success text-white" id="xprinterCard">
+                        <div class="card-body py-2">
+                            <div class="form-check d-flex justify-content-between align-items-center">
+                                <div>
+                                    <input class="form-check-input" type="checkbox" id="autoPrintXPrinter" checked>
+                                    <label class="form-check-label fw-bold" for="autoPrintXPrinter">
+                                        🖨️ {% trans 'طباعة مباشرة على XPrinter' %}
+                                    </label>
+                                </div>
+                                <span id="printerStatus" class="badge bg-light text-dark" style="font-size: 0.7rem;">
+                                    ⏳ {% trans 'جاري الفحص...' %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- وجهة الدفع/التحصيل -->
+                {% include 'partials/_payment_destination.html' %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i>{% trans 'إلغاء' %}
+                </button>
+                <button type="button" class="btn btn-success btn-lg" id="confirmPayment">
+                    <i class="bi bi-check-circle me-1"></i>{% trans 'تأكيد الدفع' %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.payment-method-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 15px 20px;
+    border: 2px solid #dee2e6;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 80px;
+}
+.payment-method-card:hover {
+    border-color: #198754;
+    background-color: #f8f9fa;
+}
+.payment-method-card.active {
+    border-color: #198754;
+    background-color: #d1e7dd;
+}
+.quick-amount {
+    min-width: 60px;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // تبديل طريقة الدفع
+    document.querySelectorAll('.payment-method-card').forEach(card => {
+        card.addEventListener('click', function() {
+            document.querySelectorAll('.payment-method-card').forEach(c => c.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+    
+    // المبالغ السريعة
+    document.querySelectorAll('.quick-amount').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const amount = this.dataset.amount;
+            const paidInput = document.getElementById('paidAmount');
+            const totalEl = document.getElementById('paymentTotal');
+            
+            if (amount === 'exact') {
+                paidInput.value = parseFloat(totalEl.textContent) || 0;
+            } else {
+                paidInput.value = parseFloat(amount);
+            }
+            updateChange();
+        });
+    });
+    
+    // حساب الباقي
+    const paidInput = document.getElementById('paidAmount');
+    if (paidInput) {
+        paidInput.addEventListener('input', updateChange);
+    }
+    
+    function updateChange() {
+        const total = parseFloat(document.getElementById('paymentTotal').textContent) || 0;
+        const paid = parseFloat(document.getElementById('paidAmount').value) || 0;
+        const change = paid - total;
+        document.getElementById('changeAmount').value = change >= 0 ? change.toFixed(2) : '0.00';
+    }
+    
+    // ========== معالج زر تأكيد الدفع ==========
+    const confirmPaymentBtn = document.getElementById('confirmPayment');
+    if (confirmPaymentBtn) {
+        confirmPaymentBtn.addEventListener('click', async function() {
+            const total = parseFloat(document.getElementById('paymentTotal').textContent) || 0;
+            const paid = parseFloat(document.getElementById('paidAmount').value) || 0;
+            
+            if (paid < total) {
+                if (!confirm(`المبلغ المدفوع أقل من الإجمالي. هل تريد المتابعة؟`)) {
+                    return;
+                }
+            }
+            
+            // جمع بيانات الدفع
+            const selectedMethod = document.querySelector('.payment-method-card.active');
+            const paymentMethod = selectedMethod ? selectedMethod.dataset.method : 'cash';
+            const notes = document.getElementById('paymentNotes')?.value || '';
+            
+            const paymentData = {
+                cart: window.posCart || [],
+                total: total,
+                paid_amount: paid,
+                payment_method: paymentMethod,
+                notes: notes,
+                order_id: window.posOrderId
+            };
+            
+            try {
+                confirmPaymentBtn.disabled = true;
+                confirmPaymentBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>جاري...';
+                
+                // إرسال الطلب
+                const response = await fetch('/pos/api/complete-order/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': window.csrfToken
+                    },
+                    body: JSON.stringify(paymentData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // إغلاق الـModal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('paymentModal'));
+                    if (modal) modal.hide();
+                    
+                    // ========== الطباعة المباشرة عبر Print Agent ==========
+                    const autoPrint = document.getElementById('autoPrintXPrinter');
+                    if (autoPrint && autoPrint.checked && result.order_id) {
+                        await printViaAgent(result.order_id);
+                    }
+                    
+                    // الانتقال للإيصال
+                    setTimeout(() => {
+                        window.location.href = '/pos/order/' + result.order_id + '/receipt/';
+                    }, 1500);
+                    
+                } else {
+                    alert('خطأ: ' + (result.error || 'حدث خطأ'));
+                    confirmPaymentBtn.disabled = false;
+                    confirmPaymentBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>تأكيد الدفع';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('حدث خطأ');
+                confirmPaymentBtn.disabled = false;
+                confirmPaymentBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>تأكيد الدفع';
+            }
+        });
+    }
+    
+    // ========== نظام الطباعة عبر TonyPrint Agent ==========
+    
+    // فحص حالة الاتصال بوكيل الطباعة
+    // الآن يتم تلقائياً عبر print_status.js الذي يحدّث #printerStatus و #xprinterCard
+    // لكن نحتفظ بالدالة للتوافق مع الكود القديم
+    function checkPrintAgent() {
+        // print_status.js يقوم بالتحديث تلقائياً
+        // هذه الدالة إضافية لحالات الاستدعاء اليدوي
+        if (typeof PrintStatus !== 'undefined') {
+            PrintStatus.refresh();
+        }
+    }
+    
+    // طباعة عبر TonyPrint Agent
+    async function printViaAgent(orderId) {
+        try {
+            if (typeof TonyPrint === 'undefined') {
+                console.error('TonyPrint غير محمّل');
+                if (window.showNotification) {
+                    showNotification('⚠️ نظام الطباعة غير محمّل - أعد تحميل الصفحة', 'warning');
+                }
+                return;
+            }
+            
+            if (!TonyPrint.isConnected()) {
+                console.error('TonyPrint غير متصل');
+                if (window.showNotification) {
+                    showNotification('⚠️ وكيل الطباعة غير متصل - شغّل agent_windows.py على جهازك', 'warning');
+                }
+                return;
+            }
+            
+            const result = await TonyPrint.printOrderReceipt(orderId, {open_drawer: true});
+            if (result.success) {
+                console.log('✅ تمت الطباعة عبر TonyPrint');
+                if (window.showNotification) {
+                    showNotification('✅ تمت الطباعة على الطابعة الحرارية', 'success');
+                }
+            } else {
+                console.error('❌ فشلت الطباعة:', result.error);
+                if (window.showNotification) {
+                    showNotification('❌ خطأ في الطباعة: ' + (result.error || 'خطأ غير معروف'), 'error');
+                }
+            }
+        } catch (error) {
+            console.error('خطأ في الطباعة:', error);
+            if (window.showNotification) {
+                showNotification('❌ خطأ: ' + (error.message || 'خطأ غير معروف'), 'error');
+            }
+        }
+    }
+    
+    // تصدير الدالة للاستخدام من صفحة الإيصال
+    window.printViaAgent = printViaAgent;
+    window.checkPrintAgent = checkPrintAgent;
+});
+</script>

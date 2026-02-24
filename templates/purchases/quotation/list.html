@@ -1,0 +1,207 @@
+﻿{% extends 'base_templates/_list_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'عروض الأسعار من الموردين' %}{% endblock %}
+{% block hero_icon %}bi-file-earmark-text{% endblock %}
+{% block hero_title %}{% trans 'عروض الأسعار من الموردين' %}{% endblock %}
+{% block hero_subtitle %}{% trans 'مقارنة عروض الأسعار المستلمة من الموردين واختيار الأفضل' %}{% endblock %}
+
+{% block hero_actions %}
+<a href="{% url 'purchases:rfq_create' %}" class="btn btn-light">
+  <i class="bi bi-plus-lg me-1"></i>{% trans 'طلب عرض سعر جديد' %}
+</a>
+<a href="{% url 'purchases:rfq_list' %}" class="btn btn-outline-light btn-sm">
+  <i class="bi bi-file-text me-1"></i>{% trans 'طلبات عروض الأسعار' %}
+</a>
+{% endblock %}
+
+{% block stats_section %}
+<div class="stats-grid">
+  <div class="stat-card primary">
+    <div class="stat-icon"><i class="bi bi-file-earmark-text"></i></div>
+    <div class="stat-value">{{ stats.total|default:0 }}</div>
+    <div class="stat-label">{% trans 'إجمالي العروض' %}</div>
+  </div>
+  <div class="stat-card warning">
+    <div class="stat-icon"><i class="bi bi-hourglass-split"></i></div>
+    <div class="stat-value">{{ stats.pending|default:0 }}</div>
+    <div class="stat-label">{% trans 'قيد المراجعة' %}</div>
+  </div>
+  <div class="stat-card success">
+    <div class="stat-icon"><i class="bi bi-check-circle"></i></div>
+    <div class="stat-value">{{ stats.accepted|default:0 }}</div>
+    <div class="stat-label">{% trans 'مقبولة' %}</div>
+  </div>
+  <div class="stat-card info">
+    <div class="stat-icon"><i class="bi bi-cart-check"></i></div>
+    <div class="stat-value">{{ stats.converted|default:0 }}</div>
+    <div class="stat-label">{% trans 'تم التحويل لأمر شراء' %}</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block filter_fields %}
+<div class="filter-group">
+  <label>{% trans 'بحث' %}</label>
+  <div class="input-group input-group-sm">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input type="text" name="search" class="form-control" placeholder="{% trans 'رقم العرض أو المورد...' %}" value="{{ search }}">
+  </div>
+</div>
+<div class="filter-group">
+  <label>{% trans 'الحالة' %}</label>
+  <select name="status" class="form-select form-select-sm">
+    <option value="">{% trans 'جميع الحالات' %}</option>
+    <option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>{% trans 'مسودة' %}</option>
+    <option value="submitted" {% if status_filter == 'submitted' %}selected{% endif %}>{% trans 'مُقدم' %}</option>
+    <option value="under_review" {% if status_filter == 'under_review' %}selected{% endif %}>{% trans 'قيد المراجعة' %}</option>
+    <option value="accepted" {% if status_filter == 'accepted' %}selected{% endif %}>{% trans 'مقبول' %}</option>
+    <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>{% trans 'مرفوض' %}</option>
+    <option value="expired" {% if status_filter == 'expired' %}selected{% endif %}>{% trans 'منتهي' %}</option>
+  </select>
+</div>
+<div class="filter-group">
+  <label>{% trans 'المورد' %}</label>
+  <select name="supplier" class="form-select form-select-sm">
+    <option value="">{% trans 'كل الموردين' %}</option>
+    {% for supplier in suppliers %}
+    <option value="{{ supplier.id }}" {% if supplier_filter|stringformat:"s" == supplier.id|stringformat:"s" %}selected{% endif %}>{{ supplier.name }}</option>
+    {% endfor %}
+  </select>
+</div>
+{% endblock %}
+
+{% block table_icon %}bi-file-earmark-text{% endblock %}
+{% block table_title %}{% trans 'عروض الأسعار' %}{% endblock %}
+{% block table_count %}
+<span class="badge bg-primary rounded-pill ms-2">{{ quotations|length }}</span>
+{% endblock %}
+
+{% block table_actions %}
+{% endblock %}
+
+{% block table_headers %}
+<th style="width: 50px;">#</th>
+<th>{% trans 'رقم العرض' %}</th>
+<th>{% trans 'المورد' %}</th>
+<th>{% trans 'طلب عرض السعر' %}</th>
+<th>{% trans 'التاريخ' %}</th>
+<th>{% trans 'صلاحية العرض' %}</th>
+<th class="text-end">{% trans 'المبلغ' %}</th>
+<th>{% trans 'الحالة' %}</th>
+<th class="text-center" style="width: 140px;">{% trans 'الإجراءات' %}</th>
+{% endblock %}
+
+{% block table_body %}
+{% for quote in quotations %}
+<tr>
+  <td>{{ forloop.counter }}</td>
+  <td>
+    <div class="cell-main">
+      <a href="{% url 'purchases:quotation_detail' quote.pk %}">{{ quote.number }}</a>
+    </div>
+    {% if quote.items.count %}
+    <div class="cell-sub">{{ quote.items.count }} {% trans 'صنف' %}</div>
+    {% endif %}
+  </td>
+  <td>
+    <div class="d-flex align-items-center gap-2">
+      <div class="cell-avatar">
+        <i class="bi bi-building"></i>
+      </div>
+      <div>
+        <div class="fw-medium">{{ quote.supplier.name }}</div>
+        {% if quote.supplier.email %}
+        <div class="cell-sub">{{ quote.supplier.email }}</div>
+        {% endif %}
+      </div>
+    </div>
+  </td>
+  <td>
+    {% if quote.rfq %}
+    <a href="{% url 'purchases:rfq_detail' quote.rfq.pk %}" class="text-decoration-none">
+      {{ quote.rfq.number }}
+    </a>
+    {% else %}
+    <span class="text-muted">-</span>
+    {% endif %}
+  </td>
+  <td>
+    <div>{{ quote.quotation_date|date:"Y/m/d" }}</div>
+  </td>
+  <td>
+    {% if quote.valid_until %}
+    <div>{{ quote.valid_until|date:"Y/m/d" }}</div>
+    {% else %}
+    <span class="text-muted">-</span>
+    {% endif %}
+  </td>
+  <td class="text-end">
+    <div class="fw-bold text-primary">{{ quote.total|floatformat:2 }}</div>
+    <div class="cell-sub">{% trans 'ج.م' %}</div>
+  </td>
+  <td>
+    {% if quote.status == 'draft' %}
+    <span class="pro-badge draft"><i class="bi bi-pencil"></i> {% trans 'مسودة' %}</span>
+    {% elif quote.status == 'submitted' %}
+    <span class="pro-badge pending"><i class="bi bi-hourglass"></i> {% trans 'مُقدم' %}</span>
+    {% elif quote.status == 'under_review' %}
+    <span class="pro-badge pending"><i class="bi bi-hourglass"></i> {% trans 'قيد المراجعة' %}</span>
+    {% elif quote.status == 'accepted' %}
+    <span class="pro-badge approved"><i class="bi bi-check"></i> {% trans 'مقبول' %}</span>
+    {% elif quote.status == 'rejected' %}
+    <span class="pro-badge rejected"><i class="bi bi-x"></i> {% trans 'مرفوض' %}</span>
+    {% elif quote.status == 'expired' %}
+    <span class="pro-badge rejected"><i class="bi bi-exclamation"></i> {% trans 'منتهي' %}</span>
+    {% endif %}
+  </td>
+  <td>
+    <div class="action-buttons">
+      <a href="{% url 'purchases:quotation_detail' quote.pk %}" class="action-btn view" title="{% trans 'عرض' %}">
+        <i class="bi bi-eye"></i>
+      </a>
+    </div>
+  </td>
+</tr>
+{% empty %}
+<tr>
+  <td colspan="9">
+    <div class="empty-state">
+      <div class="empty-icon"><i class="bi bi-file-earmark-text"></i></div>
+      <h5>{% trans 'لا توجد عروض أسعار' %}</h5>
+      <p>{% trans 'أضف عرض سعر جديد من المورد أو أرسل طلب عرض سعر' %}</p>
+      <div class="d-flex gap-2 justify-content-center">
+        <a href="{% url 'purchases:rfq_create' %}" class="btn btn-primary">
+          <i class="bi bi-send me-1"></i>{% trans 'طلب عرض سعر' %}
+        </a>
+      </div>
+    </div>
+  </td>
+</tr>
+{% endfor %}
+{% endblock %}
+
+{% block pagination %}
+{% if page_obj.has_other_pages %}
+<div class="pagination-wrapper">
+  <div class="pagination-info">
+    {% trans 'عرض' %} {{ page_obj.start_index }}-{{ page_obj.end_index }} {% trans 'من' %} {{ page_obj.paginator.count }}
+  </div>
+  <nav>
+    <ul class="pagination pagination-sm mb-0">
+      {% if page_obj.has_previous %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans 'السابق' %}</a></li>
+      {% endif %}
+      <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+      {% if page_obj.has_next %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">{% trans 'التالي' %}</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block list_scripts %}
+{% endblock %}

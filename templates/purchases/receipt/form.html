@@ -1,0 +1,353 @@
+﻿{% extends 'base_templates/_form_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% if receipt %}{% trans 'تعديل سند الاستلام' %}{% else %}{% trans 'إنشاء سند استلام' %}{% endif %}{% endblock %}
+{% block hero_icon %}bi-box-arrow-in-down{% endblock %}
+{% block hero_title %}{% if receipt %}{% trans 'تعديل سند الاستلام' %} - {{ receipt.receipt_number }}{% else %}{% trans 'إنشاء سند استلام جديد' %}{% endif %}{% endblock %}
+{% block hero_subtitle %}{% trans 'تسجيل استلام البضائع من الموردين' %}{% endblock %}
+
+{% block back_url %}{% url 'purchases:receipt_list' %}{% endblock %}
+
+{% block form_styles %}
+<style>
+.po-select-card {
+  background: linear-gradient(135deg, rgba(var(--color-brand-primary-rgb),0.08) 0%, rgba(var(--color-brand-primary-rgb),0.02) 100%);
+  border: 2px solid var(--color-brand-primary);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.po-select-card .po-label {
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-brand-primary);
+}
+.receipt-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.items-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: var(--bs-tertiary-bg);
+  border-radius: 12px 12px 0 0;
+  border: 1px solid var(--bs-border-color);
+  border-bottom: none;
+}
+.items-section-header .section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+.items-section-header .section-title i {
+  color: var(--color-brand-accent);
+}
+.receipt-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--bs-border-color);
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  overflow: hidden;
+}
+.receipt-items-table thead th {
+  background: var(--bs-tertiary-bg);
+  padding: 0.75rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+.receipt-items-table tbody td {
+  padding: 0.75rem 1rem;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+.receipt-items-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.receipt-items-table .qty-group {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.receipt-items-table .qty-ordered {
+  font-size: 0.75rem;
+  color: var(--bs-secondary-color);
+  text-align: center;
+}
+.receipt-items-table .qty-input {
+  width: 80px;
+  text-align: center;
+}
+.receipt-items-table .condition-select {
+  width: 120px;
+}
+.warehouse-section {
+  background: var(--bs-tertiary-bg);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-top: 1.5rem;
+}
+.warehouse-section .section-label {
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.warehouse-section .section-label i {
+  color: var(--color-brand-primary);
+}
+.delivery-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+</style>
+{% endblock %}
+
+{% block form_content %}
+{# PO Selection #}
+<div class="po-select-card">
+  <div class="po-label">
+    <i class="bi bi-file-earmark-ruled"></i>
+    {% trans 'أمر الشراء' %} <span class="text-danger">*</span>
+  </div>
+  <select name="purchase_order" id="poSelect" class="form-select form-select-lg" required onchange="loadPOItems()">
+    <option value="">{% trans '-- اختر أمر الشراء للاستلام --' %}</option>
+    {% for po in purchase_orders %}
+    <option value="{{ po.pk }}" 
+            data-supplier="{{ po.supplier.name }}"
+            data-items='{ po.items_json|safe }'
+            {% if receipt.purchase_order.pk == po.pk %}selected{% endif %}>
+      {{ po.po_number }} - {{ po.supplier.name }} ({{ po.date|date:"Y/m/d" }})
+    </option>
+    {% endfor %}
+  </select>
+</div>
+
+{# Receipt Meta #}
+<div class="receipt-meta">
+  <div class="form-field">
+    <label class="form-label">{% trans 'رقم سند الاستلام' %}</label>
+    <input type="text" name="receipt_number" class="form-control" 
+           value="{ receipt.receipt_number|default:auto_number }}" readonly>
+  </div>
+  <div class="form-field">
+    <label class="form-label">{% trans 'تاريخ الاستلام' %} <span class="text-danger">*</span></label>
+    <input type="date" name="receipt_date" class="form-control" 
+           value="{ receipt.receipt_date|date:'Y-m-d'|default:today }}" required>
+  </div>
+  <div class="form-field">
+    <label class="form-label">{% trans 'المورد' %}</label>
+    <input type="text" id="supplierName" class="form-control" 
+           value="{ receipt.purchase_order.supplier.name|default:'' }}" readonly>
+  </div>
+  <div class="form-field">
+    <label class="form-label">{% trans 'رقم بوليصة الشحن' %}</label>
+    <input type="text" name="shipping_ref" class="form-control" 
+           value="{ receipt.shipping_ref|default:'' }}" placeholder="{% trans 'اختياري' %}">
+  </div>
+</div>
+
+{# Items Section #}
+<div class="items-section-header">
+  <div class="section-title">
+    <i class="bi bi-box-seam"></i>
+    {% trans 'الأصناف المستلمة' %}
+  </div>
+  <span class="badge bg-primary" id="itemsCount">0 {% trans 'صنف' %}</span>
+</div>
+
+<div class="table-responsive">
+  <table class="receipt-items-table">
+    <thead>
+      <tr>
+        <th style="width: 5%">#</th>
+        <th style="width: 30%">{% trans 'الصنف' %}</th>
+        <th class="text-center" style="width: 12%">{% trans 'المطلوب' %}</th>
+        <th class="text-center" style="width: 15%">{% trans 'الكمية المستلمة' %}</th>
+        <th class="text-center" style="width: 15%">{% trans 'الحالة' %}</th>
+        <th style="width: 23%">{% trans 'ملاحظات' %}</th>
+      </tr>
+    </thead>
+    <tbody id="itemsBody">
+      {% for item in receipt.items.all %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>
+          <div class="fw-medium">{{ item.product.name }}</div>
+          <div class="small text-muted">{{ item.product.code }}</div>
+          <input type="hidden" name="items[][product]" value="{ item.product.pk }">
+        </td>
+        <td class="text-center">
+          <span class="badge bg-secondary">{{ item.ordered_qty }}</span>
+        </td>
+        <td>
+          <input type="number" name="items[][received_qty]" class="form-control qty-input mx-auto" 
+                 value="{{ item.received_qty }}" min="0" max="{ item.ordered_qty }}" step="0.01">
+        </td>
+        <td>
+          <select name="items[][condition]" class="form-select condition-select mx-auto">
+            <option value="good" {% if item.condition == 'good' %}selected{% endif %}>{% trans 'سليم' %}</option>
+            <option value="damaged" {% if item.condition == 'damaged' %}selected{% endif %}>{% trans 'تالف' %}</option>
+            <option value="partial" {% if item.condition == 'partial' %}selected{% endif %}>{% trans 'جزئي' %}</option>
+          </select>
+        </td>
+        <td>
+          <input type="text" name="items[][note]" class="form-control form-control-sm" 
+                 value="{ item.note|default:'' }}" placeholder="{% trans 'ملاحظة...' %}">
+        </td>
+      </tr>
+      {% empty %}
+      <tr id="emptyRow">
+        <td colspan="6" class="text-center py-4 text-muted">
+          <i class="bi bi-arrow-up-circle fs-3 d-block mb-2"></i>
+          {% trans 'اختر أمر الشراء أولاً لعرض الأصناف' %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# Warehouse Selection #}
+<div class="warehouse-section">
+  <div class="section-label">
+    <i class="bi bi-building"></i>
+    {% trans 'معلومات المستودع والتوصيل' %}
+  </div>
+  
+  <div class="delivery-info">
+    <div class="form-field">
+      <label class="form-label">{% trans 'المستودع' %} <span class="text-danger">*</span></label>
+      <select name="warehouse" class="form-select" required>
+        <option value="">{% trans '-- اختر المستودع --' %}</option>
+        {% for wh in warehouses %}
+        <option value="{ wh.pk }}" {% if receipt.warehouse.pk == wh.pk %}selected{% endif %}>
+          {{ wh.name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-field">
+      <label class="form-label">{% trans 'اسم المستلم' %}</label>
+      <input type="text" name="received_by" class="form-control" 
+             value="{ receipt.received_by|default:user.get_full_name }">
+    </div>
+    <div class="form-field">
+      <label class="form-label">{% trans 'اسم السائق/الناقل' %}</label>
+      <input type="text" name="driver_name" class="form-control" 
+             value="{ receipt.driver_name|default:'' }">
+    </div>
+    <div class="form-field">
+      <label class="form-label">{% trans 'رقم لوحة المركبة' %}</label>
+      <input type="text" name="vehicle_plate" class="form-control" 
+             value="{ receipt.vehicle_plate|default:'' }">
+    </div>
+  </div>
+</div>
+
+{# Notes #}
+<div class="form-card mt-4">
+  <div class="card-header">
+    <div class="section-icon warning">
+      <i class="bi bi-sticky"></i>
+    </div>
+    <h5>{% trans 'ملاحظات عامة' %}</h5>
+  </div>
+  <div class="card-body">
+    <textarea name="notes" class="form-control" rows="3" 
+              placeholder="{% trans 'أي ملاحظات إضافية على عملية الاستلام...' %}">{{ receipt.notes|default:'' }}</textarea>
+  </div>
+</div>
+{% endblock %}
+
+{% block form_buttons %}
+<a href="{% url 'purchases:receipt_list' %}" class="btn btn-outline-secondary">
+  <i class="bi bi-x-lg me-1"></i>{% trans 'إلغاء' %}
+</a>
+<button type="submit" name="action" value="save" class="btn btn-outline-primary">
+  <i class="bi bi-floppy me-1"></i>{% trans 'حفظ كمسودة' %}
+</button>
+<button type="submit" name="action" value="complete" class="btn btn-success">
+  <i class="bi bi-check-circle me-1"></i>{% trans 'تأكيد الاستلام' %}
+</button>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function loadPOItems() {
+  const select = document.getElementById('poSelect');
+  const option = select.options[select.selectedIndex];
+  const tbody = document.getElementById('itemsBody');
+  const supplierInput = document.getElementById('supplierName');
+  
+  // Update supplier
+  supplierInput.value = option.dataset.supplier || '';
+  
+  if (!option.value) {
+    tbody.innerHTML = `
+      <tr id="emptyRow">
+        <td colspan="6" class="text-center py-4 text-muted">
+          <i class="bi bi-arrow-up-circle fs-3 d-block mb-2"></i>
+          {% trans 'اختر أمر الشراء أولاً لعرض الأصناف' %}
+        </td>
+      </tr>
+    `;
+    document.getElementById('itemsCount').textContent = '0 {% trans "صنف" %}';
+    return;
+  }
+  
+  try {
+    const items = JSON.parse(option.dataset.items || '[]');
+    let html = '';
+    items.forEach((item, i) => {
+      html += `
+        <tr>
+          <td>${i + 1}</td>
+          <td>
+            <div class="fw-medium">${item.name}</div>
+            <div class="small text-muted">${item.code}</div>
+            <input type="hidden" name="items[][product]" value="${item.id}">
+          </td>
+          <td class="text-center">
+            <span class="badge bg-secondary">${item.qty}</span>
+          </td>
+          <td>
+            <input type="number" name="items[][received_qty]" class="form-control qty-input mx-auto" 
+                   value="${item.qty}" min="0" max="${item.qty}" step="0.01">
+          </td>
+          <td>
+            <select name="items[][condition]" class="form-select condition-select mx-auto">
+              <option value="good">{% trans 'سليم' %}</option>
+              <option value="damaged">{% trans 'تالف' %}</option>
+              <option value="partial">{% trans 'جزئي' %}</option>
+            </select>
+          </td>
+          <td>
+            <input type="text" name="items[][note]" class="form-control form-control-sm" placeholder="{% trans 'ملاحظة...' %}">
+          </td>
+        </tr>
+      `;
+    });
+    tbody.innerHTML = html;
+    document.getElementById('itemsCount').textContent = items.length + ' {% trans "صنف" %}';
+  } catch (e) {
+    console.error('Error parsing items:', e);
+  }
+}
+</script>
+{% endblock %}
+

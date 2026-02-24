@@ -1,0 +1,594 @@
+﻿{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "شجرة الحسابات" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+    }
+    
+    .page-hero {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    
+    .hero-stats {
+        display: flex;
+        gap: 2rem;
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid rgba(255,255,255,0.2);
+    }
+    
+    .hero-stat .value {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    
+    .hero-stat .label {
+        font-size: 0.9rem;
+        opacity: 0.8;
+    }
+    
+    .hero-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+    
+    .btn-hero {
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-hero-primary {
+        background: var(--accent-color);
+        color: white;
+    }
+    
+    .btn-hero-secondary {
+        background: rgba(255,255,255,0.2);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+    
+    /* Filter & Search */
+    .toolbar {
+        background: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        margin-bottom: 1.5rem;
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    
+    .search-box {
+        flex: 1;
+        min-width: 250px;
+        position: relative;
+    }
+    
+    .search-box input {
+        width: 100%;
+        padding: 0.75rem 1rem 0.75rem 2.5rem;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+    }
+    
+    .search-box i {
+        position: absolute;
+        right: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #adb5bd;
+    }
+    
+    .filter-tabs {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .filter-tab {
+        padding: 0.5rem 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        background: white;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .filter-tab.active,
+    .filter-tab:hover {
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+    }
+    
+    /* Tree Container */
+    .tree-container {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .tree-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .tree-body { padding: 1.5rem; }
+    
+    /* Account Tree */
+    .account-tree {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .account-tree ul {
+        list-style: none;
+        padding-right: 2rem;
+        margin: 0;
+        display: none;
+    }
+    
+    .account-tree li.expanded > ul {
+        display: block;
+    }
+    
+    .account-item {
+        margin-bottom: 0.5rem;
+    }
+    
+    .account-row {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        gap: 0.75rem;
+    }
+    
+    .account-row:hover {
+        background: #e9ecef;
+    }
+    
+    .account-item.expanded > .account-row {
+        background: rgba(0, 212, 170, 0.1);
+        border: 1px solid rgba(0, 212, 170, 0.3);
+    }
+    
+    .toggle-icon {
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        color: #6c757d;
+        transition: transform 0.2s ease;
+    }
+    
+    .account-item.expanded > .account-row .toggle-icon {
+        transform: rotate(90deg);
+    }
+    
+    .account-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+    }
+    
+    .account-icon.assets { background: rgba(9, 132, 227, 0.15); color: #0984e3; }
+    .account-icon.liabilities { background: rgba(220, 53, 69, 0.15); color: var(--danger-color); }
+    .account-icon.equity { background: rgba(108, 92, 231, 0.15); color: #6c5ce7; }
+    .account-icon.revenue { background: rgba(40, 167, 69, 0.15); color: var(--success-color); }
+    .account-icon.expenses { background: rgba(253, 126, 20, 0.15); color: #fd7e14; }
+    
+    .account-info { flex: 1; }
+    
+    .account-code {
+        font-family: monospace;
+        background: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        color: var(--primary-color);
+        font-weight: 600;
+        margin-left: 0.5rem;
+    }
+    
+    .account-name {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+    
+    .account-type {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .account-balance {
+        text-align: left;
+        min-width: 120px;
+    }
+    
+    .account-balance .value {
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: var(--primary-color);
+    }
+    
+    .account-balance .type {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    .account-actions {
+        display: flex;
+        gap: 0.25rem;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+    
+    .account-row:hover .account-actions {
+        opacity: 1;
+    }
+    
+    .btn-icon {
+        width: 32px;
+        height: 32px;
+        border: none;
+        border-radius: 6px;
+        background: white;
+        color: #6c757d;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-icon:hover {
+        background: var(--primary-color);
+        color: white;
+    }
+    
+    /* Sub accounts styling */
+    .account-tree ul .account-row {
+        background: white;
+        border: 1px solid #e9ecef;
+    }
+    
+    .account-tree ul .account-row:hover {
+        border-color: var(--accent-color);
+    }
+    
+    [data-bs-theme="dark"] .toolbar,
+    [data-bs-theme="dark"] .tree-container {
+        background: #1a1d21;
+    }
+    
+    [data-bs-theme="dark"] .tree-header {
+        background: #2d3238;
+    }
+    
+    [data-bs-theme="dark"] .account-row {
+        background: #2d3238;
+    }
+    
+    [data-bs-theme="dark"] .account-tree ul .account-row {
+        background: #1a1d21;
+        border-color: #3d4248;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Hero Section -->
+    <div class="page-hero">
+        <h1 class="h2 mb-2">
+            <i class="fas fa-sitemap me-2"></i>
+            {% trans "شجرة الحسابات" %}
+        </h1>
+        <p class="mb-0 opacity-75">
+            {% trans "دليل الحسابات المحاسبية - تصنيف وإدارة جميع الحسابات" %}
+        </p>
+        
+        <div class="hero-stats">
+            <div class="hero-stat">
+                <div class="value">156</div>
+                <div class="label">{% trans "إجمالي الحسابات" %}</div>
+            </div>
+            <div class="hero-stat">
+                <div class="value">5</div>
+                <div class="label">{% trans "تصنيفات رئيسية" %}</div>
+            </div>
+            <div class="hero-stat">
+                <div class="value">42</div>
+                <div class="label">{% trans "حسابات فرعية" %}</div>
+            </div>
+        </div>
+        
+        <div class="hero-actions">
+            <a href="{% url 'accounting:account_create' %}" class="btn-hero btn-hero-primary">
+                <i class="fas fa-plus"></i>
+                {% trans "حساب جديد" %}
+            </a>
+            <a href="#" class="btn-hero btn-hero-secondary">
+                <i class="fas fa-download"></i>
+                {% trans "تصدير" %}
+            </a>
+        </div>
+    </div>
+    
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" placeholder="{% trans 'بحث في الحسابات...' %}">
+        </div>
+        <div class="filter-tabs">
+            <button class="filter-tab active">{% trans "الكل" %}</button>
+            <button class="filter-tab">{% trans "الأصول" %}</button>
+            <button class="filter-tab">{% trans "الخصوم" %}</button>
+            <button class="filter-tab">{% trans "حقوق الملكية" %}</button>
+            <button class="filter-tab">{% trans "الإيرادات" %}</button>
+            <button class="filter-tab">{% trans "المصروفات" %}</button>
+        </div>
+    </div>
+    
+    <!-- Tree Container -->
+    <div class="tree-container">
+        <div class="tree-header">
+            <h5 class="mb-0">
+                <i class="fas fa-folder-tree me-2 text-primary"></i>
+                {% trans "هيكل الحسابات" %}
+            </h5>
+            <div>
+                <button class="btn btn-sm btn-outline-primary" id="expandAll">
+                    <i class="fas fa-expand-alt me-1"></i> {% trans "توسيع الكل" %}
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" id="collapseAll">
+                    <i class="fas fa-compress-alt me-1"></i> {% trans "طي الكل" %}
+                </button>
+            </div>
+        </div>
+        <div class="tree-body">
+            <ul class="account-tree">
+                <!-- Assets -->
+                <li class="account-item expanded">
+                    <div class="account-row">
+                        <div class="toggle-icon"><i class="fas fa-chevron-left"></i></div>
+                        <div class="account-icon assets"><i class="fas fa-wallet"></i></div>
+                        <div class="account-info">
+                            <span class="account-code">1000</span>
+                            <span class="account-name">{% trans "الأصول" %}</span>
+                        </div>
+                        <div class="account-balance">
+                            <div class="value">2,450,000</div>
+                            <div class="type">{% trans "مدين" %}</div>
+                        </div>
+                        <div class="account-actions">
+                            <button class="btn-icon" title="{% trans 'إضافة فرعي' %}"><i class="fas fa-plus"></i></button>
+                            <button class="btn-icon" title="{% trans 'تعديل' %}"><i class="fas fa-edit"></i></button>
+                        </div>
+                    </div>
+                    <ul>
+                        <li class="account-item expanded">
+                            <div class="account-row">
+                                <div class="toggle-icon"><i class="fas fa-chevron-left"></i></div>
+                                <div class="account-icon assets"><i class="fas fa-coins"></i></div>
+                                <div class="account-info">
+                                    <span class="account-code">1100</span>
+                                    <span class="account-name">{% trans "الأصول المتداولة" %}</span>
+                                </div>
+                                <div class="account-balance">
+                                    <div class="value">850,000</div>
+                                    <div class="type">{% trans "مدين" %}</div>
+                                </div>
+                                <div class="account-actions">
+                                    <button class="btn-icon"><i class="fas fa-plus"></i></button>
+                                    <button class="btn-icon"><i class="fas fa-edit"></i></button>
+                                </div>
+                            </div>
+                            <ul>
+                                <li class="account-item">
+                                    <div class="account-row">
+                                        <div class="toggle-icon"></div>
+                                        <div class="account-icon assets"><i class="fas fa-money-bill-wave"></i></div>
+                                        <div class="account-info">
+                                            <span class="account-code">1110</span>
+                                            <span class="account-name">{% trans "الصندوق" %}</span>
+                                        </div>
+                                        <div class="account-balance">
+                                            <div class="value">125,000</div>
+                                            <div class="type">{% trans "مدين" %}</div>
+                                        </div>
+                                        <div class="account-actions">
+                                            <button class="btn-icon"><i class="fas fa-edit"></i></button>
+                                            <button class="btn-icon"><i class="fas fa-eye"></i></button>
+                                        </div>
+                                    </div>
+                                </li>
+                                <li class="account-item">
+                                    <div class="account-row">
+                                        <div class="toggle-icon"></div>
+                                        <div class="account-icon assets"><i class="fas fa-university"></i></div>
+                                        <div class="account-info">
+                                            <span class="account-code">1120</span>
+                                            <span class="account-name">{% trans "البنك" %}</span>
+                                        </div>
+                                        <div class="account-balance">
+                                            <div class="value">425,000</div>
+                                            <div class="type">{% trans "مدين" %}</div>
+                                        </div>
+                                        <div class="account-actions">
+                                            <button class="btn-icon"><i class="fas fa-edit"></i></button>
+                                            <button class="btn-icon"><i class="fas fa-eye"></i></button>
+                                        </div>
+                                    </div>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+                
+                <!-- Liabilities -->
+                <li class="account-item">
+                    <div class="account-row">
+                        <div class="toggle-icon"><i class="fas fa-chevron-left"></i></div>
+                        <div class="account-icon liabilities"><i class="fas fa-file-invoice-dollar"></i></div>
+                        <div class="account-info">
+                            <span class="account-code">2000</span>
+                            <span class="account-name">{% trans "الخصوم" %}</span>
+                        </div>
+                        <div class="account-balance">
+                            <div class="value">850,000</div>
+                            <div class="type">{% trans "دائن" %}</div>
+                        </div>
+                        <div class="account-actions">
+                            <button class="btn-icon"><i class="fas fa-plus"></i></button>
+                            <button class="btn-icon"><i class="fas fa-edit"></i></button>
+                        </div>
+                    </div>
+                </li>
+                
+                <!-- Equity -->
+                <li class="account-item">
+                    <div class="account-row">
+                        <div class="toggle-icon"><i class="fas fa-chevron-left"></i></div>
+                        <div class="account-icon equity"><i class="fas fa-landmark"></i></div>
+                        <div class="account-info">
+                            <span class="account-code">3000</span>
+                            <span class="account-name">{% trans "حقوق الملكية" %}</span>
+                        </div>
+                        <div class="account-balance">
+                            <div class="value">1,600,000</div>
+                            <div class="type">{% trans "دائن" %}</div>
+                        </div>
+                        <div class="account-actions">
+                            <button class="btn-icon"><i class="fas fa-plus"></i></button>
+                            <button class="btn-icon"><i class="fas fa-edit"></i></button>
+                        </div>
+                    </div>
+                </li>
+                
+                <!-- Revenue -->
+                <li class="account-item">
+                    <div class="account-row">
+                        <div class="toggle-icon"><i class="fas fa-chevron-left"></i></div>
+                        <div class="account-icon revenue"><i class="fas fa-chart-line"></i></div>
+                        <div class="account-info">
+                            <span class="account-code">4000</span>
+                            <span class="account-name">{% trans "الإيرادات" %}</span>
+                        </div>
+                        <div class="account-balance">
+                            <div class="value">1,250,000</div>
+                            <div class="type">{% trans "دائن" %}</div>
+                        </div>
+                        <div class="account-actions">
+                            <button class="btn-icon"><i class="fas fa-plus"></i></button>
+                            <button class="btn-icon"><i class="fas fa-edit"></i></button>
+                        </div>
+                    </div>
+                </li>
+                
+                <!-- Expenses -->
+                <li class="account-item">
+                    <div class="account-row">
+                        <div class="toggle-icon"><i class="fas fa-chevron-left"></i></div>
+                        <div class="account-icon expenses"><i class="fas fa-receipt"></i></div>
+                        <div class="account-info">
+                            <span class="account-code">5000</span>
+                            <span class="account-name">{% trans "المصروفات" %}</span>
+                        </div>
+                        <div class="account-balance">
+                            <div class="value">780,000</div>
+                            <div class="type">{% trans "مدين" %}</div>
+                        </div>
+                        <div class="account-actions">
+                            <button class="btn-icon"><i class="fas fa-plus"></i></button>
+                            <button class="btn-icon"><i class="fas fa-edit"></i></button>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle tree items
+    document.querySelectorAll('.account-row').forEach(row => {
+        row.addEventListener('click', function(e) {
+            if (!e.target.closest('.account-actions')) {
+                const item = this.closest('.account-item');
+                if (item.querySelector('ul')) {
+                    item.classList.toggle('expanded');
+                }
+            }
+        });
+    });
+    
+    // Expand all
+    document.getElementById('expandAll').addEventListener('click', function() {
+        document.querySelectorAll('.account-item').forEach(item => {
+            if (item.querySelector('ul')) {
+                item.classList.add('expanded');
+            }
+        });
+    });
+    
+    // Collapse all
+    document.getElementById('collapseAll').addEventListener('click', function() {
+        document.querySelectorAll('.account-item').forEach(item => {
+            item.classList.remove('expanded');
+        });
+    });
+    
+    // Filter tabs
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+});
+</script>
+{% endblock %}
+

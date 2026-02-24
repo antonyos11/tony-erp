@@ -1,0 +1,467 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}التحليل المالي - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+    }
+    .ratio-card {
+        border-radius: 15px;
+        transition: all 0.3s;
+        height: 100%;
+    }
+    .ratio-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    .ratio-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+    }
+    .ratio-trend {
+        font-size: 1.2rem;
+    }
+    .trend-up { color: #28a745; }
+    .trend-down { color: #dc3545; }
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+    .gauge-container {
+        position: relative;
+        height: 200px;
+    }
+    .analysis-section {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header text-center">
+        <h1 class="mb-2">
+            <i class="fas fa-chart-line fa-2x"></i>
+        </h1>
+        <h2>لوحة التحليل المالي الشامل</h2>
+        <p class="mb-0 opacity-75">مؤشرات الأداء المالي والنسب الرئيسية</p>
+    </div>
+
+    <!-- Period Selector -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <form method="get" class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label">من تاريخ</label>
+                            <input type="date" name="start_date" class="form-control" 
+                                   value="{{ start_date|date:'Y-m-d' }}" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">إلى تاريخ</label>
+                            <input type="date" name="end_date" class="form-control" 
+                                   value="{{ end_date|date:'Y-m-d' }}" required>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-sync"></i> تحديث
+                            </button>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button type="button" class="btn btn-success" onclick="exportReport()">
+                                <i class="fas fa-download"></i> تصدير التقرير
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PROFITABILITY RATIOS -->
+    <div class="analysis-section">
+        <h4 class="mb-4">
+            <i class="fas fa-money-bill-wave text-success"></i>
+            نسب الربحية
+        </h4>
+        <div class="row">
+            <div class="col-md-3 mb-3">
+                <div class="card ratio-card border-0 shadow-sm bg-success text-white">
+                    <div class="card-body text-center">
+                        <h6 class="opacity-75">نسبة مجمل الربح</h6>
+                        <div class="ratio-value">{{ analysis.gross_profit_margin|floatformat:1 }}%</div>
+                        <div class="ratio-trend">
+                            <i class="fas fa-arrow-{% if analysis.gpm_trend > 0 %}up{% else %}down{% endif %}"></i>
+                            {{ analysis.gpm_trend|floatformat:1 }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card ratio-card border-0 shadow-sm bg-primary text-white">
+                    <div class="card-body text-center">
+                        <h6 class="opacity-75">نسبة صافي الربح</h6>
+                        <div class="ratio-value">{{ analysis.net_profit_margin|floatformat:1 }}%</div>
+                        <div class="ratio-trend">
+                            <i class="fas fa-arrow-{% if analysis.npm_trend > 0 %}up{% else %}down{% endif %}"></i>
+                            {{ analysis.npm_trend|floatformat:1 }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card ratio-card border-0 shadow-sm bg-info text-white">
+                    <div class="card-body text-center">
+                        <h6 class="opacity-75">العائد على الأصول (ROA)</h6>
+                        <div class="ratio-value">{{ analysis.roa|floatformat:1 }}%</div>
+                        <div class="ratio-trend">
+                            <i class="fas fa-arrow-{% if analysis.roa_trend > 0 %}up{% else %}down{% endif %}"></i>
+                            {{ analysis.roa_trend|floatformat:1 }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card ratio-card border-0 shadow-sm bg-warning text-dark">
+                    <div class="card-body text-center">
+                        <h6 class="opacity-75">العائد على حقوق الملكية (ROE)</h6>
+                        <div class="ratio-value">{{ analysis.roe|floatformat:1 }}%</div>
+                        <div class="ratio-trend">
+                            <i class="fas fa-arrow-{% if analysis.roe_trend > 0 %}up{% else %}down{% endif %}"></i>
+                            {{ analysis.roe_trend|floatformat:1 }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LIQUIDITY RATIOS -->
+    <div class="analysis-section">
+        <h4 class="mb-4">
+            <i class="fas fa-tint text-info"></i>
+            نسب السيولة
+        </h4>
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <div class="card ratio-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">النسبة الجارية</h6>
+                        <div class="ratio-value text-info">{{ analysis.current_ratio|floatformat:2 }}</div>
+                        <small class="text-muted">الأصول المتداولة / الخصوم المتداولة</small>
+                        <div class="mt-2">
+                            {% if analysis.current_ratio >= 2 %}
+                                <span class="badge bg-success">ممتاز</span>
+                            {% elif analysis.current_ratio >= 1 %}
+                                <span class="badge bg-warning">جيد</span>
+                            {% else %}
+                                <span class="badge bg-danger">ضعيف</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card ratio-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">النسبة السريعة</h6>
+                        <div class="ratio-value text-primary">{{ analysis.quick_ratio|floatformat:2 }}</div>
+                        <small class="text-muted">(النقد + الذمم) / الخصوم المتداولة</small>
+                        <div class="mt-2">
+                            {% if analysis.quick_ratio >= 1 %}
+                                <span class="badge bg-success">ممتاز</span>
+                            {% elif analysis.quick_ratio >= 0.5 %}
+                                <span class="badge bg-warning">جيد</span>
+                            {% else %}
+                                <span class="badge bg-danger">ضعيف</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card ratio-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">رأس المال العامل</h6>
+                        <div class="ratio-value text-success">{{ analysis.working_capital|floatformat:0 }}</div>
+                        <small class="text-muted">الأصول - الخصوم المتداولة</small>
+                        <div class="mt-2">
+                            {% if analysis.working_capital > 0 %}
+                                <span class="badge bg-success">إيجابي</span>
+                            {% else %}
+                                <span class="badge bg-danger">سلبي</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LEVERAGE RATIOS -->
+    <div class="analysis-section">
+        <h4 class="mb-4">
+            <i class="fas fa-balance-scale text-warning"></i>
+            نسب الرفع المالي
+        </h4>
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <div class="card ratio-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">نسبة الدين إلى حقوق الملكية</h6>
+                        <div class="ratio-value text-warning">{{ analysis.debt_to_equity|floatformat:2 }}</div>
+                        <small class="text-muted">إجمالي الديون / حقوق الملكية</small>
+                        <div class="gauge-container mt-3">
+                            <canvas id="debtToEquityGauge"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card ratio-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">نسبة الدين</h6>
+                        <div class="ratio-value text-danger">{{ analysis.debt_ratio|floatformat:1 }}%</div>
+                        <small class="text-muted">إجمالي الديون / إجمالي الأصول</small>
+                        <div class="progress mt-3" style="height: 25px;">
+                            <div class="progress-bar bg-danger" style="width: {{ analysis.debt_ratio }}%">
+                                {{ analysis.debt_ratio|floatformat:0 }}%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card ratio-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">نسبة حقوق الملكية</h6>
+                        <div class="ratio-value text-success">{{ analysis.equity_ratio|floatformat:1 }}%</div>
+                        <small class="text-muted">حقوق الملكية / إجمالي الأصول</small>
+                        <div class="progress mt-3" style="height: 25px;">
+                            <div class="progress-bar bg-success" style="width: {{ analysis.equity_ratio }}%">
+                                {{ analysis.equity_ratio|floatformat:0 }}%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EFFICIENCY RATIOS -->
+    <div class="analysis-section">
+        <h4 class="mb-4">
+            <i class="fas fa-cogs text-secondary"></i>
+            نسب الكفاءة
+        </h4>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <div class="card ratio-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">معدل دوران الأصول</h6>
+                        <div class="ratio-value text-secondary">{{ analysis.asset_turnover|floatformat:2 }}</div>
+                        <small class="text-muted">المبيعات / متوسط الأصول</small>
+                        <p class="mt-3 mb-0">
+                            كل جنيه من الأصول يحقق <strong>{{ analysis.asset_turnover|floatformat:2 }}</strong> جنيه من المبيعات
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="card ratio-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">معدل دوران المخزون</h6>
+                        <div class="ratio-value text-info">{{ analysis.inventory_turnover|floatformat:2 }}</div>
+                        <small class="text-muted">تكلفة البضاعة المباعة / متوسط المخزون</small>
+                        <p class="mt-3 mb-0">
+                            يتم بيع المخزون <strong>{{ analysis.inventory_turnover|floatformat:0 }}</strong> مرة في السنة
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trend Charts -->
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0">اتجاه الربحية</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="profitabilityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0">اتجاه السيولة</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="liquidityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Financial Health Score -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-lg">
+                <div class="card-header bg-gradient-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-heartbeat"></i>
+                        مؤشر الصحة المالية
+                    </h5>
+                </div>
+                <div class="card-body text-center py-5">
+                    <div class="gauge-container" style="height: 250px;">
+                        <canvas id="healthScoreGauge"></canvas>
+                    </div>
+                    <h2 class="mt-4 mb-2">{{ analysis.financial_health_score|floatformat:0 }}/100</h2>
+                    <p class="text-muted">
+                        {% if analysis.financial_health_score >= 80 %}
+                            <span class="badge bg-success fs-5">صحة مالية ممتازة</span>
+                        {% elif analysis.financial_health_score >= 60 %}
+                            <span class="badge bg-info fs-5">صحة مالية جيدة</span>
+                        {% elif analysis.financial_health_score >= 40 %}
+                            <span class="badge bg-warning fs-5">صحة مالية مقبولة</span>
+                        {% else %}
+                            <span class="badge bg-danger fs-5">صحة مالية ضعيفة</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Profitability Trend Chart
+    const profitCtx = document.getElementById('profitabilityChart');
+    if (profitCtx) {
+        new Chart(profitCtx, {
+            type: 'line',
+            data: {
+                labels: {{ chart_labels|safe }},
+                datasets: [
+                    {
+                        label: 'مجمل الربح %',
+                        data: {{ gpm_trend|safe }},
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        tension: 0.4
+                    },
+                    {
+                        label: 'صافي الربح %',
+                        data: {{ npm_trend|safe }},
+                        borderColor: '#007bff',
+                        backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+
+    // Liquidity Trend Chart
+    const liquidityCtx = document.getElementById('liquidityChart');
+    if (liquidityCtx) {
+        new Chart(liquidityCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ chart_labels|safe }},
+                datasets: [
+                    {
+                        label: 'النسبة الجارية',
+                        data: {{ current_ratio_trend|safe }},
+                        backgroundColor: '#17a2b8'
+                    },
+                    {
+                        label: 'النسبة السريعة',
+                        data: {{ quick_ratio_trend|safe }},
+                        backgroundColor: '#007bff'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+
+    // Financial Health Score Gauge
+    const healthCtx = document.getElementById('healthScoreGauge');
+    if (healthCtx) {
+        const healthScore = {{ analysis.financial_health_score|default:50 }};
+        new Chart(healthCtx, {
+            type: 'doughnut',
+            data: {
+                datasets: [{
+                    data: [healthScore, 100 - healthScore],
+                    backgroundColor: ['#28a745', '#e9ecef'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                circumference: 180,
+                rotation: 270,
+                cutout: '75%',
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        enabled: false
+                    }
+                }
+            }
+        });
+    }
+});
+
+function exportReport() {
+    alert('سيتم تصدير تقرير التحليل المالي');
+}
+</script>
+{% endblock %}

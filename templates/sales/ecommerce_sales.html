@@ -1,0 +1,519 @@
+﻿{% extends 'base_templates/_dashboard_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'مبيعات التجارة الإلكترونية' %}{% endblock %}
+{% block dashboard_hero_icon %}bi-globe{% endblock %}
+{% block dashboard_hero_title %}{% trans 'التجارة الإلكترونية' %}{% endblock %}
+{% block dashboard_hero_subtitle %}{% trans 'إدارة الطلبات والمبيعات عبر الإنترنت' %}{% endblock %}
+
+{% block dashboard_actions %}
+<a href="{% url 'sales:ecommerce_settings' %}" class="btn btn-outline-primary">
+  <i class="bi bi-gear me-1"></i>{% trans 'الإعدادات' %}
+</a>
+<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#syncModal">
+  <i class="bi bi-arrow-repeat me-1"></i>{% trans 'مزامنة' %}
+</button>
+{% endblock %}
+
+{% block kpi_cards %}
+<style>
+  .channel-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    background: var(--bg-light);
+    padding: 0.5rem;
+    border-radius: var(--radius-lg);
+    overflow-x: auto;
+  }
+  .channel-tab {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: var(--transition);
+  }
+  .channel-tab:hover {
+    background: var(--bg-card);
+  }
+  .channel-tab.active {
+    background: var(--bg-card);
+    box-shadow: var(--shadow-md);
+  }
+  .channel-tab img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+  }
+  .channel-tab .badge {
+    margin-right: 0.25rem;
+  }
+  .orders-grid {
+    display: grid;
+    gap: 1rem;
+  }
+  .order-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    transition: var(--transition);
+  }
+  .order-card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary);
+  }
+  .order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+  }
+  .order-number {
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+  .order-channel {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  .order-channel img {
+    width: 20px;
+    height: 20px;
+  }
+  .order-customer {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .customer-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+  }
+  .order-items-preview {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+  .order-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .order-total {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .order-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .status-pending { background: #fef3c7; color: #92400e; }
+  .status-processing { background: #dbeafe; color: #1e40af; }
+  .status-shipped { background: #e0e7ff; color: #4338ca; }
+  .status-delivered { background: #d1fae5; color: #065f46; }
+  .status-cancelled { background: #fee2e2; color: #991b1b; }
+  .platform-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .platform-stat {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .platform-stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .platform-stat-icon img {
+    width: 32px;
+    height: 32px;
+  }
+  .integration-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    text-align: center;
+    transition: var(--transition);
+  }
+  .integration-card:hover {
+    box-shadow: var(--shadow-md);
+  }
+  .integration-card img {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 1rem;
+    object-fit: contain;
+  }
+  .integration-card.connected {
+    border-color: var(--success);
+  }
+  .integration-card.connected::before {
+    content: '✓';
+    position: absolute;
+    top: 0.75rem;
+    left: 0.75rem;
+    width: 24px;
+    height: 24px;
+    background: var(--success);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+  }
+</style>
+
+<!-- KPIs -->
+<div class="kpi-card">
+  <div class="kpi-icon text-primary"><i class="bi bi-cart3"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ orders_today|default:"45" }}</div>
+    <div class="kpi-label">{% trans 'طلبات اليوم' %}</div>
+  </div>
+  <div class="kpi-trend up"><i class="bi bi-arrow-up"></i> 12%</div>
+</div>
+
+<div class="kpi-card">
+  <div class="kpi-icon text-success"><i class="bi bi-currency-dollar"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ revenue_today|default:"15,420" }}</div>
+    <div class="kpi-label">{% trans 'إيرادات اليوم' %}</div>
+  </div>
+  <div class="kpi-trend up"><i class="bi bi-arrow-up"></i> 8%</div>
+</div>
+
+<div class="kpi-card">
+  <div class="kpi-icon text-warning"><i class="bi bi-hourglass-split"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ pending_orders|default:"12" }}</div>
+    <div class="kpi-label">{% trans 'بانتظار المعالجة' %}</div>
+  </div>
+</div>
+
+<div class="kpi-card">
+  <div class="kpi-icon text-info"><i class="bi bi-truck"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ shipped_today|default:"28" }}</div>
+    <div class="kpi-label">{% trans 'تم الشحن' %}</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block dashboard_content %}
+<!-- Channel Tabs -->
+<div class="channel-tabs">
+  <button class="channel-tab active">
+    <i class="bi bi-grid-3x3-gap fs-5"></i>
+    <span>{% trans 'الكل' %}</span>
+    <span class="badge bg-primary">{{ total_orders|default:"156" }}</span>
+  </button>
+  <button class="channel-tab">
+    <i class="bi bi-globe text-primary fs-5"></i>
+    <span>{% trans 'الموقع' %}</span>
+    <span class="badge bg-light text-dark">45</span>
+  </button>
+  <button class="channel-tab">
+    <i class="bi bi-phone text-success fs-5"></i>
+    <span>{% trans 'التطبيق' %}</span>
+    <span class="badge bg-light text-dark">38</span>
+  </button>
+  <button class="channel-tab">
+    <i class="bi bi-whatsapp text-success fs-5"></i>
+    <span>WhatsApp</span>
+    <span class="badge bg-light text-dark">23</span>
+  </button>
+  <button class="channel-tab">
+    <i class="bi bi-instagram text-danger fs-5"></i>
+    <span>Instagram</span>
+    <span class="badge bg-light text-dark">18</span>
+  </button>
+  <button class="channel-tab">
+    <i class="bi bi-shop fs-5" style="color: #ff6600;"></i>
+    <span>Amazon</span>
+    <span class="badge bg-light text-dark">32</span>
+  </button>
+</div>
+
+<!-- Platform Stats -->
+<div class="platform-stats">
+  <div class="platform-stat">
+    <div class="platform-stat-icon" style="background: rgba(59,130,246,0.1);">
+      <i class="bi bi-globe fs-4 text-primary"></i>
+    </div>
+    <div>
+      <div class="fs-5 fw-bold">{{ website_orders|default:"45" }}</div>
+      <div class="small text-muted">{% trans 'الموقع الإلكتروني' %}</div>
+    </div>
+  </div>
+  <div class="platform-stat">
+    <div class="platform-stat-icon" style="background: rgba(16,185,129,0.1);">
+      <i class="bi bi-phone fs-4 text-success"></i>
+    </div>
+    <div>
+      <div class="fs-5 fw-bold">{{ app_orders|default:"38" }}</div>
+      <div class="small text-muted">{% trans 'تطبيق الجوال' %}</div>
+    </div>
+  </div>
+  <div class="platform-stat">
+    <div class="platform-stat-icon" style="background: rgba(37,211,102,0.1);">
+      <i class="bi bi-whatsapp fs-4" style="color: #25d366;"></i>
+    </div>
+    <div>
+      <div class="fs-5 fw-bold">{{ whatsapp_orders|default:"23" }}</div>
+      <div class="small text-muted">WhatsApp</div>
+    </div>
+  </div>
+  <div class="platform-stat">
+    <div class="platform-stat-icon" style="background: rgba(255,102,0,0.1);">
+      <i class="bi bi-shop fs-4" style="color: #ff6600;"></i>
+    </div>
+    <div>
+      <div class="fs-5 fw-bold">{{ marketplace_orders|default:"50" }}</div>
+      <div class="small text-muted">{% trans 'المتاجر' %}</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Recent Orders -->
+  <div class="col-lg-8">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0"><i class="bi bi-cart3 me-2"></i>{% trans 'الطلبات الأخيرة' %}</h5>
+      <div class="btn-group btn-group-sm">
+        <button class="btn btn-outline-secondary active">{% trans 'الكل' %}</button>
+        <button class="btn btn-outline-warning">{% trans 'معلقة' %}</button>
+        <button class="btn btn-outline-primary">{% trans 'قيد التنفيذ' %}</button>
+      </div>
+    </div>
+
+    <div class="orders-grid">
+      {% for order in orders %}
+      <div class="order-card">
+        <div class="order-header">
+          <div>
+            <div class="order-number">#{{ order.number }}</div>
+            <div class="order-channel">
+              <i class="bi bi-{ order.channel_icon }"></i>
+              {{ order.channel }} • {{ order.date }}
+            </div>
+          </div>
+          <span class="badge status-{ order.status }">{{ order.status_display }}</span>
+        </div>
+        <div class="order-customer">
+          <div class="customer-avatar">{{ order.customer_initials }}</div>
+          <div>
+            <div class="fw-medium">{{ order.customer_name }}</div>
+            <div class="small text-muted">{{ order.customer_location }}</div>
+          </div>
+        </div>
+        <div class="order-items-preview">
+          <i class="bi bi-box me-1"></i>{{ order.items_count }} {% trans 'منتجات' %}
+        </div>
+        <div class="order-footer">
+          <div class="order-total">{{ order.total }} {% trans 'ج.م' %}</div>
+          <div class="order-actions">
+            <a href="#" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+            <button class="btn btn-sm btn-outline-success"><i class="bi bi-check"></i></button>
+            <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-printer"></i></button>
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <!-- Sample Orders -->
+      <div class="order-card">
+        <div class="order-header">
+          <div>
+            <div class="order-number">#ORD-2024-001234</div>
+            <div class="order-channel">
+              <i class="bi bi-globe"></i>
+              الموقع • منذ 5 دقائق
+            </div>
+          </div>
+          <span class="badge status-pending">{% trans 'معلق' %}</span>
+        </div>
+        <div class="order-customer">
+          <div class="customer-avatar">أم</div>
+          <div>
+            <div class="fw-medium">أحمد محمد</div>
+            <div class="small text-muted">الرياض</div>
+          </div>
+        </div>
+        <div class="order-items-preview">
+          <i class="bi bi-box me-1"></i>3 منتجات
+        </div>
+        <div class="order-footer">
+          <div class="order-total">450 {% trans 'ج.م' %}</div>
+          <div class="order-actions">
+            <a href="#" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+            <button class="btn btn-sm btn-outline-success"><i class="bi bi-check"></i></button>
+            <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-printer"></i></button>
+          </div>
+        </div>
+      </div>
+      <div class="order-card">
+        <div class="order-header">
+          <div>
+            <div class="order-number">#ORD-2024-001233</div>
+            <div class="order-channel">
+              <i class="bi bi-phone"></i>
+              التطبيق • منذ 15 دقيقة
+            </div>
+          </div>
+          <span class="badge status-processing">{% trans 'قيد التنفيذ' %}</span>
+        </div>
+        <div class="order-customer">
+          <div class="customer-avatar">سع</div>
+          <div>
+            <div class="fw-medium">سارة علي</div>
+            <div class="small text-muted">جدة</div>
+          </div>
+        </div>
+        <div class="order-items-preview">
+          <i class="bi bi-box me-1"></i>5 منتجات
+        </div>
+        <div class="order-footer">
+          <div class="order-total">890 {% trans 'ج.م' %}</div>
+          <div class="order-actions">
+            <a href="#" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+            <button class="btn btn-sm btn-outline-info"><i class="bi bi-truck"></i></button>
+            <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-printer"></i></button>
+          </div>
+        </div>
+      </div>
+      <div class="order-card">
+        <div class="order-header">
+          <div>
+            <div class="order-number">#ORD-2024-001232</div>
+            <div class="order-channel">
+              <i class="bi bi-whatsapp"></i>
+              WhatsApp • منذ 30 دقيقة
+            </div>
+          </div>
+          <span class="badge status-shipped">{% trans 'تم الشحن' %}</span>
+        </div>
+        <div class="order-customer">
+          <div class="customer-avatar">خف</div>
+          <div>
+            <div class="fw-medium">خالد فهد</div>
+            <div class="small text-muted">الدمام</div>
+          </div>
+        </div>
+        <div class="order-items-preview">
+          <i class="bi bi-box me-1"></i>2 منتجات
+        </div>
+        <div class="order-footer">
+          <div class="order-total">320 {% trans 'ج.م' %}</div>
+          <div class="order-actions">
+            <a href="#" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+            <button class="btn btn-sm btn-outline-success"><i class="bi bi-geo-alt"></i></button>
+            <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-printer"></i></button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="col-lg-4">
+    <!-- Integrations -->
+    <div class="card mb-4">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0 fw-bold"><i class="bi bi-plug me-2"></i>{% trans 'التكاملات' %}</h6>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-6">
+            <div class="integration-card position-relative connected">
+              <i class="bi bi-globe fs-1 text-primary"></i>
+              <div class="fw-medium mt-2">WooCommerce</div>
+              <div class="small text-success">{% trans 'متصل' %}</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="integration-card position-relative connected">
+              <i class="bi bi-shop fs-1" style="color: #ff6600;"></i>
+              <div class="fw-medium mt-2">Amazon</div>
+              <div class="small text-success">{% trans 'متصل' %}</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="integration-card position-relative">
+              <i class="bi bi-bag fs-1" style="color: #7ab55c;"></i>
+              <div class="fw-medium mt-2">Shopify</div>
+              <div class="small text-muted">{% trans 'غير متصل' %}</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="integration-card position-relative connected">
+              <i class="bi bi-whatsapp fs-1" style="color: #25d366;"></i>
+              <div class="fw-medium mt-2">WhatsApp</div>
+              <div class="small text-success">{% trans 'متصل' %}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="card">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0 fw-bold"><i class="bi bi-bar-chart me-2"></i>{% trans 'إحصائيات سريعة' %}</h6>
+      </div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+          <span class="text-muted">{% trans 'معدل التحويل' %}</span>
+          <span class="fw-bold text-success">3.2%</span>
+        </div>
+        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+          <span class="text-muted">{% trans 'متوسط قيمة الطلب' %}</span>
+          <span class="fw-bold">342 ج.م</span>
+        </div>
+        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+          <span class="text-muted">{% trans 'وقت التنفيذ' %}</span>
+          <span class="fw-bold">2.4 {% trans 'ساعة' %}</span>
+        </div>
+        <div class="d-flex justify-content-between align-items-center py-2">
+          <span class="text-muted">{% trans 'معدل الإرجاع' %}</span>
+          <span class="fw-bold text-danger">1.8%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,151 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "تقرير التحصيل" %} - {{ SYSTEM_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="bi bi-cash-stack me-2"></i>{% trans "تقرير التحصيل" %}</h2>
+            <p class="text-muted mb-0">{% trans "تقرير المبالغ المحصلة" %}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-success" onclick="window.print()">
+                <i class="bi bi-printer me-1"></i>{% trans "طباعة" %}
+            </button>
+            <a href="{% url 'payments:reports' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-right me-1"></i>{% trans "العودة" %}
+            </a>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "من تاريخ" %}</label>
+                    <input type="date" name="from_date" class="form-control" value="{{ from_date|default:'' }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "إلى تاريخ" %}</label>
+                    <input type="date" name="to_date" class="form-control" value="{{ to_date|default:'' }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "طريقة الدفع" %}</label>
+                    <select name="payment_method" class="form-select">
+                        <option value="">{% trans "جميع الطرق" %}</option>
+                        {% for method in payment_methods %}
+                        <option value="{{ method.pk }}" {% if current_method == method.pk|stringformat:'i' %}selected{% endif %}>{{ method.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="bi bi-funnel me-1"></i>{% trans "تصفية" %}
+                    </button>
+                    <a href="{% url 'payments:collection_report' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-success text-white">
+                <div class="card-body">
+                    <h6 class="opacity-75">{% trans "إجمالي المحصل" %}</h6>
+                    <h3 class="mb-0">{{ total_collected|floatformat:2|intcomma|default:0 }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-info text-white">
+                <div class="card-body">
+                    <h6 class="opacity-75">{% trans "عدد المعاملات" %}</h6>
+                    <h3 class="mb-0">{{ transactions_count|default:0 }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-primary text-white">
+                <div class="card-body">
+                    <h6 class="opacity-75">{% trans "متوسط المعاملة" %}</h6>
+                    <h3 class="mb-0">{{ average_transaction|floatformat:2|intcomma|default:0 }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Transactions Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent">
+            <h5 class="card-title mb-0"><i class="bi bi-list-ul me-2"></i>{% trans "تفاصيل المعاملات" %}</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>{% trans "التاريخ" %}</th>
+                            <th>{% trans "رقم المعاملة" %}</th>
+                            <th>{% trans "القرض" %}</th>
+                            <th>{% trans "المقترض" %}</th>
+                            <th>{% trans "طريقة الدفع" %}</th>
+                            <th>{% trans "المبلغ" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for trans in transactions %}
+                        <tr>
+                            <td>{{ trans.created_at|date:"Y-m-d" }}</td>
+                            <td>
+                                <a href="{% url 'payments:transaction_detail' trans.pk %}">{{ trans.transaction_number }}</a>
+                            </td>
+                            <td>
+                                {% if trans.installment %}
+                                <a href="{% url 'payments:loan_detail' trans.installment.loan.pk %}">{{ trans.installment.loan.loan_number }}</a>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if trans.installment %}
+                                {{ trans.installment.loan.borrower.name }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>{{ trans.payment_method.name }}</td>
+                            <td class="fw-bold text-success">{{ trans.amount|floatformat:2|intcomma }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+                                {% trans "لا توجد معاملات في الفترة المحددة" %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    {% if transactions %}
+                    <tfoot class="table-light">
+                        <tr>
+                            <td colspan="5" class="fw-bold text-end">{% trans "الإجمالي" %}</td>
+                            <td class="fw-bold text-success">{{ total_collected|floatformat:2|intcomma }}</td>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

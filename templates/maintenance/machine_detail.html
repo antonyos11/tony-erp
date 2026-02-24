@@ -1,0 +1,477 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load currency_tags %}
+
+{% block title %}تفاصيل {{ machine.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .machine-info-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    .status-indicator {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 10px;
+    }
+    
+    .status-operational { background: linear-gradient(45deg, #28a745, #20c997); }
+    .status-maintenance { background: linear-gradient(45deg, #ffc107, #fd7e14); }
+    .status-breakdown { background: linear-gradient(45deg, #dc3545, #e83e8c); }
+    .status-retired { background: linear-gradient(45deg, #6c757d, #adb5bd); }
+    
+    .condition-excellent { color: #28a745; }
+    .condition-good { color: #17a2b8; }
+    .condition-fair { color: #ffc107; }
+    .condition-poor { color: #fd7e14; }
+    .condition-critical { color: #dc3545; }
+    
+    .info-section {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .maintenance-timeline {
+        border-left: 3px solid #007bff;
+        padding-left: 20px;
+    }
+    
+    .timeline-item {
+        margin-bottom: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 10px;
+        position: relative;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        width: 12px;
+        height: 12px;
+        background: #007bff;
+        border-radius: 50%;
+        position: absolute;
+        left: -26px;
+        top: 20px;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .stat-card {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #007bff;
+        margin-bottom: 5px;
+    }
+    
+    .qr-code-container {
+        text-align: center;
+        padding: 20px;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .action-buttons {
+        position: sticky;
+        top: 20px;
+        z-index: 100;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- رأس الصفحة -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">
+            <i class="fas fa-industry text-primary"></i>
+            {{ machine.name }}
+            <small class="text-muted">({{ machine.code }})</small>
+        </h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'maintenance:dashboard' %}">الصيانة</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'maintenance:machine_list' %}">الماكينات</a></li>
+                <li class="breadcrumb-item active">{{ machine.name }}</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="row">
+        <!-- معلومات الماكينة -->
+        <div class="col-md-8">
+            <!-- معلومات أساسية -->
+            <div class="machine-info-card">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h2 class="mb-3">{{ machine.name }}</h2>
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="status-indicator status-{ machine.status }"></span>
+                            <strong>الحالة:</strong>
+                            <span class="ms-2 badge bg-{% if machine.status == 'operational' %}success{% elif machine.status == 'maintenance' %}warning{% elif machine.status == 'breakdown' %}danger{% else %}secondary{% endif %}">
+                                {{ machine.get_status_display }}
+                            </span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>الوضع:</strong>
+                            <span class="condition-{ machine.condition } fw-bold">
+                                {{ machine.get_condition_display }}
+                            </span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>الفئة:</strong> {{ machine.category.name }}
+                        </div>
+                        {% if machine.location %}
+                        <div class="mb-2">
+                            <strong>الموقع:</strong> {{ machine.location.name }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        {% if machine.is_under_warranty %}
+                            <div class="alert alert-success text-center">
+                                <i class="fas fa-shield-alt fa-2x mb-2"></i><br>
+                                <strong>تحت الضمان</strong><br>
+                                <small>حتى {{ machine.warranty_end_date|date:"d M Y" }}</small>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-secondary text-center">
+                                <i class="fas fa-shield-alt fa-2x mb-2"></i><br>
+                                <strong>انتهى الضمان</strong><br>
+                                <small>منذ {{ machine.warranty_end_date|date:"d M Y" }}</small>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- إحصائيات -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">{{ machine.operational_hours|floatformat:0 }}</div>
+                    <div class="text-muted">ساعات التشغيل</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ total_maintenance_cost|floatformat:0 }}</div>
+                    <div class="text-muted">تكلفة الصيانة الإجمالية</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ avg_maintenance_duration|floatformat:1 }}</div>
+                    <div class="text-muted">متوسط مدة الصيانة (ساعة)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ machine.days_since_last_maintenance|default:"-" }}</div>
+                    <div class="text-muted">أيام منذ آخر صيانة</div>
+                </div>
+            </div>
+
+            <!-- معلومات تفصيلية -->
+            <div class="row">
+                <!-- تفاصيل الماكينة -->
+                <div class="col-md-6">
+                    <div class="info-section">
+                        <h5 class="border-bottom pb-2 mb-3">
+                            <i class="fas fa-info-circle text-primary"></i>
+                            معلومات تفصيلية
+                        </h5>
+                        <div class="table-responsive"><table class="table table-sm">
+                            <tr>
+                                <td><strong>الشركة المصنعة:</strong></td>
+                                <td>{{ machine.manufacturer }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>الموديل:</strong></td>
+                                <td>{{ machine.model }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>الرقم التسلسلي:</strong></td>
+                                <td>{{ machine.serial_number }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>سنة الصنع:</strong></td>
+                                <td>{{ machine.year_manufactured }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>تاريخ الشراء:</strong></td>
+                                <td>{{ machine.purchase_date|date:"d M Y" }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>المسؤول:</strong></td>
+                                <td>
+                                    {% if machine.responsible_employee %}
+                                        {{ machine.responsible_employee.name }}
+                                    {% else %}
+                                        غير محدد
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </table></div>
+                    </div>
+                </div>
+                
+                <!-- جدولة الصيانة -->
+                <div class="col-md-6">
+                    <div class="info-section">
+                        <h5 class="border-bottom pb-2 mb-3">
+                            <i class="fas fa-calendar-alt text-success"></i>
+                            جدولة الصيانة
+                        </h5>
+                        {% if maintenance_schedules %}
+                            {% for schedule in maintenance_schedules %}
+                            <div class="mb-3 p-2 border rounded">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <strong>{{ schedule.maintenance_type.name }}</strong><br>
+                                        <small class="text-muted">{{ schedule.get_frequency_display }}</small>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="badge {% if schedule.is_due %}bg-danger{% elif schedule.days_until_due <= 7 %}bg-warning{% else %}bg-success{% endif %}">
+                                            {% if schedule.is_due %}
+                                                متأخر {{ schedule.days_until_due|default:"0" }} أيام
+                                            {% else %}
+                                                خلال {{ schedule.days_until_due }} أيام
+                                            {% endif %}
+                                        </span><br>
+                                        <small>{{ schedule.next_due_date|date:"d M Y" }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted text-center py-3">
+                                <i class="fas fa-calendar-times fa-2x mb-2"></i><br>
+                                لا توجد جدولة صيانة
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- قطع الغيار المتوافقة -->
+            {% if compatible_parts %}
+            <div class="info-section">
+                <h5 class="border-bottom pb-2 mb-3">
+                    <i class="fas fa-cogs text-warning"></i>
+                    قطع الغيار المتوافقة
+                </h5>
+                <div class="row">
+                    {% for part in compatible_parts %}
+                    <div class="col-md-6 mb-2">
+                        <div class="d-flex justify-content-between align-items-center p-2 border rounded">
+                            <div>
+                                <strong>{{ part.name }}</strong><br>
+                                <small class="text-muted">{{ part.code }}</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge {% if part.current_stock <= part.minimum_stock %}bg-danger{% elif part.current_stock <= part.reorder_point %}bg-warning{% else %}bg-success{% endif %}">
+                                    {{ part.current_stock|floatformat:0 }} وحدة
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="text-center mt-3">
+                    <a href="{% url 'maintenance:spare_part_list' %}?compatible_with={{ machine.pk }}" class="btn btn-sm btn-outline-primary">
+                        عرض جميع القطع المتوافقة
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- آخر سجلات الصيانة -->
+            <div class="info-section">
+                <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history text-info"></i>
+                        آخر سجلات الصيانة
+                    </h5>
+                    <a href="{% url 'maintenance:machine_maintenance_history' machine.pk %}" class="btn btn-sm btn-outline-info">
+                        عرض التاريخ الكامل
+                    </a>
+                </div>
+                
+                {% if maintenance_records %}
+                    <div class="maintenance-timeline">
+                        {% for record in maintenance_records %}
+                        <div class="timeline-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">{{ record.maintenance_type.name }}</h6>
+                                    <p class="mb-1">{{ record.work_performed|truncatewords:15 }}</p>
+                                    <small class="text-muted">
+                                        <i class="fas fa-user"></i> {{ record.technician.name }} - 
+                                        <i class="fas fa-clock"></i> {{ record.start_datetime|date:"d M Y H:i" }}
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge {% if record.result == 'successful' %}bg-success{% elif record.result == 'failed' %}bg-danger{% else %}bg-warning{% endif %}">
+                                        {{ record.get_result_display }}
+                                    </span>
+                                    {% if record.total_cost %}
+                                    <br><small class="text-muted">{{ record.total_cost|currency_format }}</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-clipboard fa-3x mb-3"></i>
+                        <p>لا توجد سجلات صيانة سابقة</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- الشريط الجانبي -->
+        <div class="col-md-4">
+            <div class="action-buttons">
+                <!-- أزرار التحكم -->
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <i class="fas fa-tools"></i>
+                        إجراءات سريعة
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <a href="{% url 'maintenance:maintenance_request_add' %}?machine={{ machine.pk }}" class="btn btn-success">
+                                <i class="fas fa-plus"></i> طلب صيانة جديد
+                            </a>
+                            <a href="{% url 'maintenance:machine_edit' machine.pk %}" class="btn btn-primary">
+                                <i class="fas fa-edit"></i> تعديل الماكينة
+                            </a>
+                            <a href="{% url 'maintenance:machine_qr_code' machine.pk %}" class="btn btn-info">
+                                <i class="fas fa-qrcode"></i> رمز QR
+                            </a>
+                            <div class="btn-group w-100">
+                                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                    <i class="fas fa-download"></i> تصدير
+                                </button>
+                                <ul class="dropdown-menu w-100">
+                                    <li><a class="dropdown-item" href="#"><i class="fas fa-file-pdf"></i> تقرير PDF</a></li>
+                                    <li><a class="dropdown-item" href="#"><i class="fas fa-file-excel"></i> Excel</a></li>
+                                    <li><a class="dropdown-item" href="#"><i class="fas fa-print"></i> طباعة</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- طلبات الصيانة النشطة -->
+                {% if active_requests %}
+                <div class="card mb-3">
+                    <div class="card-header bg-warning text-dark">
+                        <i class="fas fa-exclamation-circle"></i>
+                        طلبات صيانة نشطة ({{ active_requests.count }})
+                    </div>
+                    <div class="card-body">
+                        {% for request in active_requests %}
+                        <div class="mb-2 p-2 border rounded">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <small><strong>{{ request.title }}</strong></small><br>
+                                    <small class="text-muted">{{ request.request_date|date:"d M" }}</small>
+                                </div>
+                                <span class="badge {% if request.status == 'submitted' %}bg-secondary{% elif request.status == 'approved' %}bg-info{% else %}bg-warning{% endif %}">
+                                    {{ request.get_status_display }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        <div class="text-center mt-2">
+                            <a href="{% url 'maintenance:maintenance_request_list' %}?machine={{ machine.pk }}" class="btn btn-sm btn-outline-warning">
+                                عرض جميع الطلبات
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- معلومات مالية -->
+                <div class="card mb-3">
+                    <div class="card-header bg-info text-white">
+                        <i class="fas fa-dollar-sign"></i>
+                        المعلومات المالية
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive"><table class="table table-sm">
+                            <tr>
+                                <td>سعر الشراء:</td>
+                                <td class="text-end"><strong>{{ machine.purchase_price|currency_format }}</strong></td>
+                            </tr>
+                            {% if machine.current_book_value %}
+                            <tr>
+                                <td>القيمة الدفترية:</td>
+                                <td class="text-end"><strong>{{ machine.current_book_value|currency_format }}</strong></td>
+                            </tr>
+                            {% endif %}
+                            <tr>
+                                <td>تكلفة الصيانة الإجمالية:</td>
+                                <td class="text-end"><strong>{{ total_maintenance_cost|currency_format }}</strong></td>
+                            </tr>
+                        </table></div>
+                    </div>
+                </div>
+
+                <!-- معلومات إضافية -->
+                {% if machine.specifications %}
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">
+                        <i class="fas fa-info"></i>
+                        المواصفات الفنية
+                    </div>
+                    <div class="card-body">
+                        <p class="small">{{ machine.specifications|linebreaks }}</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function(){
+    // تحديث تلقائي للمعلومات كل 30 ثانية
+    setInterval(function(){
+        // يمكن إضافة تحديث AJAX للمعلومات المتغيرة
+    }, 30000);
+    
+    // تأكيد العمليات الحرجة
+    $('.critical-action').click(function(e){
+        if(!confirm('هل أنت متأكد من هذا الإجراء؟')){
+            e.preventDefault();
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %}

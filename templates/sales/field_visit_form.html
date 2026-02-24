@@ -1,0 +1,481 @@
+﻿{% extends 'base_templates/_form_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'تسجيل زيارة ميدانية' %}{% endblock %}
+{% block form_hero_icon %}bi-geo-alt-fill{% endblock %}
+{% block form_hero_title %}{% trans 'تسجيل زيارة ميدانية' %}{% endblock %}
+{% block form_hero_subtitle %}{% trans 'توثيق زيارة العميل والنتائج' %}{% endblock %}
+
+{% block form_content %}
+<style>
+  .location-capture {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  .location-capture i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+  }
+  .location-capture .coords {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    font-family: monospace;
+    margin-top: 0.5rem;
+  }
+  .location-capture.captured {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  }
+  .location-capture.captured i {
+    animation: none;
+  }
+  .customer-select-card {
+    background: var(--bg-card);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    transition: var(--transition);
+    cursor: pointer;
+  }
+  .customer-select-card:hover {
+    border-color: var(--primary);
+  }
+  .customer-select-card.selected {
+    border-color: var(--success);
+    background: rgba(16, 185, 129, 0.05);
+  }
+  .customer-select-card.selected::after {
+    content: '✓';
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    width: 28px;
+    height: 28px;
+    background: var(--success);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+  }
+  .visit-type-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .visit-type-option {
+    padding: 1.5rem 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .visit-type-option:hover {
+    border-color: var(--primary);
+  }
+  .visit-type-option.selected {
+    border-color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.1);
+  }
+  .visit-type-option i {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    display: block;
+    color: var(--primary);
+  }
+  .outcome-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+  .outcome-option {
+    padding: 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .outcome-option:hover {
+    border-color: var(--primary);
+  }
+  .outcome-option.selected {
+    border-color: var(--success);
+    background: rgba(16, 185, 129, 0.05);
+  }
+  .outcome-option.selected.negative {
+    border-color: var(--danger);
+    background: rgba(239, 68, 68, 0.05);
+  }
+  .outcome-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-light);
+  }
+  .outcome-icon.success { background: rgba(16,185,129,0.1); color: #10b981; }
+  .outcome-icon.warning { background: rgba(245,158,11,0.1); color: #f59e0b; }
+  .outcome-icon.danger { background: rgba(239,68,68,0.1); color: #ef4444; }
+  .outcome-icon.info { background: rgba(59,130,246,0.1); color: #3b82f6; }
+  .photo-upload-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 1rem;
+  }
+  .photo-upload-item {
+    aspect-ratio: 1;
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .photo-upload-item:hover {
+    border-color: var(--primary);
+    background: var(--bg-light);
+  }
+  .photo-upload-item i {
+    font-size: 2rem;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+  }
+  .photo-upload-item span {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+  .quick-notes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  .quick-note {
+    padding: 0.5rem 1rem;
+    background: var(--bg-light);
+    border: 1px solid var(--border-color);
+    border-radius: 2rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .quick-note:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+</style>
+
+<form method="post" id="visit-form" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+  
+  <!-- Location Capture -->
+  <div class="location-capture" id="location-box">
+    <i class="bi bi-crosshair"></i>
+    <div class="fw-bold fs-5">{% trans 'التقاط الموقع الحالي' %}</div>
+    <div class="coords" id="coords-display">{% trans 'جاري تحديد الموقع...' %}</div>
+    <input type="hidden" name="latitude" id="latitude">
+    <input type="hidden" name="longitude" id="longitude">
+    <button type="button" class="btn btn-light btn-sm mt-2" onclick="captureLocation()">
+      <i class="bi bi-arrow-repeat me-1"></i>{% trans 'إعادة التقاط' %}
+    </button>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <!-- Customer Selection -->
+      <div class="form-section">
+        <div class="section-header">
+          <i class="bi bi-person-badge section-icon"></i>
+          <div class="section-title">{% trans 'العميل' %}</div>
+        </div>
+        <div class="input-group mb-3">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input type="text" class="form-control" id="customer-search" placeholder="{% trans 'ابحث عن العميل بالاسم أو الكود...' %}">
+        </div>
+        <div id="nearby-customers">
+          <div class="small text-muted mb-2"><i class="bi bi-geo-alt me-1"></i>{% trans 'العملاء القريبون:' %}</div>
+          {% for customer in nearby_customers %}
+          <div class="customer-select-card position-relative" onclick="selectCustomer(this, '{ customer.id }')">
+            <input type="radio" name="customer" value="{ customer.id }}" hidden>
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <h6 class="mb-1 fw-bold">{{ customer.name }}</h6>
+                <div class="small text-muted">{{ customer.address }}</div>
+              </div>
+              <span class="badge bg-light text-dark">{{ customer.distance }} كم</span>
+            </div>
+          </div>
+          {% empty %}
+          <div class="customer-select-card position-relative" onclick="selectCustomer(this, '1')">
+            <input type="radio" name="customer" value="1" hidden>
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <h6 class="mb-1 fw-bold">شركة الفجر للتجارة</h6>
+                <div class="small text-muted">شارع الملك فهد، الرياض</div>
+              </div>
+              <span class="badge bg-light text-dark">0.5 كم</span>
+            </div>
+          </div>
+          <div class="customer-select-card position-relative" onclick="selectCustomer(this, '2')">
+            <input type="radio" name="customer" value="2" hidden>
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <h6 class="mb-1 fw-bold">مؤسسة النور التجارية</h6>
+                <div class="small text-muted">حي العليا، الرياض</div>
+              </div>
+              <span class="badge bg-light text-dark">1.2 كم</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Visit Type -->
+      <div class="form-section">
+        <div class="section-header">
+          <i class="bi bi-tag section-icon"></i>
+          <div class="section-title">{% trans 'نوع الزيارة' %}</div>
+        </div>
+        <div class="visit-type-grid">
+          <label class="visit-type-option selected">
+            <input type="radio" name="visit_type" value="sales" checked hidden>
+            <i class="bi bi-cart"></i>
+            <div>{% trans 'مبيعات' %}</div>
+          </label>
+          <label class="visit-type-option">
+            <input type="radio" name="visit_type" value="collection" hidden>
+            <i class="bi bi-cash"></i>
+            <div>{% trans 'تحصيل' %}</div>
+          </label>
+          <label class="visit-type-option">
+            <input type="radio" name="visit_type" value="followup" hidden>
+            <i class="bi bi-arrow-repeat"></i>
+            <div>{% trans 'متابعة' %}</div>
+          </label>
+          <label class="visit-type-option">
+            <input type="radio" name="visit_type" value="complaint" hidden>
+            <i class="bi bi-exclamation-triangle"></i>
+            <div>{% trans 'شكوى' %}</div>
+          </label>
+          <label class="visit-type-option">
+            <input type="radio" name="visit_type" value="delivery" hidden>
+            <i class="bi bi-truck"></i>
+            <div>{% trans 'توصيل' %}</div>
+          </label>
+          <label class="visit-type-option">
+            <input type="radio" name="visit_type" value="other" hidden>
+            <i class="bi bi-three-dots"></i>
+            <div>{% trans 'أخرى' %}</div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Visit Outcome -->
+      <div class="form-section">
+        <div class="section-header">
+          <i class="bi bi-check2-circle section-icon"></i>
+          <div class="section-title">{% trans 'نتيجة الزيارة' %}</div>
+        </div>
+        <div class="outcome-options">
+          <label class="outcome-option" onclick="this.classList.toggle('selected')">
+            <input type="checkbox" name="outcomes[]" value="order_placed" hidden>
+            <span class="outcome-icon success"><i class="bi bi-cart-check"></i></span>
+            <span>{% trans 'تم إنشاء طلب' %}</span>
+          </label>
+          <label class="outcome-option" onclick="this.classList.toggle('selected')">
+            <input type="checkbox" name="outcomes[]" value="payment_collected" hidden>
+            <span class="outcome-icon success"><i class="bi bi-cash-coin"></i></span>
+            <span>{% trans 'تم التحصيل' %}</span>
+          </label>
+          <label class="outcome-option" onclick="this.classList.toggle('selected')">
+            <input type="checkbox" name="outcomes[]" value="quotation_given" hidden>
+            <span class="outcome-icon info"><i class="bi bi-file-text"></i></span>
+            <span>{% trans 'عرض سعر' %}</span>
+          </label>
+          <label class="outcome-option" onclick="this.classList.toggle('selected')">
+            <input type="checkbox" name="outcomes[]" value="followup_needed" hidden>
+            <span class="outcome-icon warning"><i class="bi bi-clock"></i></span>
+            <span>{% trans 'يحتاج متابعة' %}</span>
+          </label>
+          <label class="outcome-option negative" onclick="this.classList.toggle('selected')">
+            <input type="checkbox" name="outcomes[]" value="not_available" hidden>
+            <span class="outcome-icon danger"><i class="bi bi-person-x"></i></span>
+            <span>{% trans 'العميل غير متوفر' %}</span>
+          </label>
+          <label class="outcome-option negative" onclick="this.classList.toggle('selected')">
+            <input type="checkbox" name="outcomes[]" value="rejected" hidden>
+            <span class="outcome-icon danger"><i class="bi bi-x-circle"></i></span>
+            <span>{% trans 'رفض التعامل' %}</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <!-- Visit Time -->
+      <div class="form-section">
+        <div class="section-header">
+          <i class="bi bi-clock section-icon"></i>
+          <div class="section-title">{% trans 'وقت الزيارة' %}</div>
+        </div>
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label">{% trans 'وقت الوصول' %}</label>
+            <input type="time" name="arrival_time" class="form-control" value="{ now|time:'H:i' }">
+          </div>
+          <div class="col-6">
+            <label class="form-label">{% trans 'وقت المغادرة' %}</label>
+            <input type="time" name="departure_time" class="form-control">
+          </div>
+        </div>
+      </div>
+
+      <!-- Photos -->
+      <div class="form-section">
+        <div class="section-header">
+          <i class="bi bi-camera section-icon"></i>
+          <div class="section-title">{% trans 'صور الزيارة' %}</div>
+        </div>
+        <div class="photo-upload-grid">
+          <label class="photo-upload-item">
+            <input type="file" name="photos[]" accept="image/*" capture="environment" hidden>
+            <i class="bi bi-camera"></i>
+            <span>{% trans 'التقاط صورة' %}</span>
+          </label>
+          <label class="photo-upload-item">
+            <input type="file" name="photos[]" accept="image/*" hidden>
+            <i class="bi bi-image"></i>
+            <span>{% trans 'من المعرض' %}</span>
+          </label>
+          <label class="photo-upload-item">
+            <input type="file" name="photos[]" accept="image/*" capture="environment" hidden>
+            <i class="bi bi-shop"></i>
+            <span>{% trans 'واجهة المحل' %}</span>
+          </label>
+          <label class="photo-upload-item">
+            <input type="file" name="photos[]" accept="image/*" capture="environment" hidden>
+            <i class="bi bi-file-earmark"></i>
+            <span>{% trans 'مستند' %}</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="form-section">
+        <div class="section-header">
+          <i class="bi bi-chat-text section-icon"></i>
+          <div class="section-title">{% trans 'ملاحظات' %}</div>
+        </div>
+        <div class="quick-notes">
+          <span class="quick-note" onclick="addQuickNote('العميل مهتم بالعروض الجديدة')">{% trans 'مهتم بالعروض' %}</span>
+          <span class="quick-note" onclick="addQuickNote('يحتاج زيارة متابعة الأسبوع القادم')">{% trans 'زيارة متابعة' %}</span>
+          <span class="quick-note" onclick="addQuickNote('منافس قوي في المنطقة')">{% trans 'منافسة' %}</span>
+          <span class="quick-note" onclick="addQuickNote('عميل VIP يستحق اهتمام خاص')">{% trans 'عميل مميز' %}</span>
+        </div>
+        <textarea name="notes" id="visit-notes" class="form-control" rows="4" placeholder="{% trans 'أضف ملاحظاتك عن الزيارة...' %}"></textarea>
+      </div>
+
+      <!-- Next Action -->
+      <div class="form-section">
+        <div class="section-header">
+          <i class="bi bi-arrow-right-circle section-icon"></i>
+          <div class="section-title">{% trans 'الإجراء التالي' %}</div>
+        </div>
+        <div class="row g-3">
+          <div class="col-12">
+            <select name="next_action" class="form-select">
+              <option value="">{% trans 'اختر الإجراء التالي' %}</option>
+              <option value="follow_up_call">{% trans 'مكالمة متابعة' %}</option>
+              <option value="send_quote">{% trans 'إرسال عرض سعر' %}</option>
+              <option value="schedule_visit">{% trans 'جدولة زيارة أخرى' %}</option>
+              <option value="send_samples">{% trans 'إرسال عينات' %}</option>
+              <option value="escalate">{% trans 'تصعيد للمدير' %}</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <input type="date" name="next_action_date" class="form-control" placeholder="{% trans 'تاريخ الإجراء' %}">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block form_actions_left %}
+<a href="{% url 'sales:field_sales' %}" class="btn btn-outline-secondary">
+  <i class="bi bi-arrow-right me-1"></i>{% trans 'إلغاء' %}
+</a>
+{% endblock %}
+
+{% block form_actions_right %}
+<button type="submit" form="visit-form" name="save_continue" class="btn btn-outline-primary">
+  <i class="bi bi-plus me-1"></i>{% trans 'حفظ وزيارة جديدة' %}
+</button>
+<button type="submit" form="visit-form" class="btn btn-success">
+  <i class="bi bi-check-circle me-1"></i>{% trans 'حفظ الزيارة' %}
+</button>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Auto-capture location on load
+  captureLocation();
+
+  function captureLocation() {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(function(position) {
+        document.getElementById('latitude').value = position.coords.latitude;
+        document.getElementById('longitude').value = position.coords.longitude;
+        document.getElementById('coords-display').textContent = 
+          position.coords.latitude.toFixed(6) + ', ' + position.coords.longitude.toFixed(6);
+        document.getElementById('location-box').classList.add('captured');
+      }, function(error) {
+        document.getElementById('coords-display').textContent = 'خطأ في تحديد الموقع';
+      });
+    }
+  }
+
+  function selectCustomer(element, customerId) {
+    document.querySelectorAll('.customer-select-card').forEach(card => card.classList.remove('selected'));
+    element.classList.add('selected');
+    element.querySelector('input[type="radio"]').checked = true;
+  }
+
+  // Visit type selection
+  document.querySelectorAll('.visit-type-option').forEach(option => {
+    option.addEventListener('click', function() {
+      document.querySelectorAll('.visit-type-option').forEach(o => o.classList.remove('selected'));
+      this.classList.add('selected');
+    });
+  });
+
+  function addQuickNote(note) {
+    const textarea = document.getElementById('visit-notes');
+    textarea.value = textarea.value ? textarea.value + '\n' + note : note;
+    textarea.focus();
+  }
+</script>
+{% endblock %}
+

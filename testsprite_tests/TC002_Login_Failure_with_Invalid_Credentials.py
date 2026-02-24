@@ -48,22 +48,22 @@ async def run_test():
         # -> Navigate to http://localhost:8000
         await page.goto("http://localhost:8000", wait_until="commit", timeout=10000)
         
-        # -> Click the 'تسجيل الدخول' (login) link (element index 142) to open the login page.
+        # -> Click the 'تسجيل الدخول' (login) link to open the login page
         frame = context.pages[-1]
         # Click element
         elem = frame.locator('xpath=html/body/nav/div/div/div/a[3]').nth(0)
         await page.wait_for_timeout(3000); await elem.click(timeout=5000)
         
-        # -> Fill the email and password fields with invalid credentials (email index 1144, password index 1158) and submit the form by clicking the login button (index 1169).
+        # -> Fill the Email and Password fields with invalid credentials and click the 'تسجيل الدخول' button to attempt login.
         frame = context.pages[-1]
         # Input text
         elem = frame.locator('xpath=html/body/main/div/div/div/form/div[1]/input').nth(0)
-        await page.wait_for_timeout(3000); await elem.fill('wrong@example.com')
+        await page.wait_for_timeout(3000); await elem.fill('invalid@example.com')
         
         frame = context.pages[-1]
         # Input text
         elem = frame.locator('xpath=html/body/main/div/div/div/form/div[2]/input').nth(0)
-        await page.wait_for_timeout(3000); await elem.fill('incorrect-password')
+        await page.wait_for_timeout(3000); await elem.fill('wrongpass')
         
         frame = context.pages[-1]
         # Click element

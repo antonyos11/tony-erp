@@ -1,0 +1,377 @@
+﻿{% extends 'ecommerce/store_base_new.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "المنتجات" %} - {{ store_settings.name|default:"المتجر" }}{% endblock %}
+
+{% block store_content %}
+<div class="products-page py-4">
+    <div class="container">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'store_home' %}">{% trans "الرئيسية" %}</a></li>
+                <li class="breadcrumb-item active">{% trans "المنتجات" %}</li>
+            </ol>
+        </nav>
+        
+        <!-- Page Header -->
+        <div class="page-header mb-4">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h1 class="h2 mb-0">{% trans "جميع المنتجات" %}</h1>
+                    <p class="text-muted mb-0">
+                        {% blocktrans count counter=products.paginator.count %}
+                            {{ counter }} منتج
+                        {% plural %}
+                            {{ counter }} منتج
+                        {% endblocktrans %}
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <form method="get" class="d-flex gap-2 justify-content-md-end">
+                        <div class="input-group" style="max-width: 300px;">
+                            <input type="text" name="q" class="form-control" placeholder="{% trans 'ابحث عن منتج...' %}" value="{{ request.GET.q }}">
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                        <select name="sort" class="form-select" style="width: auto;" onchange="this.form.submit()">
+                            <option value="">{% trans "الترتيب" %}</option>
+                            <option value="price_asc" {% if request.GET.sort == 'price_asc' %}selected{% endif %}>{% trans "السعر: من الأقل للأعلى" %}</option>
+                            <option value="price_desc" {% if request.GET.sort == 'price_desc' %}selected{% endif %}>{% trans "السعر: من الأعلى للأقل" %}</option>
+                            <option value="newest" {% if request.GET.sort == 'newest' %}selected{% endif %}>{% trans "الأحدث" %}</option>
+                            <option value="name" {% if request.GET.sort == 'name' %}selected{% endif %}>{% trans "الاسم" %}</option>
+                        </select>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <!-- Sidebar Filters -->
+            <div class="col-lg-3">
+                <div class="filters-sidebar card shadow-sm mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-filter me-2"></i>{% trans "تصفية المنتجات" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Categories -->
+                        <div class="filter-group mb-4">
+                            <h6 class="filter-title mb-3">{% trans "الأقسام" %}</h6>
+                            <ul class="list-unstyled">
+                                {% for category in categories %}
+                                <li class="mb-2">
+                                    <a href="{% url 'category_products' category.pk %}" class="text-decoration-none d-flex justify-content-between align-items-center {% if current_category.pk == category.pk %}text-primary fw-bold{% else %}text-dark{% endif %}">
+                                        <span>{{ category.name }}</span>
+                                        <span class="badge bg-dark bg-opacity-50 text-dark">{{ category.products.count }}</span>
+                                    </a>
+                                </li>
+                                {% empty %}
+                                <li class="text-muted">{% trans "لا توجد أقسام" %}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        
+                        <!-- Price Range -->
+                        <div class="filter-group mb-4">
+                            <h6 class="filter-title mb-3">{% trans "نطاق السعر" %}</h6>
+                            <form method="get" class="price-filter">
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <input type="number" name="min_price" class="form-control form-control-sm" placeholder="{% trans 'من' %}" value="{{ request.GET.min_price }}">
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="number" name="max_price" class="form-control form-control-sm" placeholder="{% trans 'إلى' %}" value="{{ request.GET.max_price }}">
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-sm btn-outline-primary w-100 mt-2">{% trans "تطبيق" %}</button>
+                            </form>
+                        </div>
+                        
+                        <!-- Brands -->
+                        {% if brands %}
+                        <div class="filter-group mb-4">
+                            <h6 class="filter-title mb-3">{% trans "العلامات التجارية" %}</h6>
+                            <ul class="list-unstyled">
+                                {% for brand in brands %}
+                                <li class="mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="brand" value="{{ brand.pk }}" id="brand_{{ brand.pk }}" {% if brand.pk|stringformat:"s" in request.GET.brand %}checked{% endif %}>
+                                        <label class="form-check-label" for="brand_{{ brand.pk }}">{{ brand.name }}</label>
+                                    </div>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Clear Filters -->
+                        <a href="{% url 'product_list' %}" class="btn btn-outline-secondary btn-sm w-100">
+                            <i class="fas fa-times me-1"></i>{% trans "مسح الفلاتر" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Products Grid -->
+            <div class="col-lg-9">
+                {% if products %}
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                    {% for product in products %}
+                    <div class="col">
+                        <div class="product-card card h-100 shadow-sm border-0">
+                            <!-- Product Image -->
+                            <div class="product-image-wrapper position-relative">
+                                <a href="{% url 'product_detail' product.pk %}">
+                                    {% if product.main_image %}
+                                    <img src="{{ product.main_image.url }}" class="card-img-top product-image" alt="{{ product.name }}">
+                                    {% else %}
+                                    <div class="card-img-top product-image bg-dark bg-opacity-50 d-flex align-items-center justify-content-center">
+                                        <i class="fas fa-image fa-3x text-muted"></i>
+                                    </div>
+                                    {% endif %}
+                                </a>
+                                
+                                <!-- Badges -->
+                                <div class="product-badges position-absolute top-0 start-0 p-2">
+                                    {% if product.is_new %}
+                                    <span class="badge bg-success">{% trans "جديد" %}</span>
+                                    {% endif %}
+                                    {% if product.discount_percentage %}
+                                    <span class="badge bg-danger">-{{ product.discount_percentage }}%</span>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Quick Actions -->
+                                <div class="product-actions position-absolute top-0 end-0 p-2">
+                                    <button class="btn btn-sm btn-light rounded-circle mb-1 add-to-wishlist" data-product-id="{{ product.pk }}" title="{% trans 'أضف للمفضلة' %}">
+                                        <i class="{% if product.pk in wishlist_ids %}fas{% else %}far{% endif %} fa-heart text-danger"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Product Info -->
+                            <div class="card-body">
+                                {% if product.brand %}
+                                <p class="text-muted small mb-1">{{ product.brand.name }}</p>
+                                {% endif %}
+                                <h5 class="card-title mb-2">
+                                    <a href="{% url 'product_detail' product.pk %}" class="text-dark text-decoration-none">
+                                        {{ product.name|truncatechars:50 }}
+                                    </a>
+                                </h5>
+                                
+                                <!-- Rating -->
+                                <div class="product-rating mb-2">
+                                    {% for i in "12345" %}
+                                        {% if forloop.counter <= product.average_rating|default:0 %}
+                                        <i class="fas fa-star text-warning"></i>
+                                        {% else %}
+                                        <i class="far fa-star text-warning"></i>
+                                        {% endif %}
+                                    {% endfor %}
+                                    <span class="text-muted small">({{ product.reviews_count|default:0 }})</span>
+                                </div>
+                                
+                                <!-- Price -->
+                                <div class="product-price">
+                                    {% if product.discount_price %}
+                                    <span class="price-current text-primary fw-bold fs-5">{{ product.discount_price|floatformat:2 }} {{ store_settings.currency_symbol|default:"ج.م" }}</span>
+                                    <span class="price-old text-muted text-decoration-line-through ms-2">{{ product.price|floatformat:2 }}</span>
+                                    {% else %}
+                                    <span class="price-current text-primary fw-bold fs-5">{{ product.price|floatformat:2 }} {{ store_settings.currency_symbol|default:"ج.م" }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Add to Cart -->
+                            <div class="card-footer bg-transparent border-0 pt-0">
+                                {% if product.in_stock %}
+                                <button class="btn btn-primary w-100 add-to-cart" data-product-id="{{ product.pk }}">
+                                    <i class="fas fa-shopping-cart me-2"></i>{% trans "أضف للسلة" %}
+                                </button>
+                                {% else %}
+                                <button class="btn btn-secondary w-100" disabled>
+                                    <i class="fas fa-times me-2"></i>{% trans "نفذ من المخزون" %}
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Pagination -->
+                {% if products.has_other_pages %}
+                <nav aria-label="Page navigation" class="mt-5">
+                    <ul class="pagination justify-content-center">
+                        {% if products.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ products.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        {% for num in products.paginator.page_range %}
+                            {% if products.number == num %}
+                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            {% elif num > products.number|add:'-3' and num < products.number|add:'3' %}
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">{{ num }}</a></li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if products.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ products.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+                
+                {% else %}
+                <!-- No Products -->
+                <div class="text-center py-5">
+                    <div class="mb-4">
+                        <i class="fas fa-box-open fa-5x text-muted"></i>
+                    </div>
+                    <h3>{% trans "لا توجد منتجات" %}</h3>
+                    <p class="text-muted">{% trans "لم نجد أي منتجات تطابق معايير البحث." %}</p>
+                    <a href="{% url 'product_list' %}" class="btn btn-primary">
+                        <i class="fas fa-undo me-2"></i>{% trans "عرض جميع المنتجات" %}
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.product-card {
+    transition: all 0.25s ease;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 30px rgba(15,42,107,0.06);
+}
+
+.product-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 18px 42px rgba(15,42,107,0.12) !important;
+    border-color: rgba(76,137,255,0.4);
+}
+
+.product-image-wrapper {
+    height: 210px;
+    overflow: hidden;
+    background: #f5f7fb;
+}
+
+.product-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.45s ease;
+}
+
+.product-card:hover .product-image {
+    transform: scale(1.05);
+}
+
+.product-actions {
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+.product-card:hover .product-actions {
+    opacity: 1;
+}
+
+.filters-sidebar {
+    position: sticky;
+    top: 20px;
+}
+
+.filter-title {
+    color: var(--primary-color);
+    font-weight: 600;
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 8px;
+}
+
+.add-to-cart, .add-to-wishlist {
+    transition: all 0.3s ease;
+}
+
+.add-to-cart:hover {
+    transform: scale(1.02);
+}
+
+.add-to-wishlist:hover {
+    transform: scale(1.1);
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add to Cart
+    document.querySelectorAll('.add-to-cart').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const productId = this.dataset.productId;
+            fetch(`/store/cart/add/${productId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({quantity: 1})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update cart count
+                    const cartCount = document.querySelector('.cart-count');
+                    if (cartCount) {
+                        cartCount.textContent = data.cart_count;
+                    }
+                    // Show success message
+                    alert('{% trans "تم إضافة المنتج للسلة" %}');
+                }
+            });
+        });
+    });
+    
+    // Add to Wishlist
+    document.querySelectorAll('.add-to-wishlist').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const productId = this.dataset.productId;
+            const icon = this.querySelector('i');
+            
+            fetch(`/store/wishlist/toggle/${productId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.added) {
+                    icon.classList.remove('far');
+                    icon.classList.add('fas');
+                } else {
+                    icon.classList.remove('fas');
+                    icon.classList.add('far');
+                }
+            });
+        });
+    });
+});
+</script>
+{% endblock %}
+

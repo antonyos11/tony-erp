@@ -1,0 +1,412 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'متابعة التحصيلات' %}{% endblock %}
+
+{% block content %}
+<style>
+  .collection-hero {
+    background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+    margin-bottom: 2rem;
+  }
+  .collection-hero h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  .summary-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .summary-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+  }
+  .summary-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 4px;
+    height: 100%;
+  }
+  .summary-card.total::before { background: #3b82f6; }
+  .summary-card.overdue::before { background: #dc2626; }
+  .summary-card.upcoming::before { background: #f59e0b; }
+  .summary-card.collected::before { background: #10b981; }
+  .summary-card .value {
+    font-size: 2rem;
+    font-weight: 700;
+  }
+  .summary-card.total .value { color: #3b82f6; }
+  .summary-card.overdue .value { color: #dc2626; }
+  .summary-card.upcoming .value { color: #f59e0b; }
+  .summary-card.collected .value { color: #10b981; }
+  .summary-card .label {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+  }
+  .aging-chart {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .aging-bars {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  .aging-bar {
+    text-align: center;
+  }
+  .aging-bar .bar {
+    height: 120px;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    position: relative;
+    overflow: hidden;
+  }
+  .aging-bar .fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, #10b981, #34d399);
+    border-radius: var(--radius);
+  }
+  .aging-bar.warning .fill { background: linear-gradient(to top, #f59e0b, #fbbf24); }
+  .aging-bar.danger .fill { background: linear-gradient(to top, #dc2626, #ef4444); }
+  .aging-bar .amount {
+    font-weight: 700;
+    margin-top: 0.5rem;
+  }
+  .aging-bar .label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .followup-list {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .followup-header {
+    padding: 1rem 1.5rem;
+    background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .followup-item {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    transition: var(--transition);
+  }
+  .followup-item:hover {
+    background: rgba(var(--primary-rgb), 0.05);
+  }
+  .followup-item:last-child {
+    border-bottom: none;
+  }
+  .customer-avatar {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, var(--primary) 0%, #2d5a87 100%);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+  }
+  .customer-info {
+    flex: 1;
+  }
+  .customer-info .name {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .customer-info .meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+  }
+  .amount-box {
+    text-align: center;
+    min-width: 100px;
+  }
+  .amount-box .amount {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #dc2626;
+  }
+  .amount-box .label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .days-overdue {
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius);
+    font-weight: 600;
+    text-align: center;
+    min-width: 80px;
+  }
+  .days-overdue.mild { background: rgba(245, 158, 11, 0.1); color: #b45309; }
+  .days-overdue.warning { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+  .days-overdue.severe { background: #dc2626; color: white; }
+  .action-buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .filter-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    background: var(--bg-light);
+    padding: 0.5rem;
+    border-radius: var(--radius);
+  }
+  .filter-tab {
+    padding: 0.5rem 1rem;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-weight: 500;
+    transition: var(--transition);
+  }
+  .filter-tab:hover {
+    background: rgba(var(--primary-rgb), 0.1);
+  }
+  .filter-tab.active {
+    background: var(--primary);
+    color: white;
+  }
+  .filter-tab .count {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    background: rgba(255,255,255,0.2);
+    border-radius: var(--radius);
+    font-size: 0.75rem;
+    margin-right: 0.25rem;
+  }
+  .quick-actions-bar {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+</style>
+
+<!-- Hero -->
+<div class="collection-hero">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div>
+      <h1><i class="bi bi-cash-coin me-2"></i>{% trans 'متابعة التحصيلات' %}</h1>
+      <p class="mb-0 opacity-75">{% trans 'متابعة المستحقات والمتأخرات' %}</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'sales:receipt_create' %}" class="btn btn-light">
+        <i class="bi bi-plus-circle me-1"></i>{% trans 'إيصال جديد' %}
+      </a>
+      <a href="{% url 'sales:reporting_analytics' %}" class="btn btn-outline-light">
+        <i class="bi bi-file-text me-1"></i>{% trans 'التقارير' %}
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="summary-row">
+  <div class="summary-card total">
+    <div class="value">{{ stats.total_receivables|floatformat:0 }}</div>
+    <div class="label">{% trans 'إجمالي المستحقات' %}</div>
+  </div>
+  <div class="summary-card overdue">
+    <div class="value">{{ stats.total_overdue|floatformat:0 }}</div>
+    <div class="label">{% trans 'متأخرات' %}</div>
+  </div>
+  <div class="summary-card upcoming">
+    <div class="value">{{ stats.upcoming|floatformat:0 }}</div>
+    <div class="label">{% trans 'مستحقة خلال 7 أيام' %}</div>
+  </div>
+  <div class="summary-card collected">
+    <div class="value">{{ stats.collected_this_month|floatformat:0 }}</div>
+    <div class="label">{% trans 'محصل هذا الشهر' %}</div>
+  </div>
+</div>
+
+<!-- Aging Analysis -->
+<div class="aging-chart">
+  <h5><i class="bi bi-bar-chart me-2"></i>{% trans 'تحليل عمر الديون' %}</h5>
+  <div class="aging-bars">
+    <div class="aging-bar">
+      <div class="bar">
+        <div class="fill" style="height: { aging.current_pct }%;"></div>
+      </div>
+      <div class="amount">{{ aging.current|floatformat:0 }}</div>
+      <div class="label">{% trans 'حالي' %}</div>
+    </div>
+    <div class="aging-bar">
+      <div class="bar">
+        <div class="fill" style="height: { aging.days_30_pct }%;"></div>
+      </div>
+      <div class="amount">{{ aging.days_30|floatformat:0 }}</div>
+      <div class="label">1-30 {% trans 'يوم' %}</div>
+    </div>
+    <div class="aging-bar warning">
+      <div class="bar">
+        <div class="fill" style="height: { aging.days_60_pct }%;"></div>
+      </div>
+      <div class="amount">{{ aging.days_60|floatformat:0 }}</div>
+      <div class="label">31-60 {% trans 'يوم' %}</div>
+    </div>
+    <div class="aging-bar danger">
+      <div class="bar">
+        <div class="fill" style="height: { aging.days_90_pct }%;"></div>
+      </div>
+      <div class="amount">{{ aging.days_90|floatformat:0 }}</div>
+      <div class="label">61-90 {% trans 'يوم' %}</div>
+    </div>
+    <div class="aging-bar danger">
+      <div class="bar">
+        <div class="fill" style="height: { aging.over_90_pct }%;"></div>
+      </div>
+      <div class="amount">{{ aging.over_90|floatformat:0 }}</div>
+      <div class="label">&gt;90 {% trans 'يوم' %}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Filter Tabs -->
+<div class="filter-tabs">
+  <button class="filter-tab active" data-filter="all">
+    {% trans 'الكل' %} <span class="count">{{ stats.total_count }}</span>
+  </button>
+  <button class="filter-tab" data-filter="overdue">
+    {% trans 'متأخر' %} <span class="count">{{ stats.overdue_count }}</span>
+  </button>
+  <button class="filter-tab" data-filter="upcoming">
+    {% trans 'قريب الاستحقاق' %} <span class="count">{{ stats.upcoming_count }}</span>
+  </button>
+  <button class="filter-tab" data-filter="high-value">
+    {% trans 'مبالغ كبيرة' %} <span class="count">{{ stats.high_value_count }}</span>
+  </button>
+</div>
+
+<!-- Quick Actions -->
+<div class="quick-actions-bar">
+  <button class="btn btn-outline-primary btn-sm" onclick="sendReminders()">
+    <i class="bi bi-bell me-1"></i>{% trans 'إرسال تذكيرات' %}
+  </button>
+  <button class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-envelope me-1"></i>{% trans 'رسائل SMS' %}
+  </button>
+  <button class="btn btn-outline-info btn-sm">
+    <i class="bi bi-printer me-1"></i>{% trans 'طباعة القائمة' %}
+  </button>
+</div>
+
+<!-- Followup List -->
+<div class="followup-list">
+  <div class="followup-header">
+    <h6 class="mb-0"><i class="bi bi-list-check me-2"></i>{% trans 'قائمة المتابعة' %}</h6>
+    <div class="form-check">
+      <input type="checkbox" id="select-all" class="form-check-input">
+      <label for="select-all" class="form-check-label">{% trans 'تحديد الكل' %}</label>
+    </div>
+  </div>
+  
+  {% for item in followup_list %}
+  <div class="followup-item">
+    <input type="checkbox" class="form-check-input" value="{ item.pk }">
+    <div class="customer-avatar">{{ item.customer.initials }}</div>
+    <div class="customer-info">
+      <div class="name">{{ item.customer.name }}</div>
+      <div class="meta">
+        <span><i class="bi bi-telephone me-1"></i>{{ item.customer.phone }}</span>
+        <span><i class="bi bi-receipt me-1"></i>{{ item.invoices_count }} {% trans 'فاتورة' %}</span>
+        <span><i class="bi bi-calendar me-1"></i>{% trans 'آخر سداد' %}: {{ item.last_payment|date:"Y/m/d"|default:'-' }}</span>
+      </div>
+    </div>
+    <div class="amount-box">
+      <div class="amount">{{ item.total_due|floatformat:0 }}</div>
+      <div class="label">{% trans 'المستحق' %}</div>
+    </div>
+    <div class="days-overdue {% if item.days_overdue > 60 %}severe{% elif item.days_overdue > 30 %}warning{% else %}mild{% endif %}">
+      {{ item.days_overdue }} {% trans 'يوم' %}
+    </div>
+    <div class="action-buttons">
+      <a href="{% url 'sales:receipt_create' %}?customer={{ item.customer.pk }}" class="btn btn-success btn-sm" title="{% trans 'تحصيل' %}">
+        <i class="bi bi-cash"></i>
+      </a>
+      <a href="{% url 'sales:customer_statement' item.customer.pk %}" class="btn btn-outline-primary btn-sm" title="{% trans 'كشف حساب' %}">
+        <i class="bi bi-file-text"></i>
+      </a>
+      <button class="btn btn-outline-secondary btn-sm" onclick="sendReminder({ item.customer.pk })" title="{% trans 'تذكير' %}">
+        <i class="bi bi-bell"></i>
+      </button>
+    </div>
+  </div>
+  {% empty %}
+  <div class="text-center py-5 text-muted">
+    <i class="bi bi-check-circle fs-1 d-block mb-2 text-success"></i>
+    {% trans 'لا توجد متأخرات' %}
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Filter tabs
+  document.querySelectorAll('.filter-tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+      // Filter logic
+    });
+  });
+
+  // Select all
+  document.getElementById('select-all').addEventListener('change', function() {
+    document.querySelectorAll('.followup-item input[type="checkbox"]').forEach(cb => {
+      cb.checked = this.checked;
+    });
+  });
+
+  function sendReminder(customerId) {
+    // Send reminder logic
+    alert('{% trans "تم إرسال التذكير" %}');
+  }
+
+  function sendReminders() {
+    const selected = document.querySelectorAll('.followup-item input[type="checkbox"]:checked');
+    if (selected.length === 0) {
+      alert('{% trans "يرجى تحديد عملاء" %}');
+      return;
+    }
+    // Bulk send logic
+    alert(`{% trans "تم إرسال" %} ${selected.length} {% trans "تذكير" %}`);
+  }
+</script>
+{% endblock %}
+

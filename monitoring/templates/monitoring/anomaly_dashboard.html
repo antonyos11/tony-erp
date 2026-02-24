@@ -1,0 +1,207 @@
+{% extends "base_layout.html" %}
+{% load static %}
+{% load tony_erb_tags %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4">
+    {# Page Header #}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">🔍 كشف الشذوذات</h2>
+            <p class="text-muted">نظام ذكي لاكتشاف الأنماط غير العادية والتنبيهات الاستباقية</p>
+        </div>
+        <div>
+            <button class="btn btn-primary" id="runAnomalyCheck">
+                <i class="bi bi-play-circle"></i> تشغيل الفحص
+            </button>
+        </div>
+    </div>
+
+    {# Statistics Cards #}
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card stats-card border-danger">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">تنبيهات حرجة</h6>
+                            <h3 class="mb-0 text-danger">{{ stats.critical_alerts }}</h3>
+                        </div>
+                        <div class="stats-icon bg-danger bg-opacity-10 text-danger">
+                            <i class="bi bi-exclamation-triangle-fill fs-3"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card stats-card border-warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">تنبيهات عالية</h6>
+                            <h3 class="mb-0 text-warning">{{ stats.high_alerts }}</h3>
+                        </div>
+                        <div class="stats-icon bg-warning bg-opacity-10 text-warning">
+                            <i class="bi bi-exclamation-circle-fill fs-3"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card stats-card border-info">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">إجمالي التنبيهات</h6>
+                            <h3 class="mb-0 text-info">{{ stats.total_alerts }}</h3>
+                        </div>
+                        <div class="stats-icon bg-info bg-opacity-10 text-info">
+                            <i class="bi bi-bell-fill fs-3"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card stats-card border-success">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">تم الحل اليوم</h6>
+                            <h3 class="mb-0 text-success">{{ stats.resolved_today }}</h3>
+                        </div>
+                        <div class="stats-icon bg-success bg-opacity-10 text-success">
+                            <i class="bi bi-check-circle-fill fs-3"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Recent Alerts Table #}
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">التنبيهات الأخيرة</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>الفئة</th>
+                            <th>العنوان</th>
+                            <th>الخطورة</th>
+                            <th>الحالة</th>
+                            <th>الانحراف</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for alert in alerts %}
+                        <tr>
+                            <td>{{ alert.detected_at|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                <span class="badge bg-secondary">{{ alert.get_category_display }}</span>
+                            </td>
+                            <td>{{ alert.title }}</td>
+                            <td>
+                                {% if alert.severity == 'critical' %}
+                                    <span class="badge bg-danger">حرج</span>
+                                {% elif alert.severity == 'high' %}
+                                    <span class="badge bg-warning">عالي</span>
+                                {% elif alert.severity == 'medium' %}
+                                    <span class="badge bg-info">متوسط</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">منخفض</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if alert.status == 'resolved' %}
+                                    <span class="badge bg-success">تم الحل</span>
+                                {% elif alert.status == 'new' %}
+                                    <span class="badge bg-primary">جديد</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ alert.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if alert.deviation_percentage %}
+                                    {{ alert.deviation_percentage }}%
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">
+                                <i class="bi bi-info-circle fs-3 d-block mb-2"></i>
+                                لا توجد تنبيهات حالياً
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.stats-card {
+    border-width: 2px;
+    transition: transform 0.2s;
+}
+.stats-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.stats-icon {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+}
+</style>
+
+<script>
+document.getElementById('runAnomalyCheck').addEventListener('click', async function() {
+    const btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> جاري الفحص...';
+    
+    try {
+        const response = await fetch('{% url "monitoring:run_anomaly_check" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`تم اكتشاف ${data.total_alerts} شذوذ جديد`);
+            location.reload();
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('حدث خطأ أثناء الفحص');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-play-circle"></i> تشغيل الفحص';
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,650 @@
+﻿{% extends 'base_templates/modern_form.html' %}
+
+{% block page_module %}accounting{% endblock %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "سداد قسط" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+    }
+    
+    .form-hero {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    
+    .loan-summary-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .loan-header-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 2px solid var(--accent-color);
+    }
+    
+    .loan-identity {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+    
+    .loan-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+    }
+    
+    .loan-title h4 {
+        margin: 0 0 0.25rem;
+        color: var(--primary-color);
+    }
+    
+    .loan-title span {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .loan-status {
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    .loan-status.active {
+        background: rgba(255, 193, 7, 0.15);
+        color: #b38600;
+    }
+    
+    .loan-stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1.5rem;
+    }
+    
+    @media (max-width: 768px) {
+        .loan-stats {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    
+    .stat-box {
+        text-align: center;
+        padding: 1.25rem;
+        background: #f8f9fa;
+        border-radius: 12px;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .stat-value.success { color: var(--success-color); }
+    .stat-value.warning { color: #b38600; }
+    
+    .stat-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    
+    .progress-visual {
+        margin-top: 1.5rem;
+    }
+    
+    .progress-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .progress {
+        height: 12px;
+        border-radius: 6px;
+        background: #e9ecef;
+    }
+    
+    .progress-bar {
+        background: linear-gradient(90deg, var(--accent-color), #00b894);
+        border-radius: 6px;
+    }
+    
+    .payment-form-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .form-card-header {
+        padding: 1.25rem 1.5rem;
+        background: #fafbfc;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .form-card-header h5 {
+        margin: 0;
+        color: var(--primary-color);
+        font-weight: 600;
+    }
+    
+    .form-body {
+        padding: 2rem;
+    }
+    
+    .form-label {
+        font-weight: 500;
+        color: var(--primary-color);
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-control, .form-select {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.15);
+    }
+    
+    .amount-input-group {
+        position: relative;
+    }
+    
+    .amount-input-group .currency {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    .amount-input-group input {
+        padding-left: 3.5rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+    
+    .quick-amounts {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-top: 0.75rem;
+    }
+    
+    .quick-amount-btn {
+        padding: 0.5rem 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        background: white;
+        color: #6c757d;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .quick-amount-btn:hover,
+    .quick-amount-btn.active {
+        border-color: var(--accent-color);
+        background: var(--accent-color);
+        color: white;
+    }
+    
+    .payment-method-options {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin-top: 0.5rem;
+    }
+    
+    @media (max-width: 576px) {
+        .payment-method-options {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .method-option {
+        position: relative;
+    }
+    
+    .method-option input {
+        position: absolute;
+        opacity: 0;
+    }
+    
+    .method-option label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 1.25rem;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .method-option label i {
+        font-size: 1.75rem;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+    }
+    
+    .method-option label span {
+        font-weight: 500;
+        color: var(--primary-color);
+    }
+    
+    .method-option input:checked + label {
+        border-color: var(--accent-color);
+        background: rgba(0, 212, 170, 0.05);
+    }
+    
+    .method-option input:checked + label i {
+        color: var(--accent-color);
+    }
+    
+    .schedule-preview {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-top: 1.5rem;
+    }
+    
+    .schedule-title {
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .schedule-list {
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    
+    .schedule-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        background: white;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .schedule-item.current {
+        border: 2px solid var(--accent-color);
+        background: rgba(0, 212, 170, 0.05);
+    }
+    
+    .schedule-item.paid {
+        opacity: 0.6;
+    }
+    
+    .schedule-item.paid .schedule-status {
+        color: var(--success-color);
+    }
+    
+    .schedule-date {
+        font-weight: 500;
+        color: var(--primary-color);
+    }
+    
+    .schedule-amount {
+        font-weight: 600;
+    }
+    
+    .schedule-status {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    .form-actions {
+        padding: 1.5rem 2rem;
+        background: #fafbfc;
+        border-top: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .btn-pay {
+        background: linear-gradient(135deg, var(--success-color), #20c997);
+        border: none;
+        color: white;
+        padding: 0.875rem 2rem;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-pay:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        color: white;
+    }
+    
+    [data-bs-theme="dark"] .loan-summary-card,
+    [data-bs-theme="dark"] .payment-form-card {
+        background: #1a1d21;
+    }
+    
+    [data-bs-theme="dark"] .stat-box,
+    [data-bs-theme="dark"] .schedule-preview {
+        background: #2d3238;
+    }
+    
+    [data-bs-theme="dark"] .form-card-header,
+    [data-bs-theme="dark"] .form-actions {
+        background: #2d3238;
+    }
+    
+    [data-bs-theme="dark"] .schedule-item {
+        background: #1a1d21;
+    }
+    
+    [data-bs-theme="dark"] .method-option label {
+        border-color: #3d4248;
+        background: #2d3238;
+    }
+</style>
+{% endblock %}
+
+{% block form_content %}
+<div class="container py-4">
+    <!-- Hero Section -->
+    <div class="form-hero">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h2 mb-2">
+                    <i class="fas fa-money-bill-wave me-2"></i>
+                    {% trans "سداد قسط" %}
+                </h1>
+                <p class="mb-0 opacity-75">
+                    {% trans "تسجيل دفعة سداد لقرض" %}
+                </p>
+            </div>
+            <a href="{% url 'accounting:loan_list' %}" class="btn btn-light">
+                <i class="fas fa-arrow-right me-1"></i>
+                {% trans "العودة للقروض" %}
+            </a>
+        </div>
+    </div>
+    
+    <!-- Loan Summary -->
+    <div class="loan-summary-card">
+        <div class="loan-header-info">
+            <div class="loan-identity">
+                <div class="loan-icon">
+                    <i class="fas fa-hand-holding-usd"></i>
+                </div>
+                <div class="loan-title">
+                    <h4>{{ loan.reference|default:"LOAN-2024-001" }}</h4>
+                    <span>{{ loan.entity_name|default:"أحمد محمد - موظف" }}</span>
+                </div>
+            </div>
+            <span class="loan-status active">{% trans "نشط" %}</span>
+        </div>
+        
+        <div class="loan-stats">
+            <div class="stat-box">
+                <div class="stat-value">{{ loan.total_amount|default:"50,000"|intcomma }}</div>
+                <div class="stat-label">{% trans "مبلغ القرض" %}</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value success">{{ loan.paid_amount|default:"20,000"|intcomma }}</div>
+                <div class="stat-label">{% trans "المسدد" %}</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value warning">{{ loan.remaining|default:"30,000"|intcomma }}</div>
+                <div class="stat-label">{% trans "المتبقي" %}</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">{{ loan.installment_amount|default:"5,000"|intcomma }}</div>
+                <div class="stat-label">{% trans "القسط الشهري" %}</div>
+            </div>
+        </div>
+        
+        <div class="progress-visual">
+            <div class="progress-header">
+                <span>{% trans "تقدم السداد" %}</span>
+                <span>40% (4 من 10 أقساط)</span>
+            </div>
+            <div class="progress">
+                <div class="progress-bar" style="width: 40%;"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Payment Form -->
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="payment-form-card">
+            <div class="form-card-header">
+                <h5>
+                    <i class="fas fa-credit-card me-2"></i>
+                    {% trans "بيانات السداد" %}
+                </h5>
+            </div>
+            
+            <div class="form-body">
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <label class="form-label">{% trans "تاريخ السداد" %} <span class="text-danger">*</span></label>
+                        <input type="date" name="payment_date" class="form-control" 
+                               value="{% now 'Y-m-d' %}" required>
+                    </div>
+                    <div class="col-md-6 mb-4">
+                        <label class="form-label">{% trans "رقم القسط" %}</label>
+                        <input type="text" class="form-control" value="5" readonly>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="form-label">{% trans "مبلغ السداد" %} <span class="text-danger">*</span></label>
+                    <div class="amount-input-group">
+                        <span class="currency">ج.م</span>
+                        <input type="number" name="amount" class="form-control" 
+                               value="5000" step="0.01" required id="paymentAmount">
+                    </div>
+                    <div class="quick-amounts">
+                        <button type="button" class="quick-amount-btn active" data-amount="5000">
+                            {% trans "قسط واحد" %} (5,000)
+                        </button>
+                        <button type="button" class="quick-amount-btn" data-amount="10000">
+                            {% trans "قسطين" %} (10,000)
+                        </button>
+                        <button type="button" class="quick-amount-btn" data-amount="30000">
+                            {% trans "المتبقي كامل" %} (30,000)
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="form-label">{% trans "طريقة السداد" %}</label>
+                    <div class="payment-method-options">
+                        <div class="method-option">
+                            <input type="radio" name="method" id="method_cash" value="cash" checked>
+                            <label for="method_cash">
+                                <i class="fas fa-money-bill-alt"></i>
+                                <span>{% trans "نقداً" %}</span>
+                            </label>
+                        </div>
+                        <div class="method-option">
+                            <input type="radio" name="method" id="method_bank" value="bank">
+                            <label for="method_bank">
+                                <i class="fas fa-university"></i>
+                                <span>{% trans "تحويل بنكي" %}</span>
+                            </label>
+                        </div>
+                        <div class="method-option">
+                            <input type="radio" name="method" id="method_salary" value="salary">
+                            <label for="method_salary">
+                                <i class="fas fa-user-minus"></i>
+                                <span>{% trans "خصم راتب" %}</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <label class="form-label">{% trans "رقم المرجع" %}</label>
+                        <input type="text" name="reference" class="form-control" 
+                               placeholder="{% trans 'رقم الإيصال أو التحويل' %}">
+                    </div>
+                    <div class="col-md-6 mb-4">
+                        <label class="form-label">{% trans "الحساب البنكي" %}</label>
+                        <select name="bank_account" class="form-select">
+                            <option value="">-- {% trans "اختر الحساب" %} --</option>
+                            <option value="1">{% trans "الصندوق النقدي" %}</option>
+                            <option value="2">{% trans "البنك الأهلي" %}</option>
+                            <option value="3">{% trans "بنك الراجحي" %}</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="form-label">{% trans "ملاحظات" %}</label>
+                    <textarea name="notes" class="form-control" rows="3" 
+                              placeholder="{% trans 'أي ملاحظات إضافية...' %}"></textarea>
+                </div>
+                
+                <!-- Payment Schedule Preview -->
+                <div class="schedule-preview">
+                    <div class="schedule-title">
+                        <i class="fas fa-calendar-alt"></i>
+                        {% trans "جدول الأقساط" %}
+                    </div>
+                    <div class="schedule-list">
+                        <div class="schedule-item paid">
+                            <div>
+                                <div class="schedule-date">2024-01-01</div>
+                                <div class="schedule-status"><i class="fas fa-check-circle me-1"></i>{% trans "مدفوع" %}</div>
+                            </div>
+                            <div class="schedule-amount">5,000 ج.م</div>
+                        </div>
+                        <div class="schedule-item paid">
+                            <div>
+                                <div class="schedule-date">2024-02-01</div>
+                                <div class="schedule-status"><i class="fas fa-check-circle me-1"></i>{% trans "مدفوع" %}</div>
+                            </div>
+                            <div class="schedule-amount">5,000 ج.م</div>
+                        </div>
+                        <div class="schedule-item paid">
+                            <div>
+                                <div class="schedule-date">2024-03-01</div>
+                                <div class="schedule-status"><i class="fas fa-check-circle me-1"></i>{% trans "مدفوع" %}</div>
+                            </div>
+                            <div class="schedule-amount">5,000 ج.م</div>
+                        </div>
+                        <div class="schedule-item paid">
+                            <div>
+                                <div class="schedule-date">2024-04-01</div>
+                                <div class="schedule-status"><i class="fas fa-check-circle me-1"></i>{% trans "مدفوع" %}</div>
+                            </div>
+                            <div class="schedule-amount">5,000 ج.م</div>
+                        </div>
+                        <div class="schedule-item current">
+                            <div>
+                                <div class="schedule-date">2024-05-01</div>
+                                <div class="schedule-status text-warning"><i class="fas fa-arrow-left me-1"></i>{% trans "القسط الحالي" %}</div>
+                            </div>
+                            <div class="schedule-amount">5,000 ج.م</div>
+                        </div>
+                        <div class="schedule-item">
+                            <div>
+                                <div class="schedule-date">2024-06-01</div>
+                                <div class="schedule-status">{% trans "قادم" %}</div>
+                            </div>
+                            <div class="schedule-amount">5,000 ج.م</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Form Actions -->
+            <div class="form-actions">
+                <a href="{% url 'accounting:loan_list' %}" class="btn btn-light">
+                    {% trans "إلغاء" %}
+                </a>
+                <div class="d-flex gap-2">
+                    <button type="submit" name="save_and_add" class="btn btn-outline-success">
+                        <i class="fas fa-plus me-1"></i>
+                        {% trans "سداد وإضافة آخر" %}
+                    </button>
+                    <button type="submit" class="btn btn-pay">
+                        <i class="fas fa-check me-1"></i>
+                        {% trans "تأكيد السداد" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const amountInput = document.getElementById('paymentAmount');
+    const quickBtns = document.querySelectorAll('.quick-amount-btn');
+    
+    quickBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            quickBtns.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            amountInput.value = this.dataset.amount;
+        });
+    });
+    
+    amountInput.addEventListener('input', function() {
+        quickBtns.forEach(b => b.classList.remove('active'));
+        quickBtns.forEach(btn => {
+            if (btn.dataset.amount === this.value) {
+                btn.classList.add('active');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+

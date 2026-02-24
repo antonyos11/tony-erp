@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% load i18n humanize %}
+
+{% block title %}{% trans "تفاصيل المصروف" %} - {{ expense.get_category_display }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" dir="rtl">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center bg-white border-bottom">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-info-circle me-2"></i>
+                        {% trans "تفاصيل مصروف محدد" %}
+                    </h6>
+                    <span class="badge badge-{% if expense.status == 'paid' %}success{% elif expense.status == 'approved' %}primary{% elif expense.status == 'rejected' %}danger{% else %}info{% endif %} p-2">
+                        {{ expense.get_status_display }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4 bg-light p-3 rounded mx-0">
+                        <div class="col-md-4 text-center">
+                            <label class="text-muted d-block small">{% trans "المبلغ الإجمالي" %}</label>
+                            <span class="h3 font-weight-bold text-success">{{ expense.amount|floatformat:2|intcomma }} ر.س</span>
+                        </div>
+                        <div class="col-md-4 text-center border-right border-left">
+                            <label class="text-muted d-block small">{% trans "نوع المصروف" %}</label>
+                            <span class="h5">{{ expense.get_category_display }}</span>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <label class="text-muted d-block small">{% trans "التاريخ" %}</label>
+                            <span class="h5">{{ expense.date|date:"Y-m-d" }}</span>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="text-muted small">{% trans "الفرع" %}:</label>
+                            <p class="font-weight-bold">{{ expense.branch.name }} ({{ expense.branch.code }})</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">{% trans "أُنشئ بواسطة" %}:</label>
+                            <p>{{ expense.created_by.get_full_name|default:expense.created_by.username }}</p>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <label class="text-muted small">{% trans "الوصف" %}:</label>
+                            <p class="border p-3 rounded bg-white">{{ expense.description|linebreaksbr|default:_("لا يوجد وصف") }}</p>
+                        </div>
+                    </div>
+
+                    {% if expense.attachment %}
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <label class="text-muted small">{% trans "المرفق / الإيصال" %}:</label>
+                            <div class="d-flex align-items-center p-2 border rounded bg-white">
+                                <i class="fas fa-file-invoice fa-2x text-primary me-3"></i>
+                                <div>
+                                    <span class="d-block small text-truncate">{% trans "إيصال المصروف" %}</span>
+                                    <a href="{{ expense.attachment.url }}" target="_blank" class="small text-primary">
+                                        <i class="fas fa-download me-1"></i> {% trans "تحميل أو عرض المرفق" %}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if expense.status == 'approved' or expense.status == 'paid' %}
+                    <div class="alert alert-success border-0 shadow-sm mt-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-check-circle fa-2x me-3"></i>
+                            <div>
+                                <p class="mb-0">{% trans "تم اعتماد هذا المصروف بواسطة" %}: <strong>{{ expense.approved_by.get_full_name }}</strong></p>
+                                <small>{% trans "بتاريخ" %}: {{ expense.approved_at|date:"Y-m-d H:i" }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% elif expense.status == 'rejected' %}
+                    <div class="alert alert-danger border-0 shadow-sm mt-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-times-circle fa-2x me-3"></i>
+                            <div>
+                                <p class="mb-0">{% trans "تم رفض هذا المصروف" %}.</p>
+                                {% if expense.rejection_note %}
+                                <p class="mb-0 small mt-1"><strong>{% trans "السبب" %}:</strong> {{ expense.rejection_note }}</p>
+                                {% endif %}
+                                <small>{% trans "بواسطة" %}: {{ expense.approved_by.get_full_name }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="mt-4 pt-3 border-top d-flex justify-content-between">
+                        <a href="{% url 'branches:dashboard' %}" class="btn btn-secondary">
+                            <i class="fas fa-chevron-right me-1"></i> {% trans "العودة للقائمة" %}
+                        </a>
+                        <div class="actions d-flex gap-2">
+                            {% if expense.status == 'draft' %}
+                            <a href="{% url 'branches:expense_edit' expense.pk %}" class="btn btn-primary">
+                                <i class="fas fa-edit me-1"></i> {% trans "تعديل" %}
+                            </a>
+                            {% endif %}
+                            
+                            {% if user.is_staff and expense.status == 'submitted' %}
+                            <form method="post" action="{% url 'branches:expense_approve' expense.pk %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fas fa-check me-1"></i> {% trans "اعتماد" %}
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

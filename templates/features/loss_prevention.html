@@ -1,0 +1,112 @@
+{% extends BASE_TEMPLATE %}
+{% load i18n static %}
+
+{% block title %}منع الخسائر{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-gradient-warning text-dark">
+                    <h3 class="mb-0">
+                        <i class="bi bi-shield-check me-2"></i>
+                        منع الخسائر الذكي
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">تحقق من الأسعار قبل البيع لمنع البيع بخسارة</p>
+                    
+                    <div class="alert alert-warning">
+                        <i class="bi bi-info-circle me-2"></i>
+                        هذه الأداة تساعدك على منع البيع بسعر أقل من التكلفة
+                    </div>
+                    
+                    <form id="priceValidationForm" class="mt-4">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">المنتج</label>
+                                <select name="product_id" class="form-select" required>
+                                    <option value="">اختر المنتج...</option>
+                                    <!-- سيتم تحميل المنتجات ديناميكياً -->
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">سعر البيع المقترح</label>
+                                <input type="number" name="selling_price" class="form-control" step="0.01" required>
+                            </div>
+                            <div class="col-md-4 mb-3 d-flex align-items-end">
+                                <button type="submit" class="btn btn-warning w-100">
+                                    <i class="bi bi-calculator me-2"></i>
+                                    تحقق من السعر
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <div id="priceValidationResult" class="mt-4" style="display: none;">
+                        <div id="resultAlert" class="alert">
+                            <h5 id="resultTitle"></h5>
+                            <div class="row mt-3">
+                                <div class="col-md-4">
+                                    <strong>التكلفة الفعلية:</strong>
+                                    <p id="actualCost" class="h4">-</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>السعر المقترح:</strong>
+                                    <p id="proposedPrice" class="h4">-</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>هامش الربح:</strong>
+                                    <p id="profitMarginPercent" class="h4">-</p>
+                                </div>
+                            </div>
+                            <p id="recommendation" class="mt-2"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('priceValidationForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const productId = formData.get('product_id');
+    const sellingPrice = formData.get('selling_price');
+    
+    try {
+        const response = await fetch(`/smart-pricing/loss-prevention/validate/?product_id=${productId}&selling_price=${sellingPrice}`);
+        const data = await response.json();
+        
+        const resultDiv = document.getElementById('priceValidationResult');
+        const resultAlert = document.getElementById('resultAlert');
+        
+        if (data.success) {
+            if (data.is_profitable) {
+                resultAlert.className = 'alert alert-success';
+                document.getElementById('resultTitle').innerHTML = 
+                    '<i class="bi bi-check-circle me-2"></i>السعر مربح ✓';
+            } else {
+                resultAlert.className = 'alert alert-danger';
+                document.getElementById('resultTitle').innerHTML = 
+                    '<i class="bi bi-exclamation-triangle me-2"></i>تحذير: السعر قد يسبب خسارة!';
+            }
+            
+            document.getElementById('actualCost').textContent = data.cost + ' ر.س';
+            document.getElementById('proposedPrice').textContent = sellingPrice + ' ر.س';
+            document.getElementById('profitMarginPercent').textContent = data.profit_margin + '%';
+            document.getElementById('recommendation').textContent = data.recommendation;
+            
+            resultDiv.style.display = 'block';
+        } else {
+            alert('حدث خطأ في التحقق من السعر');
+        }
+    } catch (error) {
+        alert('حدث خطأ في الاتصال');
+    }
+});
+</script>
+{% endblock %}

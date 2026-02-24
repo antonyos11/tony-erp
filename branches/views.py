@@ -1,235 +1,706 @@
-# branches/views.py
-from django.shortcuts import render, get_object_or_404, redirect
+"""
+Views وحدة الفروع الموحدة
+تم دمج وحدة المعارض في هذه الوحدة
+"""
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
-from django.db.models import Count, Q
+from django.db.models import Sum, Count, Q, F
+from django.db import transaction
+from django.utils import timezone
 from django.core.paginator import Paginator
-from utils import handle_json_request
-from .models import Branch, BranchType
+from decimal import Decimal
+
+from .models import (
+    Branch, BranchStaff, BranchTransfer, BranchTransferItem,
+    POSDevice, BranchAttendance, BranchExpense, BranchPurchase,
+    BranchPayroll, BranchShift, BranchStockMovement
+)
+from .forms import (
+    BranchForm, BranchStaffForm, BranchTransferForm, BranchTransferItemFormSet,
+    POSDeviceForm, BranchExpenseForm, BranchPayrollForm, BranchShiftForm
+)
 
 
-def unified_dashboard(request):
-    """لوحة تحكم موحدة للفروع والمعارض"""
-    
-    # إحصائيات حسب النوع
+def generate_transfer_number():
+    today = timezone.now()
+    prefix = f"TR{today.strftime('%Y%m%d')}"
+    last = BranchTransfer.objects.filter(transfer_number__startswith=prefix).order_by('-transfer_number').first()
+    new_num = int(last.transfer_number[-4:]) + 1 if last else 1
+    return f"{prefix}{new_num:04d}"
+
+
+# ==================== الفروع ====================
+
+@login_required
+def branches_dashboard(request):
+    branches = Branch.objects.filter(is_active=True)
     stats = {
-        'total': Branch.objects.filter(is_active=True).count(),
-        'branches': Branch.objects.filter(branch_type=BranchType.BRANCH, is_active=True).count(),
-        'showrooms': Branch.objects.filter(branch_type=BranchType.SHOWROOM, is_active=True).count(),
-        'warehouses': Branch.objects.filter(branch_type=BranchType.WAREHOUSE, is_active=True).count(),
-        'outlets': Branch.objects.filter(branch_type=BranchType.OUTLET, is_active=True).count(),
+        'total_branches': Branch.objects.count(),
+        'active_branches': branches.count(),
+        'pending_transfers': BranchTransfer.objects.filter(status='pending').count(),
+        'in_transit': BranchTransfer.objects.filter(status='in_transit').count(),
+        'pending_expenses': BranchExpense.objects.filter(status='submitted').count(),
+        'today_attendance': BranchAttendance.objects.filter(date=timezone.now().date()).count(),
     }
+    recent_transfers = BranchTransfer.objects.select_related('from_branch', 'to_branch').order_by('-created_at')[:10]
+    recent_expenses = BranchExpense.objects.select_related('branch').order_by('-created_at')[:5]
     
-    # آخر المواقع المضافة
-    recent_locations = Branch.objects.order_by('-created_at')[:5]
-    
-    # المواقع حسب المدينة
-    by_city = Branch.objects.filter(is_active=True).values('city').annotate(
-        count=Count('id')
-    ).order_by('-count')[:5]
-    
-    context = {
+    return render(request, 'branches/dashboard.html', {
+        'branches': branches,
         'stats': stats,
-        'recent_locations': recent_locations,
-        'by_city': by_city,
-        'branch_types': BranchType.choices,
-    }
-    return render(request, 'branches/unified_dashboard.html', context)
+        'recent_transfers': recent_transfers,
+        'recent_expenses': recent_expenses,
+        'page_title': '🏢 إدارة الفروع والمعارض - نظام موحد'
+    })
 
 
-def unified_list(request):
-    """قائمة جميع الفروع والمعارض"""
-    
-    queryset = Branch.objects.all()
-    
-    # تصفية حسب النوع
-    branch_type = request.GET.get('type')
-    if branch_type:
-        queryset = queryset.filter(branch_type=branch_type)
-    
-    # تصفية حسب الحالة
+@login_required
+def branch_list(request):
+    branches = Branch.objects.select_related('manager', 'parent_branch').all()
     status = request.GET.get('status')
-    if status == 'active':
-        queryset = queryset.filter(is_active=True)
-    elif status == 'inactive':
-        queryset = queryset.filter(is_active=False)
-    
-    # البحث
-    search = request.GET.get('q')
-    if search:
-        queryset = queryset.filter(
-            Q(name__icontains=search) |
-            Q(code__icontains=search) |
-            Q(city__icontains=search)
-        )
-    
-    # ترتيب
-    order = request.GET.get('order', 'name')
-    queryset = queryset.order_by(order)
-    
-    # pagination
-    paginator = Paginator(queryset, 12)
-    page = request.GET.get('page', 1)
-    locations = paginator.get_page(page)
-    
-    context = {
-        'locations': locations,
-        'branch_types': BranchType.choices,
-        'current_type': branch_type,
-        'current_status': status,
-        'search_query': search or '',
-    }
-    return render(request, 'branches/unified_list.html', context)
-
-
-@handle_json_request
-def create_location(request):
-    """إنشاء فرع أو معرض جديد"""
-    
-    if request.method == 'POST':
-        try:
-            branch = Branch(
-                name=request.POST.get('name'),
-                code=request.POST.get('code'),
-                branch_type=request.POST.get('branch_type', 'branch'),
-                address=request.POST.get('address', ''),
-                city=request.POST.get('city', ''),
-                region=request.POST.get('region', ''),
-                phone=request.POST.get('phone', ''),
-                mobile=request.POST.get('mobile', ''),
-                email=request.POST.get('email', ''),
-                is_active=request.POST.get('is_active') == 'on',
-                is_main=request.POST.get('is_main') == 'on',
-                can_sell=request.POST.get('can_sell') == 'on',
-                can_purchase=request.POST.get('can_purchase') == 'on',
-                has_inventory=request.POST.get('has_inventory') == 'on',
-                notes=request.POST.get('notes', ''),
-            )
-            
-            parent_id = request.POST.get('parent_branch')
-            if parent_id:
-                branch.parent_branch_id = parent_id
-            
-            branch.save()
-            messages.success(request, f'تم إنشاء {branch.get_branch_type_display()} "{branch.name}" بنجاح')
-            return redirect('branches:location_detail', pk=branch.pk)
-        except Exception as e:
-            messages.error(request, f'حدث خطأ: {str(e)}')
-    
-    context = {
-        'branch_types': BranchType.choices,
-        'parent_branches': Branch.objects.filter(is_active=True),
-    }
-    return render(request, 'branches/create_location.html', context)
-
-
-def location_detail(request, pk):
-    """عرض تفاصيل فرع أو معرض"""
-    
-    location = get_object_or_404(Branch, pk=pk)
-    sub_locations = location.get_all_children()
-    
-    context = {
-        'location': location,
-        'sub_locations': sub_locations,
-    }
-    return render(request, 'branches/location_detail.html', context)
-
-
-def edit_location(request, pk):
-    """تعديل فرع أو معرض"""
-    
-    location = get_object_or_404(Branch, pk=pk)
-    
-    if request.method == 'POST':
-        try:
-            location.name = request.POST.get('name')
-            location.code = request.POST.get('code')
-            location.branch_type = request.POST.get('branch_type')
-            location.address = request.POST.get('address', '')
-            location.city = request.POST.get('city', '')
-            location.region = request.POST.get('region', '')
-            location.phone = request.POST.get('phone', '')
-            location.mobile = request.POST.get('mobile', '')
-            location.email = request.POST.get('email', '')
-            location.is_active = request.POST.get('is_active') == 'on'
-            location.is_main = request.POST.get('is_main') == 'on'
-            location.can_sell = request.POST.get('can_sell') == 'on'
-            location.can_purchase = request.POST.get('can_purchase') == 'on'
-            location.has_inventory = request.POST.get('has_inventory') == 'on'
-            location.notes = request.POST.get('notes', '')
-            
-            parent_id = request.POST.get('parent_branch')
-            location.parent_branch_id = parent_id if parent_id else None
-            
-            location.save()
-            messages.success(request, f'تم تحديث "{location.name}" بنجاح')
-            return redirect('branches:location_detail', pk=pk)
-        except Exception as e:
-            messages.error(request, f'حدث خطأ: {str(e)}')
-    
-    context = {
-        'location': location,
-        'branch_types': BranchType.choices,
-        'parent_branches': Branch.objects.filter(is_active=True).exclude(pk=pk),
-    }
-    return render(request, 'branches/edit_location.html', context)
-
-
-def toggle_status(request, pk):
-    """تفعيل/تعطيل فرع أو معرض"""
-    
-    if request.method == 'POST':
-        location = get_object_or_404(Branch, pk=pk)
-        location.is_active = not location.is_active
-        location.save()
-        
-        status = 'تفعيل' if location.is_active else 'تعطيل'
-        messages.success(request, f'تم {status} "{location.name}"')
-        
-    return redirect('branches:unified_list')
-
-
-def set_current_location(request):
-    """تعيين الفرع الحالي للمستخدم"""
-    
-    if request.method == 'POST':
-        location_id = request.POST.get('location_id')
-        if location_id:
-            request.session['current_location_id'] = int(location_id)
-            location = get_object_or_404(Branch, pk=location_id)
-            messages.success(request, f'تم التبديل إلى {location.name}')
-    
-    next_url = request.POST.get('next', request.META.get('HTTP_REFERER', '/'))
-    return redirect(next_url)
-
-
-# API Views
-def api_locations_list(request):
-    """API: قائمة المواقع"""
-    
     branch_type = request.GET.get('type')
-    queryset = Branch.objects.filter(is_active=True)
+    search = request.GET.get('q')
     
+    if status:
+        branches = branches.filter(status=status)
     if branch_type:
-        queryset = queryset.filter(branch_type=branch_type)
+        branches = branches.filter(branch_type=branch_type)
+    if search:
+        branches = branches.filter(Q(code__icontains=search) | Q(name__icontains=search))
     
-    data = list(queryset.values('id', 'name', 'code', 'branch_type', 'city'))
-    return JsonResponse({'locations': data})
+    paginator = Paginator(branches, 20)
+    branches = paginator.get_page(request.GET.get('page'))
+    
+    return render(request, 'branches/branch_list.html', {
+        'branches': branches,
+        'page_title': 'قائمة الفروع والمعارض',
+        'status_choices': Branch.STATUS_CHOICES,
+        'type_choices': Branch.BRANCH_TYPE_CHOICES
+    })
 
 
-def api_location_detail(request, pk):
-    """API: تفاصيل موقع"""
+@login_required
+def branch_create(request):
+    if request.method == 'POST':
+        form = BranchForm(request.POST, request.FILES)
+        if form.is_valid():
+            branch = form.save(commit=False)
+            branch.created_by = request.user
+            branch.save()
+            messages.success(request, f'تم إنشاء الفرع "{branch.name}" بنجاح')
+            return redirect('branches:branch_detail', pk=branch.pk)
+    else:
+        form = BranchForm()
+    return render(request, 'branches/branch_form.html', {'form': form, 'page_title': 'إنشاء فرع جديد'})
+
+
+@login_required
+def branch_detail(request, pk):
+    branch = get_object_or_404(Branch.objects.select_related('manager', 'parent_branch'), pk=pk)
+    staff = branch.staff.select_related('user').filter(is_active=True)
+    transfers_out = branch.transfers_out.select_related('to_branch').order_by('-created_at')[:5]
+    transfers_in = branch.transfers_in.select_related('from_branch').order_by('-created_at')[:5]
+    recent_expenses = branch.expenses.order_by('-created_at')[:5]
+    pos_devices = branch.pos_devices.all()
     
-    location = get_object_or_404(Branch, pk=pk)
-    data = {
-        'id': location.id,
-        'name': location.name,
-        'code': location.code,
-        'branch_type': location.branch_type,
-        'city': location.city,
-        'address': location.address,
-        'phone': location.phone,
-        'is_active': location.is_active,
+    return render(request, 'branches/branch_detail.html', {
+        'branch': branch,
+        'staff': staff,
+        'transfers_out': transfers_out,
+        'transfers_in': transfers_in,
+        'recent_expenses': recent_expenses,
+        'pos_devices': pos_devices,
+        'page_title': f'تفاصيل: {branch.name}'
+    })
+
+
+@login_required
+def branch_edit(request, pk):
+    branch = get_object_or_404(Branch, pk=pk)
+    if request.method == 'POST':
+        form = BranchForm(request.POST, request.FILES, instance=branch)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'تم تحديث الفرع "{branch.name}" بنجاح')
+            return redirect('branches:branch_detail', pk=branch.pk)
+    else:
+        form = BranchForm(instance=branch)
+    return render(request, 'branches/branch_form.html', {'form': form, 'branch': branch, 'page_title': f'تعديل: {branch.name}'})
+
+
+@login_required
+def branch_delete(request, pk):
+    branch = get_object_or_404(Branch, pk=pk)
+    if request.method == 'POST':
+        if branch.transfers_out.exists() or branch.transfers_in.exists():
+            messages.error(request, 'لا يمكن حذف الفرع لوجود تحويلات مرتبطة')
+            return redirect('branches:branch_detail', pk=pk)
+        name = branch.name
+        branch.delete()
+        messages.success(request, f'تم حذف الفرع "{name}"')
+        return redirect('branches:branch_list')
+    return render(request, 'branches/branch_confirm_delete.html', {'branch': branch, 'page_title': f'حذف: {branch.name}'})
+
+
+@login_required
+def branch_toggle_status(request, pk):
+    """تغيير حالة الفرع (تفعيل/إيقاف) - يدعم AJAX و POST العادي"""
+    branch = get_object_or_404(Branch, pk=pk)
+    if request.method == 'POST':
+        new_status = request.POST.get('status', 'inactive')
+        old_status = branch.status
+        branch.status = new_status
+        
+        # تحديث is_active أيضاً
+        branch.is_active = (new_status == 'active')
+        branch.save()
+        
+        # تحديث الـ session لضمان تزامن البيانات مع الـ Dashboard
+        if hasattr(request, 'session'):
+            request.session['branch_data_version'] = str(branch.pk) + '_' + new_status
+            request.session.modified = True
+        
+        # دعم طلبات AJAX
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        if is_ajax:
+            from django.http import JsonResponse
+            status_text = 'تم تفعيل' if new_status == 'active' else 'تم إيقاف'
+            return JsonResponse({
+                'success': True,
+                'message': f'{status_text} الفرع "{branch.name}" بنجاح',
+                'new_status': new_status,
+                'is_active': branch.is_active,
+                'branch_id': branch.pk,
+            })
+        
+        if new_status == 'active':
+            messages.success(request, f'تم تفعيل الفرع "{branch.name}" بنجاح')
+        else:
+            messages.warning(request, f'تم إيقاف الفرع "{branch.name}"')
+        
+        return redirect('branches:branch_list')
+    return redirect('branches:branch_list')
+
+
+# ==================== التحويلات ====================
+
+@login_required
+def transfer_list(request):
+    transfers = BranchTransfer.objects.select_related('from_branch', 'to_branch', 'requested_by')
+    status = request.GET.get('status')
+    search = request.GET.get('q')
+    
+    if status:
+        transfers = transfers.filter(status=status)
+    if search:
+        transfers = transfers.filter(transfer_number__icontains=search)
+    
+    paginator = Paginator(transfers, 20)
+    transfers = paginator.get_page(request.GET.get('page'))
+    
+    return render(request, 'branches/transfer_list.html', {
+        'transfers': transfers,
+        'branches': Branch.objects.filter(is_active=True),
+        'status_choices': BranchTransfer.STATUS_CHOICES,
+        'page_title': 'التحويلات بين الفروع'
+    })
+
+
+@login_required
+def transfer_create(request):
+    if request.method == 'POST':
+        form = BranchTransferForm(request.POST)
+        formset = BranchTransferItemFormSet(request.POST)
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                transfer = form.save(commit=False)
+                transfer.transfer_number = generate_transfer_number()
+                transfer.requested_by = request.user
+                transfer.status = 'pending'
+                transfer.save()
+                formset.instance = transfer
+                formset.save()
+                messages.success(request, f'تم إنشاء التحويل {transfer.transfer_number}')
+                return redirect('branches:transfer_detail', pk=transfer.pk)
+    else:
+        form = BranchTransferForm(initial={'transfer_date': timezone.now().date()})
+        formset = BranchTransferItemFormSet()
+    return render(request, 'branches/transfer_form.html', {'form': form, 'formset': formset, 'page_title': 'إنشاء تحويل جديد'})
+
+
+@login_required
+def transfer_detail(request, pk):
+    transfer = get_object_or_404(
+        BranchTransfer.objects.select_related('from_branch', 'to_branch', 'requested_by', 'approved_by', 'received_by')
+        .prefetch_related('items__product'), pk=pk
+    )
+    return render(request, 'branches/transfer_detail.html', {
+        'transfer': transfer,
+        'items': transfer.items.all(),
+        'page_title': f'التحويل: {transfer.transfer_number}'
+    })
+
+
+@login_required
+def transfer_approve(request, pk):
+    transfer = get_object_or_404(BranchTransfer, pk=pk, status='pending')
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'approve':
+            transfer.approve(request.user)
+            messages.success(request, f'تمت الموافقة على التحويل {transfer.transfer_number}')
+        elif action == 'reject':
+            transfer.reject(request.user, request.POST.get('rejection_reason', ''))
+            messages.warning(request, f'تم رفض التحويل {transfer.transfer_number}')
+        return redirect('branches:transfer_detail', pk=pk)
+    return render(request, 'branches/transfer_approve.html', {'transfer': transfer, 'page_title': f'الموافقة: {transfer.transfer_number}'})
+
+
+@login_required
+def transfer_ship(request, pk):
+    transfer = get_object_or_404(BranchTransfer, pk=pk, status='approved')
+    if request.method == 'POST':
+        transfer.status = 'in_transit'
+        transfer.save()
+        messages.success(request, f'تم شحن التحويل {transfer.transfer_number}')
+        return redirect('branches:transfer_detail', pk=pk)
+    return render(request, 'branches/transfer_ship.html', {'transfer': transfer, 'page_title': f'شحن: {transfer.transfer_number}'})
+
+
+@login_required
+def transfer_receive(request, pk):
+    transfer = get_object_or_404(BranchTransfer, pk=pk, status='in_transit')
+    if request.method == 'POST':
+        with transaction.atomic():
+            for item in transfer.items.all():
+                received_qty = request.POST.get(f'received_{item.id}')
+                if received_qty:
+                    item.received_quantity = int(received_qty)
+                    item.save()
+            transfer.receive(request.user)
+            messages.success(request, f'تم استلام التحويل {transfer.transfer_number}')
+        return redirect('branches:transfer_detail', pk=pk)
+    return render(request, 'branches/transfer_receive.html', {'transfer': transfer, 'items': transfer.items.all(), 'page_title': f'استلام: {transfer.transfer_number}'})
+
+
+@login_required
+def transfer_cancel(request, pk):
+    transfer = get_object_or_404(BranchTransfer, pk=pk)
+    if transfer.status in ['received', 'cancelled']:
+        messages.error(request, 'لا يمكن إلغاء هذا التحويل')
+        return redirect('branches:transfer_detail', pk=pk)
+    if request.method == 'POST':
+        transfer.status = 'cancelled'
+        transfer.save()
+        messages.warning(request, f'تم إلغاء التحويل {transfer.transfer_number}')
+        return redirect('branches:transfer_detail', pk=pk)
+    return render(request, 'branches/transfer_cancel.html', {'transfer': transfer, 'page_title': f'إلغاء: {transfer.transfer_number}'})
+
+
+# ==================== الموظفين ====================
+
+@login_required
+def staff_list(request):
+    staff = BranchStaff.objects.select_related('branch', 'user').all()
+    branch_id = request.GET.get('branch')
+    role = request.GET.get('role')
+    
+    if branch_id:
+        staff = staff.filter(branch_id=branch_id)
+    if role:
+        staff = staff.filter(role=role)
+    
+    paginator = Paginator(staff, 20)
+    staff = paginator.get_page(request.GET.get('page'))
+    
+    return render(request, 'branches/staff_list.html', {
+        'staff': staff,
+        'branches': Branch.objects.filter(is_active=True),
+        'role_choices': BranchStaff.ROLE_CHOICES,
+        'page_title': 'موظفو الفروع'
+    })
+
+
+@login_required
+def staff_create(request):
+    if request.method == 'POST':
+        form = BranchStaffForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'تم إضافة الموظف للفرع بنجاح')
+            return redirect('branches:staff_list')
+    else:
+        form = BranchStaffForm()
+    return render(request, 'branches/staff_form.html', {'form': form, 'page_title': 'إضافة موظف للفرع'})
+
+
+# ==================== المصروفات ====================
+
+@login_required
+def expense_list(request):
+    expenses = BranchExpense.objects.select_related('branch', 'created_by').all()
+    branch_id = request.GET.get('branch')
+    status = request.GET.get('status')
+    category = request.GET.get('category')
+    
+    if branch_id:
+        expenses = expenses.filter(branch_id=branch_id)
+    if status:
+        expenses = expenses.filter(status=status)
+    if category:
+        expenses = expenses.filter(category=category)
+    
+    paginator = Paginator(expenses, 20)
+    expenses = paginator.get_page(request.GET.get('page'))
+    
+    return render(request, 'branches/expense_list.html', {
+        'expenses': expenses,
+        'branches': Branch.objects.filter(is_active=True),
+        'category_choices': BranchExpense.ExpenseType.choices,
+        'status_choices': BranchExpense.Status.choices,
+        'page_title': 'مصروفات الفروع'
+    })
+
+
+@login_required
+def expense_create(request):
+    if request.method == 'POST':
+        form = BranchExpenseForm(request.POST, request.FILES)
+        if form.is_valid():
+            expense = form.save(commit=False)
+            expense.created_by = request.user
+            expense.save()
+            messages.success(request, 'تم تسجيل المصروف بنجاح')
+            return redirect('branches:expense_list')
+    else:
+        form = BranchExpenseForm()
+    return render(request, 'branches/expense_form.html', {'form': form, 'page_title': 'تسجيل مصروف جديد'})
+
+
+@login_required
+def expense_detail(request, pk):
+    expense = get_object_or_404(BranchExpense.objects.select_related('branch', 'created_by', 'approved_by'), pk=pk)
+    return render(request, 'branches/expense_detail.html', {'expense': expense, 'page_title': f'مصروف: {expense.pk}'})
+
+
+@login_required
+def expense_approve(request, pk):
+    expense = get_object_or_404(BranchExpense, pk=pk, status='submitted')
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'approve':
+            expense.approve(request.user)
+            messages.success(request, 'تم اعتماد المصروف')
+        elif action == 'reject':
+            expense.reject(request.user, request.POST.get('reason', ''))
+            messages.warning(request, 'تم رفض المصروف')
+        return redirect('branches:expense_detail', pk=pk)
+    return render(request, 'branches/expense_approve.html', {'expense': expense, 'page_title': 'اعتماد المصروف'})
+
+
+# ==================== الحضور ====================
+
+@login_required
+def attendance_list(request):
+    """قائمة سجلات الحضور والانصراف"""
+    records = BranchAttendance.objects.select_related(
+        'branch', 'employee', 'user'
+    ).order_by('-date', '-in_time')
+    
+    branch_id = request.GET.get('branch')
+    date_filter = request.GET.get('date')
+    
+    if branch_id:
+        records = records.filter(branch_id=branch_id)
+    if date_filter:
+        records = records.filter(date=date_filter)
+    else:
+        records = records.filter(date=timezone.now().date())
+    
+    # Statistics
+    today_records = BranchAttendance.objects.filter(date=timezone.now().date())
+    stats = {
+        'present': today_records.filter(in_time__isnull=False).count(),
+        'absent': 0,
+        'not_out': today_records.filter(in_time__isnull=False, out_time__isnull=True).count(),
+        'total': today_records.count()
     }
-    return JsonResponse(data)
+    
+    paginator = Paginator(records, 30)
+    records = paginator.get_page(request.GET.get('page'))
+    
+    return render(request, 'branches/attendance_list.html', {
+        'records': records,
+        'branches': Branch.objects.filter(is_active=True),
+        'stats': stats,
+        'page_title': 'سجلات الحضور'
+    })
+
+
+@login_required
+def attendance_punch(request):
+    """تسجيل حضور/انصراف"""
+    if request.method == 'POST':
+        branch_id = request.POST.get('branch')
+        employee_id = request.POST.get('employee')
+        action = request.POST.get('action')
+        
+        branch = get_object_or_404(Branch, pk=branch_id)
+        employee = get_object_or_404(BranchStaff, pk=employee_id)
+        
+        record, created = BranchAttendance.objects.get_or_create(
+            branch=branch,
+            employee=employee,
+            user=employee.user,
+            date=timezone.now().date()
+        )
+        
+        if action == 'in':
+            if record.punch_in():
+                messages.success(request, 'تم تسجيل الحضور')
+            else:
+                messages.warning(request, 'تم تسجيل الحضور مسبقاً')
+        elif action == 'out':
+            if record.punch_out():
+                messages.success(request, 'تم تسجيل الانصراف')
+            else:
+                messages.warning(request, 'تم تسجيل الانصراف مسبقاً')
+        
+        return redirect('branches:attendance_list')
+    
+    return render(request, 'branches/attendance_punch.html', {
+        'branches': Branch.objects.filter(is_active=True),
+        'page_title': 'تسجيل حضور/انصراف'
+    })
+
+
+# ==================== أجهزة نقاط البيع ====================
+
+@login_required
+def pos_device_list(request):
+    devices = POSDevice.objects.select_related('branch').all()
+    branch_id = request.GET.get('branch')
+    
+    if branch_id:
+        devices = devices.filter(branch_id=branch_id)
+    
+    return render(request, 'branches/pos_device_list.html', {
+        'devices': devices,
+        'branches': Branch.objects.filter(is_active=True),
+        'page_title': 'أجهزة نقاط البيع'
+    })
+
+
+@login_required
+def pos_device_create(request):
+    if request.method == 'POST':
+        form = POSDeviceForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'تم إضافة الجهاز بنجاح')
+            return redirect('branches:pos_device_list')
+    else:
+        form = POSDeviceForm()
+    return render(request, 'branches/pos_device_form.html', {'form': form, 'page_title': 'إضافة جهاز نقطة بيع'})
+
+
+# ==================== الرواتب ====================
+
+@login_required
+def payroll_list(request):
+    entries = BranchPayroll.objects.select_related('branch', 'employee__user').all()
+    branch_id = request.GET.get('branch')
+    status = request.GET.get('status')
+    
+    if branch_id:
+        entries = entries.filter(branch_id=branch_id)
+    if status:
+        entries = entries.filter(status=status)
+    
+    paginator = Paginator(entries, 20)
+    entries = paginator.get_page(request.GET.get('page'))
+    
+    return render(request, 'branches/payroll_list.html', {
+        'entries': entries,
+        'branches': Branch.objects.filter(is_active=True),
+        'status_choices': BranchPayroll.Status.choices,
+        'page_title': 'رواتب الفروع'
+    })
+
+
+@login_required
+def payroll_create(request):
+    if request.method == 'POST':
+        form = BranchPayrollForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'تم إضافة قيد الراتب بنجاح')
+            return redirect('branches:payroll_list')
+    else:
+        form = BranchPayrollForm()
+    return render(request, 'branches/payroll_form.html', {'form': form, 'page_title': 'إضافة قيد راتب'})
+
+
+# ==================== الورديات ====================
+
+@login_required
+def shift_list(request):
+    shifts = BranchShift.objects.select_related('branch').all()
+    branch_id = request.GET.get('branch')
+    
+    if branch_id:
+        shifts = shifts.filter(branch_id=branch_id)
+    
+    return render(request, 'branches/shift_list.html', {
+        'shifts': shifts,
+        'branches': Branch.objects.filter(is_active=True),
+        'page_title': 'ورديات الفروع'
+    })
+
+
+@login_required
+def shift_create(request):
+    if request.method == 'POST':
+        form = BranchShiftForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'تم إضافة الوردية بنجاح')
+            return redirect('branches:shift_list')
+    else:
+        form = BranchShiftForm()
+    return render(request, 'branches/shift_form.html', {'form': form, 'page_title': 'إضافة وردية'})
+
+
+# ==================== التقارير ====================
+
+@login_required
+def branch_stock_report(request, pk):
+    branch = get_object_or_404(Branch, pk=pk)
+    movements = BranchStockMovement.objects.filter(branch=branch).select_related('product').order_by('-created_at')[:50]
+    return render(request, 'branches/reports/stock_report.html', {'branch': branch, 'movements': movements, 'page_title': f'مخزون: {branch.name}'})
+
+
+@login_required
+def transfer_report(request):
+    transfers = BranchTransfer.objects.all()
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+    
+    if date_from:
+        transfers = transfers.filter(transfer_date__gte=date_from)
+    if date_to:
+        transfers = transfers.filter(transfer_date__lte=date_to)
+    
+    stats = transfers.aggregate(total_count=Count('id'))
+    return render(request, 'branches/reports/transfer_report.html', {'transfers': transfers[:100], 'stats': stats, 'page_title': 'تقرير التحويلات'})
+
+
+@login_required
+def expense_report(request):
+    expenses = BranchExpense.objects.all()
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+    branch_id = request.GET.get('branch')
+    
+    if date_from:
+        expenses = expenses.filter(date__gte=date_from)
+    if date_to:
+        expenses = expenses.filter(date__lte=date_to)
+    if branch_id:
+        expenses = expenses.filter(branch_id=branch_id)
+    
+    stats = expenses.aggregate(
+        total_count=Count('id'),
+        total_amount=Sum('amount')
+    )
+    
+    by_category = expenses.values('category').annotate(
+        count=Count('id'),
+        total=Sum('amount')
+    ).order_by('-total')
+    
+    return render(request, 'branches/reports/expense_report.html', {
+        'expenses': expenses[:100],
+        'stats': stats,
+        'by_category': by_category,
+        'branches': Branch.objects.filter(is_active=True),
+        'page_title': 'تقرير المصروفات'
+    })
+
+
+@login_required
+def consolidated_report(request):
+    branches = Branch.objects.filter(is_active=True).annotate(
+        transfers_out_count=Count('transfers_out'),
+        transfers_in_count=Count('transfers_in'),
+        staff_count=Count('staff', filter=Q(staff__is_active=True)),
+        expense_total=Sum('expenses__amount', filter=Q(expenses__status='approved'))
+    )
+    return render(request, 'branches/reports/consolidated_report.html', {'branches': branches, 'page_title': 'التقرير الموحد'})
+
+
+# ==================== API ====================
+
+from core.auth_helpers import login_or_jwt_required
+
+@login_or_jwt_required
+def api_branches_list(request):
+    branches = Branch.objects.filter(is_active=True).values('id', 'code', 'name', 'city', 'branch_type')
+    return JsonResponse(list(branches), safe=False)
+
+
+@login_required
+def api_branch_stock(request, pk):
+    branch = get_object_or_404(Branch, pk=pk)
+    stock = []
+    if branch.location:
+        from inventory.models import Stock
+        stock = list(Stock.objects.filter(location=branch.location).select_related('product').values(
+            'product__id', 'product__name', 'quantity'
+        ))
+    return JsonResponse({'branch': branch.name, 'stock': stock})
+
+
+@login_required
+def api_branch_staff(request, pk):
+    branch = get_object_or_404(Branch, pk=pk)
+    staff = list(branch.staff.filter(is_active=True).values('id', 'user__username', 'role', 'position'))
+    return JsonResponse({'branch': branch.name, 'staff': staff})
+
+
+# ==================== API للموظفين ====================
+
+@login_required
+def api_staff_by_branch(request):
+    """API لجلب موظفي فرع محدد"""
+    branch_id = request.GET.get('branch')
+    
+    if not branch_id:
+        return JsonResponse({'staff': []}, json_dumps_params={'ensure_ascii': False})
+    
+    try:
+        staff = BranchStaff.objects.filter(
+            branch_id=branch_id,
+            is_active=True
+        ).select_related('user')
+        
+        staff_list = []
+        for s in staff:
+            full_name = s.user.get_full_name() or s.user.username
+            staff_list.append({
+                'id': s.id,
+                'name': full_name,
+                'position': s.position or 'موظف'
+            })
+        
+        return JsonResponse({
+            'staff': staff_list
+        }, json_dumps_params={'ensure_ascii': False})
+        
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e),
+            'staff': []
+        }, json_dumps_params={'ensure_ascii': False})

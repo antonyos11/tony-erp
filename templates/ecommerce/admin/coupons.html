@@ -1,0 +1,173 @@
+﻿{% extends 'ecommerce/admin/base_admin.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - لوحة تحكم المتجر{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-1">
+                        <i class="fas fa-tag text-purple me-2"></i>
+                        {{ page_title }}
+                    </h4>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">الرئيسية</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'ecommerce:admin_dashboard' %}">المتجر</a></li>
+                            <li class="breadcrumb-item active">الكوبونات</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div>
+                    <a href="{% url 'ecommerce:admin_coupon_add' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>
+                        إضافة كوبون
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- جدول الكوبونات -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="bg-dark bg-opacity-50">
+                        <tr>
+                            <th>الكود</th>
+                            <th>نوع الخصم</th>
+                            <th>القيمة</th>
+                            <th>الحد الأدنى</th>
+                            <th>الاستخدام</th>
+                            <th>الصلاحية</th>
+                            <th>الحالة</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for coupon in coupons %}
+                        <tr>
+                            <td>
+                                <span class="badge bg-dark fs-6 font-monospace">{{ coupon.code }}</span>
+                            </td>
+                            <td>
+                                {% if coupon.discount_type == 'percentage' %}
+                                    <span class="text-primary">نسبة مئوية</span>
+                                {% else %}
+                                    <span class="text-success">مبلغ ثابت</span>
+                                {% endif %}
+                            </td>
+                            <td class="fw-bold">
+                                {% if coupon.discount_type == 'percentage' %}
+                                    {{ coupon.discount_value }}%
+                                {% else %}
+                                    {{ coupon.discount_value|floatformat:2 }}
+                                {% endif %}
+                            </td>
+                            <td>{{ coupon.min_order_amount|floatformat:2 }}</td>
+                            <td>
+                                {{ coupon.used_count }}{% if coupon.usage_limit %}/{{ coupon.usage_limit }}{% endif %}
+                            </td>
+                            <td>
+                                <small>
+                                    {{ coupon.valid_from|date:"Y/m/d" }} - {{ coupon.valid_to|date:"Y/m/d" }}
+                                </small>
+                            </td>
+                            <td>
+                                {% if coupon.is_active and coupon.is_valid %}
+                                    <span class="badge bg-success">نشط</span>
+                                {% elif not coupon.is_active %}
+                                    <span class="badge bg-secondary">معطل</span>
+                                {% else %}
+                                    <span class="badge bg-warning">منتهي</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'ecommerce:admin_coupon_edit' coupon.pk %}" 
+                                       class="btn btn-outline-primary" title="تعديل">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-outline-{% if coupon.is_active %}warning{% else %}success{% endif %}"
+                                            onclick="toggleCoupon({ coupon.pk })" title="{% if coupon.is_active %}تعطيل{% else %}تفعيل{% endif %}">
+                                        <i class="fas fa-{% if coupon.is_active %}pause{% else %}play{% endif %}"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger"
+                                            onclick="confirmDelete('{% url 'ecommerce:admin_coupon_delete' coupon.pk %}', '{ coupon.code }')" title="حذف">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5">
+                                <i class="fas fa-tag fa-4x text-muted mb-3 d-block"></i>
+                                <h5 class="text-muted">لا توجد كوبونات</h5>
+                                <p class="text-muted">أضف كوبونات خصم لتشجيع العملاء على الشراء</p>
+                                <a href="{% url 'ecommerce:admin_coupon_add' %}" class="btn btn-primary">
+                                    <i class="fas fa-plus me-1"></i>
+                                    إضافة كوبون
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal تأكيد الحذف -->
+<div class="modal fade" id="deleteModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تأكيد الحذف</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>هل أنت متأكد من حذف كوبون <strong id="couponCode"></strong>؟</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <a href="#" id="deleteBtn" class="btn btn-danger">حذف</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.text-purple { color: #8b5cf6; }
+</style>
+
+<script>
+function toggleCoupon(id) {
+    fetch(`/store/admin/coupons/${id}/toggle/`, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': '{ csrf_token }'
+        }
+    }).then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+function confirmDelete(url, code) {
+    document.getElementById('couponCode').textContent = code;
+    document.getElementById('deleteBtn').href = url;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+{% endblock %}
+

@@ -1,0 +1,379 @@
+﻿{% extends 'base_templates/_detail_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'مراجعة طلب الشراء' %}{% endblock %}
+{% block hero_icon %}bi-search{% endblock %}
+{% block hero_title %}{% trans 'مراجعة طلب الشراء' %} - {{ pr.pr_number }}{% endblock %}
+{% block hero_subtitle %}{% trans 'مراجعة وتدقيق طلب الشراء قبل الاعتماد' %}{% endblock %}
+
+{% block hero_badge %}
+<span class="badge 
+  {% if pr.status == 'draft' %}bg-secondary
+  {% elif pr.status == 'pending' %}bg-warning text-dark
+  {% elif pr.status == 'approved' %}bg-success
+  {% elif pr.status == 'rejected' %}bg-danger
+  {% elif pr.status == 'completed' %}bg-info
+  {% else %}bg-secondary{% endif %}">
+  {{ pr.get_status_display }}
+</span>
+{% endblock %}
+
+{% block back_url %}{% url 'purchases:pr_list' %}{% endblock %}
+
+{% block detail_styles %}
+<style>
+.review-checklist {
+  background: var(--bs-tertiary-bg);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.review-checklist .checklist-title {
+  font-weight: 600;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.review-checklist .checklist-title i {
+  color: var(--color-brand-accent);
+}
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  background: var(--bs-body-bg);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.checklist-item:hover {
+  background: rgba(var(--color-brand-accent-rgb), 0.05);
+}
+.checklist-item input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-brand-accent);
+}
+.checklist-item label {
+  margin: 0;
+  flex: 1;
+  cursor: pointer;
+}
+.checklist-item.checked {
+  background: rgba(25,135,84,0.08);
+}
+.checklist-item.checked label {
+  text-decoration: line-through;
+  color: var(--bs-secondary-color);
+}
+.review-progress {
+  height: 6px;
+  background: var(--bs-border-color);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 1rem;
+}
+.review-progress .progress-bar {
+  background: var(--color-brand-accent);
+  transition: width 0.3s;
+}
+.review-notes-section {
+  margin-top: 1.5rem;
+}
+.priority-badge-large {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+}
+.priority-badge-large.urgent {
+  background: rgba(220,53,69,0.1);
+  color: #dc3545;
+}
+.priority-badge-large.high {
+  background: rgba(255,193,7,0.15);
+  color: #997404;
+}
+.priority-badge-large.normal {
+  background: rgba(108,117,125,0.1);
+  color: #6c757d;
+}
+.comparison-note {
+  background: linear-gradient(135deg, rgba(13,110,253,0.08) 0%, rgba(13,110,253,0.03) 100%);
+  border: 1px solid rgba(13,110,253,0.2);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+}
+.comparison-note i {
+  color: #0d6efd;
+  font-size: 1.25rem;
+}
+</style>
+{% endblock %}
+
+{% block info_cards %}
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon primary">
+      <i class="bi bi-hash"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'رقم الطلب' %}</div>
+      <div class="info-value">{{ pr.pr_number }}</div>
+    </div>
+  </div>
+</div>
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon success">
+      <i class="bi bi-calendar-check"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'تاريخ الطلب' %}</div>
+      <div class="info-value">{{ pr.date|date:"Y/m/d" }}</div>
+    </div>
+  </div>
+</div>
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon warning">
+      <i class="bi bi-calendar-event"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'تاريخ الحاجة' %}</div>
+      <div class="info-value">{{ pr.required_date|date:"Y/m/d"|default:"-" }}</div>
+    </div>
+  </div>
+</div>
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon accent">
+      <i class="bi bi-cash-stack"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'المبلغ التقديري' %}</div>
+      <div class="info-value">{{ pr.estimated_total|floatformat:2 }} {% trans 'ج.م' %}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block main_content %}
+{# Priority & Requester Info #}
+<div class="info-section mb-4">
+  <h5 class="section-title">
+    <i class="bi bi-person-badge me-2"></i>{% trans 'معلومات الطلب' %}
+  </h5>
+  <div class="info-grid">
+    <div class="info-row">
+      <span class="info-label">{% trans 'الطالب' %}</span>
+      <span class="info-value">{{ pr.requested_by.get_full_name|default:pr.requested_by.username }}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">{% trans 'القسم' %}</span>
+      <span class="info-value">{{ pr.department.name|default:"-" }}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">{% trans 'الأولوية' %}</span>
+      <span class="info-value">
+        {% if pr.priority == 'urgent' %}
+        <span class="priority-badge-large urgent">
+          <i class="bi bi-exclamation-circle"></i>{% trans 'عاجل' %}
+        </span>
+        {% elif pr.priority == 'high' %}
+        <span class="priority-badge-large high">
+          <i class="bi bi-arrow-up-circle"></i>{% trans 'عالي' %}
+        </span>
+        {% else %}
+        <span class="priority-badge-large normal">
+          <i class="bi bi-dash-circle"></i>{% trans 'عادي' %}
+        </span>
+        {% endif %}
+      </span>
+    </div>
+  </div>
+</div>
+
+{# Review Checklist #}
+<div class="review-checklist">
+  <div class="checklist-title">
+    <i class="bi bi-list-check"></i>
+    {% trans 'قائمة المراجعة' %}
+  </div>
+  
+  <div class="checklist-item" onclick="toggleCheck(this)">
+    <input type="checkbox" id="check1">
+    <label for="check1">{% trans 'التحقق من صحة الأصناف المطلوبة ومواصفاتها' %}</label>
+  </div>
+  <div class="checklist-item" onclick="toggleCheck(this)">
+    <input type="checkbox" id="check2">
+    <label for="check2">{% trans 'التحقق من الكميات المطلوبة ومقارنتها بالمخزون الحالي' %}</label>
+  </div>
+  <div class="checklist-item" onclick="toggleCheck(this)">
+    <input type="checkbox" id="check3">
+    <label for="check3">{% trans 'مراجعة الأسعار التقديرية ومقارنتها بأسعار السوق' %}</label>
+  </div>
+  <div class="checklist-item" onclick="toggleCheck(this)">
+    <input type="checkbox" id="check4">
+    <label for="check4">{% trans 'التحقق من توفر الميزانية المطلوبة' %}</label>
+  </div>
+  <div class="checklist-item" onclick="toggleCheck(this)">
+    <input type="checkbox" id="check5">
+    <label for="check5">{% trans 'التأكد من عدم وجود طلبات مماثلة قيد التنفيذ' %}</label>
+  </div>
+  
+  <div class="review-progress">
+    <div class="progress-bar" style="width: 0%" id="reviewProgress"></div>
+  </div>
+</div>
+
+{# Items Table #}
+<div class="items-section mb-4">
+  <h5 class="section-title">
+    <i class="bi bi-box-seam me-2"></i>{% trans 'الأصناف المطلوبة' %}
+    <span class="badge bg-primary ms-2">{{ pr.items.count }}</span>
+  </h5>
+  
+  <div class="comparison-note mb-3">
+    <i class="bi bi-lightbulb"></i>
+    <span>{% trans 'للمقارنة: يمكنك فتح صفحة المخزون في نافذة جديدة لمراجعة الكميات المتوفرة' %}</span>
+    <a href="{% url 'inventory:product_list' %}" target="_blank" class="btn btn-sm btn-outline-primary ms-auto">
+      <i class="bi bi-box-arrow-up-left me-1"></i>{% trans 'عرض المخزون' %}
+    </a>
+  </div>
+  
+  <div class="table-responsive">
+    <table class="table pro-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>{% trans 'الصنف' %}</th>
+          <th class="text-center">{% trans 'المخزون الحالي' %}</th>
+          <th class="text-center">{% trans 'الكمية المطلوبة' %}</th>
+          <th class="text-center">{% trans 'الوحدة' %}</th>
+          <th class="text-end">{% trans 'السعر التقديري' %}</th>
+          <th class="text-end">{% trans 'الإجمالي' %}</th>
+          <th class="text-center">{% trans 'تحقق' %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in pr.items.all %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>
+            <div class="fw-medium">{{ item.product.name }}</div>
+            <div class="small text-muted">{{ item.product.code }}</div>
+          </td>
+          <td class="text-center">
+            <span class="badge {% if item.product.stock_quantity < item.quantity %}bg-danger{% elif item.product.stock_quantity < item.quantity|add:item.quantity %}bg-warning text-dark{% else %}bg-success{% endif %}">
+              {{ item.product.stock_quantity|default:0 }}
+            </span>
+          </td>
+          <td class="text-center fw-medium">{{ item.quantity }}</td>
+          <td class="text-center">{{ item.product.unit }}</td>
+          <td class="text-end">{{ item.estimated_price|floatformat:2 }}</td>
+          <td class="text-end fw-medium">{{ item.line_total|floatformat:2 }}</td>
+          <td class="text-center">
+            <input type="checkbox" class="form-check-input item-check" style="width: 18px; height: 18px;">
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8" class="text-center text-muted py-4">
+            <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+            {% trans 'لا توجد أصناف في هذا الطلب' %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="table-light">
+          <td colspan="6" class="text-end fw-bold">{% trans 'الإجمالي' %}</td>
+          <td class="text-end fw-bold text-primary">{{ pr.estimated_total|floatformat:2 }} {% trans 'ج.م' %}</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+{# Notes #}
+{% if pr.notes %}
+<div class="info-section mb-4">
+  <h5 class="section-title">
+    <i class="bi bi-sticky me-2"></i>{% trans 'ملاحظات الطالب' %}
+  </h5>
+  <div class="p-3 bg-body-tertiary rounded-3">
+    <p class="mb-0">{{ pr.notes }}</p>
+  </div>
+</div>
+{% endif %}
+
+{# Review Notes #}
+<div class="info-section review-notes-section">
+  <h5 class="section-title">
+    <i class="bi bi-chat-square-text me-2"></i>{% trans 'ملاحظات المراجع' %}
+  </h5>
+  <form method="post" action="{% url 'purchases:pr_add_review_note' pr.pk %}">
+    {% csrf_token %}
+    <textarea name="review_note" class="form-control mb-3" rows="3" 
+              placeholder="{% trans 'أضف ملاحظات المراجعة الخاصة بك...' %}"></textarea>
+    <button type="submit" class="btn btn-outline-primary">
+      <i class="bi bi-plus-circle me-1"></i>{% trans 'إضافة ملاحظة' %}
+    </button>
+  </form>
+</div>
+{% endblock %}
+
+{% block bottom_actions %}
+<a href="{% url 'purchases:pr_list' %}" class="btn btn-outline-secondary">
+  <i class="bi bi-arrow-right me-1"></i>{% trans 'رجوع' %}
+</a>
+<div class="d-flex gap-2">
+  {% if pr.status == 'pending' %}
+  <a href="{% url 'purchases:pr_reject' pr.pk %}" class="btn btn-outline-danger">
+    <i class="bi bi-x-circle me-1"></i>{% trans 'رفض' %}
+  </a>
+  <a href="{% url 'purchases:pr_approve' pr.pk %}" class="btn btn-success">
+    <i class="bi bi-check-circle me-1"></i>{% trans 'اعتماد' %}
+  </a>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleCheck(element) {
+  const checkbox = element.querySelector('input[type="checkbox"]');
+  checkbox.checked = !checkbox.checked;
+  element.classList.toggle('checked', checkbox.checked);
+  updateProgress();
+}
+
+function updateProgress() {
+  const checkboxes = document.querySelectorAll('.checklist-item input[type="checkbox"]');
+  const checked = document.querySelectorAll('.checklist-item input[type="checkbox"]:checked').length;
+  const progress = (checked / checkboxes.length) * 100;
+  document.getElementById('reviewProgress').style.width = progress + '%';
+}
+
+// Initialize
+document.querySelectorAll('.checklist-item input[type="checkbox"]').forEach(cb => {
+  cb.addEventListener('change', function() {
+    this.closest('.checklist-item').classList.toggle('checked', this.checked);
+    updateProgress();
+  });
+});
+</script>
+{% endblock %}
+

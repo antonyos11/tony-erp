@@ -1,0 +1,516 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}{{ room.name }} - مكالمة فيديو{% endblock %}
+
+{% block extra_css %}
+<style>
+.video-container {
+    background: #1a1a2e;
+    min-height: 100vh;
+    position: relative;
+}
+
+.video-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 10px;
+    padding: 10px;
+    height: calc(100vh - 150px);
+}
+
+.video-box {
+    background: #16213e;
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.video-box video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.video-box .user-placeholder {
+    font-size: 80px;
+    color: #0f3460;
+}
+
+.video-box .user-name {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 14px;
+}
+
+.video-box .muted-icon {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255,0,0,0.8);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 50%;
+}
+
+.controls-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0,0,0,0.8);
+    padding: 15px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+
+.control-btn {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.control-btn:hover {
+    transform: scale(1.1);
+}
+
+.control-btn.primary {
+    background: #4a69bd;
+    color: white;
+}
+
+.control-btn.danger {
+    background: #e74c3c;
+    color: white;
+}
+
+.control-btn.active {
+    background: #e74c3c;
+}
+
+.control-btn.success {
+    background: #27ae60;
+    color: white;
+}
+
+.chat-sidebar {
+    position: fixed;
+    right: -400px;
+    top: 0;
+    bottom: 80px;
+    width: 400px;
+    background: #1a1a2e;
+    transition: right 0.3s;
+    z-index: 100;
+}
+
+.chat-sidebar.open {
+    right: 0;
+}
+
+.chat-header {
+    background: #16213e;
+    padding: 15px;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chat-messages {
+    height: calc(100% - 130px);
+    overflow-y: auto;
+    padding: 15px;
+}
+
+.chat-message {
+    background: #16213e;
+    padding: 10px 15px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    color: white;
+}
+
+.chat-message .sender {
+    color: #4a69bd;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.chat-input {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 15px;
+    background: #16213e;
+}
+
+.participants-sidebar {
+    position: fixed;
+    left: -350px;
+    top: 0;
+    bottom: 80px;
+    width: 350px;
+    background: #1a1a2e;
+    transition: left 0.3s;
+    z-index: 100;
+}
+
+.participants-sidebar.open {
+    left: 0;
+}
+
+.participant-item {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    border-bottom: 1px solid #16213e;
+    color: white;
+}
+
+.participant-avatar {
+    width: 40px;
+    height: 40px;
+    background: #4a69bd;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 15px;
+}
+
+.room-info {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.6);
+    color: white;
+    padding: 10px 25px;
+    border-radius: 25px;
+    z-index: 50;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="video-container">
+    <!-- معلومات الغرفة -->
+    <div class="room-info">
+        <i class="fas fa-lock me-2"></i>
+        <span id="roomName">{{ room.name }}</span>
+        <span class="mx-3">|</span>
+        <i class="fas fa-clock me-2"></i>
+        <span id="callDuration">00:00:00</span>
+    </div>
+    
+    <!-- شبكة الفيديو -->
+    <div class="video-grid" id="videoGrid">
+        <!-- الفيديو المحلي -->
+        <div class="video-box" id="localVideoBox">
+            <video id="localVideo" autoplay muted playsinline></video>
+            <div class="user-placeholder" id="localPlaceholder">
+                <i class="fas fa-user"></i>
+            </div>
+            <div class="user-name">أنت</div>
+        </div>
+    </div>
+    
+    <!-- شريط التحكم -->
+    <div class="controls-bar">
+        <button class="control-btn primary" id="btnParticipants" onclick="toggleParticipants()">
+            <i class="fas fa-users"></i>
+        </button>
+        
+        <button class="control-btn primary" id="btnMic" onclick="toggleMic()">
+            <i class="fas fa-microphone"></i>
+        </button>
+        
+        <button class="control-btn primary" id="btnVideo" onclick="toggleVideo()">
+            <i class="fas fa-video"></i>
+        </button>
+        
+        <button class="control-btn primary" id="btnScreen" onclick="toggleScreenShare()">
+            <i class="fas fa-desktop"></i>
+        </button>
+        
+        <button class="control-btn danger" onclick="leaveCall()">
+            <i class="fas fa-phone-slash"></i>
+        </button>
+        
+        <button class="control-btn primary" id="btnChat" onclick="toggleChat()">
+            <i class="fas fa-comment"></i>
+        </button>
+        
+        {% if is_host and room.is_recording_enabled %}
+        <button class="control-btn success" id="btnRecord" onclick="toggleRecording()">
+            <i class="fas fa-circle"></i>
+        </button>
+        {% endif %}
+    </div>
+    
+    <!-- قائمة المشاركين -->
+    <div class="participants-sidebar" id="participantsSidebar">
+        <div class="chat-header">
+            <h6 class="mb-0">المشاركون</h6>
+            <button class="btn btn-link text-white" onclick="toggleParticipants()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="participantsList">
+            <!-- سيتم ملؤها ديناميكياً -->
+        </div>
+    </div>
+    
+    <!-- الدردشة -->
+    <div class="chat-sidebar" id="chatSidebar">
+        <div class="chat-header">
+            <h6 class="mb-0">الدردشة</h6>
+            <button class="btn btn-link text-white" onclick="toggleChat()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <!-- الرسائل ستظهر هنا -->
+        </div>
+        <div class="chat-input">
+            <div class="input-group">
+                <input type="text" class="form-control" id="messageInput" placeholder="اكتب رسالة...">
+                <button class="btn btn-primary" onclick="sendMessage()">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const roomUuid = '{{ room.uuid }}';
+let localStream = null;
+let isMuted = false;
+let isVideoOff = false;
+let isScreenSharing = false;
+let callStartTime = new Date();
+
+// بدء المكالمة
+async function startCall() {
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true
+        });
+        
+        document.getElementById('localVideo').srcObject = localStream;
+        document.getElementById('localPlaceholder').style.display = 'none';
+        
+    } catch (err) {
+        console.error('خطأ في الوصول للكاميرا:', err);
+        document.getElementById('localPlaceholder').style.display = 'flex';
+    }
+}
+
+// تبديل الميكروفون
+function toggleMic() {
+    if (localStream) {
+        const audioTrack = localStream.getAudioTracks()[0];
+        if (audioTrack) {
+            isMuted = !audioTrack.enabled;
+            audioTrack.enabled = isMuted;
+            
+            const btn = document.getElementById('btnMic');
+            btn.classList.toggle('active', !isMuted);
+            btn.innerHTML = isMuted ? '<i class="fas fa-microphone-slash"></i>' : '<i class="fas fa-microphone"></i>';
+            
+            updateMediaStatus();
+        }
+    }
+}
+
+// تبديل الفيديو
+function toggleVideo() {
+    if (localStream) {
+        const videoTrack = localStream.getVideoTracks()[0];
+        if (videoTrack) {
+            isVideoOff = !videoTrack.enabled;
+            videoTrack.enabled = isVideoOff;
+            
+            const btn = document.getElementById('btnVideo');
+            btn.classList.toggle('active', !isVideoOff);
+            btn.innerHTML = isVideoOff ? '<i class="fas fa-video-slash"></i>' : '<i class="fas fa-video"></i>';
+            
+            document.getElementById('localPlaceholder').style.display = isVideoOff ? 'flex' : 'none';
+            
+            updateMediaStatus();
+        }
+    }
+}
+
+// مشاركة الشاشة
+async function toggleScreenShare() {
+    const btn = document.getElementById('btnScreen');
+    
+    if (!isScreenSharing) {
+        try {
+            const screenStream = await navigator.mediaDevices.getDisplayMedia({
+                video: true
+            });
+            
+            document.getElementById('localVideo').srcObject = screenStream;
+            isScreenSharing = true;
+            btn.classList.add('success');
+            
+            screenStream.getVideoTracks()[0].onended = () => {
+                stopScreenShare();
+            };
+            
+        } catch (err) {
+            console.error('خطأ في مشاركة الشاشة:', err);
+        }
+    } else {
+        stopScreenShare();
+    }
+}
+
+function stopScreenShare() {
+    if (localStream) {
+        document.getElementById('localVideo').srcObject = localStream;
+    }
+    isScreenSharing = false;
+    document.getElementById('btnScreen').classList.remove('success');
+}
+
+// تحديث حالة الوسائط
+function updateMediaStatus() {
+    fetch(`/video/toggle/${roomUuid}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            muted: isMuted,
+            video_on: !isVideoOff,
+            screen_sharing: isScreenSharing
+        })
+    });
+}
+
+// مغادرة المكالمة
+function leaveCall() {
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+    }
+    
+    fetch(`/video/leave/${roomUuid}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    }).then(() => {
+        window.location.href = '{% url "video_calls:dashboard" %}';
+    });
+}
+
+// الدردشة
+function toggleChat() {
+    document.getElementById('chatSidebar').classList.toggle('open');
+}
+
+function toggleParticipants() {
+    document.getElementById('participantsSidebar').classList.toggle('open');
+    loadParticipants();
+}
+
+function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const content = input.value.trim();
+    
+    if (!content) return;
+    
+    fetch(`/video/message/${roomUuid}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ content })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            addMessageToChat(data.message);
+            input.value = '';
+        }
+    });
+}
+
+function addMessageToChat(msg) {
+    const container = document.getElementById('chatMessages');
+    const div = document.createElement('div');
+    div.className = 'chat-message';
+    div.innerHTML = `
+        <div class="sender">${msg.sender}</div>
+        <div>${msg.content}</div>
+    `;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+}
+
+function loadParticipants() {
+    fetch(`/video/status/${roomUuid}/`)
+    .then(response => response.json())
+    .then(data => {
+        const container = document.getElementById('participantsList');
+        container.innerHTML = data.participants.map(p => `
+            <div class="participant-item">
+                <div class="participant-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div>
+                    <div>${p.name}</div>
+                    <small class="text-muted">${p.role}</small>
+                </div>
+                ${p.is_muted ? '<i class="fas fa-microphone-slash text-danger ms-auto"></i>' : ''}
+            </div>
+        `).join('');
+    });
+}
+
+// عداد الوقت
+function updateDuration() {
+    const now = new Date();
+    const diff = Math.floor((now - callStartTime) / 1000);
+    const hours = Math.floor(diff / 3600);
+    const minutes = Math.floor((diff % 3600) / 60);
+    const seconds = diff % 60;
+    
+    document.getElementById('callDuration').textContent = 
+        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// التهيئة
+document.addEventListener('DOMContentLoaded', () => {
+    startCall();
+    setInterval(updateDuration, 1000);
+    setInterval(loadParticipants, 5000);
+});
+
+document.getElementById('messageInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendMessage();
+});
+</script>
+{% endblock %}

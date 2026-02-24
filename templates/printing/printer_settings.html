@@ -1,0 +1,550 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}إعدادات الطابعات - Printer Settings{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-printer"></i> إعدادات الطابعات</h2>
+        <div class="d-flex align-items-center gap-2">
+            <!-- Live Agent Status Panel -->
+            <div id="settings-agent-panel" class="d-flex align-items-center gap-2 px-3 py-2 rounded"
+                 style="background:#fff;border:1px solid #dee2e6;">
+                <span id="settings-agent-dot"
+                      style="width:12px;height:12px;border-radius:50%;background:#dc3545;display:inline-block;"></span>
+                <span id="settings-agent-text" style="font-size:0.9rem;color:#dc3545;">● غير متصل</span>
+                <button class="btn btn-sm btn-outline-secondary ms-1"
+                        onclick="if(window.PrintStatus)PrintStatus.reconnect()" title="إعادة الاتصال">🔄</button>
+            </div>
+            <a href="{% url 'printing:dashboard' %}" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-speedometer2"></i> لوحة التحكم
+            </a>
+            <a href="{% url 'printing:station_mapping' %}" class="btn btn-outline-success btn-sm">
+                <i class="bi bi-diagram-3"></i> تعيين المحطات
+            </a>
+            <a href="/admin/printing/printerconfiguration/add/" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-lg"></i> إضافة طابعة
+            </a>
+        </div>
+    </div>
+
+    <!-- Agent Info Card (shown when connected) -->
+    <div class="card mb-4 border-success" id="agent-info-card" style="display:none;">
+        <div class="card-body py-2">
+            <div class="row text-center" id="agent-info-row"></div>
+        </div>
+    </div>
+
+    <!-- Discovered Printers from local agent -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">📋 الطابعات المكتشفة من الجهاز المحلي</h5>
+            <button class="btn btn-sm btn-outline-primary"
+                    onclick="if(window.TonyPrint && TonyPrint.isConnected()){TonyPrint.getPrinters();setTimeout(function(){if(window.PrintStatus)PrintStatus.refresh()},1000)}else{alert('الوكيل المحلي غير متصل!\n\n1. تأكد من تشغيل agent_windows.py على جهازك\n2. تأكد أن المنفذ 9876 مفتوح\n3. أعد تحميل الصفحة')}">
+                🔄 تحديث
+            </button>
+        </div>
+        <div class="card-body">
+            <div id="discovered-printers-list">
+                <p class="text-muted"><i class="bi bi-info-circle"></i> سيتم عرض الطابعات عند اتصال الوكيل المحلي (agent_windows.py).</p>
+            </div>
+        </div>
+    </div>
+
+    {% if not printers %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i>
+        لا توجد طابعات مُعدّة بعد.
+        <a href="/admin/printing/printerconfiguration/add/">أضف طابعة جديدة</a>.
+    </div>
+    {% endif %}
+
+    <!-- ═══════ Zebra Printers ═══════ -->
+    <div class="card mb-4 border-warning">
+        <div class="card-header bg-warning bg-opacity-75 text-dark">
+            <h5 class="mb-0"><i class="bi bi-upc-scan"></i> طابعات الباركود (Zebra ZPL)</h5>
+            <small>ZDesigner ZD220 / ZD420 - ملصقات الضمان والباركود</small>
+        </div>
+        <div class="card-body">
+            {% if grouped_printers.zebra %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>الاسم</th>
+                            <th>الاتصال</th>
+                            <th>الحالة</th>
+                            <th>نوع المستند</th>
+                            <th>افتراضي</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for p in grouped_printers.zebra %}
+                        <tr>
+                            <td><strong>{{ p.name }}</strong></td>
+                            <td>
+                                {% if p.ip_address %}
+                                    <span class="badge bg-light text-dark">🌐 {{ p.ip_address }}:{{ p.port }}</span>
+                                {% else %}
+                                    <span class="badge bg-light text-dark">🔌 USB / Agent</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if p.agent_online %}
+                                    <span class="badge bg-success">✅ الوكيل متصل</span>
+                                {% elif any_agent_online %}
+                                    <span class="badge bg-warning text-dark">⚠ الوكيل متصل - الطابعة غير مكتشفة</span>
+                                {% else %}
+                                    <span class="badge bg-danger">❌ الوكيل غير متصل</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ p.document_type }}</td>
+                            <td>
+                                {% if p.is_default %}
+                                    <span class="badge bg-primary">⭐ افتراضي</span>
+                                {% else %}
+                                    <button class="btn btn-sm btn-outline-primary btn-set-default"
+                                            data-id="{{ p.id }}" data-doctype="production_barcode">
+                                        تعيين كافتراضي
+                                    </button>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-success btn-test-print"
+                                        data-id="{{ p.id }}" data-type="zebra" data-name="{{ p.name }}">
+                                    🧪 اختبار
+                                </button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+                <p class="text-muted mb-0"><i class="bi bi-info-circle"></i> لا توجد طابعات باركود مُعدّة.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ═══════ Thermal / XPrinter ═══════ -->
+    <div class="card mb-4 border-success">
+        <div class="card-header bg-success bg-opacity-75 text-white">
+            <h5 class="mb-0"><i class="bi bi-receipt"></i> طابعات الإيصالات (XPrinter / Thermal)</h5>
+            <small>XP-80 Series - إيصالات نقطة البيع → ESC/POS</small>
+        </div>
+        <div class="card-body">
+            {% if grouped_printers.thermal %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>الاسم</th>
+                            <th>الاتصال</th>
+                            <th>الحالة الفعلية</th>
+                            <th>نوع المستند</th>
+                            <th>افتراضي</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for p in grouped_printers.thermal %}
+                        <tr>
+                            <td><strong>{{ p.name }}</strong></td>
+                            <td>
+                                {% if p.ip_address %}
+                                    <span class="badge bg-light text-dark">🌐 {{ p.ip_address }}:{{ p.port }}</span>
+                                {% else %}
+                                    <span class="badge bg-light text-dark">🔌 USB / Agent</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if p.agent_online %}
+                                    <span class="badge bg-success">✅ الوكيل متصل</span>
+                                {% elif any_agent_online %}
+                                    <span class="badge bg-warning text-dark">⚠ الوكيل متصل - الطابعة غير مكتشفة</span>
+                                {% else %}
+                                    <span class="badge bg-danger">❌ الوكيل غير متصل</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ p.document_type }}</td>
+                            <td>
+                                {% if p.is_default %}
+                                    <span class="badge bg-primary">⭐ افتراضي</span>
+                                {% else %}
+                                    <button class="btn btn-sm btn-outline-primary btn-set-default"
+                                            data-id="{{ p.id }}" data-doctype="sales_receipt">
+                                        تعيين كافتراضي
+                                    </button>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-success btn-test-print"
+                                        data-id="{{ p.id }}" data-type="thermal" data-name="{{ p.name }}">
+                                    🧪 اختبار
+                                </button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+                <p class="text-muted mb-0"><i class="bi bi-info-circle"></i> لا توجد طابعات حرارية مُعدّة.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ═══════ A4 Printers ═══════ -->
+    <div class="card mb-4 border-primary">
+        <div class="card-header bg-primary bg-opacity-75 text-white">
+            <h5 class="mb-0"><i class="bi bi-file-earmark-text"></i> طابعات A4 (فواتير وتقارير)</h5>
+            <small>RICOH Aficio / PDF - فواتير، تقارير، قيود محاسبية</small>
+        </div>
+        <div class="card-body">
+            {% if grouped_printers.a4 %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>الاسم</th>
+                            <th>الاتصال</th>
+                            <th>الحالة</th>
+                            <th>نوع المستند</th>
+                            <th>افتراضي</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for p in grouped_printers.a4 %}
+                        <tr>
+                            <td><strong>{{ p.name }}</strong></td>
+                            <td>
+                                {% if p.ip_address %}
+                                    <span class="badge bg-light text-dark">🌐 {{ p.ip_address }}:{{ p.port }}</span>
+                                {% else %}
+                                    <span class="badge bg-light text-dark">🖨️ Local / Agent</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if p.agent_online %}
+                                    <span class="badge bg-success">✅ الوكيل متصل</span>
+                                {% elif any_agent_online %}
+                                    <span class="badge bg-warning text-dark">⚠ الوكيل متصل - الطابعة غير مكتشفة</span>
+                                {% else %}
+                                    <span class="badge bg-danger">❌ الوكيل غير متصل</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <select class="form-select form-select-sm doctype-select"
+                                        data-id="{{ p.id }}" style="width:auto;display:inline-block;">
+                                    {% for key, label in document_types %}
+                                        <option value="{{ key }}"
+                                            {% if key == p.document_type %}selected{% endif %}>
+                                            {{ label }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td>
+                                {% if p.is_default %}
+                                    <span class="badge bg-primary">⭐ افتراضي</span>
+                                {% else %}
+                                    <button class="btn btn-sm btn-outline-primary btn-set-default"
+                                            data-id="{{ p.id }}" data-doctype="">
+                                        تعيين كافتراضي
+                                    </button>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-success btn-test-print"
+                                        data-id="{{ p.id }}" data-type="a4" data-name="{{ p.name }}">
+                                    🧪 اختبار
+                                </button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+                <p class="text-muted mb-0"><i class="bi bi-info-circle"></i> لا توجد طابعات A4 مُعدّة.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ═══════ Card Printers (if any) ═══════ -->
+    {% if grouped_printers.card %}
+    <div class="card mb-4 border-info">
+        <div class="card-header bg-info bg-opacity-75 text-white">
+            <h5 class="mb-0"><i class="bi bi-credit-card-2-front"></i> طابعات البطاقات</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr><th>الاسم</th><th>الاتصال</th><th>الحالة الفعلية</th><th>افتراضي</th><th>إجراءات</th></tr>
+                    </thead>
+                    <tbody>
+                    {% for p in grouped_printers.card %}
+                        <tr>
+                            <td><strong>{{ p.name }}</strong></td>
+                            <td>{{ p.connection_type }}</td>
+                        <td><span class="badge bg-secondary printer-live-status"
+                                      data-printer-name="{{ p.name }}">⏳ جاري الفحص...</span></td>
+                            <td>
+                                {% if p.is_default %}<span class="badge bg-primary">⭐</span>
+                                {% else %}<button class="btn btn-sm btn-outline-primary btn-set-default" data-id="{{ p.id }}" data-doctype="hr_id_card">تعيين</button>{% endif %}
+                            </td>
+                            <td><button class="btn btn-sm btn-outline-success btn-test-print" data-id="{{ p.id }}" data-type="card">🧪</button></td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ═══════ Connected Print Stations ═══════ -->
+    {% if stations %}
+    <div class="card mb-4 border-info">
+        <div class="card-header bg-info bg-opacity-75 text-white">
+            <h5 class="mb-0">🖥️ محطات الطباعة المسجلة (Print Stations)</h5>
+            <small>الأجهزة التي يعمل عليها وكيل الطباعة — يتم التسجيل تلقائياً</small>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>الحالة</th>
+                            <th>اسم المحطة</th>
+                            <th>الجهاز</th>
+                            <th>IP</th>
+                            <th>النظام</th>
+                            <th>الإصدار</th>
+                            <th>الطابعات المكتشفة</th>
+                            <th>آخر اتصال</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for station in stations %}
+                        <tr>
+                            <td>
+                                {% if station.is_online %}
+                                    <span class="badge bg-success">🟢 متصل</span>
+                                {% else %}
+                                    <span class="badge bg-danger">🔴 غير متصل</span>
+                                {% endif %}
+                            </td>
+                            <td><strong>{{ station.display_name|default:station.machine_name }}</strong></td>
+                            <td><code>{{ station.machine_name }}</code></td>
+                            <td><code>{{ station.machine_ip|default:"—" }}</code></td>
+                            <td>{{ station.os_platform }}</td>
+                            <td>{{ station.agent_version|default:"—" }}</td>
+                            <td>
+                                {% for p in station.discovered_printers %}
+                                    <span class="badge me-1"
+                                          style="background-color: {% if p.type == 'zebra' %}#e67e22{% elif p.type == 'thermal' %}#27ae60{% else %}#3498db{% endif %};color:#fff">
+                                        {{ p.name }}
+                                    </span>
+                                {% empty %}
+                                    <span class="text-muted">—</span>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% if station.last_seen %}
+                                    {{ station.last_seen|timesince }} ago
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ═══════ Routing Legend ═══════ -->
+    <div class="card">
+        <div class="card-header bg-light">
+            <h6 class="mb-0"><i class="bi bi-signpost-split"></i> خريطة التوجيه التلقائي</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <h6 class="text-warning"><i class="bi bi-upc-scan"></i> Zebra ZPL</h6>
+                    <ul class="small">
+                        <li>إتمام مرحلة التغليف → ملصق باركود آلي</li>
+                        <li>ملصقات المنتجات → باركود يدوي</li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h6 class="text-success"><i class="bi bi-receipt"></i> ESC/POS Thermal</h6>
+                    <ul class="small">
+                        <li>دفع في نقطة البيع → إيصال فوري</li>
+                        <li>إيصالات عامة</li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h6 class="text-primary"><i class="bi bi-file-earmark-text"></i> A4 PDF</h6>
+                    <ul class="small">
+                        <li>ترحيل فاتورة مبيعات → A4 تلقائي</li>
+                        <li>ميزان المراجعة / قيود محاسبية</li>
+                        <li>أوامر الشراء / بطاقات الهوية</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value
+        || '{{ csrf_token }}';
+
+    // ── Agent Status Auto-Refresh ──
+    function refreshAgentStatus() {
+        fetch('{% url "printing:api_agent_status" %}')
+        .then(r => r.json())
+        .then(data => {
+            const dot = document.getElementById('settings-agent-dot');
+            const text = document.getElementById('settings-agent-text');
+            if (data.online) {
+                dot.style.background = '#28a745';
+                let stationInfo = '';
+                if (data.online_stations) {
+                    stationInfo = ' (' + data.online_stations + ' محطة)';
+                }
+                text.style.color = '#28a745';
+                text.textContent = '● متصل' + stationInfo;
+            } else {
+                dot.style.background = '#dc3545';
+                text.style.color = '#dc3545';
+                text.textContent = '● غير متصل';
+            }
+        })
+        .catch(() => {});
+    }
+    refreshAgentStatus();
+    setInterval(refreshAgentStatus, 10000);
+
+    // ── Set Default ──
+    document.querySelectorAll('.btn-set-default').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const printerId = this.dataset.id;
+            let docType = this.dataset.doctype;
+
+            // For A4 printers, read from the doctype select
+            if (!docType) {
+                const select = this.closest('tr')?.querySelector('.doctype-select');
+                if (select) docType = select.value;
+            }
+
+            fetch('{% url "printing:printer_set_default" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({
+                    printer_id: printerId,
+                    document_type: docType,
+                }),
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('❌ ' + (data.error || 'Failed'));
+                }
+            });
+        });
+    });
+
+    // ── Test Print ──
+    // Primary: send directly via TonyPrint (browser → local agent)
+    // Fallback: send via server API (server → Daphne → agent)
+    document.querySelectorAll('.btn-test-print').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+            const printerId = this.dataset.id;
+            const printerType = this.dataset.type;
+            const printerName = this.dataset.name || '';
+            const origText = this.innerHTML;
+            this.disabled = true;
+            this.innerHTML = '⏳ جاري...';
+
+            const btnRef = this;
+
+            // Try TonyPrint (browser → local agent) first
+            if (typeof TonyPrint !== 'undefined' && TonyPrint.isConnected()) {
+                try {
+                    let result;
+                    if (printerType === 'zebra') {
+                        result = await TonyPrint.printZPL(
+                            '^XA^PW400^LL200^FO30,30^A0N,40,40^FDTest OK^FS^FO30,80^BCN,60,Y,N,N^FD123456^FS^XZ',
+                            printerName
+                        );
+                    } else if (printerType === 'thermal' || printerType === 'xprinter') {
+                        result = await TonyPrint.printReceipt(
+                            '================================\n      Tony ERP\n      Test Print OK!\n================================\n\n\n',
+                            {printer_name: printerName, cut_paper: true}
+                        );
+                    } else {
+                        result = await TonyPrint.printA4HTML(
+                            '<h1 style="text-align:center;margin-top:200px;">Test Print OK</h1><p style="text-align:center;">Tony ERP Printing System</p>',
+                            {printer_name: printerName, copies: 1}
+                        );
+                    }
+                    btnRef.disabled = false;
+                    btnRef.innerHTML = origText;
+                    if (result && result.success) {
+                        alert('✅ تمت الطباعة بنجاح (عبر الوكيل المحلي)');
+                    } else {
+                        alert('❌ ' + (result?.error || 'خطأ غير معروف'));
+                    }
+                    return;
+                } catch (e) {
+                    console.warn('TonyPrint test failed, falling back to server:', e);
+                }
+            }
+
+            // Fallback: Server-side dispatch
+            fetch('{% url "printing:api_test_print" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({
+                    printer_id: printerId,
+                    printer_type: printerType,
+                }),
+            })
+            .then(r => r.json())
+            .then(data => {
+                btnRef.disabled = false;
+                btnRef.innerHTML = origText;
+                if (data.success) {
+                    alert('✅ تم إرسال الاختبار بنجاح');
+                } else {
+                    alert('❌ ' + (data.error || data.message || 'الوكيل غير متصل'));
+                }
+            })
+            .catch(() => {
+                btnRef.disabled = false;
+                btnRef.innerHTML = origText;
+                alert('❌ خطأ في الاتصال بالخادم');
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

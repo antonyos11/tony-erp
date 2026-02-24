@@ -1,0 +1,462 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}لوحة الإنتاج - المحاسب الشامل{% endblock %}
+
+{% block extra_css %}
+<style>
+    body { background: #f6f7fb; }
+
+    .production-dashboard { padding-bottom: 2.5rem; }
+
+    .hero-card {
+        background: radial-gradient(circle at 25% 20%, rgba(61, 158, 116, 0.25), transparent 45%),
+                    radial-gradient(circle at 80% 30%, rgba(79, 70, 229, 0.22), transparent 40%),
+                    linear-gradient(115deg, #0f172a, #111827 40%, #0b766b 110%);
+        color: #fff;
+        border-radius: 18px;
+        padding: 24px 26px;
+        box-shadow: 0 18px 38px rgba(15, 23, 42, 0.25);
+    }
+    .hero-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        margin-inline-start: 8px;
+        backdrop-filter: blur(4px);
+    }
+    .hero-chip small { opacity: 0.9; }
+
+    .surface-card {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 18px 18px 16px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        border: 1px solid #e7eaf3;
+        height: 100%;
+    }
+    .surface-card.tight { padding: 14px 14px 12px; }
+
+    .kpi {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 6px 10px;
+        align-items: center;
+    }
+    .kpi .icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        color: #0f172a;
+        background: #f3f4f6;
+    }
+    .kpi .label { color: #6b7280; font-size: 0.85rem; }
+    .kpi .value { font-size: 1.85rem; font-weight: 800; letter-spacing: -0.4px; }
+    .kpi .hint { color: #9ca3af; font-size: 0.8rem; }
+    .kpi.positive .icon { background: rgba(34, 197, 94, 0.1); color: #15803d; }
+    .kpi.warning .icon { background: rgba(234, 179, 8, 0.15); color: #b45309; }
+    .kpi.danger .icon { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
+    .kpi.primary .icon { background: rgba(59, 130, 246, 0.12); color: #1d4ed8; }
+
+    .progress.track { height: 8px; border-radius: 10px; background: #eef2f7; }
+    .progress.track .bar { height: 100%; border-radius: 10px; }
+
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .section-title { font-size: 1rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px; }
+    .section-sub { color: #9ca3af; font-size: 0.9rem; }
+
+    .order-tile {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: #f8fafc;
+        border: 1px solid #edf1f7;
+        margin-bottom: 8px;
+        transition: all 0.16s ease;
+    }
+    .order-tile:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(15,23,42,0.08); }
+
+    .status-pill { padding: 5px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; }
+    .status-confirmed { background: #e0ebff; color: #1d4ed8; }
+    .status-in_progress { background: #e0f2fe; color: #0369a1; }
+    .status-completed { background: #dcfce7; color: #15803d; }
+    .status-on_hold { background: #fef9c3; color: #92400e; }
+
+    .alert-line { border-inline-start: 4px solid #0ea5e9; padding: 10px 12px; border-radius: 12px; background: #f8fafc; margin-bottom: 8px; }
+    .alert-critical { border-color: #ef4444; }
+    .alert-high { border-color: #f97316; }
+    .alert-medium { border-color: #0ea5e9; }
+
+    .quick-action { display: flex; gap: 10px; align-items: center; padding: 12px; border: 1px dashed #d8dee9; border-radius: 12px; background: #fbfcff; text-decoration: none; color: #0f172a; transition: all 0.15s ease; }
+    .quick-action:hover { border-color: #2563eb; box-shadow: 0 10px 22px rgba(37, 99, 235, 0.12); transform: translateY(-1px); }
+    .quick-action .qa-icon { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: #eef2ff; color: #4338ca; }
+
+    .badge-ghost { background: #f1f5f9; border-radius: 10px; padding: 6px 10px; font-size: 0.8rem; color: #475569; }
+
+    @media (max-width: 991.98px) {
+        .hero-card { padding: 18px; }
+        .kpi .value { font-size: 1.6rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid production-dashboard">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="hero-card d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div>
+                    <h1 class="mb-1">لوحة الإنتاج</h1>
+                    <p class="mb-0">مؤشرات التشغيل، الالتزام بالخطة، والهالك في نظرة واحدة</p>
+                </div>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <div class="hero-chip"><i class="fas fa-layer-group"></i><small>أوامر قيد العمل: {{ active_orders }}</small></div>
+                    <div class="hero-chip"><i class="fas fa-check-circle"></i><small>مكتمل: {{ completed_orders }}</small></div>
+                    <div class="hero-chip"><i class="fas fa-fire-alt"></i><small>متأخر: {{ overdue_orders }}</small></div>
+                    <form method="get" class="m-0">
+                        <select name="days" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="30" {% if period_days == 30 %}selected{% endif %}>آخر 30 يومًا</option>
+                            <option value="90" {% if period_days == 90 or period_days is None and not period_is_all %}selected{% endif %}>آخر 90 يومًا</option>
+                            <option value="180" {% if period_days == 180 %}selected{% endif %}>آخر 180 يومًا</option>
+                            <option value="365" {% if period_days == 365 %}selected{% endif %}>آخر سنة</option>
+                            <option value="all" {% if period_is_all %}selected{% endif %}>كل الأوامر</option>
+                        </select>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="surface-card kpi primary">
+                <div class="icon"><i class="fas fa-clipboard-list"></i></div>
+                <div class="label">إجمالي الأوامر</div>
+                <div class="value">{{ total_orders }}</div>
+                <div class="hint">داخل الفترة المختارة</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="surface-card kpi warning">
+                <div class="icon"><i class="fas fa-play"></i></div>
+                <div class="label">أوامر نشطة</div>
+                <div class="value">{{ active_orders }}</div>
+                <div class="hint">قيد التنفيذ/مؤكدة</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="surface-card kpi positive">
+                <div class="icon"><i class="fas fa-check-double"></i></div>
+                <div class="label">أوامر مكتملة</div>
+                <div class="value">{{ completed_orders }}</div>
+                <div class="hint">تم إنهاؤها بنجاح</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="surface-card kpi danger">
+                <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
+                <div class="label">أوامر متأخرة</div>
+                <div class="value">{{ overdue_orders }}</div>
+                <div class="hint">تحتاج تدخل فوري</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-xl-4 col-lg-4 col-md-6">
+            <div class="surface-card">
+                <div class="section-header">
+                    <div class="section-title"><i class="fas fa-bullseye text-secondary"></i>الكمية المخططة</div>
+                    <span class="badge-ghost">هدف الفترة</span>
+                </div>
+                <div class="d-flex align-items-end gap-2 mb-2">
+                    <div class="kpi value m-0">{{ total_planned_qty|floatformat:0 }}</div>
+                    <small class="text-muted">وحدة</small>
+                </div>
+                <div class="section-sub">إجمالي الكميات المستهدفة</div>
+            </div>
+        </div>
+        <div class="col-xl-4 col-lg-4 col-md-6">
+            <div class="surface-card">
+                <div class="section-header">
+                    <div class="section-title"><i class="fas fa-industry text-success"></i>الكمية المنتجة</div>
+                    <span class="badge bg-success text-white">فعلي</span>
+                </div>
+                <div class="d-flex align-items-end gap-2 mb-2">
+                    <div class="kpi value m-0">{{ total_produced_qty|floatformat:0 }}</div>
+                    <small class="text-muted">وحدة</small>
+                </div>
+                <div class="progress track">
+                    {% if total_planned_qty|default:0 > 0 %}
+                        {% widthratio total_produced_qty total_planned_qty 100 as produced_ratio %}
+                        <div class="bar bg-success" style="width: { produced_ratio }%"></div>
+                    {% else %}
+                        <div class="bar bg-success" style="width: 0%"></div>
+                    {% endif %}
+                </div>
+                <div class="section-sub">نسبة تحقيق الخطة: {% if total_planned_qty|default:0 > 0 %}{{ produced_ratio|floatformat:1 }}%{% else %}0%{% endif %}</div>
+            </div>
+        </div>
+        <div class="col-xl-4 col-lg-4 col-md-12">
+            <div class="surface-card">
+                <div class="section-header">
+                    <div class="section-title"><i class="fas fa-trash-alt text-danger"></i>الهالك</div>
+                    <span class="badge bg-danger">{{ scrap_rate_pct|floatformat:1 }}%</span>
+                </div>
+                <div class="d-flex align-items-end gap-2 mb-2">
+                    <div class="kpi value m-0">{{ total_scrap_qty|floatformat:0 }}</div>
+                    <small class="text-muted">وحدة</small>
+                </div>
+                <div class="progress track">
+                    <div class="bar bg-danger" style="width: { scrap_rate_pct|floatformat:0 }%"></div>
+                </div>
+                <div class="section-sub">أعلى أسباب محتملة: ضبط آلة، مراقبة تغليف</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="surface-card mb-3">
+                <div class="section-header">
+                    <div class="section-title"><i class="fas fa-chart-line text-primary"></i>منحنى الإنتاج</div>
+                    <span class="section-sub">فعلي مقابل مخطط</span>
+                </div>
+                <canvas id="productionChart" class="production-chart" style="min-height:260px; max-height:360px;"></canvas>
+            </div>
+
+            <div class="surface-card">
+                <div class="section-header">
+                    <div class="section-title"><i class="fas fa-calendar-day text-primary"></i>أوامر اليوم</div>
+                    <span class="badge bg-primary text-white">{{ today_orders.count }} أمر</span>
+                </div>
+
+                {% for order in today_orders %}
+                <div class="order-tile">
+                    <div>
+                        <div class="fw-bold">{{ order.number }}</div>
+                        <small class="text-muted">{{ order.product.name }}</small>
+                    </div>
+                    <div class="text-end">
+                        <span class="status-pill status-{ order.status }">{{ order.get_status_display }}</span>
+                        <div><small class="text-muted">{{ order.planned_quantity }} وحدة</small></div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-4">
+                    <i class="fas fa-calendar-times fa-2x text-muted mb-2"></i>
+                    <p class="text-muted mb-0">لا توجد أوامر إنتاج مجدولة لليوم</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="surface-card mb-3">
+                <div class="section-title mb-2"><i class="fas fa-bolt text-primary"></i>إجراءات سريعة</div>
+                <div class="d-grid gap-2">
+                    <a href="/production/orders/create/" class="quick-action">
+                        <div class="qa-icon"><i class="fas fa-plus"></i></div>
+                        <div><strong>أمر إنتاج جديد</strong><br><small class="text-muted">بدء تشغيل فوري</small></div>
+                    </a>
+                    <a href="{% url 'production:unit_list' %}" class="quick-action">
+                        <div class="qa-icon" style="background:#f0fdf4; color:#166534;"><i class="fas fa-boxes"></i></div>
+                        <div><strong>وحدات المنتجات</strong><br><small class="text-muted">إدارة الباركود والضمان</small></div>
+                    </a>
+                    <a href="{% url 'production:material_requisition_quick_create' %}" class="quick-action">
+                        <div class="qa-icon" style="background:#ecfdf3; color:#15803d;"><i class="fas fa-file-alt"></i></div>
+                        <div><strong>إذن طلب خامات</strong><br><small class="text-muted">توفير خامات دون تأخير</small></div>
+                    </a>
+                    <a href="/production/calendar/" class="quick-action">
+                        <div class="qa-icon" style="background:#eef2ff; color:#4338ca;"><i class="fas fa-calendar-alt"></i></div>
+                        <div><strong>تقويم الإنتاج</strong><br><small class="text-muted">عرض الأعباء الزمنية</small></div>
+                    </a>
+                    <a href="/production/reports/" class="quick-action">
+                        <div class="qa-icon" style="background:#fff7ed; color:#c2410c;"><i class="fas fa-chart-bar"></i></div>
+                        <div><strong>تقارير وتحليلات</strong><br><small class="text-muted">نتائج الجودة والتكلفة</small></div>
+                    </a>
+                </div>
+            </div>
+
+            {% if critical_alerts %}
+            <div class="surface-card mb-3">
+                <div class="section-title mb-2"><i class="fas fa-bell text-warning"></i>تنبيهات حرجة</div>
+                {% for alert in critical_alerts %}
+                <div class="alert-line alert-{ alert.priority }">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="fw-semibold">{{ alert.title }}</div>
+                            <div class="text-muted small">{{ alert.description|truncatewords:12 }}</div>
+                        </div>
+                        <small class="text-muted ms-2">{{ alert.alert_date|date:"d/m H:i" }}</small>
+                    </div>
+                </div>
+                {% endfor %}
+                <div class="text-center mt-2">
+                    <a href="/production/alerts/" class="btn btn-sm btn-outline-warning rounded-pill">عرض جميع التنبيهات</a>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="surface-card mb-3">
+                <div class="section-title mb-2"><i class="fas fa-history text-info"></i>الأوامر الحديثة</div>
+                {% for order in recent_orders|slice:":5" %}
+                <div class="order-tile">
+                    <div>
+                        <div class="fw-semibold"><a href="/production/orders/{{ order.id }}/" class="text-decoration-none text-dark">{{ order.number }}</a></div>
+                        <small class="text-muted">{{ order.product.name }}</small>
+                    </div>
+                    <div class="text-end">
+                        <span class="status-pill status-{ order.status }">{{ order.get_status_display }}</span>
+                        <div><small class="text-muted">{{ order.created_at|date:"d/m" }}</small></div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-3"><i class="fas fa-inbox fa-2x text-muted mb-2"></i><p class="text-muted mb-0">لا توجد أوامر حديثة</p></div>
+                {% endfor %}
+                {% if recent_orders.count > 5 %}
+                <div class="text-center mt-2"><a href="/production/orders/" class="btn btn-sm btn-outline-info rounded-pill">عرض المزيد</a></div>
+                {% endif %}
+            </div>
+
+            <div class="surface-card">
+                <div class="section-title mb-2"><i class="fas fa-chart-pie text-success"></i>الجودة والتكلفة</div>
+                <div class="row text-center mb-2">
+                    <div class="col-6 border-end">
+                        <div class="text-xs text-muted">مراكز عمل نشطة</div>
+                        <div class="h4 mb-0 text-primary">{{ active_work_centers }}</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-xs text-muted">متوسط درجة الجودة</div>
+                        <div class="h4 mb-0 text-info">{{ quality_stats.avg_quality_score|floatformat:1|default:"--" }}%</div>
+                    </div>
+                </div>
+                <div class="row text-center mt-2">
+                    <div class="col-6 border-end">
+                        <div class="text-xs text-muted">إجمالي تكلفة مقدرة</div>
+                        <div class="h5 mb-0 text-success">{{ cost_analysis.estimated_total|floatformat:0|default:"0" }}</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-xs text-muted">إجمالي تكلفة فعلية</div>
+                        <div class="h5 mb-0 text-warning">{{ cost_analysis.actual_total|floatformat:0|default:"0" }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// رسم جراف إنتاج حقيقي (فعلي مقابل مخطط) بشكل أنيق ومتجاوب
+document.addEventListener('DOMContentLoaded', function () {
+    const canvas = document.getElementById('productionChart');
+    if (!canvas) return;
+
+    // بيانات قادمة من الـ view (تجميع يومي للفترة المختارة)
+    const labels = JSON.parse('{{ chart_labels|default:"[]"|escapejs }}');
+    const actualData = JSON.parse('{{ chart_actual_data|default:"[]"|escapejs }}');
+    const plannedData = JSON.parse('{{ chart_planned_data|default:"[]"|escapejs }}');
+
+    const ctx = canvas.getContext('2d');
+
+    // تدرجات لونية ناعمة للمنطقتين
+    const gradientActual = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradientActual.addColorStop(0, 'rgba(37, 99, 235, 0.35)');
+    gradientActual.addColorStop(1, 'rgba(37, 99, 235, 0.02)');
+
+    const gradientPlanned = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradientPlanned.addColorStop(0, 'rgba(34, 197, 94, 0.30)');
+    gradientPlanned.addColorStop(1, 'rgba(34, 197, 94, 0.02)');
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'الإنتاج الفعلي',
+                    data: actualData,
+                    borderColor: '#2563eb',
+                    backgroundColor: gradientActual,
+                    borderWidth: 3,
+                    pointRadius: 3.5,
+                    pointBackgroundColor: '#2563eb',
+                    pointHoverRadius: 5,
+                    tension: 0.4,
+                    fill: true
+                },
+                {
+                    label: 'الطاقة المخططة',
+                    data: plannedData,
+                    borderColor: '#22c55e',
+                    backgroundColor: gradientPlanned,
+                    borderDash: [6, 3],
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.4,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 20,
+                        font: {
+                            size: 11,
+                            family: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+                        }
+                    },
+                    rtl: true
+                },
+                title: {
+                    display: false
+                },
+                tooltip: {
+                    rtl: true,
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    titleFont: { size: 12 },
+                    bodyFont: { size: 11 },
+                    padding: 10
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 11 } }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(148, 163, 184, 0.25)'
+                    },
+                    ticks: {
+                        stepSize: 5,
+                        font: { size: 11 }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

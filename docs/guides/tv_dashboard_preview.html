@@ -1,0 +1,642 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة متابعة الإنتاج — المصنع</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        /* ============================
+           DARK TV DASHBOARD THEME
+           ============================ */
+        :root {
+            --bg-primary:   #0d1117;
+            --bg-card:      #161b22;
+            --bg-card-alt:  #1c2333;
+            --border-color: #30363d;
+            --text-primary: #e6edf3;
+            --text-muted:   #8b949e;
+            --neon-green:   #39d353;
+            --neon-amber:   #e3b341;
+            --neon-red:     #f85149;
+            --neon-blue:    #58a6ff;
+            --neon-cyan:    #56d4dd;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        /* ---- Header bar ---- */
+        .tv-header {
+            background: linear-gradient(135deg, #1a1f2e 0%, #0d1117 100%);
+            border-bottom: 2px solid var(--neon-green);
+            padding: 12px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: fixed; top: 0; left: 0; right: 0;
+            z-index: 100;
+            height: 72px;
+        }
+        .tv-header h1 {
+            font-size: 1.65rem;
+            font-weight: 700;
+            color: var(--neon-green);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .tv-header h1 i { font-size: 1.4rem; }
+
+        .header-stats {
+            display: flex;
+            gap: 28px;
+            align-items: center;
+        }
+        .stat-pill {
+            text-align: center;
+            padding: 4px 18px;
+            border-radius: 8px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+        }
+        .stat-pill .val {
+            font-size: 1.6rem;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+        .stat-pill .lbl {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .clock {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--neon-cyan);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .ws-status {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-inline-start: 8px;
+        }
+        .ws-status.connected    { background: var(--neon-green); box-shadow: 0 0 8px var(--neon-green); }
+        .ws-status.disconnected { background: var(--neon-red);   box-shadow: 0 0 8px var(--neon-red);   }
+
+        /* ---- Scroll container ---- */
+        .scroll-viewport {
+            margin-top: 72px;
+            height: calc(100vh - 72px);
+            overflow: hidden;
+            position: relative;
+        }
+        .scroll-track {
+            transition: transform 0.6s ease-in-out;
+        }
+
+        /* ---- Order grid ---- */
+        .orders-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+            gap: 16px;
+            padding: 20px 24px;
+        }
+
+        /* ---- Card ---- */
+        .order-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 18px 20px;
+            position: relative;
+            overflow: hidden;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .order-card:hover {
+            border-color: var(--neon-blue);
+        }
+        .order-card.status-in_progress {
+            border-right: 4px solid var(--neon-green);
+        }
+        .order-card.status-draft,
+        .order-card.status-confirmed {
+            border-right: 4px solid var(--neon-amber);
+        }
+        .order-card.overdue {
+            border-right: 4px solid var(--neon-red) !important;
+            animation: pulse-border 2s infinite;
+        }
+        .order-card.flash-update {
+            box-shadow: 0 0 20px rgba(57, 211, 83, 0.4);
+        }
+
+        @keyframes pulse-border {
+            0%, 100% { border-right-color: var(--neon-red); }
+            50%      { border-right-color: transparent; }
+        }
+
+        .card-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        .order-number {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--neon-blue);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .badge-in-progress { background: rgba(57,211,83,0.15); color: var(--neon-green); border: 1px solid var(--neon-green); }
+        .badge-pending      { background: rgba(227,179,65,0.15); color: var(--neon-amber); border: 1px solid var(--neon-amber); }
+        .badge-overdue      { background: rgba(248,81,73,0.15); color: var(--neon-red);   border: 1px solid var(--neon-red);   }
+        .badge-shortage     { background: rgba(248,81,73,0.15); color: var(--neon-red);   border: 1px solid var(--neon-red);   }
+        .badge-priority     { background: rgba(88,166,255,0.12); color: var(--neon-blue);  border: 1px solid transparent;      }
+
+        .product-name {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        .product-sku {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+
+        .card-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin: 8px 0 12px;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+        .card-meta span { display: flex; align-items: center; gap: 4px; }
+        .card-meta i { font-size: 0.9rem; color: var(--neon-cyan); }
+
+        /* Progress bar */
+        .progress-container {
+            background: #21262d;
+            border-radius: 6px;
+            height: 28px;
+            position: relative;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.8s cubic-bezier(.4,0,.2,1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.82rem;
+            font-weight: 800;
+            color: #fff;
+            text-shadow: 0 1px 2px rgba(0,0,0,.5);
+            min-width: 42px;
+        }
+        .progress-fill.green { background: linear-gradient(90deg, #238636, var(--neon-green)); }
+        .progress-fill.amber { background: linear-gradient(90deg, #9e6a03, var(--neon-amber)); }
+        .progress-fill.red   { background: linear-gradient(90deg, #b62324, var(--neon-red));   }
+
+        .qty-row {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 6px;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+        .qty-row .produced { color: var(--neon-green); font-weight: 700; }
+
+        /* ---- Empty state ---- */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: calc(100vh - 120px);
+            color: var(--text-muted);
+            grid-column: 1 / -1;
+        }
+        .empty-state i { font-size: 4rem; margin-bottom: 16px; color: var(--neon-green); }
+        .empty-state p { font-size: 1.4rem; }
+
+        /* ---- Responsive ---- */
+        @media (max-width: 960px) {
+            .orders-grid { grid-template-columns: 1fr; }
+            .header-stats { gap: 12px; }
+            .stat-pill .val { font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ===== HEADER BAR ===== -->
+<header class="tv-header">
+    <h1>
+        <i class="bi bi-activity"></i>
+        لوحة متابعة الإنتاج
+        <span class="ws-status disconnected" id="wsIndicator" title="حالة الاتصال"></span>
+    </h1>
+
+    <div class="header-stats">
+        <div class="stat-pill">
+            <div class="val" style="color:var(--neon-green)" id="statInProgress">0</div>
+            <div class="lbl">قيد التنفيذ</div>
+        </div>
+        <div class="stat-pill">
+            <div class="val" style="color:var(--neon-amber)" id="statPending">3</div>
+            <div class="lbl">معلّق</div>
+        </div>
+        <div class="stat-pill">
+            <div class="val" style="color:var(--neon-red)" id="statOverdue">0</div>
+            <div class="lbl">متأخر</div>
+        </div>
+        <div class="stat-pill">
+            <div class="val" style="color:var(--neon-cyan)" id="statTotal">3</div>
+            <div class="lbl">إجمالي</div>
+        </div>
+    </div>
+
+    <div class="clock" id="liveClock"></div>
+</header>
+
+<!-- ===== SCROLL VIEWPORT ===== -->
+<div class="scroll-viewport" id="scrollViewport">
+    <div class="scroll-track" id="scrollTrack">
+        <div class="orders-grid" id="ordersGrid">
+            
+            <div class="order-card status-draft "
+                 data-order-id="23" id="card-23">
+                <div class="card-header-row">
+                    <div>
+                        <div class="order-number">PO-2026-000001</div>
+                        <div class="product-name">Test Medical Mattress 120x200</div>
+                        <div class="product-sku">TEST-MED-120-200</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+                        
+                            <span class="badge badge-pending"><i class="bi bi-hourglass-split"></i> معلّق</span>
+                        
+                        
+                        <span class="badge badge-priority">عادية</span>
+                    </div>
+                </div>
+
+                <div class="card-meta">
+                    <span><i class="bi bi-building"></i> —</span>
+                    <span><i class="bi bi-list-check"></i> Test BOM</span>
+                    
+                    <span><i class="bi bi-calendar-event"></i> 21/02/2026</span>
+                    
+                </div>
+
+                <div class="progress-container">
+                    <div class="progress-fill red"
+                         style="width: 0%;"
+                         data-progress="0,0">
+                        0,0%
+                    </div>
+                </div>
+                <div class="qty-row">
+                    <span>المخطط: 20</span>
+                    <span>المنتَج: <span class="produced">0</span></span>
+                </div>
+            </div>
+            
+            <div class="order-card status-draft "
+                 data-order-id="26" id="card-26">
+                <div class="card-header-row">
+                    <div>
+                        <div class="order-number">PO-2026-000003</div>
+                        <div class="product-name">مرتبة طبية - اختبار E2E</div>
+                        <div class="product-sku">MATT-MED-TEST-001</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+                        
+                            <span class="badge badge-pending"><i class="bi bi-hourglass-split"></i> معلّق</span>
+                        
+                        
+                        <span class="badge badge-priority">عادية</span>
+                    </div>
+                </div>
+
+                <div class="card-meta">
+                    <span><i class="bi bi-building"></i> —</span>
+                    <span><i class="bi bi-list-check"></i> وصفة مرتبة طبية E2E</span>
+                    
+                    <span><i class="bi bi-calendar-event"></i> 25/02/2026</span>
+                    
+                </div>
+
+                <div class="progress-container">
+                    <div class="progress-fill red"
+                         style="width: 0%;"
+                         data-progress="0,0">
+                        0,0%
+                    </div>
+                </div>
+                <div class="qty-row">
+                    <span>المخطط: 5</span>
+                    <span>المنتَج: <span class="produced">0</span></span>
+                </div>
+            </div>
+            
+            <div class="order-card status-confirmed "
+                 data-order-id="24" id="card-24">
+                <div class="card-header-row">
+                    <div>
+                        <div class="order-number">TST-PO-20260216100144</div>
+                        <div class="product-name">مرتبة طبية 120×200 - اختبار</div>
+                        <div class="product-sku">TST-MAT-120</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+                        
+                            <span class="badge badge-pending"><i class="bi bi-hourglass-split"></i> معلّق</span>
+                        
+                        
+                        <span class="badge badge-priority">عادية</span>
+                    </div>
+                </div>
+
+                <div class="card-meta">
+                    <span><i class="bi bi-building"></i> —</span>
+                    <span><i class="bi bi-list-check"></i> وصفة مرتبة طبية 120×200</span>
+                    
+                    <span><i class="bi bi-calendar-event"></i> 23/02/2026</span>
+                    
+                </div>
+
+                <div class="progress-container">
+                    <div class="progress-fill red"
+                         style="width: 0%;"
+                         data-progress="0,0">
+                        0,0%
+                    </div>
+                </div>
+                <div class="qty-row">
+                    <span>المخطط: 10</span>
+                    <span>المنتَج: <span class="produced">0</span></span>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    // ==========================
+    // 1. LIVE CLOCK
+    // ==========================
+    var clockEl = document.getElementById('liveClock');
+    function updateClock() {
+        var now = new Date();
+        var h = String(now.getHours()).padStart(2, '0');
+        var m = String(now.getMinutes()).padStart(2, '0');
+        var s = String(now.getSeconds()).padStart(2, '0');
+        clockEl.textContent = h + ':' + m + ':' + s;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // ==========================
+    // 2. AUTO-SCROLL
+    // ==========================
+    var viewport = document.getElementById('scrollViewport');
+    var track    = document.getElementById('scrollTrack');
+    var scrollPos  = 0;
+    var SCROLL_STEP = 1;
+    var SCROLL_INTERVAL = 40;
+    var PAUSE_DURATION = 4000;
+    var scrollDirection = 1;
+    var paused = false;
+
+    function autoScroll() {
+        if (paused) return;
+        var maxScroll = track.scrollHeight - viewport.clientHeight;
+        if (maxScroll <= 0) return;
+
+        scrollPos += SCROLL_STEP * scrollDirection;
+
+        if (scrollPos >= maxScroll) {
+            scrollPos = maxScroll;
+            scrollDirection = -1;
+            paused = true;
+            setTimeout(function() { paused = false; }, PAUSE_DURATION);
+        } else if (scrollPos <= 0) {
+            scrollPos = 0;
+            scrollDirection = 1;
+            paused = true;
+            setTimeout(function() { paused = false; }, PAUSE_DURATION);
+        }
+
+        track.style.transform = 'translateY(-' + scrollPos + 'px)';
+    }
+    setInterval(autoScroll, SCROLL_INTERVAL);
+
+    // ==========================
+    // 3. WEBSOCKET CONNECTION
+    // ==========================
+    var wsIndicator = document.getElementById('wsIndicator');
+    var socket = null;
+    var reconnectTimer = null;
+
+    function connectWS() {
+        var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        var url   = proto + '//' + location.host + '/ws/production/tv-dashboard/';
+        socket = new WebSocket(url);
+
+        socket.onopen = function () {
+            wsIndicator.className = 'ws-status connected';
+            if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+        };
+
+        socket.onclose = function () {
+            wsIndicator.className = 'ws-status disconnected';
+            reconnectTimer = setTimeout(connectWS, 5000);
+        };
+
+        socket.onerror = function () {
+            // will trigger onclose
+        };
+
+        socket.onmessage = function (event) {
+            var msg = JSON.parse(event.data);
+            if (msg.type === 'full_snapshot')  handleSnapshot(msg.data);
+            if (msg.type === 'order_updated')  handleOrderUpdate(msg.data);
+        };
+    }
+    connectWS();
+
+    // Periodic full-refresh fallback (every 60 s)
+    setInterval(function () {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ action: 'refresh' }));
+        }
+    }, 60000);
+
+    // ==========================
+    // 4. DOM UPDATE HELPERS
+    // ==========================
+    var grid = document.getElementById('ordersGrid');
+
+    function progressClass(pct) {
+        if (pct >= 80) return 'green';
+        if (pct >= 40) return 'amber';
+        return 'red';
+    }
+
+    function buildCardHTML(o) {
+        var statusBadge = o.status === 'in_progress'
+            ? '<span class="badge badge-in-progress"><i class="bi bi-gear-fill"></i> قيد التنفيذ</span>'
+            : '<span class="badge badge-pending"><i class="bi bi-hourglass-split"></i> معلّق</span>';
+
+        var overdueBadge = o.is_overdue
+            ? '<span class="badge badge-overdue"><i class="bi bi-exclamation-triangle-fill"></i> متأخر</span>'
+            : '';
+
+        var shortageBadge = o.material_ok === false
+            ? '<span class="badge badge-shortage"><i class="bi bi-box-seam"></i> نقص مواد</span>'
+            : '';
+
+        var plannedEnd = o.planned_end
+            ? '<span><i class="bi bi-calendar-event"></i> ' + new Date(o.planned_end).toLocaleDateString('ar-EG') + '</span>'
+            : '';
+
+        var pct = o.progress || 0;
+        var pctWidth = pct > 0 ? pct + '%' : '0%';
+
+        return '' +
+            '<div class="card-header-row">' +
+                '<div>' +
+                    '<div class="order-number">' + (o.number || '\u2014') + '</div>' +
+                    '<div class="product-name">' + (o.product_name || '\u2014') + '</div>' +
+                    '<div class="product-sku">' + (o.product_sku || '\u2014') + '</div>' +
+                '</div>' +
+                '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">' +
+                    statusBadge +
+                    overdueBadge +
+                    shortageBadge +
+                    '<span class="badge badge-priority">' + (o.priority_display || '\u2014') + '</span>' +
+                '</div>' +
+            '</div>' +
+            '<div class="card-meta">' +
+                '<span><i class="bi bi-building"></i> ' + (o.work_center || '\u2014') + '</span>' +
+                '<span><i class="bi bi-list-check"></i> ' + (o.bom_name || '\u2014') + '</span>' +
+                plannedEnd +
+            '</div>' +
+            '<div class="progress-container">' +
+                '<div class="progress-fill ' + progressClass(pct) + '"' +
+                     ' style="width:' + pctWidth + ';" data-progress="' + pct + '">' +
+                    pct + '%' +
+                '</div>' +
+            '</div>' +
+            '<div class="qty-row">' +
+                '<span>المخطط: ' + Math.round(o.planned_quantity || 0) + '</span>' +
+                '<span>المنتَج: <span class="produced">' + Math.round(o.produced_quantity || 0) + '</span></span>' +
+            '</div>';
+    }
+
+    function updateSummaryStats(summary) {
+        if (!summary) return;
+        document.getElementById('statInProgress').textContent = summary.in_progress != null ? summary.in_progress : 0;
+        document.getElementById('statPending').textContent     = summary.pending != null ? summary.pending : 0;
+        document.getElementById('statOverdue').textContent     = summary.overdue != null ? summary.overdue : 0;
+        document.getElementById('statTotal').textContent        = summary.total_active != null ? summary.total_active : 0;
+    }
+
+    // ---- Handle full snapshot ----
+    function handleSnapshot(data) {
+        var orders  = data.orders || [];
+        var summary = data.summary;
+
+        grid.innerHTML = '';
+
+        if (orders.length === 0) {
+            grid.innerHTML = '' +
+                '<div class="empty-state" id="emptyState">' +
+                    '<i class="bi bi-check-circle"></i>' +
+                    '<p>لا توجد أوامر إنتاج نشطة حالياً</p>' +
+                '</div>';
+        } else {
+            orders.forEach(function (o) {
+                var card = document.createElement('div');
+                card.className = 'order-card status-' + o.status + (o.is_overdue ? ' overdue' : '');
+                card.id = 'card-' + o.id;
+                card.dataset.orderId = o.id;
+                card.innerHTML = buildCardHTML(o);
+                grid.appendChild(card);
+            });
+        }
+
+        updateSummaryStats(summary);
+        // Reset scroll
+        scrollPos = 0;
+        scrollDirection = 1;
+        track.style.transform = 'translateY(0)';
+    }
+
+    // ---- Handle single order delta ----
+    function handleOrderUpdate(o) {
+        var cardId = 'card-' + o.id;
+        var card = document.getElementById(cardId);
+
+        // If order left the dashboard (completed / cancelled)
+        if (['completed', 'cancelled'].indexOf(o.status) !== -1) {
+            if (card) card.remove();
+            // Request fresh stats
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ action: 'refresh' }));
+            }
+            return;
+        }
+
+        if (!card) {
+            // New order appeared
+            var empty = document.getElementById('emptyState');
+            if (empty) empty.remove();
+
+            card = document.createElement('div');
+            card.id = cardId;
+            card.dataset.orderId = o.id;
+            grid.appendChild(card);
+        }
+
+        card.className = 'order-card status-' + o.status + (o.is_overdue ? ' overdue' : '');
+        card.innerHTML = buildCardHTML(o);
+
+        // Flash animation
+        card.classList.add('flash-update');
+        setTimeout(function () { card.classList.remove('flash-update'); }, 1500);
+    }
+
+})();
+</script>
+</body>
+</html>

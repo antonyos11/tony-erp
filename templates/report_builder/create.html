@@ -1,0 +1,192 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}إنشاء تقرير - Tony ERP{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="bi bi-plus-circle text-primary me-2"></i>إنشاء تقرير جديد</h2>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="post" id="reportForm">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label class="form-label">اسم التقرير</label>
+                            <input type="text" class="form-control form-control-lg" name="name" required
+                                   placeholder="مثال: تقرير المبيعات الشهري">
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label">الوصف</label>
+                            <textarea class="form-control" name="description" rows="2"
+                                      placeholder="وصف مختصر للتقرير"></textarea>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label">مصدر البيانات</label>
+                                <select class="form-select" name="data_source" id="dataSource">
+                                    <option value="">اختر مصدر البيانات</option>
+                                    <option value="sales">المبيعات</option>
+                                    <option value="purchases">المشتريات</option>
+                                    <option value="inventory">المخزون</option>
+                                    <option value="customers">العملاء</option>
+                                    <option value="products">المنتجات</option>
+                                    <option value="invoices">الفواتير</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">نوع التقرير</label>
+                                <select class="form-select" name="report_type">
+                                    <option value="table">جدول</option>
+                                    <option value="chart">رسم بياني</option>
+                                    <option value="summary">ملخص</option>
+                                    <option value="pivot">جدول محوري</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label">الأعمدة المطلوبة</label>
+                            <div id="columnsContainer" class="row">
+                                <!-- يتم تحميلها ديناميكياً -->
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label">الفلاتر</label>
+                            <div id="filtersContainer">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addFilter()">
+                                    <i class="bi bi-plus me-1"></i>إضافة فلتر
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label">الترتيب</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <select class="form-select" name="order_by" id="orderBy">
+                                        <option value="">بدون ترتيب</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <select class="form-select" name="order_direction">
+                                        <option value="asc">تصاعدي</option>
+                                        <option value="desc">تنازلي</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-check-lg me-2"></i>إنشاء التقرير
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-lg" onclick="previewReport()">
+                                <i class="bi bi-eye me-2"></i>معاينة
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-lightbulb me-2"></i>نصائح</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>اختر اسماً واضحاً للتقرير</li>
+                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>حدد الأعمدة المهمة فقط</li>
+                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>استخدم الفلاتر لتضييق النتائج</li>
+                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>يمكنك جدولة التقرير لاحقاً</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const columnsData = {
+    sales: ['التاريخ', 'الفاتورة', 'العميل', 'المنتج', 'الكمية', 'السعر', 'الإجمالي'],
+    purchases: ['التاريخ', 'المورد', 'المنتج', 'الكمية', 'السعر', 'الإجمالي'],
+    inventory: ['المنتج', 'الكود', 'الكمية', 'سعر التكلفة', 'سعر البيع', 'المخزن'],
+    customers: ['الاسم', 'الهاتف', 'البريد', 'إجمالي المشتريات', 'آخر عملية'],
+    products: ['الاسم', 'الكود', 'الفئة', 'السعر', 'الكمية'],
+    invoices: ['الرقم', 'التاريخ', 'العميل', 'الإجمالي', 'الحالة']
+};
+
+document.getElementById('dataSource').addEventListener('change', function() {
+    const source = this.value;
+    const container = document.getElementById('columnsContainer');
+    const orderBy = document.getElementById('orderBy');
+    
+    container.innerHTML = '';
+    orderBy.innerHTML = '<option value="">بدون ترتيب</option>';
+    
+    if (source && columnsData[source]) {
+        columnsData[source].forEach(col => {
+            container.innerHTML += `
+                <div class="col-md-4 mb-2">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="columns" value="${col}" checked>
+                        <label class="form-check-label">${col}</label>
+                    </div>
+                </div>
+            `;
+            orderBy.innerHTML += `<option value="${col}">${col}</option>`;
+        });
+    }
+});
+
+function addFilter() {
+    const container = document.getElementById('filtersContainer');
+    const filterId = Date.now();
+    container.insertAdjacentHTML('beforeend', `
+        <div class="row mb-2" id="filter_${filterId}">
+            <div class="col-md-4">
+                <select class="form-select form-select-sm" name="filter_field[]">
+                    <option value="">اختر الحقل</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select form-select-sm" name="filter_op[]">
+                    <option value="equals">يساوي</option>
+                    <option value="contains">يحتوي</option>
+                    <option value="gt">أكبر من</option>
+                    <option value="lt">أصغر من</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <input type="text" class="form-control form-control-sm" name="filter_value[]" placeholder="القيمة">
+            </div>
+            <div class="col-md-1">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFilter(${filterId})">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+        </div>
+    `);
+}
+
+function removeFilter(id) {
+    document.getElementById(`filter_${id}`).remove();
+}
+
+function previewReport() {
+    alert('سيتم فتح نافذة المعاينة');
+}
+</script>
+{% endblock %}

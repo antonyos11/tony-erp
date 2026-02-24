@@ -1,0 +1,152 @@
+﻿{% extends 'ecommerce/admin/base_admin.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - لوحة تحكم المتجر{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-1">
+                        <i class="fas fa-images text-warning me-2"></i>
+                        {{ page_title }}
+                    </h4>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">الرئيسية</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'ecommerce:admin_dashboard' %}">المتجر</a></li>
+                            <li class="breadcrumb-item active">البانرات</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div>
+                    <a href="{% url 'ecommerce:admin_banner_add' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>
+                        إضافة بانر
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- البانرات حسب الموضع -->
+    {% regroup banners by get_position_display as banners_by_position %}
+    
+    {% for position in banners_by_position %}
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent">
+            <h6 class="mb-0">
+                <i class="fas fa-layer-group text-primary me-2"></i>
+                {{ position.grouper }}
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-4">
+                {% for banner in position.list %}
+                <div class="col-lg-4 col-md-6">
+                    <div class="card h-100 {% if not banner.is_active %}opacity-50{% endif %}">
+                        <div class="position-relative">
+                            <img src="{{ banner.image.url }}" alt="{{ banner.title }}" 
+                                 class="card-img-top" style="height: 150px; object-fit: cover;">
+                            <div class="position-absolute top-0 end-0 m-2">
+                                {% if banner.is_active %}
+                                    <span class="badge bg-success">نشط</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">معطل</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <h6 class="card-title">{{ banner.title }}</h6>
+                            {% if banner.subtitle %}
+                                <p class="card-text small text-muted">{{ banner.subtitle }}</p>
+                            {% endif %}
+                            {% if banner.start_date or banner.end_date %}
+                            <small class="text-muted d-block mb-2">
+                                <i class="fas fa-calendar me-1"></i>
+                                {{ banner.start_date|date:"Y/m/d"|default:"—" }} - {{ banner.end_date|date:"Y/m/d"|default:"—" }}
+                            </small>
+                            {% endif %}
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'ecommerce:admin_banner_edit' banner.pk %}" 
+                                   class="btn btn-sm btn-outline-primary flex-grow-1">
+                                    <i class="fas fa-edit me-1"></i> تعديل
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-{% if banner.is_active %}warning{% else %}success{% endif %}"
+                                        onclick="toggleBanner({{ banner.pk }})" title="{% if banner.is_active %}تعطيل{% else %}تفعيل{% endif %}">
+                                    <i class="fas fa-{% if banner.is_active %}pause{% else %}play{% endif %}"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        onclick="confirmDelete('{% url 'ecommerce:admin_banner_delete' banner.pk %}', '{{ banner.title }}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-images fa-4x text-muted mb-3"></i>
+            <h5>لا توجد بانرات</h5>
+            <p class="text-muted">أضف بانرات لعرض العروض والإعلانات في المتجر</p>
+            <a href="{% url 'ecommerce:admin_banner_add' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>
+                إضافة بانر
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Modal تأكيد الحذف -->
+<div class="modal fade" id="deleteModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تأكيد الحذف</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>هل أنت متأكد من حذف البانر <strong id="bannerTitle"></strong>؟</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <a href="#" id="deleteBtn" class="btn btn-danger">حذف</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleBanner(id) {
+    fetch(`/store/admin/banners/${id}/toggle/`, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    }).then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+function confirmDelete(url, title) {
+    document.getElementById('bannerTitle').textContent = title;
+    document.getElementById('deleteBtn').href = url;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+{% endblock %}

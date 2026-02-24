@@ -1,0 +1,341 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "محاكاة التسعير" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .simulation-chart {
+        min-height: 300px;
+    }
+    .scenario-card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    .scenario-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    .scenario-card.optimal {
+        border: 3px solid #28a745;
+    }
+    .optimal-badge {
+        position: absolute;
+        top: -10px;
+        right: 10px;
+        z-index: 10;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'smart_pricing:dashboard' %}">{% trans "التسعير الذكي" %}</a>
+                    </li>
+                    <li class="breadcrumb-item active">{% trans "محاكاة التسعير" %}</li>
+                </ol>
+            </nav>
+            <h2>
+                <i class="fas fa-flask text-info"></i>
+                {% trans "محاكاة التسعير" %}
+            </h2>
+            <p class="text-muted">
+                {% trans "اختبر تأثير تغييرات الأسعار على الإيرادات والأرباح" %}
+            </p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- نموذج المحاكاة -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-sliders-h text-primary"></i>
+                        {% trans "إعدادات المحاكاة" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">{% trans "المنتج" %}</label>
+                            <select name="product_id" class="form-select" required>
+                                <option value="">{% trans "اختر منتج" %}</option>
+                                {% for product in products %}
+                                <option value="{{ product.id }}" 
+                                    {% if result and result.product_id == product.id %}selected{% endif %}>
+                                    {{ product.name }} ({{ product.price }} ر.س)
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                {% trans "مرونة الطلب" %}
+                                <i class="fas fa-info-circle text-muted" 
+                                   data-bs-toggle="tooltip" 
+                                   title="{% trans 'نسبة تغير الكمية المطلوبة عند تغير السعر 1%' %}"></i>
+                            </label>
+                            <input type="number" name="elasticity" class="form-control" 
+                                   value="-1.5" step="0.1" min="-5" max="0">
+                            <small class="text-muted">
+                                {% trans "القيم السالبة تعني انخفاض الطلب مع ارتفاع السعر" %}
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">{% trans "نطاق التغيير" %}</label>
+                            <div class="input-group">
+                                <span class="input-group-text">-20%</span>
+                                <span class="input-group-text bg-white flex-grow-1 text-center">{% trans "إلى" %}</span>
+                                <span class="input-group-text">+20%</span>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-info w-100">
+                            <i class="fas fa-play me-1"></i>
+                            {% trans "تشغيل المحاكاة" %}
+                        </button>
+                    </form>
+
+                    <hr>
+
+                    <div class="alert alert-info small mb-0">
+                        <i class="fas fa-lightbulb me-1"></i>
+                        <strong>{% trans "نصيحة" %}:</strong>
+                        {% trans "المرونة -1.5 تعني أن زيادة السعر 10% ستؤدي لانخفاض المبيعات 15%" %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- نتائج المحاكاة -->
+        <div class="col-lg-8 mb-4">
+            {% if result %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-area me-2"></i>
+                        {% trans "نتائج المحاكاة" %} - {{ result.product_name }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- معلومات أساسية -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded text-center">
+                                <small class="text-muted d-block">{% trans "السعر الحالي" %}</small>
+                                <h4 class="mb-0">{{ result.current_price }} ر.س</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded text-center">
+                                <small class="text-muted d-block">{% trans "مرونة الطلب" %}</small>
+                                <h4 class="mb-0">{{ result.demand_elasticity }}</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-success text-white rounded text-center">
+                                <small class="d-block">{% trans "السيناريو الأمثل" %}</small>
+                                <h4 class="mb-0">{{ result.optimal_scenario.price_change_percentage|floatformat:0 }}%</h4>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- الرسم البياني -->
+                    <div class="simulation-chart mb-4">
+                        <canvas id="simulationChart"></canvas>
+                    </div>
+
+                    <!-- سيناريوهات التغيير -->
+                    <h6 class="mb-3">
+                        <i class="fas fa-th-list text-primary me-2"></i>
+                        {% trans "سيناريوهات التغيير" %}
+                    </h6>
+                    <div class="row g-3">
+                        {% for sim in result.simulations %}
+                        <div class="col-md-4 col-lg-3">
+                            <div class="card scenario-card h-100 position-relative
+                                {% if sim.price_change_percentage == result.optimal_scenario.price_change_percentage %}optimal{% endif %}">
+                                
+                                {% if sim.price_change_percentage == result.optimal_scenario.price_change_percentage %}
+                                <span class="badge bg-success optimal-badge">
+                                    <i class="fas fa-star"></i> {% trans "الأمثل" %}
+                                </span>
+                                {% endif %}
+                                
+                                <div class="card-body text-center p-3">
+                                    <h5 class="{% if sim.price_change_percentage > 0 %}text-success{% elif sim.price_change_percentage < 0 %}text-danger{% endif %}">
+                                        {% if sim.price_change_percentage > 0 %}+{% endif %}{{ sim.price_change_percentage }}%
+                                    </h5>
+                                    <p class="mb-2">
+                                        <strong>{{ sim.new_price|floatformat:0 }}</strong> ر.س
+                                    </p>
+                                    
+                                    <hr>
+                                    
+                                    <div class="small">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span>{% trans "الكمية" %}:</span>
+                                            <span class="{% if sim.quantity_change_percentage < 0 %}text-danger{% else %}text-success{% endif %}">
+                                                {{ sim.quantity_change_percentage|floatformat:0 }}%
+                                            </span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span>{% trans "الإيراد" %}:</span>
+                                            <span class="{% if sim.revenue_change_percentage < 0 %}text-danger{% else %}text-success{% endif %}">
+                                                {{ sim.revenue_change_percentage|floatformat:1 }}%
+                                            </span>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>{% trans "الربح" %}:</span>
+                                            <span class="fw-bold {% if sim.profit_change_percentage < 0 %}text-danger{% else %}text-success{% endif %}">
+                                                {{ sim.profit_change_percentage|floatformat:1 }}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- التوصية -->
+                    <div class="alert alert-success mt-4">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        <strong>{% trans "التوصية" %}:</strong>
+                        {{ result.recommendation }}
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <!-- حالة عدم وجود نتائج -->
+            <div class="card shadow-sm h-100">
+                <div class="card-body d-flex flex-column justify-content-center align-items-center py-5">
+                    <i class="fas fa-chart-area fa-5x text-info mb-4" style="opacity: 0.3;"></i>
+                    <h4>{% trans "محاكاة تأثير تغيير الأسعار" %}</h4>
+                    <p class="text-muted text-center mb-4">
+                        {% trans "اختر منتجاً ومعاملات المحاكاة لرؤية تأثير تغييرات الأسعار على المبيعات والأرباح" %}
+                    </p>
+                    
+                    <div class="row g-3 w-100" style="max-width: 600px;">
+                        <div class="col-md-4 text-center">
+                            <i class="fas fa-arrow-up fa-2x text-success mb-2"></i>
+                            <h6>{% trans "زيادة السعر" %}</h6>
+                            <small class="text-muted">{% trans "تأثير على الهامش والحجم" %}</small>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <i class="fas fa-arrow-down fa-2x text-danger mb-2"></i>
+                            <h6>{% trans "تخفيض السعر" %}</h6>
+                            <small class="text-muted">{% trans "تأثير على المبيعات" %}</small>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <i class="fas fa-balance-scale fa-2x text-primary mb-2"></i>
+                            <h6>{% trans "النقطة المثلى" %}</h6>
+                            <small class="text-muted">{% trans "أفضل توازن" %}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if result %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // بيانات المحاكاة
+    var simulationsData = {{ result.simulations|safe }};
+    
+    var LABEL_REVENUE = "{{ 'تغير الإيرادات %'|escapejs }}";
+    var LABEL_PROFIT = "{{ 'تغير الأرباح %'|escapejs }}";
+    var LABEL_QUANTITY = "{{ 'تغير الكمية %'|escapejs }}";
+    var LABEL_CHANGE_PERCENT = "{{ 'نسبة التغيير %'|escapejs }}";
+    var LABEL_PRICE_CHANGE = "{{ 'تغيير السعر %'|escapejs }}";
+    
+    // الرسم البياني
+    var ctx = document.getElementById('simulationChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: simulationsData.map(function(s) { return s.price_change_percentage + '%'; }),
+            datasets: [
+                {
+                    label: LABEL_REVENUE,
+                    data: simulationsData.map(function(s) { return s.revenue_change_percentage; }),
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: LABEL_PROFIT,
+                    data: simulationsData.map(function(s) { return s.profit_change_percentage; }),
+                    borderColor: '#198754',
+                    backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: LABEL_QUANTITY,
+                    data: simulationsData.map(function(s) { return s.quantity_change_percentage; }),
+                    borderColor: '#dc3545',
+                    backgroundColor: 'transparent',
+                    borderDash: [5, 5],
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: LABEL_CHANGE_PERCENT
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: LABEL_PRICE_CHANGE
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endif %}
+
+<script>
+    // تفعيل التلميحات
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+</script>
+{% endblock %}

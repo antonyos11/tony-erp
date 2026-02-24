@@ -1,0 +1,352 @@
+{% extends 'base_v2.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}سجل بطاقات {{ employee.full_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --page-primary: #0f172a;
+        --page-accent: #8b5cf6;
+        --page-success: #10b981;
+        --page-warning: #f59e0b;
+        --page-border: #e5e7eb;
+        --page-muted: #6b7280;
+        --page-bg: #f8fafc;
+    }
+    body { background: var(--page-bg); }
+    
+    .page-hero {
+        background: radial-gradient(circle at 20% 20%, rgba(139,92,246,0.18), transparent 35%),
+                    radial-gradient(circle at 80% 0%, rgba(59,130,246,0.15), transparent 32%),
+                    linear-gradient(135deg, #0f172a 0%, #111827 65%, #0b1224 100%);
+        color: #fff;
+        padding: 2rem 1.5rem;
+        border-radius: 18px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 16px 40px rgba(0,0,0,0.25);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .employee-info {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+    }
+    
+    .employee-photo {
+        width: 75px;
+        height: 75px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid rgba(255,255,255,0.25);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    }
+    
+    .employee-photo-placeholder {
+        width: 75px;
+        height: 75px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.15);
+        display: grid;
+        place-items: center;
+        font-size: 2rem;
+        color: rgba(255,255,255,0.7);
+    }
+    
+    .employee-details h1 {
+        font-size: 1.5rem;
+        font-weight: 800;
+        margin: 0;
+    }
+    
+    .employee-details p {
+        margin: 0.35rem 0 0;
+        color: rgba(255,255,255,0.78);
+    }
+    
+    .btn-hero {
+        background: rgba(255,255,255,0.15);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: #fff;
+        padding: 0.7rem 1.2rem;
+        border-radius: 10px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .btn-hero:hover { background: rgba(255,255,255,0.25); color: #fff; }
+    
+    .content-card {
+        background: #fff;
+        border: 1px solid var(--page-border);
+        border-radius: 18px;
+        box-shadow: 0 10px 30px rgba(15,23,42,0.08);
+        overflow: hidden;
+    }
+    
+    .timeline {
+        padding: 1.5rem;
+    }
+    
+    .timeline-item {
+        display: flex;
+        gap: 1.25rem;
+        position: relative;
+        padding-bottom: 1.5rem;
+    }
+    
+    .timeline-item:not(:last-child)::before {
+        content: '';
+        position: absolute;
+        right: 18px;
+        top: 42px;
+        bottom: 0;
+        width: 2px;
+        background: var(--page-border);
+    }
+    
+    .timeline-marker {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--page-bg);
+        border: 2px solid var(--page-accent);
+        display: grid;
+        place-items: center;
+        color: var(--page-accent);
+        flex-shrink: 0;
+        z-index: 2;
+    }
+    
+    .timeline-marker.active { background: var(--page-success); border-color: var(--page-success); color: #fff; }
+    .timeline-marker.inactive { background: var(--page-border); border-color: var(--page-border); color: var(--page-muted); }
+    
+    .timeline-content {
+        flex: 1;
+        background: var(--page-bg);
+        border: 1px solid var(--page-border);
+        border-radius: 12px;
+        padding: 1.25rem;
+    }
+    
+    .timeline-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 0.8rem;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .card-number {
+        font-family: monospace;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--page-primary);
+    }
+    
+    .badge-status {
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .badge-active { background: rgba(16,185,129,0.12); color: #059669; }
+    .badge-expired { background: rgba(245,158,11,0.15); color: #b45309; }
+    .badge-revoked { background: rgba(239,68,68,0.12); color: #dc2626; }
+    
+    .timeline-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        color: var(--page-muted);
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
+    
+    .timeline-meta span { display: flex; align-items: center; gap: 0.4rem; }
+    
+    .timeline-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .action-btn {
+        padding: 0.5rem 0.9rem;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        border: 1px solid var(--page-border);
+        background: #fff;
+        color: var(--page-primary);
+    }
+    
+    .action-btn:hover { border-color: var(--page-accent); color: var(--page-accent); }
+    .action-btn.primary { background: var(--page-accent); color: #fff; border-color: var(--page-accent); }
+    .action-btn.primary:hover { background: #7c3aed; }
+    
+    .stats-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .stat-box {
+        background: #fff;
+        border: 1px solid var(--page-border);
+        border-radius: 14px;
+        padding: 1.25rem;
+        text-align: center;
+    }
+    
+    .stat-box h3 { font-size: 2rem; font-weight: 800; color: var(--page-primary); margin: 0; }
+    .stat-box p { margin: 0.25rem 0 0; color: var(--page-muted); font-size: 0.85rem; }
+    
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: var(--page-muted);
+    }
+    
+    .empty-state i { font-size: 4rem; color: var(--page-accent); margin-bottom: 1rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-hero">
+        <div class="employee-info">
+            {% if employee.photo %}
+                <img src="{{ employee.photo.url }}" alt="{{ employee.full_name }}" class="employee-photo">
+            {% else %}
+                <div class="employee-photo-placeholder">
+                    <i class="bi bi-person"></i>
+                </div>
+            {% endif %}
+            <div class="employee-details">
+                <h1>{{ employee.full_name }}</h1>
+                <p>{{ employee.position|default:'—' }} • {{ employee.department|default:'—' }}</p>
+            </div>
+        </div>
+        <a href="{% url 'hr:id_card_create_single' %}?employee={{ employee.id }}" class="btn-hero">
+            <i class="bi bi-plus-lg"></i>بطاقة جديدة
+        </a>
+    </div>
+    
+    <div class="stats-row">
+        <div class="stat-box">
+            <h3>{{ cards.count }}</h3>
+            <p>إجمالي البطاقات</p>
+        </div>
+        <div class="stat-box">
+            <h3>{{ active_count|default:0 }}</h3>
+            <p>بطاقات فعّالة</p>
+        </div>
+        <div class="stat-box">
+            <h3>{{ total_prints|default:0 }}</h3>
+            <p>عمليات طباعة</p>
+        </div>
+        <div class="stat-box">
+            <h3>{{ total_scans|default:0 }}</h3>
+            <p>عمليات تحقق</p>
+        </div>
+    </div>
+    
+    <div class="content-card">
+        {% if cards %}
+        <div class="timeline">
+            {% for card in cards %}
+            <div class="timeline-item">
+                <div class="timeline-marker {% if card.is_active %}active{% elif card.status == 'revoked' %}inactive{% endif %}">
+                    <i class="bi bi-{% if card.is_active %}check-lg{% elif card.status == 'expired' %}clock-history{% else %}x-lg{% endif %}"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="timeline-header">
+                        <span class="card-number">{{ card.card_number }}</span>
+                        <span class="badge-status badge-{% if card.is_active %}active{% elif card.status == 'expired' %}expired{% else %}revoked{% endif %}">
+                            {% if card.is_active %}
+                                فعّالة
+                            {% elif card.status == 'expired' %}
+                                منتهية
+                            {% else %}
+                                ملغاة
+                            {% endif %}
+                        </span>
+                    </div>
+                    
+                    <div class="timeline-meta">
+                        <span>
+                            <i class="bi bi-calendar-event"></i>
+                            صادرة: {{ card.issue_date|date:"Y/m/d" }}
+                        </span>
+                        <span>
+                            <i class="bi bi-calendar-x"></i>
+                            تنتهي: {{ card.expiry_date|date:"Y/m/d" }}
+                        </span>
+                        <span>
+                            <i class="bi bi-printer"></i>
+                            طُبعت: {{ card.print_count|default:0 }} مرات
+                        </span>
+                        <span>
+                            <i class="bi bi-qr-code-scan"></i>
+                            تحقق: {{ card.scan_count|default:0 }} مرات
+                        </span>
+                    </div>
+                    
+                    <div class="timeline-actions">
+                        <a href="{% url 'hr:id_card_download_pdf' card_id=card.id %}" class="action-btn primary">
+                            <i class="bi bi-download"></i>تحميل PDF
+                        </a>
+                        <a href="{% url 'hr:id_card_download_pvc' card_id=card.id %}" class="action-btn">
+                            <i class="bi bi-credit-card"></i>بطاقة PVC
+                        </a>
+                        <a href="{% url 'hr:id_card_preview' card_id=card.id %}" class="action-btn">
+                            <i class="bi bi-eye"></i>معاينة
+                        </a>
+                        {% if card.is_active %}
+                        <form method="post" action="{% url 'hr:id_card_revoke' card_id=card.id %}" style="display:inline;" onsubmit="return confirm('هل تريد إلغاء هذه البطاقة؟');">
+                            {% csrf_token %}
+                            <button type="submit" class="action-btn" style="color:#dc2626;">
+                                <i class="bi bi-x-circle"></i>إلغاء
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    
+                    {% if card.notes %}
+                    <div class="mt-3 text-muted small">
+                        <i class="bi bi-info-circle me-1"></i>{{ card.notes }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-person-badge"></i>
+            <h4>لا توجد بطاقات</h4>
+            <p>لم يتم إصدار أي بطاقة تعريف لهذا الموظف بعد</p>
+            <a href="{% url 'hr:id_card_create_single' %}?employee={{ employee.id }}" class="btn btn-primary mt-3">
+                <i class="bi bi-plus-lg me-1"></i>إنشاء بطاقة
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

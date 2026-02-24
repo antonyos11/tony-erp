@@ -1,0 +1,157 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تفاصيل طلب الإجازة{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">
+      <i class="bi bi-file-earmark-text"></i>
+      تفاصيل طلب الإجازة
+    </h4>
+    <div class="d-flex gap-2">
+      <a href="{% url 'hr:leave_request_list' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-right"></i> رجوع للقائمة
+      </a>
+      {% if leave_request.status == 'pending' %}
+        <form method="post" action="{% url 'hr:leave_request_approve' leave_request.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-check2-circle"></i> موافقة
+          </button>
+        </form>
+        <button class="btn btn-danger" data-bs-toggle="collapse" data-bs-target="#rejectBox" aria-expanded="false">
+          <i class="bi bi-x-circle"></i> رفض
+        </button>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="row g-3">
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-body">
+          <div class="row mb-3">
+            <div class="col-sm-6">
+              <div class="text-muted small">الموظف</div>
+              <div class="fw-semibold">
+                {{ leave_request.employee.arabic_name }}
+              </div>
+            </div>
+            <div class="col-sm-3">
+              <div class="text-muted small">نوع الإجازة</div>
+              <div class="fw-semibold">{{ leave_request.leave_type.name }}</div>
+            </div>
+            <div class="col-sm-3">
+              <div class="text-muted small">عدد الأيام</div>
+              <div><span class="badge bg-info">{{ leave_request.days_requested }} يوم</span></div>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-sm-6">
+              <div class="text-muted small">الفترة</div>
+              <div>{{ leave_request.start_date }} إلى {{ leave_request.end_date }}</div>
+            </div>
+            <div class="col-sm-6">
+              <div class="text-muted small">الحالة</div>
+              <div>
+                {% if leave_request.status == 'pending' %}
+                  <span class="badge bg-warning">معلق</span>
+                {% elif leave_request.status == 'approved' %}
+                  <span class="badge bg-success">موافق عليه</span>
+                {% elif leave_request.status == 'rejected' %}
+                  <span class="badge bg-danger">مرفوض</span>
+                {% elif leave_request.status == 'cancelled' %}
+                  <span class="badge bg-secondary">ملغي</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <div class="text-muted small">السبب</div>
+            <div class="border rounded p-3 bg-light">{{ leave_request.reason }}</div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-sm-6">
+              <div class="text-muted small">تاريخ الإنشاء</div>
+              <div>{{ leave_request.created_at|date:'Y-m-d H:i' }}</div>
+            </div>
+            <div class="col-sm-6">
+              <div class="text-muted small">آخر تحديث</div>
+              <div>{{ leave_request.updated_at|date:'Y-m-d H:i' }}</div>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-sm-6">
+              <div class="text-muted small">الموافق</div>
+              <div>{{ leave_request.approved_by.arabic_name|default:'—' }}</div>
+            </div>
+            <div class="col-sm-6">
+              <div class="text-muted small">تاريخ الموافقة</div>
+              <div>{{ leave_request.approved_at|date:'Y-m-d H:i'|default:'—' }}</div>
+            </div>
+          </div>
+
+          <div class="row mb-1">
+            <div class="col-sm-12">
+              <div class="text-muted small">سبب الرفض</div>
+              <div>{{ leave_request.rejection_reason|default:'—' }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {% if leave_request.status == 'pending' %}
+      <div id="rejectBox" class="collapse mt-3">
+        <div class="card border-danger">
+          <div class="card-header bg-danger text-white">رفض الطلب</div>
+          <div class="card-body">
+            <form method="post" action="{% url 'hr:leave_request_reject' leave_request.pk %}">
+              {% csrf_token %}
+              <div class="mb-3">
+                <label class="form-label">سبب الرفض</label>
+                <textarea name="rejection_reason" class="form-control" rows="3" required></textarea>
+              </div>
+              <div class="text-end">
+                <button type="submit" class="btn btn-danger">
+                  <i class="bi bi-x-circle"></i> تأكيد الرفض
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card">
+        <div class="card-header">مستندات داعمة</div>
+        <div class="card-body">
+          {% if leave_request.supporting_documents %}
+            <a class="btn btn-outline-secondary w-100" href="{{ leave_request.supporting_documents.url }}" target="_blank">
+              <i class="bi bi-file-earmark-arrow-down"></i> عرض/تحميل المستند
+            </a>
+          {% else %}
+            <div class="text-muted">لا توجد مستندات مرفقة</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends 'base_v2.html' %}
+{% block extra_css %}
+<style>
+    .table-card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .filter-bar { background: white; border-radius: 12px; padding: 15px 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="mb-0"><i class="bi bi-bullseye me-2"></i>{{ page_title }}</h4>
+        <a href="{% url 'branches:target_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>هدف جديد</a>
+    </div>
+
+    <div class="filter-bar">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-3"><input type="text" name="q" class="form-control" placeholder="بحث بالفرع..." value="{{ request.GET.q }}"></div>
+            <div class="col-md-2">
+                <select name="period" class="form-select">
+                    <option value="">كل الفترات</option>
+                    <option value="monthly" {% if request.GET.period == 'monthly' %}selected{% endif %}>شهري</option>
+                    <option value="quarterly" {% if request.GET.period == 'quarterly' %}selected{% endif %}>ربع سنوي</option>
+                    <option value="yearly" {% if request.GET.period == 'yearly' %}selected{% endif %}>سنوي</option>
+                </select>
+            </div>
+            <div class="col-auto"><button class="btn btn-primary"><i class="bi bi-search me-1"></i>بحث</button></div>
+        </form>
+    </div>
+
+    <div class="table-card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr><th>الفرع</th><th>النوع</th><th>الفترة</th><th>المبلغ المستهدف</th><th>المحقق</th><th>النسبة</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for target in page_obj %}
+                    <tr>
+                        <td><a href="{% url 'branches:target_detail' target.pk %}">{{ target.branch }}</a></td>
+                        <td>{{ target.get_target_type_display }}</td>
+                        <td>{{ target.get_period_display }}</td>
+                        <td>{{ target.target_amount|floatformat:0 }}</td>
+                        <td>{{ target.achieved_amount|floatformat:0|default:"0" }}</td>
+                        <td>
+                            {% if target.achievement_pct >= 100 %}<span class="badge bg-success">{{ target.achievement_pct|floatformat:0 }}%</span>
+                            {% elif target.achievement_pct >= 75 %}<span class="badge bg-primary">{{ target.achievement_pct|floatformat:0 }}%</span>
+                            {% elif target.achievement_pct >= 50 %}<span class="badge bg-warning">{{ target.achievement_pct|floatformat:0 }}%</span>
+                            {% else %}<span class="badge bg-danger">{{ target.achievement_pct|floatformat:0 }}%</span>{% endif %}
+                        </td>
+                        <td><a href="{% url 'branches:target_detail' target.pk %}" class="btn btn-sm btn-outline-primary">عرض</a></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="text-center text-muted py-4">لا توجد أهداف</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if page_obj.has_other_pages %}
+        <nav class="mt-3">
+            <ul class="pagination justify-content-center mb-0">
+                {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">السابق</a></li>{% endif %}
+                {% for num in page_obj.paginator.page_range %}
+                <li class="page-item {% if num == page_obj.number %}active{% endif %}"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                {% endfor %}
+                {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">التالي</a></li>{% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

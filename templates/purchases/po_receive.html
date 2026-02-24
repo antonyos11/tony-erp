@@ -1,0 +1,354 @@
+﻿{% extends 'base_templates/_form_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'استلام أمر الشراء' %}{% endblock %}
+{% block hero_icon %}bi-box-arrow-in-down{% endblock %}
+{% block hero_title %}{% trans 'استلام البضائع' %} - {{ po.po_number }}{% endblock %}
+{% block hero_subtitle %}{% trans 'تسجيل استلام البضائع من المورد وإضافتها للمخزون' %}{% endblock %}
+
+{% block back_url %}{% url 'purchases:po_detail' po.pk %}{% endblock %}
+
+{% block form_styles %}
+<style>
+.po-info-bar {
+  background: var(--bs-tertiary-bg);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+}
+.po-info-item {
+  display: flex;
+  flex-direction: column;
+}
+.po-info-item .label {
+  font-size: 0.75rem;
+  color: var(--bs-secondary-color);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.po-info-item .value {
+  font-weight: 600;
+  font-size: 1rem;
+}
+.items-receive-table {
+  width: 100%;
+  font-size: 0.9rem;
+}
+.items-receive-table thead th {
+  background: var(--bs-tertiary-bg);
+  font-weight: 600;
+  font-size: 0.8rem;
+  padding: 0.75rem 1rem;
+  text-transform: uppercase;
+}
+.items-receive-table tbody td {
+  padding: 0.75rem 1rem;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--bs-border-color-translucent);
+}
+.items-receive-table .item-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.items-receive-table .item-img {
+  width: 48px;
+  height: 48px;
+  background: var(--bs-tertiary-bg);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bs-secondary-color);
+}
+.items-receive-table .item-name {
+  font-weight: 600;
+}
+.items-receive-table .item-code {
+  font-size: 0.75rem;
+  color: var(--bs-secondary-color);
+  font-family: monospace;
+}
+.qty-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.qty-progress .progress {
+  height: 6px;
+  flex-grow: 1;
+  max-width: 100px;
+}
+.qty-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.qty-input-group .form-control {
+  width: 80px;
+  text-align: center;
+  font-weight: 600;
+}
+.qty-input-group .btn {
+  padding: 0.25rem 0.5rem;
+}
+.receive-all-btn {
+  background: rgba(0,212,170,0.1);
+  border: 1px solid var(--color-brand-accent);
+  color: var(--color-brand-accent);
+  border-radius: 6px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+.receive-all-btn:hover {
+  background: var(--color-brand-accent);
+  color: white;
+}
+.warehouse-select {
+  max-width: 300px;
+}
+.notes-section {
+  margin-top: 1.5rem;
+}
+.notes-section textarea {
+  min-height: 100px;
+}
+</style>
+{% endblock %}
+
+{% block form_content %}
+{# PO Info Bar #}
+<div class="po-info-bar">
+  <div class="po-info-item">
+    <span class="label">{% trans 'رقم أمر الشراء' %}</span>
+    <span class="value">{{ po.po_number }}</span>
+  </div>
+  <div class="po-info-item">
+    <span class="label">{% trans 'المورد' %}</span>
+    <span class="value">{{ po.supplier.name }}</span>
+  </div>
+  <div class="po-info-item">
+    <span class="label">{% trans 'تاريخ الأمر' %}</span>
+    <span class="value">{{ po.date|date:"Y/m/d" }}</span>
+  </div>
+  <div class="po-info-item">
+    <span class="label">{% trans 'إجمالي المبلغ' %}</span>
+    <span class="value text-primary">{{ po.total|floatformat:2 }} {% trans 'ج.م' %}</span>
+  </div>
+  <div class="po-info-item">
+    <span class="label">{% trans 'نسبة الاستلام' %}</span>
+    <span class="value">
+      <div class="d-flex align-items-center gap-2">
+        <div class="progress" style="width: 80px; height: 8px;">
+          <div class="progress-bar bg-success" style="width: { po.received_percent|default:0 }%;"></div>
+        </div>
+        <span>{{ po.received_percent|default:0 }}%</span>
+      </div>
+    </span>
+  </div>
+</div>
+
+{# Warehouse Selection #}
+<div class="form-card">
+  <div class="card-header">
+    <div class="section-icon primary">
+      <i class="bi bi-geo-alt"></i>
+    </div>
+    <h5>{% trans 'معلومات الاستلام' %}</h5>
+  </div>
+  <div class="card-body">
+    <div class="form-row two-col">
+      <div class="form-field">
+        <label class="form-label"><span class="required-star">*</span>{% trans 'المستودع المستلِم' %}</label>
+        <select name="warehouse" class="form-select warehouse-select" required>
+          <option value="">{% trans 'اختر المستودع...' %}</option>
+          {% for wh in warehouses %}
+          <option value="{ wh.id }}" {% if wh.is_default %}selected{% endif %}>{{ wh.name }}</option>
+          {% endfor %}
+        </select>
+        <div class="form-text">{% trans 'المستودع الذي سيتم إضافة البضائع إليه' %}</div>
+      </div>
+      <div class="form-field">
+        <label class="form-label">{% trans 'تاريخ الاستلام' %}</label>
+        <input type="date" name="received_date" class="form-control" value="{ today|date:'Y-m-d' }">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label class="form-label">{% trans 'رقم إشعار التوصيل' %}</label>
+        <input type="text" name="delivery_note" class="form-control" placeholder="{% trans 'رقم إشعار التوصيل من المورد (اختياري)' %}">
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Items to Receive #}
+<div class="form-card">
+  <div class="card-header">
+    <div class="section-icon success">
+      <i class="bi bi-box-seam"></i>
+    </div>
+    <h5>{% trans 'الأصناف المطلوب استلامها' %}</h5>
+    <button type="button" class="btn receive-all-btn ms-auto" onclick="receiveAll()">
+      <i class="bi bi-check-all me-1"></i>{% trans 'استلام الكل' %}
+    </button>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="items-receive-table">
+        <thead>
+          <tr>
+            <th style="width: 50px;">#</th>
+            <th>{% trans 'الصنف' %}</th>
+            <th class="text-center">{% trans 'الكمية المطلوبة' %}</th>
+            <th class="text-center">{% trans 'المستلم سابقاً' %}</th>
+            <th class="text-center">{% trans 'المتبقي' %}</th>
+            <th class="text-center">{% trans 'الكمية المستلمة الآن' %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in po.items.all %}
+          <tr data-item-id="{ item.id }">
+            <td>{{ forloop.counter }}</td>
+            <td>
+              <div class="item-info">
+                <div class="item-img">
+                  {% if item.product.image %}
+                  <img src="{ item.product.image.url }}" alt="" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+                  {% else %}
+                  <i class="bi bi-box"></i>
+                  {% endif %}
+                </div>
+                <div>
+                  <div class="item-name">{{ item.product.name }}</div>
+                  <div class="item-code">{{ item.product.code }}</div>
+                </div>
+              </div>
+            </td>
+            <td class="text-center">
+              <strong>{{ item.quantity }}</strong>
+              <span class="text-muted">{{ item.product.unit }}</span>
+            </td>
+            <td class="text-center">
+              <div class="qty-progress">
+                <div class="progress">
+                  <div class="progress-bar bg-success" style="width: { item.received_percent|default:0 }%;"></div>
+                </div>
+                <span>{{ item.received_qty|default:0 }}</span>
+              </div>
+            </td>
+            <td class="text-center">
+              <span class="badge {% if item.remaining_qty > 0 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                {{ item.remaining_qty|default:item.quantity }}
+              </span>
+            </td>
+            <td class="text-center">
+              <div class="qty-input-group justify-content-center">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="decreaseQty(this)">
+                  <i class="bi bi-dash"></i>
+                </button>
+                <input type="number" 
+                       name="receive_qty_{{ item.id }}" 
+                       class="form-control form-control-sm receive-qty" 
+                       value="0" 
+                       min="0" 
+                       max="{ item.remaining_qty|default:item.quantity }}"
+                       data-max="{ item.remaining_qty|default:item.quantity }">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="increaseQty(this)">
+                  <i class="bi bi-plus"></i>
+                </button>
+                <button type="button" class="btn btn-outline-success btn-sm" onclick="receiveMax(this)" title="{% trans 'استلام المتبقي' %}">
+                  <i class="bi bi-check"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="text-center py-4 text-muted">
+              {% trans 'لا توجد أصناف في هذا الأمر' %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# Notes Section #}
+<div class="form-card notes-section">
+  <div class="card-header">
+    <div class="section-icon warning">
+      <i class="bi bi-sticky"></i>
+    </div>
+    <h5>{% trans 'ملاحظات الاستلام' %}</h5>
+  </div>
+  <div class="card-body">
+    <textarea name="notes" class="form-control" placeholder="{% trans 'أضف أي ملاحظات حول عملية الاستلام (تلف، نقص، اختلاف...)' %}"></textarea>
+  </div>
+</div>
+{% endblock %}
+
+{% block cancel_url %}{% url 'purchases:po_detail' po.pk %}{% endblock %}
+{% block submit_text %}{% trans 'تأكيد الاستلام' %}{% endblock %}
+
+{% block form_scripts %}
+<script>
+function increaseQty(btn) {
+  const input = btn.parentElement.querySelector('.receive-qty');
+  const max = parseInt(input.dataset.max);
+  const current = parseInt(input.value) || 0;
+  if (current < max) {
+    input.value = current + 1;
+  }
+}
+
+function decreaseQty(btn) {
+  const input = btn.parentElement.querySelector('.receive-qty');
+  const current = parseInt(input.value) || 0;
+  if (current > 0) {
+    input.value = current - 1;
+  }
+}
+
+function receiveMax(btn) {
+  const input = btn.parentElement.querySelector('.receive-qty');
+  input.value = input.dataset.max;
+}
+
+function receiveAll() {
+  document.querySelectorAll('.receive-qty').forEach(input => {
+    input.value = input.dataset.max;
+  });
+}
+
+// Form validation
+document.getElementById('mainForm').addEventListener('submit', function(e) {
+  const warehouse = document.querySelector('select[name="warehouse"]');
+  if (!warehouse.value) {
+    e.preventDefault();
+    warehouse.classList.add('is-invalid');
+    warehouse.focus();
+    return;
+  }
+  
+  // Check if at least one item is being received
+  let hasQty = false;
+  document.querySelectorAll('.receive-qty').forEach(input => {
+    if (parseInt(input.value) > 0) hasQty = true;
+  });
+  
+  if (!hasQty) {
+    e.preventDefault();
+    alert("{% trans 'يرجى إدخال كمية واحدة على الأقل للاستلام' %}");
+  }
+});
+</script>
+{% endblock %}
+

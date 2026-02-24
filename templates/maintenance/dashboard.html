@@ -1,0 +1,386 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load currency_tags %}
+
+{% block title %}لوحة تحكم الصيانة{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    .stats-card.success {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    
+    .stats-card.warning {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    
+    .stats-card.danger {
+        background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+        color: #333;
+    }
+    
+    .stats-card.info {
+        background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        color: #333;
+    }
+    
+    .stats-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .stats-title {
+        font-size: 1.1rem;
+        opacity: 0.9;
+    }
+    
+    .alert-item {
+        border-left: 4px solid #dc3545;
+        background: #fff5f5;
+        margin-bottom: 10px;
+        padding: 15px;
+        border-radius: 5px;
+    }
+    
+    .alert-item.warning {
+        border-left-color: #ffc107;
+        background: #fffbf0;
+    }
+    
+    .recent-record {
+        border-bottom: 1px solid #dee2e6;
+        padding: 15px 0;
+    }
+    
+    .recent-record:last-child {
+        border-bottom: none;
+    }
+    
+    .maintenance-chart {
+        height: 300px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">
+            <i class="fas fa-cogs text-primary"></i>
+            لوحة تحكم الصيانة
+        </h1>
+        <div>
+            <a href="{% url 'maintenance:maintenance_request_add' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> طلب صيانة جديد
+            </a>
+            <a href="{% url 'maintenance:machine_add' %}" class="btn btn-success">
+                <i class="fas fa-plus"></i> إضافة ماكينة
+            </a>
+        </div>
+    </div>
+
+    <!-- إحصائيات سريعة -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stats-card success">
+                <div class="stats-number">{{ operational_machines }}</div>
+                <div class="stats-title">ماكينات تعمل</div>
+                <small>من إجمالي {{ total_machines }} ماكينة</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card info">
+                <div class="stats-number">{{ machines_in_maintenance }}</div>
+                <div class="stats-title">قيد الصيانة</div>
+                <small>ماكينات تحت الصيانة حالياً</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card warning">
+                <div class="stats-number">{{ broken_machines }}</div>
+                <div class="stats-title">معطلة</div>
+                <small>ماكينات تحتاج إصلاح</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card danger">
+                <div class="stats-number">{{ overdue_schedules }}</div>
+                <div class="stats-title">صيانة متأخرة</div>
+                <small>جدولة متأخرة عن موعدها</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- طلبات الصيانة والتنبيهات -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <i class="fas fa-clipboard-list"></i>
+                    طلبات الصيانة
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <h4 class="text-warning">{{ pending_requests }}</h4>
+                            <small>في الانتظار</small>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-info">{{ in_progress_requests }}</h4>
+                            <small>قيد التنفيذ</small>
+                        </div>
+                    </div>
+                    <hr>
+                    <a href="{% url 'maintenance:maintenance_request_list' %}" class="btn btn-sm btn-outline-primary w-100">
+                        عرض كل الطلبات
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <i class="fas fa-calendar-check"></i>
+                    الصيانة المجدولة
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <h4 class="text-success">{{ upcoming_schedules }}</h4>
+                            <small>قادمة</small>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-danger">{{ overdue_schedules }}</h4>
+                            <small>متأخرة</small>
+                        </div>
+                    </div>
+                    <hr>
+                    <a href="{% url 'maintenance:maintenance_schedule_list' %}" class="btn btn-sm btn-outline-success w-100">
+                        عرض الجدولة
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <i class="fas fa-boxes"></i>
+                    قطع الغيار
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <h4 class="text-danger">{{ low_stock_parts }}</h4>
+                        <small>قطع غيار منخفضة المخزون</small>
+                    </div>
+                    <hr>
+                    <a href="{% url 'maintenance:spare_part_low_stock' %}" class="btn btn-sm btn-outline-warning w-100">
+                        عرض المخزون المنخفض
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- الصيانة المتأخرة -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-danger text-white">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    الصيانة المتأخرة
+                    <a href="{% url 'maintenance:alerts' %}" class="btn btn-sm btn-outline-light float-end">
+                        عرض الكل
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if overdue_maintenance %}
+                        {% for schedule in overdue_maintenance %}
+                        <div class="alert-item">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>{{ schedule.machine.name }}</strong><br>
+                                    <small class="text-muted">
+                                        {{ schedule.maintenance_type.name }} - 
+                                        متأخر {{ schedule.days_until_due|default:"0" }} أيام
+                                    </small>
+                                </div>
+                                <div>
+                                    <span class="badge bg-danger">متأخر</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-check-circle fa-3x"></i>
+                            <p class="mt-2">لا توجد صيانة متأخرة</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- آخر سجلات الصيانة -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-info text-white">
+                    <i class="fas fa-history"></i>
+                    آخر سجلات الصيانة
+                    <a href="{% url 'maintenance:maintenance_record_list' %}" class="btn btn-sm btn-outline-light float-end">
+                        عرض الكل
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if recent_records %}
+                        {% for record in recent_records %}
+                        <div class="recent-record">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>{{ record.machine.name }}</strong><br>
+                                    <small class="text-muted">
+                                        {{ record.maintenance_type.name }} - {{ record.technician.name }}
+                                    </small><br>
+                                    <small class="text-muted">{{ record.start_datetime|date:"d M Y H:i" }}</small>
+                                </div>
+                                <div>
+                                    {% if record.status == 'completed' %}
+                                        <span class="badge bg-success">مكتمل</span>
+                                    {% elif record.status == 'in_progress' %}
+                                        <span class="badge bg-warning">قيد التنفيذ</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ record.get_status_display }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-clipboard fa-3x"></i>
+                            <p class="mt-2">لا توجد سجلات صيانة</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- الماكينات التي تحتاج انتباه -->
+    {% if machines_need_attention %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <i class="fas fa-exclamation-circle"></i>
+                    ماكينات تحتاج انتباه
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for machine in machines_need_attention %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card border-warning">
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ machine.name }}</h6>
+                                    <p class="card-text">
+                                        <small class="text-muted">{{ machine.category.name }}</small><br>
+                                        <span class="badge 
+                                            {% if machine.condition == 'critical' %}bg-danger
+                                            {% elif machine.condition == 'poor' %}bg-warning
+                                            {% elif machine.status == 'breakdown' %}bg-danger
+                                            {% endif %}">
+                                            {% if machine.status == 'breakdown' %}
+                                                معطلة
+                                            {% else %}
+                                                {{ machine.get_condition_display }}
+                                            {% endif %}
+                                        </span>
+                                    </p>
+                                    <a href="{% url 'maintenance:machine_detail' machine.pk %}" class="btn btn-sm btn-outline-primary">
+                                        عرض التفاصيل
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- إحصائيات التكلفة -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <i class="fas fa-chart-line"></i>
+                    تكاليف الصيانة - آخر 30 يوم
+                </div>
+                <div class="card-body text-center">
+                    <h3 class="text-primary">{{ maintenance_cost_last_month|currency_format }}</h3>
+                    <p class="text-muted">إجمالي تكاليف الصيانة</p>
+                    <a href="{% url 'maintenance:maintenance_cost_analysis' %}" class="btn btn-sm btn-outline-secondary">
+                        تحليل مفصل
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <i class="fas fa-chart-bar"></i>
+                    روابط سريعة
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <a href="{% url 'maintenance:machine_list' %}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-industry"></i> قائمة الماكينات
+                        </a>
+                        <a href="{% url 'maintenance:spare_part_list' %}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-cog"></i> قطع الغيار
+                        </a>
+                        <a href="{% url 'maintenance:maintenance_schedule_list' %}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-calendar-alt"></i> جدولة الصيانة
+                        </a>
+                        <a href="{% url 'maintenance:reports' %}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-chart-pie"></i> التقارير
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // تحديث الصفحة كل 5 دقائق
+    setTimeout(function(){
+        location.reload();
+    }, 300000);
+    
+    // إضافة تأثيرات للكروت
+    $(document).ready(function(){
+        $('.stats-card').hover(function(){
+            $(this).css('transform', 'translateY(-5px)');
+        }, function(){
+            $(this).css('transform', 'translateY(0)');
+        });
+    });
+</script>
+{% endblock %}

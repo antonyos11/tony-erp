@@ -1,0 +1,331 @@
+﻿{% extends 'base_templates/_form_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'تحصيل فاتورة' %}{% endblock %}
+{% block form_hero_icon %}bi-cash-coin{% endblock %}
+{% block form_hero_title %}{% trans 'تحصيل دفعة للفاتورة' %}{% endblock %}
+{% block form_hero_subtitle %}{% trans 'فاتورة رقم' %} {{ invoice.invoice_number }} - {{ invoice.customer.name }}{% endblock %}
+
+{% block form_content %}
+<style>
+  .invoice-summary {
+    background: linear-gradient(135deg, var(--primary) 0%, #2d5a87 100%);
+    color: white;
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    margin-bottom: 2rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1.5rem;
+  }
+  .summary-item {
+    text-align: center;
+    padding: 1rem;
+    background: rgba(255,255,255,0.1);
+    border-radius: var(--radius);
+  }
+  .summary-item .value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+  .summary-item .label {
+    font-size: 0.75rem;
+    opacity: 0.8;
+  }
+  .payment-amount-box {
+    background: var(--bg-card);
+    border: 3px solid var(--success);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  .payment-amount-box label {
+    font-size: 1rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+    display: block;
+  }
+  .payment-amount-box .amount-input {
+    font-size: 2.5rem;
+    font-weight: 700;
+    text-align: center;
+    border: none;
+    border-bottom: 3px solid var(--success);
+    width: 100%;
+    max-width: 300px;
+    background: transparent;
+    color: var(--success);
+    outline: none;
+  }
+  .payment-amount-box .quick-amounts {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+  .payment-amount-box .quick-amount {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .payment-amount-box .quick-amount:hover {
+    border-color: var(--success);
+    background: rgba(16, 185, 129, 0.1);
+  }
+  .method-selector {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .method-option {
+    padding: 1.5rem 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .method-option:hover {
+    border-color: var(--primary);
+  }
+  .method-option.selected {
+    border-color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.1);
+  }
+  .method-option i {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    display: block;
+  }
+  .method-option.cash i { color: #10b981; }
+  .method-option.card i { color: #3b82f6; }
+  .method-option.bank i { color: #8b5cf6; }
+  .method-option.check i { color: #f59e0b; }
+  .payment-history {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+  }
+  .payment-history-header {
+    background: var(--bg-light);
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .payment-history-body {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .payment-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .payment-item:last-child {
+    border-bottom: none;
+  }
+  .payment-item .info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .payment-item .icon {
+    width: 36px;
+    height: 36px;
+    background: var(--success);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .payment-item .amount {
+    font-weight: 700;
+    color: var(--success);
+  }
+</style>
+
+<form method="post" id="payment-form" novalidate>
+  {% csrf_token %}
+
+  <!-- Invoice Summary -->
+  <div class="invoice-summary">
+    <div class="summary-item">
+      <div class="value">{{ invoice.total|floatformat:2 }}</div>
+      <div class="label">{% trans 'إجمالي الفاتورة' %}</div>
+    </div>
+    <div class="summary-item">
+      <div class="value">{{ invoice.paid_amount|floatformat:2 }}</div>
+      <div class="label">{% trans 'المدفوع' %}</div>
+    </div>
+    <div class="summary-item" style="background: rgba(255,255,255,0.2);">
+      <div class="value">{{ invoice.remaining_amount|floatformat:2 }}</div>
+      <div class="label">{% trans 'المتبقي' %}</div>
+    </div>
+    <div class="summary-item">
+      <div class="value">{{ invoice.date|date:"Y/m/d" }}</div>
+      <div class="label">{% trans 'تاريخ الفاتورة' %}</div>
+    </div>
+  </div>
+
+  <!-- Payment Amount -->
+  <div class="payment-amount-box">
+    <label>{% trans 'مبلغ الدفعة' %}</label>
+    <input type="number" name="amount" id="payment-amount" class="amount-input" 
+           value="{{ invoice.remaining_amount }}" min="0.01" max="{ invoice.remaining_amount }}" step="0.01" required>
+    <div class="quick-amounts">
+      <span class="quick-amount" onclick="setAmount({ invoice.remaining_amount })">{% trans 'كامل المبلغ' %}</span>
+      <span class="quick-amount" onclick="setAmount({ invoice.remaining_amount|divisibleby:2 })">{% trans 'نصف المبلغ' %}</span>
+      <span class="quick-amount" onclick="setAmount(100)">100</span>
+      <span class="quick-amount" onclick="setAmount(500)">500</span>
+      <span class="quick-amount" onclick="setAmount(1000)">1,000</span>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <!-- Payment Method -->
+      <div class="form-section">
+        <div class="section-header">
+          <i class="bi bi-wallet2 section-icon"></i>
+          <div class="section-title">{% trans 'طريقة الدفع' %}</div>
+        </div>
+        <div class="method-selector">
+          <label class="method-option cash selected">
+            <input type="radio" name="method" value="cash" checked hidden>
+            <i class="bi bi-cash"></i>
+            <div>{% trans 'نقدي' %}</div>
+          </label>
+          <label class="method-option card">
+            <input type="radio" name="method" value="card" hidden>
+            <i class="bi bi-credit-card"></i>
+            <div>{% trans 'بطاقة' %}</div>
+          </label>
+          <label class="method-option bank">
+            <input type="radio" name="method" value="bank" hidden>
+            <i class="bi bi-bank"></i>
+            <div>{% trans 'تحويل' %}</div>
+          </label>
+          <label class="method-option check">
+            <input type="radio" name="method" value="check" hidden>
+            <i class="bi bi-file-earmark-text"></i>
+            <div>{% trans 'شيك' %}</div>
+          </label>
+        </div>
+
+        <!-- Additional Fields -->
+        <div id="extra-fields" style="display: none;">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">{% trans 'رقم المرجع' %}</label>
+              <input type="text" name="reference" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">{% trans 'البنك' %}</label>
+              <input type="text" name="bank_name" class="form-control">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- وجهة الدفع/التحصيل -->
+      {% include 'partials/_payment_destination.html' %}
+
+      <!-- Payment Details -->
+      <div class="form-section">
+        <div class="section-header">
+          <i class="bi bi-calendar section-icon"></i>
+          <div class="section-title">{% trans 'تفاصيل الدفعة' %}</div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">{% trans 'تاريخ الدفعة' %}</label>
+            <input type="date" name="payment_date" class="form-control" value="{ today|date:'Y-m-d' }}" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">{% trans 'رقم الإيصال' %}</label>
+            <input type="text" name="receipt_number" class="form-control" value="{ next_receipt_number }}" readonly>
+          </div>
+          <div class="col-12">
+            <label class="form-label">{% trans 'ملاحظات' %}</label>
+            <textarea name="notes" class="form-control" rows="2"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <!-- Payment History -->
+      <div class="payment-history">
+        <div class="payment-history-header">
+          <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>{% trans 'سجل المدفوعات' %}</h6>
+        </div>
+        <div class="payment-history-body">
+          {% for payment in invoice.payments.all %}
+          <div class="payment-item">
+            <div class="info">
+              <div class="icon"><i class="bi bi-check"></i></div>
+              <div>
+                <div class="fw-medium">{{ payment.get_method_display }}</div>
+                <div class="small text-muted">{{ payment.date|date:"Y/m/d H:i" }}</div>
+              </div>
+            </div>
+            <span class="amount">{{ payment.amount|floatformat:2 }}</span>
+          </div>
+          {% empty %}
+          <div class="text-center text-muted py-4">
+            <i class="bi bi-inbox d-block fs-3 mb-2"></i>
+            {% trans 'لا توجد مدفوعات سابقة' %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block form_actions_left %}
+<a href="{% url 'sales:invoice_detail' invoice.pk %}" class="btn btn-outline-secondary">
+  <i class="bi bi-arrow-right me-1"></i>{% trans 'العودة للفاتورة' %}
+</a>
+{% endblock %}
+
+{% block form_actions_right %}
+<button type="submit" form="payment-form" name="save_print" class="btn btn-outline-primary">
+  <i class="bi bi-printer me-1"></i>{% trans 'حفظ وطباعة الإيصال' %}
+</button>
+<button type="submit" form="payment-form" class="btn btn-success">
+  <i class="bi bi-check-circle me-1"></i>{% trans 'تسجيل الدفعة' %}
+</button>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function setAmount(amount) {
+    document.getElementById('payment-amount').value = amount;
+  }
+
+  // Method selection
+  document.querySelectorAll('.method-option').forEach(option => {
+    option.addEventListener('click', function() {
+      document.querySelectorAll('.method-option').forEach(o => o.classList.remove('selected'));
+      this.classList.add('selected');
+      
+      const method = this.querySelector('input').value;
+      document.getElementById('extra-fields').style.display = 
+        (method === 'bank' || method === 'check' || method === 'card') ? 'block' : 'none';
+    });
+  });
+</script>
+{% endblock %}
+

@@ -1,0 +1,162 @@
+{% extends BASE_TEMPLATE %}
+{% load i18n %}
+
+{% block title %}تقرير حضور العمالة{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-people me-2"></i>تقرير حضور العمالة</h2>
+    </div>
+
+    <!-- فلاتر -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">المشروع</label>
+                    <select name="project" class="form-select">
+                        <option value="">-- جميع المشاريع --</option>
+                        {% for p in projects %}
+                        <option value="{{ p.id }}" {% if request.GET.project == p.id|stringformat:"d" %}selected{% endif %}>{{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">العامل</label>
+                    <select name="labour" class="form-select">
+                        <option value="">-- جميع العمال --</option>
+                        {% for l in labour_list %}
+                        <option value="{{ l.id }}" {% if request.GET.labour == l.id|stringformat:"d" %}selected{% endif %}>{{ l.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">من تاريخ</label>
+                    <input type="date" name="date_from" class="form-control" value="{{ request.GET.date_from }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">إلى تاريخ</label>
+                    <input type="date" name="date_to" class="form-control" value="{{ request.GET.date_to }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search me-1"></i> بحث
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- إحصائيات -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 bg-primary bg-opacity-10">
+                <div class="card-body text-center">
+                    <h3 class="text-primary mb-1">{{ total_records }}</h3>
+                    <small class="text-muted">سجلات الحضور</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 bg-success bg-opacity-10">
+                <div class="card-body text-center">
+                    <h3 class="text-success mb-1">{{ total_hours|floatformat:1 }}</h3>
+                    <small class="text-muted">إجمالي ساعات العمل</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 bg-warning bg-opacity-10">
+                <div class="card-body text-center">
+                    <h3 class="text-warning mb-1">{{ total_overtime|floatformat:1 }}</h3>
+                    <small class="text-muted">ساعات إضافية</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ملخص لكل عامل -->
+    {% if labour_summary %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-person-lines-fill me-2"></i>ملخص حسب العامل</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>العامل</th>
+                            <th>المسمى</th>
+                            <th>المشروع</th>
+                            <th>الأجرة اليومية</th>
+                            <th>أيام العمل</th>
+                            <th>ساعات العمل</th>
+                            <th>ساعات إضافية</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in labour_summary %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td><strong>{{ s.labour__name }}</strong></td>
+                            <td>{{ s.labour__job_title|default:"-" }}</td>
+                            <td>{{ s.labour__project__name|default:"-" }}</td>
+                            <td>{{ s.labour__daily_rate|floatformat:2 }} ج.م</td>
+                            <td>{{ s.days_count }}</td>
+                            <td>{{ s.total_hours|floatformat:1 }}</td>
+                            <td>{{ s.total_overtime|floatformat:1 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- سجلات الحضور التفصيلية -->
+    <div class="card shadow-sm">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-table me-2"></i>سجلات الحضور التفصيلية</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>العامل</th>
+                            <th>المشروع</th>
+                            <th>ساعات العمل</th>
+                            <th>ساعات إضافية</th>
+                            <th>ملاحظات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in attendance %}
+                        <tr>
+                            <td>{{ a.date|date:"Y-m-d" }}</td>
+                            <td><strong>{{ a.labour.name }}</strong></td>
+                            <td>{{ a.labour.project.name|default:"-" }}</td>
+                            <td>{{ a.hours_worked|floatformat:1 }}</td>
+                            <td>{{ a.overtime_hours|floatformat:1 }}</td>
+                            <td>{{ a.notes|default:"-" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-5">
+                                <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
+                                <p class="mt-2 mb-0">لا توجد سجلات حضور</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

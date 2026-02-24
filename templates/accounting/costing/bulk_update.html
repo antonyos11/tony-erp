@@ -1,0 +1,739 @@
+﻿{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "تحديث التكاليف الجماعي" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+    }
+    
+    .page-hero {
+        background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    
+    .hero-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+    
+    .btn-hero {
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(255,255,255,0.2);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+    
+    .btn-hero.primary {
+        background: white;
+        color: #6c5ce7;
+    }
+    
+    .btn-hero:hover {
+        transform: translateY(-2px);
+        color: white;
+    }
+    
+    .btn-hero.primary:hover {
+        color: #6c5ce7;
+    }
+    
+    /* Update Options */
+    .options-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+    
+    .options-header {
+        padding: 1.25rem 1.5rem;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        font-weight: 600;
+        color: var(--primary-color);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .options-body {
+        padding: 1.5rem;
+    }
+    
+    /* Update Type Selector */
+    .update-types {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .update-type {
+        padding: 1.5rem;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .update-type:hover {
+        border-color: var(--accent-color);
+        background: rgba(0, 212, 170, 0.05);
+    }
+    
+    .update-type.selected {
+        border-color: var(--accent-color);
+        background: rgba(0, 212, 170, 0.1);
+    }
+    
+    .update-type input {
+        display: none;
+    }
+    
+    .type-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem;
+        font-size: 1.5rem;
+        background: #f8f9fa;
+        color: #6c757d;
+    }
+    
+    .update-type.selected .type-icon {
+        background: var(--accent-color);
+        color: white;
+    }
+    
+    .type-name {
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-bottom: 0.25rem;
+    }
+    
+    .type-desc {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    /* Filter Section */
+    .filter-section {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .filter-row {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: end;
+    }
+    
+    .filter-group {
+        flex: 1;
+        min-width: 180px;
+    }
+    
+    .filter-group label {
+        display: block;
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .filter-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        background: white;
+    }
+    
+    /* Update Value Input */
+    .update-value-section {
+        background: linear-gradient(135deg, rgba(0, 212, 170, 0.1), rgba(0, 184, 148, 0.1));
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .update-value-title {
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-bottom: 1rem;
+    }
+    
+    .value-input-row {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+    
+    .value-input-group {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        flex: 1;
+        max-width: 300px;
+    }
+    
+    .value-input-group input {
+        flex: 1;
+        padding: 0.875rem 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 10px 0 0 10px;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    
+    .value-input-group .addon {
+        padding: 0.875rem 1rem;
+        background: white;
+        border: 2px solid #e9ecef;
+        border-right: none;
+        border-radius: 0 10px 10px 0;
+        font-weight: 600;
+        color: #6c757d;
+    }
+    
+    .direction-toggle {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .direction-btn {
+        padding: 0.875rem 1.5rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: white;
+    }
+    
+    .direction-btn.increase.selected {
+        background: rgba(220, 53, 69, 0.1);
+        border-color: var(--danger-color);
+        color: var(--danger-color);
+    }
+    
+    .direction-btn.decrease.selected {
+        background: rgba(40, 167, 69, 0.1);
+        border-color: var(--success-color);
+        color: var(--success-color);
+    }
+    
+    /* Products Table */
+    .products-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .products-header {
+        padding: 1rem 1.5rem;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .products-header h5 {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .selection-info {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    
+    .selection-info strong {
+        color: var(--accent-color);
+    }
+    
+    .products-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .products-table th {
+        padding: 1rem;
+        background: #f8f9fa;
+        font-weight: 600;
+        color: var(--primary-color);
+        text-align: right;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .products-table td {
+        padding: 1rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .products-table tr:hover {
+        background: rgba(0, 212, 170, 0.03);
+    }
+    
+    .products-table input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+    
+    .product-name {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+    
+    .product-sku {
+        font-size: 0.8rem;
+        color: #6c757d;
+        font-family: monospace;
+    }
+    
+    .current-cost {
+        font-weight: 600;
+    }
+    
+    .new-cost {
+        font-weight: 700;
+        color: var(--accent-color);
+    }
+    
+    .change-preview {
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    
+    .change-preview.increase {
+        background: rgba(220, 53, 69, 0.15);
+        color: var(--danger-color);
+    }
+    
+    .change-preview.decrease {
+        background: rgba(40, 167, 69, 0.15);
+        color: var(--success-color);
+    }
+    
+    /* Summary Footer */
+    .summary-footer {
+        padding: 1.5rem;
+        background: linear-gradient(135deg, rgba(108, 92, 231, 0.1), rgba(162, 155, 254, 0.1));
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .summary-stats {
+        display: flex;
+        gap: 2rem;
+    }
+    
+    .stat-item {
+        text-align: center;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .stat-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+    }
+    
+    .btn-action {
+        padding: 0.875rem 2rem;
+        border-radius: 10px;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-action.primary {
+        background: var(--accent-color);
+        color: white;
+    }
+    
+    .btn-action.primary:hover {
+        background: #00b894;
+    }
+    
+    .btn-action.secondary {
+        background: #e9ecef;
+        color: #495057;
+    }
+    
+    /* Warning Box */
+    .warning-box {
+        background: rgba(255, 193, 7, 0.1);
+        border: 1px solid rgba(255, 193, 7, 0.3);
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .warning-box i {
+        color: #d39e00;
+        font-size: 1.25rem;
+    }
+    
+    .warning-box span {
+        color: #856404;
+        font-size: 0.9rem;
+    }
+    
+    [data-bs-theme="dark"] .options-card,
+    [data-bs-theme="dark"] .products-card {
+        background: #1a1d21;
+    }
+    
+    [data-bs-theme="dark"] .options-header,
+    [data-bs-theme="dark"] .products-header,
+    [data-bs-theme="dark"] .filter-section,
+    [data-bs-theme="dark"] .products-table th {
+        background: #2d3238;
+    }
+    
+    @media (max-width: 992px) {
+        .update-types {
+            grid-template-columns: 1fr;
+        }
+        
+        .summary-footer {
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        
+        .summary-stats {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Hero Section -->
+    <div class="page-hero">
+        <h1 class="h2 mb-2">
+            <i class="fas fa-sync-alt me-2"></i>
+            {% trans "تحديث التكاليف الجماعي" %}
+        </h1>
+        <p class="mb-0 opacity-75">
+            {% trans "تحديث أسعار المواد الخام أو نسب التكلفة لمجموعة من المنتجات دفعة واحدة" %}
+        </p>
+        <div class="hero-actions">
+            <a href="{% url 'accounting:costing_list' %}" class="btn-hero">
+                <i class="fas fa-arrow-right"></i>
+                {% trans "العودة للقائمة" %}
+            </a>
+        </div>
+    </div>
+    
+    <!-- Update Options -->
+    <div class="options-card">
+        <div class="options-header">
+            <i class="fas fa-sliders-h"></i>
+            {% trans "خيارات التحديث" %}
+        </div>
+        <div class="options-body">
+            <!-- Update Type Selector -->
+            <div class="update-types">
+                <label class="update-type selected">
+                    <input type="radio" name="update_type" value="material" checked>
+                    <div class="type-icon">
+                        <i class="fas fa-box-open"></i>
+                    </div>
+                    <div class="type-name">{% trans "مادة خام" %}</div>
+                    <div class="type-desc">{% trans "تحديث سعر مادة محددة" %}</div>
+                </label>
+                <label class="update-type">
+                    <input type="radio" name="update_type" value="percentage">
+                    <div class="type-icon">
+                        <i class="fas fa-percentage"></i>
+                    </div>
+                    <div class="type-name">{% trans "نسبة مئوية" %}</div>
+                    <div class="type-desc">{% trans "زيادة/تخفيض بنسبة" %}</div>
+                </label>
+                <label class="update-type">
+                    <input type="radio" name="update_type" value="labor">
+                    <div class="type-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="type-name">{% trans "تكلفة العمالة" %}</div>
+                    <div class="type-desc">{% trans "تحديث أجور العمالة" %}</div>
+                </label>
+            </div>
+            
+            <!-- Filter Section -->
+            <div class="filter-section">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label>{% trans "المادة الخام" %}</label>
+                        <select class="filter-control">
+                            <option value="">{% trans "اختر المادة..." %}</option>
+                            <option selected>{% trans "خشب زان" %}</option>
+                            <option>{% trans "خشب MDF" %}</option>
+                            <option>{% trans "جلد طبيعي" %}</option>
+                            <option>{% trans "مسامير" %}</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>{% trans "التصنيف" %}</label>
+                        <select class="filter-control">
+                            <option value="">{% trans "جميع التصنيفات" %}</option>
+                            <option>{% trans "أثاث" %}</option>
+                            <option>{% trans "أبواب" %}</option>
+                            <option>{% trans "مطابخ" %}</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>{% trans "الحالة" %}</label>
+                        <select class="filter-control">
+                            <option value="">{% trans "الكل" %}</option>
+                            <option selected>{% trans "نشط" %}</option>
+                            <option>{% trans "مسودة" %}</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Update Value -->
+            <div class="update-value-section">
+                <div class="update-value-title">{% trans "قيمة التحديث" %}</div>
+                <div class="value-input-row">
+                    <div class="value-input-group">
+                        <input type="number" value="10" min="0" step="0.01">
+                        <span class="addon">{% trans "ج.م" %}</span>
+                    </div>
+                    <span class="text-muted">{% trans "أو" %}</span>
+                    <div class="value-input-group">
+                        <input type="number" value="5" min="0" step="0.1">
+                        <span class="addon">%</span>
+                    </div>
+                    <div class="direction-toggle">
+                        <button type="button" class="direction-btn increase selected">
+                            <i class="fas fa-arrow-up me-1"></i>
+                            {% trans "زيادة" %}
+                        </button>
+                        <button type="button" class="direction-btn decrease">
+                            <i class="fas fa-arrow-down me-1"></i>
+                            {% trans "تخفيض" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Warning -->
+            <div class="warning-box">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>{% trans "سيتم تطبيق التحديث على جميع المنتجات المحددة. تأكد من مراجعة القائمة قبل الحفظ." %}</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Products Table -->
+    <div class="products-card">
+        <div class="products-header">
+            <h5>
+                <i class="fas fa-list text-primary"></i>
+                {% trans "المنتجات المتأثرة" %}
+            </h5>
+            <div class="selection-info">
+                {% trans "تم تحديد" %} <strong>12</strong> {% trans "منتج من" %} <strong>18</strong>
+            </div>
+        </div>
+        
+        <div class="table-responsive"><table class="products-table">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">
+                        <input type="checkbox" checked id="select-all">
+                    </th>
+                    <th>{% trans "المنتج" %}</th>
+                    <th>{% trans "الكمية" %}</th>
+                    <th>{% trans "السعر الحالي" %}</th>
+                    <th>{% trans "السعر الجديد" %}</th>
+                    <th>{% trans "التكلفة الحالية" %}</th>
+                    <th>{% trans "التكلفة الجديدة" %}</th>
+                    <th>{% trans "التغيير" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><input type="checkbox" checked></td>
+                    <td>
+                        <div class="product-name">{% trans "طاولة خشب زان" %}</div>
+                        <div class="product-sku">SKU-001234</div>
+                    </td>
+                    <td>2 م²</td>
+                    <td class="current-cost">150</td>
+                    <td class="new-cost">160</td>
+                    <td>300</td>
+                    <td><strong>320</strong></td>
+                    <td><span class="change-preview increase">+20 (+6.7%)</span></td>
+                </tr>
+                <tr>
+                    <td><input type="checkbox" checked></td>
+                    <td>
+                        <div class="product-name">{% trans "كرسي خشب زان" %}</div>
+                        <div class="product-sku">SKU-001235</div>
+                    </td>
+                    <td>1 م²</td>
+                    <td class="current-cost">150</td>
+                    <td class="new-cost">160</td>
+                    <td>150</td>
+                    <td><strong>160</strong></td>
+                    <td><span class="change-preview increase">+10 (+6.7%)</span></td>
+                </tr>
+                <tr>
+                    <td><input type="checkbox" checked></td>
+                    <td>
+                        <div class="product-name">{% trans "مكتب خشب زان" %}</div>
+                        <div class="product-sku">SKU-001240</div>
+                    </td>
+                    <td>3 م²</td>
+                    <td class="current-cost">150</td>
+                    <td class="new-cost">160</td>
+                    <td>450</td>
+                    <td><strong>480</strong></td>
+                    <td><span class="change-preview increase">+30 (+6.7%)</span></td>
+                </tr>
+                <tr>
+                    <td><input type="checkbox" checked></td>
+                    <td>
+                        <div class="product-name">{% trans "دولاب خشب زان" %}</div>
+                        <div class="product-sku">SKU-001245</div>
+                    </td>
+                    <td>5 م²</td>
+                    <td class="current-cost">150</td>
+                    <td class="new-cost">160</td>
+                    <td>750</td>
+                    <td><strong>800</strong></td>
+                    <td><span class="change-preview increase">+50 (+6.7%)</span></td>
+                </tr>
+                <tr>
+                    <td><input type="checkbox"></td>
+                    <td>
+                        <div class="product-name">{% trans "باب خشب زان" %}</div>
+                        <div class="product-sku">SKU-001250</div>
+                    </td>
+                    <td>1.5 م²</td>
+                    <td class="current-cost">150</td>
+                    <td class="new-cost">160</td>
+                    <td>225</td>
+                    <td><strong>240</strong></td>
+                    <td><span class="change-preview increase">+15 (+6.7%)</span></td>
+                </tr>
+            </tbody>
+        </table></div>
+        
+        <!-- Summary Footer -->
+        <div class="summary-footer">
+            <div class="summary-stats">
+                <div class="stat-item">
+                    <div class="stat-value">12</div>
+                    <div class="stat-label">{% trans "منتج محدد" %}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">1,650</div>
+                    <div class="stat-label">{% trans "التكلفة الحالية" %}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">1,760</div>
+                    <div class="stat-label">{% trans "التكلفة الجديدة" %}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" style="color: var(--danger-color);">+110</div>
+                    <div class="stat-label">{% trans "إجمالي الزيادة" %}</div>
+                </div>
+            </div>
+            <div class="action-buttons">
+                <button type="button" class="btn-action secondary">
+                    <i class="fas fa-times"></i>
+                    {% trans "إلغاء" %}
+                </button>
+                <button type="button" class="btn-action primary">
+                    <i class="fas fa-check"></i>
+                    {% trans "تطبيق التحديث" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Update type selector
+    document.querySelectorAll('.update-type').forEach(option => {
+        option.addEventListener('click', function() {
+            document.querySelectorAll('.update-type').forEach(o => o.classList.remove('selected'));
+            this.classList.add('selected');
+        });
+    });
+    
+    // Direction toggle
+    document.querySelectorAll('.direction-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.direction-btn').forEach(b => b.classList.remove('selected'));
+            this.classList.add('selected');
+        });
+    });
+    
+    // Select all checkbox
+    document.getElementById('select-all').addEventListener('change', function() {
+        document.querySelectorAll('.products-table tbody input[type="checkbox"]').forEach(cb => {
+            cb.checked = this.checked;
+        });
+    });
+</script>
+{% endblock %}
+

@@ -1,0 +1,334 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}لوحة تحكم تقارير الموارد البشرية{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-card {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 15px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    .report-card:hover {
+        border-color: #007bff;
+        box-shadow: 0 5px 15px rgba(0,123,255,0.1);
+        transform: translateY(-2px);
+    }
+    .report-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        color: #6c757d;
+    }
+    .report-card:hover .report-icon {
+        color: #007bff;
+    }
+    .quick-filters {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="h3 mb-4">
+                <i class="fas fa-chart-bar me-2"></i>
+                تقارير الموارد البشرية
+            </h1>
+        </div>
+    </div>
+    
+    <!-- فلاتر سريعة -->
+    <div class="quick-filters">
+        <div class="row">
+            <div class="col-md-3">
+                <label class="form-label">من تاريخ</label>
+                <input type="date" class="form-control" id="dateFrom" value="{ date_from }">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">إلى تاريخ</label>
+                <input type="date" class="form-control" id="dateTo" value="{ date_to }">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">القسم</label>
+                <select class="form-select" id="department">
+                    <option value="">جميع الأقسام</option>
+                    {% for dept in departments %}
+                    <option value="{ dept.id }">{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">نوع التقرير</label>
+                <select class="form-select" id="reportFormat">
+                    <option value="pdf">PDF</option>
+                    <option value="excel">Excel</option>
+                    <option value="html">عرض مباشر</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    
+    <!-- تقارير الحضور والانصراف -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h5><i class="fas fa-clock me-2"></i>تقارير الحضور والانصراف</h5>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center" onclick="generateReport('attendance_summary')">
+                <i class="fas fa-calendar-check report-icon"></i>
+                <h6>ملخص الحضور</h6>
+                <p class="text-muted small">تقرير شامل لحضور الموظفين مع النسب والإحصائيات</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center" onclick="generateReport('late_employees')">
+                <i class="fas fa-exclamation-triangle report-icon"></i>
+                <h6>الموظفون المتأخرون</h6>
+                <p class="text-muted small">قائمة بالموظفين المتأخرين مع أوقات التأخير</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center" onclick="generateReport('overtime_report')">
+                <i class="fas fa-clock report-icon"></i>
+                <h6>تقرير الساعات الإضافية</h6>
+                <p class="text-muted small">ساعات العمل الإضافية لكل موظف والتكلفة</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- تقارير الرواتب -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h5><i class="fas fa-money-bill-wave me-2"></i>تقارير الرواتب</h5>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center" onclick="generateReport('payroll_summary')">
+                <i class="fas fa-calculator report-icon"></i>
+                <h6>ملخص الرواتب</h6>
+                <p class="text-muted small">إجمالي الرواتب والبدلات حسب الأقسام</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center" onclick="generateReport('payroll_details')">
+                <i class="fas fa-file-invoice-dollar report-icon"></i>
+                <h6>تفاصيل الرواتب</h6>
+                <p class="text-muted small">كشف تفصيلي لرواتب جميع الموظفين</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center" onclick="generateReport('salary_analysis')">
+                <i class="fas fa-chart-line report-icon"></i>
+                <h6>تحليل الرواتب</h6>
+                <p class="text-muted small">تحليل توزيع الرواتب والمقارنات</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- تقارير الإجازات -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h5><i class="fas fa-calendar-times me-2"></i>تقارير الإجازات</h5>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center" onclick="generateReport('leave_summary')">
+                <i class="fas fa-chart-pie report-icon"></i>
+                <h6>ملخص الإجازات</h6>
+                <p class="text-muted small">إحصائيات الإجازات المأخوذة والمتبقية</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center" onclick="generateReport('leave_balance')">
+                <i class="fas fa-balance-scale report-icon"></i>
+                <h6>أرصدة الإجازات</h6>
+                <p class="text-muted small">رصيد كل موظف من أنواع الإجازات المختلفة</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center" onclick="generateReport('leave_trends')">
+                <i class="fas fa-trending-up report-icon"></i>
+                <h6>اتجاهات الإجازات</h6>
+                <p class="text-muted small">تحليل أنماط أخذ الإجازات عبر الوقت</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- تقارير الموظفين -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h5><i class="fas fa-users me-2"></i>تقارير الموظفين</h5>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center" onclick="generateReport('employee_profile')">
+                <i class="fas fa-address-card report-icon"></i>
+                <h6>ملفات الموظفين</h6>
+                <p class="text-muted small">بيانات شاملة لجميع الموظفين</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center" onclick="generateReport('department_analysis')">
+                <i class="fas fa-building report-icon"></i>
+                <h6>تحليل الأقسام</h6>
+                <p class="text-muted small">إحصائيات الموظفين والتكاليف حسب القسم</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center" onclick="generateReport('turnover_analysis')">
+                <i class="fas fa-exchange-alt report-icon"></i>
+                <h6>معدل دوران الموظفين</h6>
+                <p class="text-muted small">تحليل ترك الموظفين والاستقالات</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- تقارير الأداء والتدريب -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h5><i class="fas fa-chart-line me-2"></i>تقارير الأداء والتدريب</h5>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center" onclick="generateReport('performance_summary')">
+                <i class="fas fa-star report-icon"></i>
+                <h6>ملخص تقييمات الأداء</h6>
+                <p class="text-muted small">نتائج تقييمات الأداء والتطور</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center" onclick="generateReport('training_report')">
+                <i class="fas fa-graduation-cap report-icon"></i>
+                <h6>تقرير التدريب</h6>
+                <p class="text-muted small">البرامج التدريبية والمشاركة والتكاليف</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center" onclick="generateReport('skills_matrix')">
+                <i class="fas fa-cogs report-icon"></i>
+                <h6>مصفوفة المهارات</h6>
+                <p class="text-muted small">تحليل مهارات الموظفين والثغرات</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- تقارير مالية -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h5><i class="fas fa-dollar-sign me-2"></i>التقارير المالية</h5>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center" onclick="generateReport('hr_costs')">
+                <i class="fas fa-coins report-icon"></i>
+                <h6>تكاليف الموارد البشرية</h6>
+                <p class="text-muted small">إجمالي تكاليف الموارد البشرية والنسب</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center" onclick="generateReport('budget_analysis')">
+                <i class="fas fa-chart-area report-icon"></i>
+                <h6>تحليل الميزانية</h6>
+                <p class="text-muted small">مقارنة الميزانية المخططة والفعلية</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="report-card text-center" onclick="generateReport('cost_per_employee')">
+                <i class="fas fa-user-dollar report-icon"></i>
+                <h6>التكلفة لكل موظف</h6>
+                <p class="text-muted small">متوسط تكلفة الموظف الواحد</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- نصائح -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <h6><i class="fas fa-info-circle me-2"></i>نصائح لاستخدام التقارير:</h6>
+                <ul class="mb-0">
+                    <li>استخدم الفلاتر لتخصيص التقارير حسب احتياجاتك</li>
+                    <li>احفظ التقارير المهمة لمراجعتها دورياً</li>
+                    <li>شارك التقارير مع الإدارة العليا لاتخاذ القرارات</li>
+                    <li>راقب الاتجاهات والأنماط في البيانات</li>
+                    <li>استخدم البيانات لتحسين سياسات الموارد البشرية</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">جاري التحميل...</span>
+                </div>
+                <p class="mt-3">جاري إنشاء التقرير...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function generateReport(reportType) {
+    // عرض modal التحميل
+    const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+    loadingModal.show();
+    
+    // جمع الفلاتر
+    const filters = {
+        dateFrom: document.getElementById('dateFrom').value,
+        dateTo: document.getElementById('dateTo').value,
+        department: document.getElementById('department').value,
+        format: document.getElementById('reportFormat').value
+    };
+    
+    // بناء URL التقرير
+    const params = new URLSearchParams();
+    params.append('type', reportType);
+    Object.keys(filters).forEach(key => {
+        if (filters[key]) {
+            params.append(key, filters[key]);
+        }
+    });
+    
+    // إنشاء رابط التقرير
+    const reportUrl = `/hr/reports/generate/?${params.toString()}`;
+    
+    // محاكاة تأخير التحميل
+    setTimeout(() => {
+        loadingModal.hide();
+        
+        if (filters.format === 'html') {
+            // فتح في نافذة جديدة
+            window.open(reportUrl, '_blank');
+        } else {
+            // تحميل الملف
+            window.location.href = reportUrl;
+        }
+    }, 2000);
+}
+
+// تعبئة قائمة الأقسام
+document.addEventListener('DOMContentLoaded', function() {
+    // تعيين تواريخ افتراضية في حال لم تصل من الخادم
+    const dateFromInput = document.getElementById('dateFrom');
+    const dateToInput = document.getElementById('dateTo');
+    if (!dateFromInput.value) {
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        dateFromInput.value = firstDay.toISOString().split('T')[0];
+        dateToInput.value = today.toISOString().split('T')[0];
+    }
+});
+</script>
+{% endblock %}

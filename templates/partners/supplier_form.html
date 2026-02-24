@@ -1,0 +1,319 @@
+{% extends BASE_TEMPLATE %}
+{% load static i18n %}
+
+{% block title %}{{ title|default:'تعديل المورد' }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white d-flex align-items-center justify-content-between">
+            <div>
+                <i class="bi bi-building me-2"></i>
+                <strong>{{ title|default:'تعديل المورد' }}</strong>
+            </div>
+            <a href="{% url 'partners:suppliers_list' %}" class="btn btn-sm btn-light">
+                <i class="bi bi-arrow-right"></i> رجوع
+            </a>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="row g-3">
+                    <!-- الاسم -->
+                    <div class="col-md-6">
+                        <label class="form-label">{% trans 'الاسم' %} <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control" 
+                               value="{{ supplier.name }}" required>
+                    </div>
+                    
+                    <!-- الكود -->
+                    <div class="col-md-6">
+                        <label class="form-label">{% trans 'الكود' %}</label>
+                        <input type="text" class="form-control" value="{{ supplier.code|default:supplier.pk }}" disabled>
+                    </div>
+                    
+                    <!-- البريد -->
+                    <div class="col-md-6">
+                        <label class="form-label">{% trans 'البريد الإلكتروني' %}</label>
+                        <input type="email" name="email" class="form-control" 
+                               value="{{ supplier.email|default:'' }}" placeholder="example@domain.com">
+                    </div>
+                    
+                    <!-- العنوان -->
+                    <div class="col-12">
+                        <label class="form-label">{% trans 'العنوان' %}</label>
+                        <input type="text" name="address" class="form-control" 
+                               value="{{ supplier.address|default:'' }}">
+                    </div>
+                    
+                    <hr>
+                    
+                    <!-- نوع التوريد -->
+                    <div class="col-md-6">
+                        <label class="form-label">{% trans 'نوع التوريد' %}</label>
+                        <select name="supply_type" class="form-select">
+                            <option value="">{% trans 'اختر نوع التوريد' %}</option>
+                            <option value="raw_materials" {% if supplier.supply_type == 'raw_materials' %}selected{% endif %}>{% trans 'خامات' %}</option>
+                            <option value="packaging" {% if supplier.supply_type == 'packaging' %}selected{% endif %}>{% trans 'مواد تعبئة' %}</option>
+                            <option value="services" {% if supplier.supply_type == 'services' %}selected{% endif %}>{% trans 'خدمات' %}</option>
+                            <option value="spare_parts" {% if supplier.supply_type == 'spare_parts' %}selected{% endif %}>{% trans 'قطع غيار' %}</option>
+                            <option value="other" {% if supplier.supply_type == 'other' %}selected{% endif %}>{% trans 'أخرى' %}</option>
+                        </select>
+                    </div>
+                    
+                    <!-- المادة الخام / الصنف الرئيسي -->
+                    <div class="col-md-6">
+                        <label class="form-label">{% trans 'المادة الخام / الصنف الرئيسي' %}</label>
+                        <input type="text" name="raw_material" class="form-control"
+                               value="{{ supplier.raw_material|default:'' }}"
+                               placeholder="{% trans 'وصف المادة الأساسية التي يوردها' %}">
+                    </div>
+
+                    <!-- السجل التجاري -->
+                    <div class="col-md-6">
+                        <label class="form-label">{% trans 'السجل التجاري' %}</label>
+                        <input type="text" name="commercial_register" class="form-control" 
+                               value="{{ supplier.commercial_register|default:'' }}">
+                    </div>
+                    
+                    <!-- الرقم الضريبي -->
+                    <div class="col-md-6">
+                        <label class="form-label">{% trans 'الرقم الضريبي' %}</label>
+                        <input type="text" name="tax_number" class="form-control" 
+                               value="{{ supplier.tax_number|default:'' }}">
+                    </div>
+
+                    <!-- الحالة (نشط / غير نشط) -->
+                    <div class="col-md-6">
+                        <label class="form-label">{% trans 'الحالة' %}</label>
+                        <div class="form-check form-switch mt-2">
+                            <input class="form-check-input" type="checkbox" name="is_active" id="isActiveSwitch"
+                                   {% if not supplier or supplier.is_active %}checked{% endif %}
+                                   style="width: 3em; height: 1.5em;">
+                            <label class="form-check-label ms-2" for="isActiveSwitch" id="isActiveLabel" style="font-weight: 600;">
+                                {% if not supplier or supplier.is_active %}
+                                    <span class="badge bg-success">{% trans 'نشط' %}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{% trans 'غير نشط' %}</span>
+                                {% endif %}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+
+                <!-- قسم أرقام التواصل وأسماء المسؤولين -->
+                <h5 class="mb-3"><i class="bi bi-telephone-plus me-2"></i>{% trans 'أرقام التواصل وأسماء المسؤولين' %}</h5>
+                <p class="text-muted mb-3" style="font-size:0.85rem;">
+                    <i class="bi bi-info-circle me-1"></i>
+                    {% trans 'يمكنك إضافة أكثر من رقم تواصل مع اسم المسؤول عن كل رقم' %}
+                </p>
+
+                <div id="contactsContainer">
+                    {% for contact in partner_contacts %}
+                    <div class="contact-row mb-3" data-contact-id="{{ contact.id }}">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-4">
+                                <label class="form-label">{% trans 'اسم المسؤول' %}</label>
+                                <input type="text" name="contact_name[]" class="form-control"
+                                       value="{{ contact.contact_name }}"
+                                       placeholder="{% trans 'اسم الشخص المسؤول' %}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">{% trans 'رقم الهاتف' %} <span class="text-danger">*</span></label>
+                                <input type="tel" name="contact_phone[]" class="form-control"
+                                       value="{{ contact.phone }}" required
+                                       placeholder="05xxxxxxxx">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">{% trans 'ملاحظات' %}</label>
+                                <input type="text" name="contact_notes[]" class="form-control"
+                                       value="{{ contact.notes }}"
+                                       placeholder="{% trans 'مثل: مدير المبيعات' %}">
+                            </div>
+                            <div class="col-md-2 d-flex gap-2 align-items-center" style="padding-bottom: 2px;">
+                                <div class="form-check form-switch" title="{% trans 'رقم أساسي' %}">
+                                    <input class="form-check-input" type="checkbox" name="contact_primary[]"
+                                           value="{{ forloop.counter0 }}" {% if contact.is_primary %}checked{% endif %}>
+                                    <label class="form-check-label" style="font-size:0.75rem;">{% trans 'أساسي' %}</label>
+                                </div>
+                                <input type="hidden" name="contact_id[]" value="{{ contact.id }}">
+                                <button type="button" class="btn btn-sm btn-outline-danger remove-contact-btn" title="{% trans 'حذف' %}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <!-- صف فارغ افتراضي -->
+                    <div class="contact-row mb-3">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-4">
+                                <label class="form-label">{% trans 'اسم المسؤول' %}</label>
+                                <input type="text" name="contact_name[]" class="form-control"
+                                       placeholder="{% trans 'اسم الشخص المسؤول' %}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">{% trans 'رقم الهاتف' %} <span class="text-danger">*</span></label>
+                                <input type="tel" name="contact_phone[]" class="form-control"
+                                       placeholder="05xxxxxxxx">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">{% trans 'ملاحظات' %}</label>
+                                <input type="text" name="contact_notes[]" class="form-control"
+                                       placeholder="{% trans 'مثل: مدير المبيعات' %}">
+                            </div>
+                            <div class="col-md-2 d-flex gap-2 align-items-center" style="padding-bottom: 2px;">
+                                <div class="form-check form-switch" title="{% trans 'رقم أساسي' %}">
+                                    <input class="form-check-input" type="checkbox" name="contact_primary[]" value="0">
+                                    <label class="form-check-label" style="font-size:0.75rem;">{% trans 'أساسي' %}</label>
+                                </div>
+                                <input type="hidden" name="contact_id[]" value="">
+                                <button type="button" class="btn btn-sm btn-outline-danger remove-contact-btn" title="{% trans 'حذف' %}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <button type="button" class="btn btn-sm btn-outline-success mt-2 mb-4" id="addContactBtn">
+                    <i class="bi bi-plus-circle me-1"></i>
+                    {% trans 'إضافة رقم آخر' %}
+                </button>
+
+                <hr>
+                
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'partners:supplier_detail' supplier.pk %}" class="btn btn-secondary">
+                        <i class="bi bi-x-lg"></i> إلغاء
+                    </a>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-lg"></i> حفظ التغييرات
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    {% if products %}
+    <div class="card shadow-sm mt-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-box-seam me-1"></i> {% trans 'منتجات المورد' %}</span>
+            <a href="{% url 'partners:supplier_products' supplier.pk %}" class="btn btn-sm btn-primary">
+                <i class="bi bi-eye"></i> عرض الكل
+            </a>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% trans 'المنتج' %}</th>
+                            <th>{% trans 'السعر' %}</th>
+                            <th>{% trans 'العملة' %}</th>
+                            <th>{% trans 'مفضل' %}</th>
+                            <th>{% trans 'إجراءات' %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in products %}
+                        <tr>
+                            <td>{{ p.product.name }}</td>
+                            <td>{{ p.price|floatformat:2 }}</td>
+                            <td>{{ p.currency }}</td>
+                            <td>{% if p.is_preferred %}<i class="bi bi-star-fill text-warning"></i>{% endif %}</td>
+                            <td>
+                                <a href="{% url 'partners:supplier_product_edit' p.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const contactsContainer = document.getElementById('contactsContainer');
+    const addContactBtn = document.getElementById('addContactBtn');
+
+    if (addContactBtn) {
+        addContactBtn.addEventListener('click', function() {
+            const rowIndex = contactsContainer.querySelectorAll('.contact-row').length;
+            const newRow = document.createElement('div');
+            newRow.className = 'contact-row mb-3';
+            newRow.innerHTML = `
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label">اسم المسؤول</label>
+                        <input type="text" name="contact_name[]" class="form-control"
+                               placeholder="اسم الشخص المسؤول">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">رقم الهاتف <span class="text-danger">*</span></label>
+                        <input type="tel" name="contact_phone[]" class="form-control"
+                               placeholder="05xxxxxxxx">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">ملاحظات</label>
+                        <input type="text" name="contact_notes[]" class="form-control"
+                               placeholder="مثل: مدير المبيعات">
+                    </div>
+                    <div class="col-md-2 d-flex gap-2 align-items-center" style="padding-bottom: 2px;">
+                        <div class="form-check form-switch" title="رقم أساسي">
+                            <input class="form-check-input" type="checkbox" name="contact_primary[]" value="${rowIndex}">
+                            <label class="form-check-label" style="font-size:0.75rem;">أساسي</label>
+                        </div>
+                        <input type="hidden" name="contact_id[]" value="">
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-contact-btn" title="حذف">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            contactsContainer.appendChild(newRow);
+            newRow.querySelector('input[name="contact_name[]"]').focus();
+        });
+    }
+
+    // تحديث label الحالة عند تغيير السويتش
+    const isActiveSwitch = document.getElementById('isActiveSwitch');
+    const isActiveLabel = document.getElementById('isActiveLabel');
+    if (isActiveSwitch && isActiveLabel) {
+        isActiveSwitch.addEventListener('change', function() {
+            if (this.checked) {
+                isActiveLabel.innerHTML = '<span class="badge bg-success">نشط</span>';
+            } else {
+                isActiveLabel.innerHTML = '<span class="badge bg-secondary">غير نشط</span>';
+            }
+        });
+    }
+
+    // حذف صف جهة اتصال
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.remove-contact-btn');
+        if (btn && contactsContainer) {
+            const row = btn.closest('.contact-row');
+            const rows = contactsContainer.querySelectorAll('.contact-row');
+            if (rows.length <= 1) {
+                row.querySelectorAll('input:not([type="hidden"])').forEach(inp => inp.value = '');
+                const chk = row.querySelector('input[type="checkbox"]');
+                if (chk) chk.checked = false;
+                row.querySelector('input[name="contact_id[]"]').value = '';
+                return;
+            }
+            row.remove();
+        }
+    });
+});
+</script>
+{% endblock %}

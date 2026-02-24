@@ -1,0 +1,324 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تفاصيل الوحدة: {{ unit.unit_serial }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h4 class="mb-1">
+                        <i class="fas fa-box text-primary me-2"></i>
+                        تفاصيل الوحدة: {{ unit.unit_serial }}
+                    </h4>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="{% url 'production:dashboard' %}">الإنتاج</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'production:unit_list' %}">الوحدات</a></li>
+                            <li class="breadcrumb-item active">{{ unit.unit_serial }}</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div class="btn-group">
+                    <a href="{% url 'production:unit_print_label' unit.pk %}" class="btn btn-primary" target="_blank">
+                        <i class="fas fa-print me-1"></i> طباعة الملصق
+                    </a>
+                    <a href="{% url 'printing:warranty_label_zpl' unit.pk %}" class="btn btn-outline-primary" target="_blank">
+                        <i class="fas fa-tag me-1"></i> ملصق الضمان (ZPL)
+                    </a>
+                    <a href="{% url 'printing:warranty_label_json' unit.pk %}" class="btn btn-outline-primary" target="_blank">
+                        <i class="fas fa-mobile-alt me-1"></i> ملصق الضمان (JSON)
+                    </a>
+                    <a href="{% url 'production:unit_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-right me-1"></i> العودة
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- معلومات الوحدة الأساسية -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>معلومات المنتج</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="text-muted small">المنتج</label>
+                            <p class="mb-0 fw-bold">{{ unit.product.name }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">أمر الإنتاج</label>
+                            <p class="mb-0">
+                                {% if unit.production_order %}
+                                <a href="{% url 'production:order_detail' unit.production_order.id %}">
+                                    {{ unit.production_order.number }}
+                                </a>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="text-muted small">الرقم التسلسلي</label>
+                            <p class="mb-0"><code class="fs-5">{{ unit.unit_serial }}</code></p>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="text-muted small">الباركود</label>
+                            <p class="mb-0"><code class="fs-5">{{ unit.barcode }}</code></p>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="text-muted small">الحالة</label>
+                            <p class="mb-0">
+                                {% if unit.status == 'produced' %}
+                                    <span class="badge bg-info fs-6">{{ unit.get_status_display }}</span>
+                                {% elif unit.status == 'sold_to_customer' %}
+                                    <span class="badge bg-success fs-6">{{ unit.get_status_display }}</span>
+                                {% elif unit.status == 'warranty_registered' %}
+                                    <span class="badge bg-primary fs-6">{{ unit.get_status_display }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary fs-6">{{ unit.get_status_display }}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="text-muted small">تاريخ التصنيع</label>
+                            <p class="mb-0">{{ unit.manufacture_date|date:"Y/m/d" }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="text-muted small">تاريخ الانتهاء</label>
+                            <p class="mb-0">{{ unit.expiry_date|date:"Y/m/d"|default:"-" }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="text-muted small">المقاس</label>
+                            <p class="mb-0">{{ unit.size_text|default:"-" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- معلومات البيع للتاجر -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0"><i class="fas fa-store me-2"></i>بيانات التاجر/الموزع</h6>
+                </div>
+                <div class="card-body">
+                    {% if unit.dealer %}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="text-muted small">اسم التاجر</label>
+                            <p class="mb-0 fw-bold">{{ unit.dealer.name }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">تاريخ البيع</label>
+                            <p class="mb-0">{{ unit.dealer_sale_date|date:"Y/m/d" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">سعر البيع</label>
+                            <p class="mb-0">{{ unit.dealer_sale_price|default:"-" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">رقم الفاتورة</label>
+                            <p class="mb-0">{{ unit.dealer_invoice.number|default:"-" }}</p>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-store fa-2x text-muted mb-2"></i>
+                        <p class="text-muted mb-3">لم يتم البيع لتاجر بعد</p>
+                        <button class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#sellDealerModal">
+                            <i class="fas fa-plus me-1"></i> تسجيل بيع لتاجر
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- معلومات العميل النهائي -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0"><i class="fas fa-user me-2"></i>بيانات العميل النهائي</h6>
+                </div>
+                <div class="card-body">
+                    {% if unit.customer_name %}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="text-muted small">اسم العميل</label>
+                            <p class="mb-0 fw-bold">{{ unit.customer_name }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">رقم الهاتف</label>
+                            <p class="mb-0">{{ unit.customer_phone }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">البريد الإلكتروني</label>
+                            <p class="mb-0">{{ unit.customer_email|default:"-" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">رقم الهوية</label>
+                            <p class="mb-0">{{ unit.customer_national_id|default:"-" }}</p>
+                        </div>
+                        <div class="col-12">
+                            <label class="text-muted small">العنوان</label>
+                            <p class="mb-0">{{ unit.customer_address|default:"-" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">تاريخ البيع</label>
+                            <p class="mb-0">{{ unit.customer_sale_date|date:"Y/m/d" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">سعر البيع</label>
+                            <p class="mb-0">{{ unit.customer_sale_price|default:"-" }}</p>
+                        </div>
+                        {% if unit.customer_invoice_image %}
+                        <div class="col-12">
+                            <label class="text-muted small">صورة الفاتورة</label>
+                            <div>
+                                <a href="{{ unit.customer_invoice_image.url }}" target="_blank">
+                                    <img src="{{ unit.customer_invoice_image.url }}" alt="فاتورة" class="img-thumbnail" style="max-height: 150px;">
+                                </a>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-user fa-2x text-muted mb-2"></i>
+                        <p class="text-muted mb-3">لم يتم تسجيل بيانات العميل بعد</p>
+                        <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#registerCustomerModal">
+                            <i class="fas fa-plus me-1"></i> تسجيل بيانات العميل
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- QR Code والضمان -->
+        <div class="col-lg-4">
+            <!-- QR Code -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h6 class="mb-0"><i class="fas fa-qrcode me-2"></i>QR Code</h6>
+                </div>
+                <div class="card-body text-center">
+                    {% if unit.qr_code_image %}
+                    <img src="{{ unit.qr_code_image.url }}" alt="QR Code" class="img-fluid" style="max-width: 200px;">
+                    {% else %}
+                    <div class="py-4">
+                        <i class="fas fa-qrcode fa-5x text-muted"></i>
+                        <p class="text-muted mt-2">لم يتم توليد QR Code</p>
+                    </div>
+                    {% endif %}
+                    <hr>
+                    <small class="text-muted d-block">الباركود</small>
+                    <code class="fs-4">{{ unit.barcode }}</code>
+                </div>
+            </div>
+
+            <!-- معلومات الضمان -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header {% if unit.warranty_registered %}bg-primary{% else %}bg-secondary{% endif %} text-white">
+                    <h6 class="mb-0"><i class="fas fa-shield-alt me-2"></i>الضمان</h6>
+                </div>
+                <div class="card-body">
+                    {% if unit.warranty_registered %}
+                    <div class="text-center mb-3">
+                        {% if unit.is_warranty_valid %}
+                        <span class="badge bg-success fs-5 p-2">
+                            <i class="fas fa-check-circle me-1"></i> ضمان ساري
+                        </span>
+                        <p class="text-success mt-2 mb-0">
+                            متبقي {{ unit.warranty_remaining_days }} يوم
+                        </p>
+                        {% else %}
+                        <span class="badge bg-danger fs-5 p-2">
+                            <i class="fas fa-times-circle me-1"></i> ضمان منتهي
+                        </span>
+                        {% endif %}
+                    </div>
+                    <hr>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <small class="text-muted d-block">تاريخ التسجيل</small>
+                            <span>{{ unit.warranty_registration_date|date:"Y/m/d" }}</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">تاريخ البداية</small>
+                            <span>{{ unit.warranty_start_date|date:"Y/m/d" }}</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">تاريخ الانتهاء</small>
+                            <span>{{ unit.warranty_end_date|date:"Y/m/d" }}</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">سياسة الضمان</small>
+                            <span>{{ unit.warranty_policy.name|default:"افتراضي" }}</span>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-shield-alt fa-3x text-muted mb-2"></i>
+                        <p class="text-muted">لم يتم تسجيل الضمان بعد</p>
+                        <small class="text-muted d-block mb-3">
+                            يمكن للعميل تسجيل الضمان من المتجر الإلكتروني
+                        </small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal تسجيل بيانات العميل -->
+<div class="modal fade" id="registerCustomerModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تسجيل بيانات العميل</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'production:unit_register_customer' unit.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">اسم العميل *</label>
+                        <input type="text" name="customer_name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">رقم الهاتف *</label>
+                        <input type="tel" name="customer_phone" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">البريد الإلكتروني</label>
+                        <input type="email" name="customer_email" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">رقم الهوية</label>
+                        <input type="text" name="customer_national_id" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">العنوان</label>
+                        <textarea name="customer_address" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">سعر البيع</label>
+                        <input type="number" name="customer_sale_price" class="form-control" step="0.01">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-success">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

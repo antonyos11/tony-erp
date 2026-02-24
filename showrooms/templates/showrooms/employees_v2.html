@@ -1,0 +1,386 @@
+{% extends 'base.html' %}
+{% load i18n humanize %}
+{% block title %}{% trans 'إدارة الموظفين' %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Header -->
+  <div class="row align-items-center mb-4">
+    <div class="col-md-6">
+      <h2 class="mb-1">
+        <i class="fas fa-users text-primary"></i> 
+        {% trans 'إدارة موظفي المعارض' %}
+      </h2>
+      <p class="text-muted mb-0">{% trans 'إدارة الموظفين وصلاحياتهم في المعارض' %}</p>
+    </div>
+    <div class="col-md-6 text-end">
+      <button class="btn btn-primary btn-lg shadow-sm" data-bs-toggle="modal" data-bs-target="#addEmployeeModal">
+        <i class="fas fa-user-plus"></i> {% trans 'إضافة موظف' %}
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm bg-gradient" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="card-body text-white">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="mb-1 text-white-50">{% trans 'إجمالي الموظفين' %}</h6>
+              <h2 class="mb-0 fw-bold">{{ employees|length }}</h2>
+            </div>
+            <i class="fas fa-users fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm bg-gradient" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+        <div class="card-body text-white">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="mb-1 text-white-50">{% trans 'نشط' %}</h6>
+              <h2 class="mb-0 fw-bold">{{ active_count|default:0 }}</h2>
+            </div>
+            <i class="fas fa-user-check fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm bg-gradient" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+        <div class="card-body text-white">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="mb-1 text-white-50">{% trans 'حاضر اليوم' %}</h6>
+              <h2 class="mb-0 fw-bold">{{ present_today|default:0 }}</h2>
+            </div>
+            <i class="fas fa-clock fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm bg-gradient" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+        <div class="card-body text-white">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="mb-1 text-white-50">{% trans 'المعارض' %}</h6>
+              <h2 class="mb-0 fw-bold">{{ showrooms|length }}</h2>
+            </div>
+            <i class="fas fa-store fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <div class="input-group">
+            <span class="input-group-text bg-light border-0"><i class="fas fa-search"></i></span>
+            <input type="text" class="form-control border-0 bg-light" id="searchInput" placeholder="{% trans 'البحث...' %}">
+          </div>
+        </div>
+        <div class="col-md-3">
+          <select class="form-select border-0 bg-light" id="filterShowroom">
+            <option value="">{% trans 'جميع المعارض' %}</option>
+            {% for s in showrooms %}
+              <option value="{{ s.id }}" {% if selected_showroom and selected_showroom.id == s.id %}selected{% endif %}>
+                {{ s.name_ar|default:s.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <select class="form-select border-0 bg-light" id="filterRole">
+            <option value="">{% trans 'جميع الأدوار' %}</option>
+            <option value="manager">{% trans 'مدير' %}</option>
+            <option value="supervisor">{% trans 'مشرف' %}</option>
+            <option value="cashier">{% trans 'أمين صندوق' %}</option>
+            <option value="sales">{% trans 'مبيعات' %}</option>
+            <option value="storekeeper">{% trans 'أمين مخزن' %}</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <select class="form-select border-0 bg-light" id="filterStatus">
+            <option value="">{% trans 'جميع الحالات' %}</option>
+            <option value="active">{% trans 'نشط' %}</option>
+            <option value="inactive">{% trans 'غير نشط' %}</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-outline-secondary w-100" onclick="resetFilters()">
+            <i class="fas fa-redo"></i> {% trans 'إعادة تعيين' %}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Employees Table -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0" id="employeesTable">
+          <thead class="bg-light">
+            <tr>
+              <th width="5%">#</th>
+              <th width="25%">{% trans 'الموظف' %}</th>
+              <th width="15%">{% trans 'المعرض' %}</th>
+              <th width="12%">{% trans 'الدور' %}</th>
+              <th width="10%">{% trans 'الحالة' %}</th>
+              <th width="13%">{% trans 'الحضور' %}</th>
+              <th width="10%">{% trans 'الصلاحيات' %}</th>
+              <th width="10%">{% trans 'إجراءات' %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for emp in employees %}
+            <tr class="employee-row" 
+                data-name="{% if emp.user %}{{ emp.user.get_full_name|default:emp.user.username|lower }}{% endif %}"
+                data-showroom="{{ emp.showroom.id }}"
+                data-role="{{ emp.role }}"
+                data-status="{% if emp.active %}active{% else %}inactive{% endif %}">
+              <td>{{ forloop.counter }}</td>
+              <td>
+                <div class="d-flex align-items-center">
+                  <div class="avatar-circle bg-primary-soft text-primary me-3">
+                    {% if emp.user %}{{ emp.user.get_full_name|default:emp.user.username|slice:":1"|upper }}{% else %}-{% endif %}
+                  </div>
+                  <div>
+                    <h6 class="mb-0 fw-bold">{% if emp.user %}{{ emp.user.get_full_name|default:emp.user.username }}{% else %}-{% endif %}</h6>
+                    <small class="text-muted">{{ emp.user.email }}</small>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <a href="{% url 'showrooms:detail' emp.showroom.id %}" class="text-decoration-none">
+                  <span class="badge bg-light text-dark">{{ emp.showroom.code }}</span>
+                  {{ emp.showroom.name_ar|default:emp.showroom.name }}
+                </a>
+              </td>
+              <td>
+                {% if emp.role == 'manager' %}
+                  <span class="badge bg-danger">{% trans 'مدير' %}</span>
+                {% elif emp.role == 'supervisor' %}
+                  <span class="badge bg-warning text-dark">{% trans 'مشرف' %}</span>
+                {% elif emp.role == 'cashier' %}
+                  <span class="badge bg-info">{% trans 'أمين صندوق' %}</span>
+                {% elif emp.role == 'sales' %}
+                  <span class="badge bg-success">{% trans 'مبيعات' %}</span>
+                {% elif emp.role == 'storekeeper' %}
+                  <span class="badge bg-secondary">{% trans 'أمين مخزن' %}</span>
+                {% else %}
+                  <span class="badge bg-light text-dark">{{ emp.get_role_display }}</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if emp.active %}
+                  <span class="badge bg-success-soft text-success">
+                    <i class="fas fa-check-circle"></i> {% trans 'نشط' %}
+                  </span>
+                {% else %}
+                  <span class="badge bg-danger-soft text-danger">
+                    <i class="fas fa-times-circle"></i> {% trans 'غير نشط' %}
+                  </span>
+                {% endif %}
+              </td>
+              <td>
+                {% if emp.attendance_today %}
+                  <span class="text-success">
+                    <i class="fas fa-sign-in-alt"></i>
+                    {{ emp.attendance_today.in_time|time:"H:i" }}
+                  </span>
+                  {% if emp.attendance_today.out_time %}
+                    <br><span class="text-danger">
+                      <i class="fas fa-sign-out-alt"></i>
+                      {{ emp.attendance_today.out_time|time:"H:i" }}
+                    </span>
+                  {% endif %}
+                {% else %}
+                  <span class="text-muted">{% trans 'لم يسجل' %}</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if emp.can_cross_access %}
+                  <span class="badge bg-warning text-dark" title="{% trans 'وصول لجميع المعارض' %}">
+                    <i class="fas fa-globe"></i>
+                  </span>
+                {% endif %}
+                {% if emp.extra_perms %}
+                  <span class="badge bg-info" title="{{ emp.extra_perms|join:', ' }}">
+                    <i class="fas fa-key"></i> {{ emp.extra_perms|length }}
+                  </span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="btn-group">
+                  <button class="btn btn-sm btn-outline-primary" data-bs-toggle="dropdown">
+                    <i class="fas fa-ellipsis-v"></i>
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#editEmployee{{ emp.id }}">
+                      <i class="fas fa-edit text-primary"></i> {% trans 'تعديل' %}
+                    </a></li>
+                    <li><a class="dropdown-item" href="{% url 'showrooms:showroom-employee-extra-perms' emp.showroom.id emp.id %}">
+                      <i class="fas fa-key text-warning"></i> {% trans 'الصلاحيات' %}
+                    </a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    {% if emp.active %}
+                    <li><a class="dropdown-item" href="{% url 'showrooms:employee_toggle' emp.id %}">
+                      <i class="fas fa-user-slash text-danger"></i> {% trans 'تعطيل' %}
+                    </a></li>
+                    {% else %}
+                    <li><a class="dropdown-item" href="{% url 'showrooms:employee_toggle' emp.id %}">
+                      <i class="fas fa-user-check text-success"></i> {% trans 'تفعيل' %}
+                    </a></li>
+                    {% endif %}
+                    <li><a class="dropdown-item text-danger" href="{% url 'showrooms:employee_delete' emp.id %}">
+                      <i class="fas fa-trash"></i> {% trans 'حذف' %}
+                    </a></li>
+                  </ul>
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="8" class="text-center py-5 text-muted">
+                <i class="fas fa-users fa-3x mb-3"></i>
+                <h5>{% trans 'لا يوجد موظفين' %}</h5>
+                <p>{% trans 'قم بإضافة موظفين للمعارض' %}</p>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Employee Modal -->
+<div class="modal fade" id="addEmployeeModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="fas fa-user-plus me-2"></i> {% trans 'إضافة موظف جديد' %}</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'showrooms:employee_add' %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold">{% trans 'المستخدم' %} <span class="text-danger">*</span></label>
+              <select name="user" class="form-select" required>
+                <option value="">{% trans '-- اختر المستخدم --' %}</option>
+                {% for user in available_users %}
+                  <option value="{{ user.id }}">{{ user.get_full_name|default:user.username }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">{% trans 'المعرض' %} <span class="text-danger">*</span></label>
+              <select name="showroom" class="form-select" required>
+                <option value="">{% trans '-- اختر المعرض --' %}</option>
+                {% for s in showrooms %}
+                  <option value="{{ s.id }}">{{ s.code }} - {{ s.name_ar|default:s.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">{% trans 'الدور' %} <span class="text-danger">*</span></label>
+              <select name="role" class="form-select" required>
+                <option value="sales">{% trans 'مبيعات' %}</option>
+                <option value="cashier">{% trans 'أمين صندوق' %}</option>
+                <option value="storekeeper">{% trans 'أمين مخزن' %}</option>
+                <option value="supervisor">{% trans 'مشرف' %}</option>
+                <option value="manager">{% trans 'مدير' %}</option>
+                <option value="warehouse_worker">{% trans 'عامل مستودع' %}</option>
+                <option value="hr">{% trans 'شؤون موظفين' %}</option>
+                <option value="call_center">{% trans 'كول سنتر' %}</option>
+                <option value="customer_service">{% trans 'خدمة عملاء' %}</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">{% trans 'الحالة' %}</label>
+              <div class="form-check form-switch mt-2">
+                <input type="checkbox" class="form-check-input" name="active" id="empActive" checked>
+                <label class="form-check-label" for="empActive">{% trans 'نشط' %}</label>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" name="can_cross_access" id="crossAccess">
+                <label class="form-check-label" for="crossAccess">
+                  <i class="fas fa-globe text-warning"></i> {% trans 'صلاحية الوصول لجميع المعارض' %}
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans 'إلغاء' %}</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i> {% trans 'حفظ' %}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+.avatar-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+.bg-primary-soft { background-color: rgba(13, 110, 253, 0.15); }
+.bg-success-soft { background-color: rgba(25, 135, 84, 0.15); }
+.bg-danger-soft { background-color: rgba(220, 53, 69, 0.15); }
+</style>
+
+<script>
+// Filtering
+document.getElementById('searchInput').addEventListener('input', filterTable);
+document.getElementById('filterShowroom').addEventListener('change', filterTable);
+document.getElementById('filterRole').addEventListener('change', filterTable);
+document.getElementById('filterStatus').addEventListener('change', filterTable);
+
+function filterTable() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const showroom = document.getElementById('filterShowroom').value;
+  const role = document.getElementById('filterRole').value;
+  const status = document.getElementById('filterStatus').value;
+  
+  document.querySelectorAll('.employee-row').forEach(row => {
+    let show = true;
+    
+    if (search && !row.dataset.name.includes(search)) show = false;
+    if (showroom && row.dataset.showroom !== showroom) show = false;
+    if (role && row.dataset.role !== role) show = false;
+    if (status && row.dataset.status !== status) show = false;
+    
+    row.style.display = show ? '' : 'none';
+  });
+}
+
+function resetFilters() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('filterShowroom').value = '';
+  document.getElementById('filterRole').value = '';
+  document.getElementById('filterStatus').value = '';
+  filterTable();
+}
+</script>
+{% endblock %}

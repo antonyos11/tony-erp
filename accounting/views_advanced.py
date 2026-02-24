@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Sum, Q, Count, F, DecimalField
 from django.db.models.functions import Coalesce
+from django.core.paginator import Paginator
 from django.http import JsonResponse, HttpResponse
 from django.utils.translation import gettext as _
 from django.utils import timezone
@@ -1018,3 +1019,103 @@ def auto_match_ai(request):
         'match_type': 'ai',
     }
     return render(request, 'accounting/advanced/auto_match_page.html', context)
+
+
+# ──────────────────────────────────────
+#  الفترات المحاسبية المتقدمة (AccountingPeriod)
+# ──────────────────────────────────────
+from accounting.models_advanced import AccountingPeriod
+from accounting.forms_advanced import AccountingPeriodForm
+
+
+@login_required
+def accounting_period_list(request):
+    """قائمة الفترات المحاسبية"""
+    periods = AccountingPeriod.objects.select_related('fiscal_year', 'closed_by').all()
+    fy = request.GET.get('fy')
+    status = request.GET.get('status')
+    if fy:
+        periods = periods.filter(fiscal_year_id=fy)
+    if status == 'open':
+        periods = periods.filter(is_open=True)
+    elif status == 'closed':
+        periods = periods.filter(is_open=False)
+    paginator = Paginator(periods, 20)
+    periods = paginator.get_page(request.GET.get('page'))
+    return render(request, 'accounting/period_list.html', {
+        'periods': periods,
+        'page_title': 'الفترات المحاسبية',
+    })
+
+
+@login_required
+def accounting_period_create(request):
+    if request.method == 'POST':
+        form = AccountingPeriodForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'تم إنشاء الفترة المحاسبية بنجاح')
+            return redirect('accounting:accounting_period_list')
+    else:
+        form = AccountingPeriodForm()
+    return render(request, 'accounting/period_form.html', {
+        'form': form,
+        'page_title': 'إنشاء فترة محاسبية',
+    })
+
+
+@login_required
+def accounting_period_detail(request, pk):
+    period = get_object_or_404(AccountingPeriod.objects.select_related('fiscal_year', 'closed_by'), pk=pk)
+    return render(request, 'accounting/period_detail.html', {
+        'period': period,
+        'page_title': f'الفترة: {period.name}',
+    })
+
+
+@login_required
+def accounting_period_edit(request, pk):
+    period = get_object_or_404(AccountingPeriod, pk=pk)
+    if request.method == 'POST':
+        form = AccountingPeriodForm(request.POST, instance=period)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'تم تحديث الفترة المحاسبية بنجاح')
+            return redirect('accounting:accounting_period_detail', pk=period.pk)
+    else:
+        form = AccountingPeriodForm(instance=period)
+    return render(request, 'accounting/period_form.html', {
+        'form': form,
+        'period': period,
+        'page_title': f'تعديل: {period.name}',
+    })
+
+
+@login_required
+def accounting_period_close(request, pk):
+    """إقفال فترة محاسبية"""
+    period = get_object_or_404(AccountingPeriod, pk=pk)
+    if request.method == 'POST':
+        try:
+            period.close_period(request.user)
+            messages.success(request, f'تم إقفال الفترة "{period.name}" بنجاح')
+        except Exception as e:
+            messages.error(request, f'خطأ في الإقفال: {e}')
+        return redirect('accounting:accounting_period_detail', pk=period.pk)
+    return render(request, 'accounting/period_close_confirm.html', {
+        'period': period,
+        'page_title': f'إقفال الفترة: {period.name}',
+    })
+
+
+@login_required
+def accounting_period_reopen(request, pk):
+    """إعادة فتح فترة محاسبية"""
+    period = get_object_or_404(AccountingPeriod, pk=pk)
+    if request.method == 'POST':
+        try:
+            period.reopen_period(request.user)
+            messages.success(request, f'تم إعادة فتح الفترة "{period.name}"')
+        except Exception as e:
+            messages.error(request, f'خطأ: {e}')
+    return redirect('accounting:accounting_period_detail', pk=period.pk)

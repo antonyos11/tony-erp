@@ -1,0 +1,475 @@
+﻿{% extends 'base_templates/_dashboard_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'تحليلات CRM' %}{% endblock %}
+{% block dashboard_hero_icon %}bi-graph-up-arrow{% endblock %}
+{% block dashboard_hero_title %}{% trans 'تحليلات إدارة العلاقات' %}{% endblock %}
+{% block dashboard_hero_subtitle %}{% trans 'رؤية شاملة لعلاقات العملاء والأداء' %}{% endblock %}
+
+{% block dashboard_actions %}
+<a href="{% url 'sales:crm_report_export' %}" class="btn btn-outline-primary">
+  <i class="bi bi-download me-1"></i>{% trans 'تصدير التقرير' %}
+</a>
+<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#dateRangeModal">
+  <i class="bi bi-calendar-range me-1"></i>{% trans 'تغيير الفترة' %}
+</button>
+{% endblock %}
+
+{% block kpi_cards %}
+<style>
+  .crm-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .metric-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    transition: var(--transition);
+  }
+  .metric-card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+  .metric-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+  .metric-icon.purple { background: rgba(139,92,246,0.15); color: #8b5cf6; }
+  .metric-icon.blue { background: rgba(59,130,246,0.15); color: #3b82f6; }
+  .metric-icon.green { background: rgba(16,185,129,0.15); color: #10b981; }
+  .metric-icon.orange { background: rgba(245,158,11,0.15); color: #f59e0b; }
+  .metric-icon.pink { background: rgba(236,72,153,0.15); color: #ec4899; }
+  .metric-content {
+    flex: 1;
+  }
+  .metric-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 0.25rem;
+  }
+  .metric-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+  }
+  .metric-trend {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .metric-trend.up { color: #10b981; }
+  .metric-trend.down { color: #ef4444; }
+  .funnel-chart {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .funnel-stage {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  .funnel-stage:last-child {
+    margin-bottom: 0;
+  }
+  .funnel-bar-container {
+    flex: 1;
+    height: 36px;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+  }
+  .funnel-bar {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0 1rem;
+    color: white;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: width 0.5s ease;
+  }
+  .funnel-bar.stage-1 { background: linear-gradient(90deg, #6366f1, #8b5cf6); }
+  .funnel-bar.stage-2 { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+  .funnel-bar.stage-3 { background: linear-gradient(90deg, #10b981, #34d399); }
+  .funnel-bar.stage-4 { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+  .funnel-bar.stage-5 { background: linear-gradient(90deg, #ec4899, #f472b6); }
+  .funnel-label {
+    width: 120px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .funnel-value {
+    width: 80px;
+    text-align: left;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .top-customers {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .top-customers-header {
+    padding: 1rem 1.5rem;
+    background: var(--bg-light);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .customer-row {
+    display: flex;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    gap: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    transition: var(--transition);
+  }
+  .customer-row:hover {
+    background: var(--bg-light);
+  }
+  .customer-row:last-child {
+    border-bottom: none;
+  }
+  .customer-rank {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .customer-rank.gold { background: #f59e0b; }
+  .customer-rank.silver { background: #94a3b8; }
+  .customer-rank.bronze { background: #b45309; }
+  .customer-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .customer-info h6 {
+    font-weight: 600;
+    margin-bottom: 0.125rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .customer-info span {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .customer-stats {
+    text-align: left;
+    flex-shrink: 0;
+  }
+  .customer-stats .amount {
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .customer-stats .orders {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .segment-chart {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+  }
+  .segment-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    text-align: center;
+    transition: var(--transition);
+  }
+  .segment-card:hover {
+    box-shadow: var(--shadow-md);
+  }
+  .segment-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    margin: 0 auto 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+  }
+  .segment-icon.vip { background: #fef3c7; color: #f59e0b; }
+  .segment-icon.active { background: #d1fae5; color: #10b981; }
+  .segment-icon.at-risk { background: #fee2e2; color: #ef4444; }
+  .segment-icon.new { background: #dbeafe; color: #3b82f6; }
+  .segment-card h6 {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .segment-card .count {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+</style>
+
+<!-- Main KPIs -->
+<div class="kpi-card">
+  <div class="kpi-icon text-primary"><i class="bi bi-people"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ total_customers|default:"1,248" }}</div>
+    <div class="kpi-label">{% trans 'إجمالي العملاء' %}</div>
+  </div>
+  <div class="kpi-trend up"><i class="bi bi-arrow-up"></i> 12%</div>
+</div>
+
+<div class="kpi-card">
+  <div class="kpi-icon text-success"><i class="bi bi-currency-dollar"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ clv_avg|default:"4,520" }}</div>
+    <div class="kpi-label">{% trans 'متوسط قيمة العميل' %}</div>
+  </div>
+  <div class="kpi-trend up"><i class="bi bi-arrow-up"></i> 8%</div>
+</div>
+
+<div class="kpi-card">
+  <div class="kpi-icon text-info"><i class="bi bi-arrow-repeat"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ retention_rate|default:"78" }}%</div>
+    <div class="kpi-label">{% trans 'نسبة الاحتفاظ' %}</div>
+  </div>
+</div>
+
+<div class="kpi-card">
+  <div class="kpi-icon text-warning"><i class="bi bi-graph-up"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ conversion_rate|default:"32" }}%</div>
+    <div class="kpi-label">{% trans 'نسبة التحويل' %}</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block dashboard_content %}
+<!-- CRM Metrics -->
+<div class="crm-metrics">
+  <div class="metric-card">
+    <div class="metric-icon purple"><i class="bi bi-person-plus"></i></div>
+    <div class="metric-content">
+      <div class="metric-value">{{ new_customers|default:"124" }}</div>
+      <div class="metric-label">{% trans 'عملاء جدد هذا الشهر' %}</div>
+      <div class="metric-trend up"><i class="bi bi-arrow-up"></i> +15% {% trans 'من الشهر السابق' %}</div>
+    </div>
+  </div>
+  
+  <div class="metric-card">
+    <div class="metric-icon blue"><i class="bi bi-arrow-left-right"></i></div>
+    <div class="metric-content">
+      <div class="metric-value">{{ active_customers|default:"856" }}</div>
+      <div class="metric-label">{% trans 'عملاء نشطون' %}</div>
+      <div class="metric-trend up"><i class="bi bi-arrow-up"></i> +8%</div>
+    </div>
+  </div>
+  
+  <div class="metric-card">
+    <div class="metric-icon orange"><i class="bi bi-exclamation-triangle"></i></div>
+    <div class="metric-content">
+      <div class="metric-value">{{ at_risk|default:"45" }}</div>
+      <div class="metric-label">{% trans 'عملاء معرضون للخطر' %}</div>
+      <div class="metric-trend down"><i class="bi bi-arrow-down"></i> -5%</div>
+    </div>
+  </div>
+  
+  <div class="metric-card">
+    <div class="metric-icon green"><i class="bi bi-stars"></i></div>
+    <div class="metric-content">
+      <div class="metric-value">{{ vip_customers|default:"68" }}</div>
+      <div class="metric-label">{% trans 'عملاء VIP' %}</div>
+      <div class="metric-trend up"><i class="bi bi-arrow-up"></i> +12%</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Sales Funnel -->
+  <div class="col-lg-7">
+    <div class="funnel-chart">
+      <h6 class="fw-bold mb-3"><i class="bi bi-funnel me-2"></i>{% trans 'قمع المبيعات' %}</h6>
+      
+      <div class="funnel-stage">
+        <span class="funnel-label">{% trans 'العملاء المحتملين' %}</span>
+        <div class="funnel-bar-container">
+          <div class="funnel-bar stage-1" style="width: 100%;">500</div>
+        </div>
+        <span class="funnel-value">500</span>
+      </div>
+      
+      <div class="funnel-stage">
+        <span class="funnel-label">{% trans 'مهتمون' %}</span>
+        <div class="funnel-bar-container">
+          <div class="funnel-bar stage-2" style="width: 70%;">350</div>
+        </div>
+        <span class="funnel-value">350</span>
+      </div>
+      
+      <div class="funnel-stage">
+        <span class="funnel-label">{% trans 'عروض أسعار' %}</span>
+        <div class="funnel-bar-container">
+          <div class="funnel-bar stage-3" style="width: 50%;">250</div>
+        </div>
+        <span class="funnel-value">250</span>
+      </div>
+      
+      <div class="funnel-stage">
+        <span class="funnel-label">{% trans 'مفاوضات' %}</span>
+        <div class="funnel-bar-container">
+          <div class="funnel-bar stage-4" style="width: 32%;">160</div>
+        </div>
+        <span class="funnel-value">160</span>
+      </div>
+      
+      <div class="funnel-stage">
+        <span class="funnel-label">{% trans 'صفقات ناجحة' %}</span>
+        <div class="funnel-bar-container">
+          <div class="funnel-bar stage-5" style="width: 20%;">100</div>
+        </div>
+        <span class="funnel-value">100</span>
+      </div>
+    </div>
+
+    <!-- Customer Segments -->
+    <h6 class="fw-bold mb-3"><i class="bi bi-pie-chart me-2"></i>{% trans 'شرائح العملاء' %}</h6>
+    <div class="segment-chart">
+      <div class="segment-card">
+        <div class="segment-icon vip"><i class="bi bi-star-fill"></i></div>
+        <h6>{% trans 'VIP' %}</h6>
+        <div class="count">{{ vip_count|default:"68" }}</div>
+      </div>
+      <div class="segment-card">
+        <div class="segment-icon active"><i class="bi bi-check-circle"></i></div>
+        <h6>{% trans 'نشط' %}</h6>
+        <div class="count">{{ active_count|default:"856" }}</div>
+      </div>
+      <div class="segment-card">
+        <div class="segment-icon at-risk"><i class="bi bi-exclamation-circle"></i></div>
+        <h6>{% trans 'معرض للخطر' %}</h6>
+        <div class="count">{{ at_risk_count|default:"45" }}</div>
+      </div>
+      <div class="segment-card">
+        <div class="segment-icon new"><i class="bi bi-person-plus"></i></div>
+        <h6>{% trans 'جديد' %}</h6>
+        <div class="count">{{ new_count|default:"124" }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Customers -->
+  <div class="col-lg-5">
+    <div class="top-customers">
+      <div class="top-customers-header">
+        <h6 class="mb-0 fw-bold"><i class="bi bi-trophy me-2"></i>{% trans 'أفضل العملاء' %}</h6>
+        <a href="{% url 'sales:customer_list' %}" class="small text-primary">{% trans 'عرض الكل' %}</a>
+      </div>
+      
+      {% for customer in top_customers %}
+      <div class="customer-row">
+        <span class="customer-rank {% if forloop.counter == 1 %}gold{% elif forloop.counter == 2 %}silver{% elif forloop.counter == 3 %}bronze{% endif %}">
+          {{ forloop.counter }}
+        </span>
+        <div class="customer-info">
+          <h6>{{ customer.name }}</h6>
+          <span>{{ customer.segment }}</span>
+        </div>
+        <div class="customer-stats">
+          <div class="amount">{{ customer.total|floatformat:0 }}</div>
+          <div class="orders">{{ customer.orders_count }} {% trans 'طلب' %}</div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="customer-row">
+        <span class="customer-rank gold">1</span>
+        <div class="customer-info">
+          <h6>شركة الفجر للتجارة</h6>
+          <span>VIP</span>
+        </div>
+        <div class="customer-stats">
+          <div class="amount">125,450</div>
+          <div class="orders">45 طلب</div>
+        </div>
+      </div>
+      <div class="customer-row">
+        <span class="customer-rank silver">2</span>
+        <div class="customer-info">
+          <h6>مؤسسة النور التجارية</h6>
+          <span>VIP</span>
+        </div>
+        <div class="customer-stats">
+          <div class="amount">98,320</div>
+          <div class="orders">38 طلب</div>
+        </div>
+      </div>
+      <div class="customer-row">
+        <span class="customer-rank bronze">3</span>
+        <div class="customer-info">
+          <h6>شركة السلام للتوريدات</h6>
+          <span>نشط</span>
+        </div>
+        <div class="customer-stats">
+          <div class="amount">76,890</div>
+          <div class="orders">32 طلب</div>
+        </div>
+      </div>
+      <div class="customer-row">
+        <span class="customer-rank">4</span>
+        <div class="customer-info">
+          <h6>مجموعة الأمل التجارية</h6>
+          <span>نشط</span>
+        </div>
+        <div class="customer-stats">
+          <div class="amount">65,420</div>
+          <div class="orders">28 طلب</div>
+        </div>
+      </div>
+      <div class="customer-row">
+        <span class="customer-rank">5</span>
+        <div class="customer-info">
+          <h6>شركة البركة للتجارة</h6>
+          <span>نشط</span>
+        </div>
+        <div class="customer-stats">
+          <div class="amount">54,780</div>
+          <div class="orders">25 طلب</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+

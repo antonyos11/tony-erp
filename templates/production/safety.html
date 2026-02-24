@@ -1,0 +1,161 @@
+﻿{% extends BASE_TEMPLATE %}
+{% block content %}
+<div class="container py-3">
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3">
+    <h3 class="mb-0">السلامة المهنية في الإنتاج</h3>
+    <div class="d-flex flex-column flex-md-row gap-2 align-items-stretch">
+      <form class="d-flex gap-2" method="get">
+        <input type="date" class="form-control form-control-sm" name="start_date" value="{{ start_date|date:'Y-m-d' }}">
+        <input type="date" class="form-control form-control-sm" name="end_date" value="{{ end_date|date:'Y-m-d' }}">
+        <select name="department" class="form-select form-select-sm" style="min-width:180px">
+          <option value="">كل الأقسام</option>
+          {% for d in departments %}
+          <option value="{{ d.id }}" {% if selected_department == d.id %}selected{% endif %}>{{ d.name }}</option>
+          {% endfor %}
+        </select>
+        <select name="work_center" class="form-select form-select-sm" style="min-width:180px">
+          <option value="">كل مراكز العمل</option>
+          {% for wc in work_centers %}
+          <option value="{{ wc.id }}" {% if selected_work_center == wc.id %}selected{% endif %}>{{ wc.name }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn btn-sm btn-primary">تصفية</button>
+        <a class="btn btn-sm btn-outline-secondary" href="{% url 'production:safety_export_csv' %}?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}{% if selected_department %}&department={{ selected_department }}{% endif %}">تصدير CSV</a>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">طباعة</button>
+      </form>
+      <div class="btn-group">
+      <a class="btn btn-outline-primary btn-sm" href="{% url 'hr:hse_dashboard' %}">لوحة السلامة (HSE)</a>
+      <a class="btn btn-outline-primary btn-sm" href="{% url 'hr:hse_incident_list' %}">الحوادث والإصابات</a>
+      <a class="btn btn-outline-primary btn-sm" href="{% url 'hr:hse_inspection_list' %}">تفتيشات السلامة</a>
+      <a class="btn btn-outline-primary btn-sm" href="{% url 'hr:hse_training_list' %}">تدريبات السلامة</a>
+      </div>
+    </div>
+  </div>
+
+  <p class="text-muted">سياسات وإرشادات السلامة داخل المصنع، وروابط سريعة لتتبع الحوادث والتدريب والتفتيش.</p>
+
+  {% if safety_threshold_exceeded %}
+  <div class="alert alert-danger d-flex align-items-center" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    <div>
+      تنبيه: عدد الحوادث في هذه الفترة تجاوز الحد المسموح ({{ kpi_incidents }} / {{ safety_threshold }}).
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- KPI Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body">
+          <div class="small text-muted">حوادث هذا الشهر</div>
+          <div class="h4 mb-0" id="kpiIncidents">{{ kpi_incidents|default:0 }}</div>
+          <div class="small text-muted">الحد: {{ safety_threshold }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body">
+          <div class="small text-muted">أيام منذ آخر حادث</div>
+          <div class="h4 mb-0" id="kpiDaysSafe">{% if kpi_days_since_last is None %}—{% else %}{{ kpi_days_since_last }}{% endif %}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body">
+          <div class="small text-muted">ساعات تدريب هذا الربع</div>
+          <div class="h4 mb-0" id="kpiTraining">{% if kpi_training_hours %}{{ kpi_training_hours }} ساعة{% else %}—{% endif %}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body">
+          <div class="small text-muted">إجراءات مفتوحة</div>
+          <div class="h4 mb-0" id="kpiOpenActions">{{ kpi_open_actions|default:0 }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <div class="card shadow-sm">
+        <div class="card-header">إرشادات أساسية</div>
+        <div class="card-body">
+          <ul class="mb-0">
+            <li>معدات الوقاية الشخصية (PPE) إلزامية في مناطق الخطر.</li>
+            <li>التبليغ عن أي حادث أو شبه خطر فوراً لمسؤول السلامة.</li>
+            <li>ممرات الطوارئ ومخارج الحريق يجب أن تبقى خالية دائماً.</li>
+            <li>التعامل الآمن مع المواد الخطرة حسب أوراق بيانات السلامة (MSDS).</li>
+            <li>تدريبات دورية على الإطفاء والإسعافات الأولية.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card mt-3 shadow-sm">
+        <div class="card-header">تحليل حوادث الأشهر الأخيرة</div>
+        <div class="card-body">
+          <canvas id="incidentsChart" height="120"></canvas>
+          <small class="text-muted">المخطط يعرض عدد الحوادث خلال آخر 6 أشهر.</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card shadow-sm">
+        <div class="card-header">قائمة تحقق سريعة (PPE)</div>
+        <div class="card-body">
+          <div class="table-responsive"><table class="table table-sm mb-0 align-middle">
+            <thead><tr><th>العنصر</th><th class="text-center">متوفر</th></tr></thead>
+            <tbody>
+              <tr><td>خوذة أمان</td><td class="text-center"><input class="form-check-input" type="checkbox"></td></tr>
+              <tr><td>نظارات واقية</td><td class="text-center"><input class="form-check-input" type="checkbox"></td></tr>
+              <tr><td>قفازات</td><td class="text-center"><input class="form-check-input" type="checkbox"></td></tr>
+              <tr><td>سدادات أذن</td><td class="text-center"><input class="form-check-input" type="checkbox"></td></tr>
+              <tr><td>أحذية أمان</td><td class="text-center"><input class="form-check-input" type="checkbox"></td></tr>
+            </tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <div class="card mt-3 shadow-sm">
+        <div class="card-header">خطة إجراءات</div>
+        <div class="card-body">
+          <form onsubmit="event.preventDefault(); this.reset();">
+            <div class="mb-2">
+              <label class="form-label">المشكلة/الخطر</label>
+              <input class="form-control" placeholder="اكتب وصفاً مختصراً...">
+            </div>
+            <div class="mb-2">
+              <label class="form-label">إجراء التصحيح</label>
+              <input class="form-control" placeholder="ما هي الخطوات المقترحة؟">
+            </div>
+            <div class="d-grid">
+              <button class="btn btn-primary">حفظ (تجريبي)</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% block extra_js %}
+<script>
+  (function(){
+    const labels = {{ chart_labels|default:'[]'|safe }};
+    const data = {{ chart_values|default:'[]'|safe }};
+    const ctx = document.getElementById('incidentsChart');
+    if (ctx && window.Chart && Array.isArray(labels) && Array.isArray(data)) {
+      new Chart(ctx, {
+        type: 'bar',
+        data: { labels: labels, datasets: [{ label: 'حوادث', data: data, backgroundColor: '#dc3545' }]},
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision:0 } } } }
+      });
+    }
+  })();
+</script>
+{% endblock %}
+{% endblock %}

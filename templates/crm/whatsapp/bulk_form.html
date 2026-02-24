@@ -1,0 +1,154 @@
+{% extends 'base_templates/modern_form.html' %}
+{% load static i18n %}
+
+{% block page_module %}crm{% endblock %}
+{% block page_icon %}bi-headset{% endblock %}
+{% block page_title %}{% trans 'نموذج جديد' %}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/modern_pages.css' %}">
+
+{% endblock %}
+
+{% block form_content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h4 class="mb-0">
+                <i class="fas fa-broadcast-tower text-warning"></i> 
+                {% if bulk %}تعديل{% else %}إنشاء{% endif %} رسالة جماعية
+            </h4>
+        </div>
+    </div>
+    
+    <form method="post">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-transparent">
+                        <h6 class="mb-0"><i class="fas fa-info-circle text-primary"></i> معلومات الرسالة</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">اسم الحملة <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="name" name="name" 
+                                   value="{{ bulk.name|default:'' }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="template" class="form-label">اختر قالب</label>
+                            <select class="form-select" id="template" name="template">
+                                <option value="">-- بدون قالب --</option>
+                                {% for template in templates %}
+                                <option value="{{ template.id }}" data-content="{{ template.content }}">{{ template.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="message" class="form-label">الرسالة <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="message" name="message" rows="6" required>{{ bulk.message|default:'' }}</textarea>
+                            <small class="text-muted">المتغيرات المتاحة: {customer_name}, {company_name}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-transparent">
+                        <h6 class="mb-0"><i class="fas fa-users text-success"></i> المستلمين</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">اختر العملاء</label>
+                            <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+                                {% for customer in customers %}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="recipients" 
+                                           value="{{ customer.id }}" id="customer_{{ customer.id }}">
+                                    <label class="form-check-label" for="customer_{{ customer.id }}">
+                                        {{ customer.name }}
+                                    </label>
+                                </div>
+                                {% empty %}
+                                <p class="text-muted mb-0">لا يوجد عملاء</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectAll()">
+                                <i class="fas fa-check-double"></i> تحديد الكل
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="deselectAll()">
+                                <i class="fas fa-times"></i> إلغاء التحديد
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent">
+                        <h6 class="mb-0"><i class="fas fa-clock text-info"></i> الجدولة</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="schedule" name="schedule">
+                            <label class="form-check-label" for="schedule">
+                                جدولة الإرسال
+                            </label>
+                        </div>
+                        
+                        <div id="schedule_options" style="display: none;">
+                            <div class="mb-3">
+                                <label for="scheduled_date" class="form-label">التاريخ والوقت</label>
+                                <input type="datetime-local" class="form-control" id="scheduled_date" name="scheduled_date">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex gap-2 justify-content-end">
+                    <a href="{% url 'crm:whatsapp_bulk' %}" class="btn btn-light">
+                        <i class="fas fa-times"></i> إلغاء
+                    </a>
+                    <button type="submit" name="save_draft" class="btn btn-secondary">
+                        <i class="fas fa-save"></i> حفظ كمسودة
+                    </button>
+                    <button type="submit" name="send_now" class="btn btn-success">
+                        <i class="fab fa-whatsapp"></i> إرسال الآن
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}<script>
+document.getElementById('template').addEventListener('change', function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const content = selectedOption.dataset.content;
+    if (content) {
+        document.getElementById('message').value = content;
+    }
+});
+
+document.getElementById('schedule').addEventListener('change', function() {
+    document.getElementById('schedule_options').style.display = this.checked ? 'block' : 'none';
+});
+
+function selectAll() {
+    document.querySelectorAll('input[name="recipients"]').forEach(cb => cb.checked = true);
+}
+
+function deselectAll() {
+    document.querySelectorAll('input[name="recipients"]').forEach(cb => cb.checked = false);
+}
+</script>{% endblock %}

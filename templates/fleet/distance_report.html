@@ -1,0 +1,105 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load tony_erb_tags %}
+{% block title %}تقرير المسافات{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center flex-wrap mb-3 gap-2">
+    <h1 class="h5 mb-0">تقرير المسافات المقطوعة</h1>
+    <form method="get" class="row gx-2 gy-1 align-items-end">
+      <div class="col-auto">
+        <label class="form-label mb-1">من</label>
+        <input type="date" name="start" value="{{ start|date:'Y-m-d' }}" class="form-control form-control-sm" />
+      </div>
+      <div class="col-auto">
+        <label class="form-label mb-1">إلى</label>
+        <input type="date" name="end" value="{{ end|date:'Y-m-d' }}" class="form-control form-control-sm" />
+      </div>
+      <div class="col-auto">
+        <button class="btn btn-sm btn-primary">تطبيق</button>
+      </div>
+      <div class="col-auto">
+        <a href="?" class="btn btn-sm btn-outline-secondary">إعادة ضبط</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="card shadow-sm">
+  <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>المركبة</th>
+            {% for m in months_order %}<th class="text-center">{{ m }}</th>{% endfor %}
+            <th class="text-center bg-light">الإجمالي</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td class="fw-semibold">{{ row.vehicle }}</td>
+            {% for m in months_order %}
+              {% with km=row.months|get:m %}
+              <td class="text-end {% if km and km > 0 %}text-primary{% endif %}">{{ km|default_if_none:0 }}</td>
+              {% endwith %}
+            {% endfor %}
+            <td class="text-end fw-bold bg-light">{{ row.total }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="{{ months_order|length|add:2 }}" class="text-center text-muted py-4">لا توجد بيانات ضمن النطاق</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="row mt-4 g-3">
+    <div class="col-lg-7">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-light fw-bold">مخطط أعلى المركبات (كم شهري)</div>
+        <div class="card-body">
+          <canvas id="distanceChart" height="140"></canvas>
+          <div class="text-muted small mt-2">يظهر حتى 5 مركبات ذات أعلى إجمالي.</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-light fw-bold">تنبيهات المسافات</div>
+        <div class="card-body">
+          {% if anomalies %}
+            <ul class="list-group small">
+              {% for a in anomalies %}
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span><strong>{{ a.vehicle }}</strong> تجاوز {{ a.distance }} كم دون مصروف وقود مسجل</span>
+                <span class="badge text-bg-warning">تحقق</span>
+              </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="text-muted">لا تنبيهات.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  (function(){
+  const labels = JSON.parse('{{ chart_labels_json|escapejs }}');
+  const datasets = JSON.parse('{{ chart_datasets_json|escapejs }}');
+    if(labels.length && datasets.length){
+      const ctx = document.getElementById('distanceChart');
+      if(ctx){
+        new Chart(ctx, {
+          type: 'line',
+            data: { labels: labels, datasets: datasets },
+            options: { responsive: true, interaction: {mode:'index', intersect:false}, stacked:false, scales:{ y:{ beginAtZero:true } } }
+        });
+      }
+    }
+  })();
+</script>
+{% endblock %}

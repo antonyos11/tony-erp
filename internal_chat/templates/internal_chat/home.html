@@ -1,0 +1,286 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}الدردشة الداخلية{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chat-sidebar {
+        height: calc(100vh - 120px);
+        overflow-y: auto;
+    }
+    .room-item {
+        padding: 12px 15px;
+        border-bottom: 1px solid #eee;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .room-item:hover {
+        background: #f8f9fa;
+    }
+    .room-item.active {
+        background: #e3f2fd;
+    }
+    .room-avatar {
+        width: 45px;
+        height: 45px;
+        border-radius: 50%;
+        background: #4e73df;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+    }
+    .unread-badge {
+        background: #e74a3b;
+        color: white;
+        border-radius: 50%;
+        min-width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+    }
+    .online-dot {
+        width: 10px;
+        height: 10px;
+        background: #28a745;
+        border-radius: 50%;
+        border: 2px solid white;
+        position: absolute;
+        bottom: 0;
+        right: 0;
+    }
+    .user-card {
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+    .user-card:hover {
+        background: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- القائمة الجانبية -->
+        <div class="col-md-4 col-lg-3 p-0 border-end">
+            <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-comments"></i> الدردشة</h5>
+                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#newGroupModal">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+            
+            <!-- البحث -->
+            <div class="p-2">
+                <input type="text" class="form-control" placeholder="بحث..." id="searchInput">
+            </div>
+            
+            <!-- المحادثات -->
+            <div class="chat-sidebar">
+                {% for room in rooms %}
+                <a href="{% url 'internal_chat:room' room.uuid %}" class="room-item d-flex text-decoration-none text-dark">
+                    <div class="position-relative">
+                        <div class="room-avatar">
+                            {% if room.avatar %}
+                            <img src="{{ room.avatar.url }}" class="rounded-circle" width="45" height="45">
+                            {% else %}
+                            {{ room.get_display_name|first }}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <div class="d-flex justify-content-between">
+                            <strong>{{ room.get_display_name }}</strong>
+                            <small class="text-muted">{{ room.last_message_time|date:"H:i" }}</small>
+                        </div>
+                        <small class="text-muted">
+                            {% with last_msg=room.messages.last %}
+                            {% if last_msg %}
+                            {{ last_msg.content|truncatechars:30 }}
+                            {% else %}
+                            لا توجد رسائل
+                            {% endif %}
+                            {% endwith %}
+                        </small>
+                    </div>
+                    {% if room.unread_count > 0 %}
+                    <div class="unread-badge">{{ room.unread_count }}</div>
+                    {% endif %}
+                </a>
+                {% empty %}
+                <div class="text-center py-5 text-muted">
+                    <i class="fas fa-comments fa-3x mb-3"></i>
+                    <p>لا توجد محادثات</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- المحتوى الرئيسي -->
+        <div class="col-md-8 col-lg-9">
+            <div class="d-flex flex-column align-items-center justify-content-center" style="height: calc(100vh - 120px);">
+                <i class="fas fa-comments fa-5x text-muted mb-4"></i>
+                <h4 class="text-muted">اختر محادثة للبدء</h4>
+                <p class="text-muted">أو ابدأ محادثة جديدة من القائمة</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal إنشاء مجموعة -->
+<div class="modal fade" id="newGroupModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">مجموعة جديدة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">اسم المجموعة</label>
+                    <input type="text" id="groupName" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">الوصف</label>
+                    <textarea id="groupDesc" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">إضافة مشاركين</label>
+                    <input type="text" class="form-control" placeholder="ابحث عن مستخدم..." 
+                           id="userSearch" onkeyup="searchUsers(this.value)">
+                    <div id="userResults" class="mt-2"></div>
+                    <div id="selectedUsers" class="mt-2 d-flex flex-wrap gap-2"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-primary" onclick="createGroup()">إنشاء</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- قائمة المستخدمين المتصلين -->
+{% if online_users %}
+<div class="position-fixed" style="bottom: 20px; left: 20px;">
+    <div class="card shadow" style="width: 250px;">
+        <div class="card-header py-2">
+            <small><i class="fas fa-circle text-success"></i> متصلون الآن</small>
+        </div>
+        <div class="card-body p-0" style="max-height: 200px; overflow-y: auto;">
+            {% for user in online_users %}
+            <a href="{% url 'internal_chat:start_private' user.id %}" class="user-card d-block text-decoration-none text-dark">
+                <div class="d-flex align-items-center">
+                    <div class="position-relative">
+                        <div class="room-avatar" style="width: 30px; height: 30px; font-size: 12px;">
+                            {% if user %}{{ user.get_full_name|first|default:user.username|first }}{% else %}-{% endif %}
+                        </div>
+                        <span class="online-dot"></span>
+                    </div>
+                    <span class="ms-2 small">{% if user %}{{ user.get_full_name|default:user.username }}{% else %}-{% endif %}</span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedParticipants = [];
+
+function searchUsers(q) {
+    if (q.length < 2) {
+        document.getElementById('userResults').innerHTML = '';
+        return;
+    }
+    
+    fetch(`{% url 'internal_chat:search_users' %}?q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(data => {
+            const html = data.users.map(u => `
+                <div class="user-card" onclick="addParticipant(${u.id}, '${u.name}')">
+                    <i class="fas fa-user me-2"></i> ${u.name}
+                    ${u.is_online ? '<span class="badge bg-success ms-2">متصل</span>' : ''}
+                </div>
+            `).join('');
+            document.getElementById('userResults').innerHTML = html;
+        });
+}
+
+function addParticipant(id, name) {
+    if (selectedParticipants.find(p => p.id === id)) return;
+    
+    selectedParticipants.push({ id, name });
+    updateSelectedUsers();
+}
+
+function removeParticipant(id) {
+    selectedParticipants = selectedParticipants.filter(p => p.id !== id);
+    updateSelectedUsers();
+}
+
+function updateSelectedUsers() {
+    const html = selectedParticipants.map(p => `
+        <span class="badge bg-primary">
+            ${p.name}
+            <i class="fas fa-times ms-1" style="cursor:pointer" onclick="removeParticipant(${p.id})"></i>
+        </span>
+    `).join('');
+    document.getElementById('selectedUsers').innerHTML = html;
+}
+
+function createGroup() {
+    const name = document.getElementById('groupName').value;
+    if (!name) {
+        alert('الرجاء إدخال اسم المجموعة');
+        return;
+    }
+    
+    fetch('{% url "internal_chat:create_group" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            name: name,
+            description: document.getElementById('groupDesc').value,
+            participants: selectedParticipants.map(p => p.id)
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = `/chat/room/${data.room_uuid}/`;
+        } else {
+            alert(data.error);
+        }
+    });
+}
+
+// تحديث حالة الاتصال
+fetch('{% url "internal_chat:online_status" %}', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token }}'
+    },
+    body: JSON.stringify({ is_online: true })
+});
+
+// عند مغادرة الصفحة
+window.addEventListener('beforeunload', function() {
+    navigator.sendBeacon('{% url "internal_chat:online_status" %}', 
+        JSON.stringify({ is_online: false }));
+});
+</script>
+{% endblock %}

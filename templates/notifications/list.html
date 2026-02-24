@@ -1,0 +1,136 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'الإشعارات' %}{% endblock %}
+
+{% block extra_head %}
+<style>
+    :root {
+        --ink: #0f172a;
+        --muted: #94a3b8;
+        --surface: rgba(255,255,255,0.06);
+        --success: #22c55e;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --info: #3b82f6;
+    }
+    .page-shell {
+        background: linear-gradient(135deg, #0b1224 0%, #111827 60%, #0b1020 100%);
+        border-radius: 24px;
+        padding: 28px;
+        box-shadow: 0 26px 60px rgba(0,0,0,0.35);
+    }
+    .header-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 18px;
+        gap: 12px;
+    }
+    .header-title { color: #e5e7eb; }
+    .header-sub { color: #94a3b8; font-size: 14px; }
+    .notif-card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 18px;
+        padding: 16px 18px;
+        color: #e5e7eb;
+        margin-bottom: 12px;
+        display: flex;
+        gap: 12px;
+        position: relative;
+        overflow: hidden;
+    }
+    .notif-card.unread { box-shadow: 0 10px 30px rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.25); }
+    .notif-pill {
+        width: 10px;
+        border-radius: 8px;
+        flex-shrink: 0;
+    }
+    .level-success { background: var(--success); }
+    .level-error { background: var(--danger); }
+    .level-warning { background: var(--warning); }
+    .level-info { background: var(--info); }
+    .notif-body { flex: 1; min-width: 0; }
+    .notif-title { font-weight: 700; margin: 0 0 4px; }
+    .notif-message { color: #cbd5e1; margin: 0 0 8px; white-space: pre-line; }
+    .notif-meta { font-size: 12px; color: #94a3b8; }
+    .notif-actions { display: flex; gap: 8px; margin-top: 8px; }
+    .btn-ghost {
+        border: 1px solid rgba(255,255,255,0.15);
+        background: transparent;
+        color: #e5e7eb;
+        border-radius: 10px;
+        padding: 6px 12px;
+        font-size: 13px;
+        transition: all .2s ease;
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,0.08); }
+    .empty-state {
+        text-align: center;
+        color: #94a3b8;
+        padding: 60px 20px;
+    }
+    .pagination { justify-content: center; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="page-shell">
+        <div class="header-bar">
+            <div>
+                <h3 class="header-title mb-1"><i class="bi bi-bell me-2 text-primary"></i>{% trans 'الإشعارات' %}</h3>
+                <div class="header-sub">{% trans 'آخر التنبيهات والرسائل المهمة' %}</div>
+            </div>
+            <form method="post" action="{% url 'notifications:mark_all' %}">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-outline-light">
+                    <i class="bi bi-check2-circle me-1"></i>{% trans 'تعليم الكل كمقروء' %}
+                </button>
+            </form>
+        </div>
+
+        {% for n in notifications %}
+        <div class="notif-card {% if not n.is_read %}unread{% endif %}">
+            <div class="notif-pill level-{{ n.level|default:'info' }}"></div>
+            <div class="notif-body">
+                <div class="notif-title">{{ n.title }}</div>
+                <div class="notif-message">{{ n.message }}</div>
+                <div class="notif-meta">
+                    <i class="bi bi-clock me-1"></i>{{ n.created_at|date:"Y-m-d H:i" }}
+                    {% if n.is_read %}<span class="ms-2 text-success"><i class="bi bi-check2"></i> {% trans 'مقروء' %}</span>{% else %}<span class="ms-2 text-warning">{% trans 'غير مقروء' %}</span>{% endif %}
+                </div>
+                {% if not n.is_read %}
+                <div class="notif-actions">
+                    <form class="d-inline" method="post" action="{% url 'notifications:mark_read' n.id %}">
+                        {% csrf_token %}
+                        <button class="btn-ghost"><i class="bi bi-check2"></i> {% trans 'تمت قراءته' %}</button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-state">
+            <i class="bi bi-bell-slash mb-3"></i>
+            <div>{% trans 'لا توجد إشعارات حالياً' %}</div>
+        </div>
+        {% endfor %}
+
+        <nav>
+            <ul class="pagination mt-3">
+                {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans 'السابق' %}</a></li>
+                {% endif %}
+                <li class="page-item active"><span class="page-link">{{ page_obj.number }}/{{ page_obj.paginator.num_pages }}</span></li>
+                {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">{% trans 'التالي' %}</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</div>
+{% endblock %}
+

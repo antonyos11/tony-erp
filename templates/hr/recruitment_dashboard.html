@@ -1,0 +1,348 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}لوحة تحكم التوظيف{% endblock %}
+
+{% block extra_css %}
+<style>
+    .recruitment-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    .recruitment-stat {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    .vacancy-card {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 15px;
+        transition: all 0.3s ease;
+    }
+    .vacancy-card:hover {
+        border-color: #28a745;
+        box-shadow: 0 5px 15px rgba(40, 167, 69, 0.1);
+        transform: translateY(-2px);
+    }
+    .status-open {
+        background-color: #28a745;
+    }
+    .status-closed {
+        background-color: #dc3545;
+    }
+    .status-on-hold {
+        background-color: #ffc107;
+        color: #212529;
+    }
+    .action-btn {
+        min-width: 150px;
+        margin: 5px;
+    }
+    .application-status {
+        font-size: 0.8rem;
+        padding: 4px 8px;
+        border-radius: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="h3 mb-4">
+                <i class="fas fa-user-plus me-2"></i>
+                لوحة تحكم التوظيف
+            </h1>
+        </div>
+    </div>
+    
+    <!-- الإحصائيات الرئيسية -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="recruitment-card">
+                <div class="recruitment-stat">{{ open_vacancies }}</div>
+                <div>وظائف مفتوحة</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="recruitment-card">
+                <div class="recruitment-stat">{{ total_applications }}</div>
+                <div>إجمالي الطلبات</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="recruitment-card">
+                <div class="recruitment-stat">{{ pending_applications }}</div>
+                <div>طلبات معلقة</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="recruitment-card">
+                <div class="recruitment-stat">15</div>
+                <div>مقابلات هذا الأسبوع</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- إجراءات سريعة -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-cogs me-2"></i>
+                        إدارة التوظيف
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <a href="{% url 'hr:job_vacancy_create' %}" class="btn btn-success action-btn">
+                                <i class="fas fa-plus"></i><br>
+                                <small>وظيفة جديدة</small>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'hr:job_vacancy_list' %}" class="btn btn-primary action-btn">
+                                <i class="fas fa-briefcase"></i><br>
+                                <small>إدارة الوظائف</small>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'hr:job_application_list' %}" class="btn btn-info action-btn">
+                                <i class="fas fa-file-alt"></i><br>
+                                <small>مراجعة الطلبات</small>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-warning action-btn" onclick="scheduleInterviews()">
+                                <i class="fas fa-calendar-check"></i><br>
+                                <small>جدولة مقابلات</small>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- أحدث الطلبات -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-clock me-2"></i>
+                        أحدث طلبات التوظيف
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>المتقدم</th>
+                                    <th>الوظيفة</th>
+                                    <th>تاريخ التقديم</th>
+                                    <th>الحالة</th>
+                                    <th>تاريخ المقابلة</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for application in recent_applications %}
+                                <tr>
+                                    <td>
+                                        <div>
+                                            <strong>{{ application.first_name }} {{ application.last_name }}</strong>
+                                            <br><small class="text-muted">{{ application.email }}</small>
+                                        </div>
+                                    </td>
+                                    <td>{{ application.vacancy.title }}</td>
+                                    <td>{{ application.application_date }}</td>
+                                    <td>
+                                        {% if application.status == 'submitted' %}
+                                            <span class="badge bg-warning application-status">جديد</span>
+                                        {% elif application.status == 'under_review' %}
+                                            <span class="badge bg-info application-status">قيد المراجعة</span>
+                                        {% elif application.status == 'interview_scheduled' %}
+                                            <span class="badge bg-primary application-status">مقابلة مجدولة</span>
+                                        {% elif application.status == 'interviewed' %}
+                                            <span class="badge bg-secondary application-status">تمت المقابلة</span>
+                                        {% elif application.status == 'accepted' %}
+                                            <span class="badge bg-success application-status">مقبول</span>
+                                        {% elif application.status == 'rejected' %}
+                                            <span class="badge bg-danger application-status">مرفوض</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ application.interview_date|default:"لم تحدد" }}</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'hr:job_application_detail' application.pk %}" class="btn btn-outline-primary" title="التفاصيل">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            {% if application.status == 'submitted' %}
+                                                <button class="btn btn-outline-success" title="قبول للمقابلة">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                                <button class="btn btn-outline-danger" title="رفض">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-4">
+                                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                                        <p>لا توجد طلبات توظيف حديثة</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- إحصائيات إضافية -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>
+                        إحصائيات التوظيف
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="recruitmentChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-tasks me-2"></i>
+                        المهام المطلوبة
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            مراجعة الطلبات الجديدة
+                            <span class="badge bg-warning rounded-pill">{{ pending_applications }}</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            إجراء مقابلات مجدولة
+                            <span class="badge bg-info rounded-pill">7</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            إرسال عروض العمل
+                            <span class="badge bg-success rounded-pill">3</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            متابعة المرشحين المقبولين
+                            <span class="badge bg-primary rounded-pill">5</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            تحديث إعلانات الوظائف
+                            <span class="badge bg-secondary rounded-pill">2</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- نصائح وإرشادات -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <h6><i class="fas fa-lightbulb me-2"></i>نصائح لتوظيف فعال:</h6>
+                <ul class="mb-0">
+                    <li>اكتب وصف وظيفي واضح ومحدد للمهام والمتطلبات</li>
+                    <li>استخدم قنوات متعددة لنشر إعلانات الوظائف</li>
+                    <li>ضع معايير موضوعية لتقييم المتقدمين</li>
+                    <li>أجرِ مقابلات منظمة بأسئلة محددة مسبقاً</li>
+                    <li>تحقق من المراجع والخلفية المهنية للمرشحين</li>
+                    <li>قدم ملاحظات للمتقدمين حتى لو لم يتم قبولهم</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// رسم بياني لإحصائيات التوظيف
+const ctx = document.getElementById('recruitmentChart').getContext('2d');
+const recruitmentChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        labels: ['طلبات جديدة', 'قيد المراجعة', 'مقابلات مجدولة', 'مقبول', 'مرفوض'],
+        datasets: [{
+            data: [{{ pending_applications }}, 15, 8, 12, 25],
+            backgroundColor: [
+                '#ffc107',
+                '#17a2b8',
+                '#007bff',
+                '#28a745',
+                '#dc3545'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+function scheduleInterviews() {
+    if (confirm('هل تريد جدولة مقابلات للمتقدمين المقبولين؟')) {
+        // إرسال طلب AJAX لجدولة المقابلات
+        fetch('{% url "hr:job_application_list" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{ csrf_token }',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'schedule_interviews'
+            })
+        }).then(response => {
+            if (response.ok) {
+                alert('تم جدولة المقابلات بنجاح');
+                location.reload();
+            } else {
+                alert('حدث خطأ أثناء جدولة المقابلات');
+            }
+        });
+    }
+}
+
+// تحديث البيانات كل 5 دقائق
+setInterval(function() {
+    location.reload();
+}, 300000);
+</script>
+{% endblock %}

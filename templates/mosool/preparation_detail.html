@@ -1,0 +1,332 @@
+﻿{% extends 'base_templates/modern_detail.html' %}
+
+{% block page_module %}core{% endblock %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="bi bi-file-earmark-text text-primary me-2"></i>{{ title }}</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">الرئيسية</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'mosool:preparation_dashboard' %}">موصول التحضير</a></li>
+                    <li class="breadcrumb-item active">{{ preparation.number }}</li>
+                </ol>
+            </nav>
+        </div>
+        <div class="d-flex gap-2">
+            {% if can_edit %}
+            <a href="{% url 'mosool:preparation_edit' preparation.pk %}" class="btn btn-outline-primary">
+                <i class="bi bi-pencil me-1"></i> تعديل
+            </a>
+            {% endif %}
+            <a href="{% url 'mosool:preparation_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-right me-1"></i> رجوع
+            </a>
+        </div>
+    </div>
+    
+    <div class="row g-4">
+        <!-- البيانات الأساسية -->
+        <div class="col-lg-8">
+            <!-- معلومات الطلب -->
+            <div class="card border-0">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>معلومات الطلب</h5>
+                    <span class="badge bg-{% if preparation.status == 'completed' %}success{% elif preparation.status == 'pending' %}warning{% elif preparation.status == 'in_progress' %}info{% elif preparation.status == 'cancelled' %}danger{% else %}secondary{% endif %} fs-6">
+                        {{ preparation.get_status_display }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="text-muted small">رقم الطلب</label>
+                            <p class="mb-0 fw-bold">{{ preparation.number }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">نوع الطلب</label>
+                            <p class="mb-0">{{ preparation.get_request_type_display }}</p>
+                        </div>
+                        <div class="col-12">
+                            <label class="text-muted small">العنوان</label>
+                            <p class="mb-0 fw-bold">{{ preparation.title }}</p>
+                        </div>
+                        {% if preparation.description %}
+                        <div class="col-12">
+                            <label class="text-muted small">الوصف</label>
+                            <p class="mb-0">{{ preparation.description }}</p>
+                        </div>
+                        {% endif %}
+                        <div class="col-md-4">
+                            <label class="text-muted small">تاريخ الطلب</label>
+                            <p class="mb-0">{{ preparation.request_date }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="text-muted small">تاريخ الاحتياج</label>
+                            <p class="mb-0">{{ preparation.required_date|default:"-" }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="text-muted small">الأولوية</label>
+                            <p class="mb-0">
+                                <span class="badge bg-{% if preparation.priority == 'urgent' %}danger{% elif preparation.priority == 'high' %}warning{% else %}secondary{% endif %}">
+                                    {{ preparation.get_priority_display }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- البنود -->
+            <div class="card border-0 mt-4">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0"><i class="bi bi-list-check me-2"></i>بنود الطلب</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>الوصف</th>
+                                    <th>المنتج</th>
+                                    <th>الكمية</th>
+                                    <th>الوحدة</th>
+                                    <th>السعر التقديري</th>
+                                    <th>المجموع</th>
+                                    <th>الحالة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in items %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>{{ item.description }}</td>
+                                    <td>{{ item.product.name|default:"-" }}</td>
+                                    <td>{{ item.quantity_requested }}</td>
+                                    <td>{{ item.unit }}</td>
+                                    <td>{{ item.estimated_unit_price|floatformat:2 }}</td>
+                                    <td>{{ item.estimated_amount|floatformat:2 }}</td>
+                                    <td>
+                                        {% if item.is_approved %}
+                                        <span class="badge bg-success">معتمد ({{ item.quantity_approved }})</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">قيد المراجعة</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">لا توجد بنود</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="6" class="text-start"><strong>المجموع التقديري</strong></td>
+                                    <td colspan="2"><strong>{{ preparation.estimated_total|floatformat:2 }}</strong></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- سجل الاعتمادات -->
+            {% if approvals %}
+            <div class="card border-0 mt-4">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>سجل الإجراءات</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for approval in approvals %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="badge bg-{% if approval.action == 'approve' %}success{% elif approval.action == 'reject' %}danger{% else %}info{% endif %} me-2">
+                                        {{ approval.get_action_display }}
+                                    </span>
+                                    <strong>{% if approval.approved_by %}{{ approval.approved_by.get_full_name|default:approval.approved_by.username }}{% else %}-{% endif %}</strong>
+                                </div>
+                                <small class="text-muted">{{ approval.created_at }}</small>
+                            </div>
+                            {% if approval.notes %}
+                            <p class="mb-0 mt-2 text-muted small">{{ approval.notes }}</p>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- الجانب -->
+        <div class="col-lg-4">
+            <!-- معلومات إضافية -->
+            <div class="card border-0">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0"><i class="bi bi-building me-2"></i>معلومات إضافية</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="text-muted small">مقدم الطلب</label>
+                        <p class="mb-0">{% if preparation.requested_by %}{{ preparation.requested_by.get_full_name|default:preparation.requested_by.username }}{% else %}-{% endif %}</p>
+                    </div>
+                    {% if preparation.assigned_to %}
+                    <div class="mb-3">
+                        <label class="text-muted small">المكلف بالتنفيذ</label>
+                        <p class="mb-0">{{ preparation.assigned_to.get_full_name|default:preparation.assigned_to.username }}</p>
+                    </div>
+                    {% endif %}
+                    {% if preparation.department %}
+                    <div class="mb-3">
+                        <label class="text-muted small">القسم</label>
+                        <p class="mb-0">{{ preparation.department.name }}</p>
+                    </div>
+                    {% endif %}
+                    {% if preparation.cost_center %}
+                    <div class="mb-3">
+                        <label class="text-muted small">مركز التكلفة</label>
+                        <p class="mb-0">{{ preparation.cost_center.name }}</p>
+                    </div>
+                    {% endif %}
+                    {% if preparation.project %}
+                    <div class="mb-3">
+                        <label class="text-muted small">المشروع</label>
+                        <p class="mb-0">{{ preparation.project.name }}</p>
+                    </div>
+                    {% endif %}
+                    {% if preparation.notes %}
+                    <div class="mb-3">
+                        <label class="text-muted small">ملاحظات</label>
+                        <p class="mb-0">{{ preparation.notes }}</p>
+                    </div>
+                    {% endif %}
+                    <hr>
+                    <div class="mb-2">
+                        <label class="text-muted small">تاريخ الإنشاء</label>
+                        <p class="mb-0 small">{{ preparation.created_at }}</p>
+                    </div>
+                    <div>
+                        <label class="text-muted small">آخر تحديث</label>
+                        <p class="mb-0 small">{{ preparation.updated_at }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- الإجراءات -->
+            <div class="card border-0 mt-4">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0"><i class="bi bi-lightning me-2"></i>الإجراءات</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        {% if can_submit %}
+                        <form method="post" action="{% url 'mosool:preparation_submit' preparation.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="bi bi-send me-1"></i> تقديم للمراجعة
+                            </button>
+                        </form>
+                        {% endif %}
+                        
+                        {% if can_process and preparation.status == 'pending' %}
+                        <form method="post" action="{% url 'mosool:preparation_start' preparation.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-info w-100">
+                                <i class="bi bi-play me-1"></i> بدء المعالجة
+                            </button>
+                        </form>
+                        {% endif %}
+                        
+                        {% if preparation.status == 'in_progress' and preparation.assigned_to == request.user %}
+                        <form method="post" action="{% url 'mosool:preparation_complete' preparation.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="bi bi-check-lg me-1"></i> إكمال الطلب
+                            </button>
+                        </form>
+                        {% endif %}
+                        
+                        {% if preparation.status == 'completed' %}
+                        <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#convertModal">
+                            <i class="bi bi-arrow-left-right me-1"></i> تحويل لمستند استماد
+                        </button>
+                        {% endif %}
+                        
+                        {% if preparation.status in 'draft,pending' %}
+                        <button type="button" class="btn btn-outline-danger w-100" data-bs-toggle="modal" data-bs-target="#cancelModal">
+                            <i class="bi bi-x-lg me-1"></i> إلغاء الطلب
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal إلغاء -->
+<div class="modal fade" id="cancelModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">إلغاء الطلب</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'mosool:preparation_cancel' preparation.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>هل أنت متأكد من إلغاء هذا الطلب؟</p>
+                    <div class="mb-3">
+                        <label class="form-label">سبب الإلغاء</label>
+                        <textarea name="reason" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">تراجع</button>
+                    <button type="submit" class="btn btn-danger">تأكيد الإلغاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal تحويل -->
+<div class="modal fade" id="convertModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تحويل لمستند استماد</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'mosool:convert_to_approval' preparation.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>سيتم إنشاء مستند استماد جديد من هذا الطلب.</p>
+                    <div class="mb-3">
+                        <label class="form-label">نوع المستند</label>
+                        <select name="document_type" class="form-select">
+                            <option value="pr">طلب شراء</option>
+                            <option value="po">أمر شراء</option>
+                            <option value="pay">طلب صرف</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">تحويل</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

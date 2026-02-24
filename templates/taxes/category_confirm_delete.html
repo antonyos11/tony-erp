@@ -1,0 +1,202 @@
+﻿{% extends "base_v2.html" %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "حذف تصنيف ضريبي" %}{% endblock %}
+
+{% block extra_head %}
+<style>
+:root { --amber-gradient: linear-gradient(135deg, #92400e, #f59e0b); }
+.hero-amber { background: var(--amber-gradient); color: #fff; border-radius: 18px; padding: 1.5rem; position: relative; overflow: hidden; }
+.hero-amber::after { content:""; position:absolute; inset:0; background: radial-gradient(circle at 80% 10%, rgba(255,255,255,.12), transparent 45%); opacity:.7; }
+.hero-amber .content { position: relative; z-index: 1; }
+
+.badge-chip { border-radius: 30px; padding: .4rem .8rem; background: rgba(255,255,255,.15); color:#fff; display:inline-flex; gap:.35rem; align-items:center; }
+
+.stat-card { border-radius: 14px; padding: .95rem 1rem; background: var(--card-bg,#fff); box-shadow: 0 8px 24px rgba(15,23,42,.08); display:flex; gap:.8rem; align-items:center; }
+.stat-icon { width: 42px; height: 42px; border-radius: 12px; display:inline-flex; align-items:center; justify-content:center; font-size:1.1rem; }
+
+.reassign-card { border: 1px dashed rgba(245,158,11,.4); background: rgba(245,158,11,.07); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <section class="hero-amber shadow-sm mb-3">
+    <div class="content d-flex justify-content-between flex-wrap gap-3 align-items-start">
+      <div>
+        <p class="small mb-1 text-white-75 d-flex gap-2 align-items-center"><i class="bi bi-tag"></i>{% trans "الضرائب / التصنيفات / حذف" %}</p>
+        <h1 class="h4 mb-1">{% trans "تأكيد حذف التصنيف" %} {{ category.name|default:_("تصنيف غير مسمى") }}</h1>
+        <p class="mb-0 text-white-75">{% trans "يمكنك إعادة تعيين المعاملات لتصنيف بديل قبل الحذف النهائي." %}</p>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <a href="{{ back_url|default:'/taxes/categories/' }}" class="btn btn-outline-light"><i class="bi bi-arrow-right"></i> {% trans "رجوع" %}</a>
+        <button class="btn btn-light text-dark" data-bs-toggle="modal" data-bs-target="#deleteCategoryModal"><i class="bi bi-trash"></i> {% trans "حذف" %}</button>
+      </div>
+    </div>
+  </section>
+
+  <nav aria-label="{% trans 'مسار التنقل' %}" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/">{% trans "الرئيسية" %}</a></li>
+      <li class="breadcrumb-item"><a href="/taxes/categories/">{% trans "التصنيفات الضريبية" %}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{% trans "حذف" %}</li>
+    </ol>
+  </nav>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-4">
+      <div class="stat-card">
+        <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-card-checklist"></i></div>
+        <div>
+          <div class="fw-bold">{{ usage.transactions|default:0|intcomma }}</div>
+          <div class="text-muted small">{% trans "معاملة مرتبطة" %}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="stat-card">
+        <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-archive"></i></div>
+        <div>
+          <div class="fw-bold">{{ usage.products|default:0|intcomma }}</div>
+          <div class="text-muted small">{% trans "أصناف تستخدم التصنيف" %}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="stat-card">
+        <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-percent"></i></div>
+        <div>
+          <div class="fw-bold">{{ category.rate|default:0 }}%</div>
+          <div class="text-muted small">{% trans "نسبة الضريبة" %}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="fw-semibold d-flex align-items-center gap-2"><i class="bi bi-info-circle text-primary"></i>{% trans "بيانات التصنيف" %}</span>
+          <span class="badge bg-light text-dark">{{ category.code|default:"—" }}</span>
+        </div>
+        <div class="card-body">
+          <dl class="row small gy-2 mb-0">
+            <dt class="col-4">{% trans "الاسم" %}</dt><dd class="col-8">{{ category.name|default:_("غير مسمى") }}</dd>
+            <dt class="col-4">{% trans "الوصف" %}</dt><dd class="col-8 text-muted">{{ category.description|default:_("لا يوجد وصف") }}</dd>
+            <dt class="col-4">{% trans "النسبة" %}</dt><dd class="col-8">{{ category.rate|default:0 }}%</dd>
+            <dt class="col-4">{% trans "الحالة" %}</dt><dd class="col-8">{{ category.status_display|default:_("نشط") }}</dd>
+          </dl>
+          <hr>
+          <h6 class="mb-2">{% trans "المعاملات المتأثرة" %}</h6>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>{% trans "رقم المستند" %}</th>
+                  <th>{% trans "النوع" %}</th>
+                  <th>{% trans "المبلغ" %}</th>
+                  <th>{% trans "الرابط" %}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for doc in affected_documents %}
+                  <tr>
+                    <td>{{ doc.number }}</td>
+                    <td>{{ doc.kind }}</td>
+                    <td>{{ doc.amount|default:0|floatformat:2|intcomma }}</td>
+                    <td><a href="{{ doc.url|default:'#' }}" class="btn btn-sm btn-outline-primary">{% trans "عرض" %}</a></td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="4" class="text-center text-muted py-3">{% trans "لا توجد معاملات مرتبطة" %}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card shadow-sm reassign-card mb-3">
+        <div class="card-body">
+          <h6 class="mb-2 d-flex align-items-center gap-2"><i class="bi bi-shuffle text-warning"></i>{% trans "إعادة تعيين قبل الحذف" %}</h6>
+          <p class="text-muted small mb-3">{% trans "حدد تصنيفاً بديلاً لنقل المعاملات والأصناف قبل الحذف النهائي." %}</p>
+          <form id="reassignForm" method="post" action="{{ reassign_url|default:request.path }}" class="vstack gap-3">
+            {% csrf_token %}
+            <input type="hidden" name="category_id" value="{{ category.id }}">
+            <div class="form-floating">
+              <select class="form-select" id="newCategory" name="new_category_id" required>
+                <option value="">{% trans "اختر تصنيفاً بديلاً" %}</option>
+                {% for alt in alternative_categories %}
+                  <option value="{{ alt.id }}">{{ alt.name }} ({{ alt.rate }}%)</option>
+                {% endfor %}
+              </select>
+              <label for="newCategory">{% trans "التصنيف البديل" %}</label>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              <button type="submit" class="btn btn-outline-primary flex-fill"><i class="bi bi-arrow-repeat"></i> {% trans "إعادة تعيين" %}</button>
+              <button type="button" class="btn btn-danger flex-fill" data-bs-toggle="modal" data-bs-target="#deleteCategoryModal"><i class="bi bi-trash"></i> {% trans "حذف بدون إعادة تعيين" %}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="mb-2 d-flex align-items-center gap-2"><i class="bi bi-lock"></i>{% trans "تأكيد الحذف" %}</h6>
+          <p class="text-muted small">{% trans "اكتب اسم التصنيف للتأكيد" %}</p>
+          <form id="deleteCategoryForm" method="post" action="{{ delete_url|default:request.path }}" class="vstack gap-3">
+            {% csrf_token %}
+            <input type="hidden" name="category_id" value="{{ category.id }}">
+            <div class="form-floating">
+              <input type="text" id="confirmCategory" class="form-control" placeholder="{{ category.name }}">
+              <label for="confirmCategory">{{ category.name|default:_("تصنيف") }}</label>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              <a href="{{ back_url|default:'/taxes/categories/' }}" class="btn btn-outline-secondary flex-fill">{% trans "إلغاء" %}</a>
+              <button type="button" class="btn btn-danger flex-fill" data-bs-toggle="modal" data-bs-target="#deleteCategoryModal" id="openDeleteBtn" disabled>{% trans "متابعة الحذف" %}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="deleteCategoryModal" tabindex="-1" aria-labelledby="deleteCategoryLabel" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteCategoryLabel"><i class="bi bi-trash text-danger"></i> {% trans "حذف التصنيف الضريبي" %}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-1">{% trans "سيتم حذف التصنيف وجميع الارتباطات الخاصة به." %}</p>
+        <p class="text-muted small mb-0">{% trans "لا يمكن التراجع عن هذه العملية." %}</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{% trans "إلغاء" %}</button>
+        <button type="submit" form="deleteCategoryForm" class="btn btn-danger">{% trans "تأكيد الحذف" %}</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  const name = '{{ category.name|default:""|escapejs }}'.trim();
+  const input = document.getElementById('confirmCategory');
+  const btn = document.getElementById('openDeleteBtn');
+  if(input && btn){
+    input.addEventListener('input', function(){
+      btn.disabled = this.value.trim() !== name || name === '';
+    });
+  }
+})();
+</script>
+{% endblock %}

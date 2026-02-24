@@ -1,0 +1,246 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "تقرير ملخص الضرائب" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex align-items-center">
+            <a href="{% url 'taxes:dashboard' %}" class="btn btn-outline-secondary me-3">
+                <i class="fas fa-arrow-right"></i>
+            </a>
+            <div>
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-chart-pie text-primary me-2"></i>
+                    {% trans "تقرير ملخص الضرائب" %}
+                </h1>
+            </div>
+        </div>
+        <button class="btn btn-outline-primary" onclick="window.print()">
+            <i class="fas fa-print me-1"></i> {% trans "طباعة" %}
+        </button>
+    </div>
+
+    <!-- الفلترة -->
+    <div class="card border-0 shadow-sm mb-4 no-print">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label">{% trans "من تاريخ" %}</label>
+                    <input type="date" name="start_date" class="form-control" value="{ start_date|date:'Y-m-d' }">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">{% trans "إلى تاريخ" %}</label>
+                    <input type="date" name="end_date" class="form-control" value="{ end_date|date:'Y-m-d' }">
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-filter me-1"></i> {% trans "تطبيق الفلتر" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ملخص سريع -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 bg-primary text-white">
+                <div class="card-body text-center">
+                    <h6 class="opacity-75 mb-2">{% trans "ضريبة المخرجات" %}</h6>
+                    <h2 class="mb-0">{{ output_tax|floatformat:2|intcomma }} <small>ج.م</small></h2>
+                    <small class="opacity-75">{% trans "ضريبة المبيعات المستحقة" %}</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 bg-success text-white">
+                <div class="card-body text-center">
+                    <h6 class="opacity-75 mb-2">{% trans "ضريبة المدخلات" %}</h6>
+                    <h2 class="mb-0">{{ input_tax|floatformat:2|intcomma }} <small>ج.م</small></h2>
+                    <small class="opacity-75">{% trans "ضريبة المشتريات المستردة" %}</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 {% if net_tax > 0 %}bg-danger{% else %}bg-info{% endif %} text-white">
+                <div class="card-body text-center">
+                    <h6 class="opacity-75 mb-2">{% trans "صافي الضريبة" %}</h6>
+                    <h2 class="mb-0">{{ net_tax|floatformat:2|intcomma }} <small>ج.م</small></h2>
+                    <small class="opacity-75">
+                        {% if net_tax > 0 %}
+                            {% trans "مستحق السداد" %}
+                        {% else %}
+                            {% trans "رصيد دائن" %}
+                        {% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- التفاصيل -->
+    <div class="row g-4">
+        <!-- المبيعات -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>{% trans "المبيعات" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive"><table class="table table-borderless mb-0">
+                        <tr>
+                            <td class="text-muted">{% trans "عدد الفواتير" %}</td>
+                            <td class="text-end fw-bold">{{ sales.count|default:0 }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">{% trans "إجمالي المبيعات" %}</td>
+                            <td class="text-end">{{ sales.subtotal|default:0|floatformat:2|intcomma }} ج.م</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">{% trans "ضريبة المبيعات" %}</td>
+                            <td class="text-end text-primary fw-bold">{{ sales.tax|default:0|floatformat:2|intcomma }} ج.م</td>
+                        </tr>
+                        <tr class="border-top">
+                            <td class="fw-bold">{% trans "الإجمالي" %}</td>
+                            <td class="text-end fw-bold">{{ sales.total|default:0|floatformat:2|intcomma }} ج.م</td>
+                        </tr>
+                    </table></div>
+                </div>
+            </div>
+            
+            <!-- مرتجعات المبيعات -->
+            <div class="card border-0 shadow-sm mt-3">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0"><i class="fas fa-undo me-2"></i>{% trans "مرتجعات المبيعات" %}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive"><table class="table table-borderless table-sm mb-0">
+                        <tr>
+                            <td class="text-muted">{% trans "عدد المرتجعات" %}</td>
+                            <td class="text-end">{{ sales_returns.count|default:0 }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">{% trans "ضريبة المرتجعات" %}</td>
+                            <td class="text-end text-danger">- {{ sales_returns.tax|default:0|floatformat:2|intcomma }} ج.م</td>
+                        </tr>
+                    </table></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- المشتريات -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-truck me-2"></i>{% trans "المشتريات" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive"><table class="table table-borderless mb-0">
+                        <tr>
+                            <td class="text-muted">{% trans "عدد الفواتير" %}</td>
+                            <td class="text-end fw-bold">{{ purchases.count|default:0 }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">{% trans "إجمالي المشتريات" %}</td>
+                            <td class="text-end">{{ purchases.subtotal|default:0|floatformat:2|intcomma }} ج.م</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">{% trans "ضريبة المشتريات" %}</td>
+                            <td class="text-end text-success fw-bold">{{ purchases.tax|default:0|floatformat:2|intcomma }} ج.م</td>
+                        </tr>
+                        <tr class="border-top">
+                            <td class="fw-bold">{% trans "الإجمالي" %}</td>
+                            <td class="text-end fw-bold">{{ purchases.total|default:0|floatformat:2|intcomma }} ج.م</td>
+                        </tr>
+                    </table></div>
+                </div>
+            </div>
+            
+            <!-- مرتجعات المشتريات -->
+            <div class="card border-0 shadow-sm mt-3">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="fas fa-undo me-2"></i>{% trans "مرتجعات المشتريات" %}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive"><table class="table table-borderless table-sm mb-0">
+                        <tr>
+                            <td class="text-muted">{% trans "عدد المرتجعات" %}</td>
+                            <td class="text-end">{{ purchase_returns.count|default:0 }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">{% trans "ضريبة المرتجعات" %}</td>
+                            <td class="text-end text-danger">- {{ purchase_returns.tax|default:0|floatformat:2|intcomma }} ج.م</td>
+                        </tr>
+                    </table></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ملخص نهائي -->
+    <div class="card border-0 shadow-sm mt-4">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0"><i class="fas fa-calculator me-2"></i>{% trans "الملخص النهائي" %}</h5>
+        </div>
+        <div class="card-body">
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <div class="table-responsive"><table class="table table-lg mb-0">
+                        <tr>
+                            <td>{% trans "إجمالي ضريبة المبيعات" %}</td>
+                            <td class="text-end">{{ sales.tax|default:0|floatformat:2|intcomma }} ج.م</td>
+                        </tr>
+                        <tr>
+                            <td>{% trans "(-) ضريبة مرتجعات المبيعات" %}</td>
+                            <td class="text-end text-danger">- {{ sales_returns.tax|default:0|floatformat:2|intcomma }} ج.م</td>
+                        </tr>
+                        <tr class="table-primary">
+                            <td class="fw-bold">{% trans "صافي ضريبة المخرجات" %}</td>
+                            <td class="text-end fw-bold">{{ output_tax|floatformat:2|intcomma }} ج.م</td>
+                        </tr>
+                        <tr><td colspan="2"></td></tr>
+                        <tr>
+                            <td>{% trans "إجمالي ضريبة المشتريات" %}</td>
+                            <td class="text-end">{{ purchases.tax|default:0|floatformat:2|intcomma }} ج.م</td>
+                        </tr>
+                        <tr>
+                            <td>{% trans "(-) ضريبة مرتجعات المشتريات" %}</td>
+                            <td class="text-end text-danger">- {{ purchase_returns.tax|default:0|floatformat:2|intcomma }} ج.م</td>
+                        </tr>
+                        <tr class="table-success">
+                            <td class="fw-bold">{% trans "صافي ضريبة المدخلات" %}</td>
+                            <td class="text-end fw-bold">{{ input_tax|floatformat:2|intcomma }} ج.م</td>
+                        </tr>
+                        <tr><td colspan="2"></td></tr>
+                        <tr class="{% if net_tax > 0 %}table-danger{% else %}table-info{% endif %}">
+                            <td class="fw-bold fs-5">
+                                {% if net_tax > 0 %}
+                                    {% trans "صافي الضريبة المستحقة" %}
+                                {% else %}
+                                    {% trans "صافي الرصيد الدائن" %}
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-bold fs-5">{{ net_tax|floatformat:2|intcomma }} ج.م</td>
+                        </tr>
+                    </table></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .no-print { display: none !important; }
+    .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+    .navbar, .sidebar { display: none !important; }
+}
+</style>
+{% endblock %}
+

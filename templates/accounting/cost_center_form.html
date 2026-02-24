@@ -1,0 +1,580 @@
+﻿{% extends 'base_templates/modern_form.html' %}
+
+{% block page_module %}accounting{% endblock %}
+{% load static i18n %}
+
+{% block title %}{% if cost_center %}{% trans "تعديل مركز التكلفة" %}{% else %}{% trans "مركز تكلفة جديد" %}{% endif %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+    }
+    
+    .form-hero {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    
+    .form-container {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .form-body {
+        padding: 2rem;
+    }
+    
+    .form-section {
+        margin-bottom: 2rem;
+    }
+    
+    .section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-bottom: 1.25rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid var(--accent-color);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .form-label {
+        font-weight: 500;
+        color: var(--primary-color);
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-control, .form-select {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.15);
+    }
+    
+    .cost-center-preview {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .preview-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .preview-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: white;
+    }
+    
+    .preview-info h4 {
+        margin: 0;
+        color: var(--primary-color);
+    }
+    
+    .preview-info small {
+        color: #6c757d;
+    }
+    
+    .hierarchy-visual {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1rem;
+        background: white;
+        border-radius: 8px;
+        font-size: 0.9rem;
+    }
+    
+    .hierarchy-item {
+        padding: 0.25rem 0.75rem;
+        background: #e9ecef;
+        border-radius: 20px;
+    }
+    
+    .hierarchy-item.current {
+        background: var(--accent-color);
+        color: white;
+    }
+    
+    .color-picker-wrapper {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .color-option {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        cursor: pointer;
+        border: 3px solid transparent;
+        transition: all 0.2s ease;
+    }
+    
+    .color-option:hover {
+        transform: scale(1.1);
+    }
+    
+    .color-option.selected {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.2);
+    }
+    
+    .icon-picker-wrapper {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .icon-option {
+        width: 45px;
+        height: 45px;
+        border-radius: 10px;
+        border: 2px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 1.25rem;
+        color: #6c757d;
+        transition: all 0.2s ease;
+    }
+    
+    .icon-option:hover {
+        border-color: var(--accent-color);
+        color: var(--accent-color);
+    }
+    
+    .icon-option.selected {
+        background: var(--accent-color);
+        border-color: var(--accent-color);
+        color: white;
+    }
+    
+    .budget-input-group {
+        position: relative;
+    }
+    
+    .budget-input-group .currency {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    .budget-input-group input {
+        padding-left: 3rem;
+    }
+    
+    .form-actions {
+        padding: 1.5rem 2rem;
+        background: #f8f9fa;
+        border-top: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .btn-save {
+        background: linear-gradient(135deg, var(--accent-color), #00b894);
+        border: none;
+        color: white;
+        padding: 0.75rem 2rem;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 212, 170, 0.3);
+        color: white;
+    }
+    
+    .switch-group {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+    }
+    
+    .switch-label {
+        font-weight: 500;
+        color: var(--primary-color);
+    }
+    
+    .switch-description {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .form-check-input {
+        width: 3rem;
+        height: 1.5rem;
+    }
+    
+    [data-bs-theme="dark"] .form-container,
+    [data-bs-theme="dark"] .cost-center-preview {
+        background: #1a1d21;
+    }
+    
+    [data-bs-theme="dark"] .form-actions,
+    [data-bs-theme="dark"] .switch-group {
+        background: #2d3238;
+    }
+    
+    [data-bs-theme="dark"] .hierarchy-visual {
+        background: #2d3238;
+    }
+</style>
+{% endblock %}
+
+{% block form_content %}
+<div class="container py-4">
+    <!-- Hero Section -->
+    <div class="form-hero">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h2 mb-2">
+                    <i class="fas fa-sitemap me-2"></i>
+                    {% if cost_center %}{% trans "تعديل مركز التكلفة" %}{% else %}{% trans "مركز تكلفة جديد" %}{% endif %}
+                </h1>
+                <p class="mb-0 opacity-75">
+                    {% trans "مراكز التكلفة تساعد في تتبع وتحليل التكاليف حسب الأقسام أو المشاريع" %}
+                </p>
+            </div>
+            <a href="{% url 'accounting:cost_centers_list' %}" class="btn btn-light">
+                <i class="fas fa-arrow-right me-1"></i>
+                {% trans "العودة للقائمة" %}
+            </a>
+        </div>
+    </div>
+    
+    <!-- Form Container -->
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <div class="form-container">
+            <div class="form-body">
+                <!-- Preview Section -->
+                <div class="cost-center-preview">
+                    <div class="preview-header">
+                        <div class="preview-icon" id="previewIcon" style="background: #1e3a5f;">
+                            <i class="fas fa-building"></i>
+                        </div>
+                        <div class="preview-info">
+                            <h4 id="previewName">{% trans "اسم مركز التكلفة" %}</h4>
+                            <small id="previewCode">CC-001</small>
+                        </div>
+                    </div>
+                    <div class="hierarchy-visual">
+                        <span class="hierarchy-item">{% trans "الشركة" %}</span>
+                        <i class="fas fa-chevron-left text-muted"></i>
+                        <span class="hierarchy-item" id="parentPreview">{% trans "القسم الرئيسي" %}</span>
+                        <i class="fas fa-chevron-left text-muted"></i>
+                        <span class="hierarchy-item current" id="currentPreview">{% trans "الفرع الجديد" %}</span>
+                    </div>
+                </div>
+                
+                <!-- Basic Info -->
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="fas fa-info-circle"></i>
+                        {% trans "المعلومات الأساسية" %}
+                    </h5>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "كود مركز التكلفة" %} <span class="text-danger">*</span></label>
+                            <input type="text" name="code" class="form-control" value="{ cost_center.code }}" 
+                                   placeholder="CC-001" required id="codeInput">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "اسم مركز التكلفة" %} <span class="text-danger">*</span></label>
+                            <input type="text" name="name" class="form-control" value="{ cost_center.name }}" 
+                                   placeholder="{% trans 'مثال: قسم المبيعات' %}" required id="nameInput">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "مركز التكلفة الأب" %}</label>
+                            <select name="parent" class="form-select" id="parentSelect">
+                                <option value="">-- {% trans "بدون (مركز رئيسي)" %} --</option>
+                                {% for cc in cost_centers %}
+                                <option value="{ cc.id }}" {% if cost_center.parent_id == cc.id %}selected{% endif %}>
+                                    {{ cc.code }} - {{ cc.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "المسؤول عن المركز" %}</label>
+                            <select name="manager" class="form-select">
+                                <option value="">-- {% trans "اختر موظف" %} --</option>
+                                {% for emp in employees %}
+                                <option value="{ emp.id }}" {% if cost_center.manager_id == emp.id %}selected{% endif %}>
+                                    {{ emp.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "الوصف" %}</label>
+                        <textarea name="description" class="form-control" rows="3" 
+                                  placeholder="{% trans 'وصف تفصيلي لمركز التكلفة وأهدافه' %}">{{ cost_center.description }}</textarea>
+                    </div>
+                </div>
+                
+                <!-- Appearance -->
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="fas fa-palette"></i>
+                        {% trans "المظهر" %}
+                    </h5>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "اللون" %}</label>
+                            <div class="color-picker-wrapper">
+                                <div class="color-option selected" style="background: #1e3a5f;" data-color="#1e3a5f"></div>
+                                <div class="color-option" style="background: #28a745;" data-color="#28a745"></div>
+                                <div class="color-option" style="background: #007bff;" data-color="#007bff"></div>
+                                <div class="color-option" style="background: #6f42c1;" data-color="#6f42c1"></div>
+                                <div class="color-option" style="background: #e83e8c;" data-color="#e83e8c"></div>
+                                <div class="color-option" style="background: #fd7e14;" data-color="#fd7e14"></div>
+                                <div class="color-option" style="background: #20c997;" data-color="#20c997"></div>
+                                <div class="color-option" style="background: #17a2b8;" data-color="#17a2b8"></div>
+                            </div>
+                            <input type="hidden" name="color" id="colorInput" value="{ cost_center.color|default:'#1e3a5f' }">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "الأيقونة" %}</label>
+                            <div class="icon-picker-wrapper">
+                                <div class="icon-option selected" data-icon="building"><i class="fas fa-building"></i></div>
+                                <div class="icon-option" data-icon="users"><i class="fas fa-users"></i></div>
+                                <div class="icon-option" data-icon="cogs"><i class="fas fa-cogs"></i></div>
+                                <div class="icon-option" data-icon="store"><i class="fas fa-store"></i></div>
+                                <div class="icon-option" data-icon="truck"><i class="fas fa-truck"></i></div>
+                                <div class="icon-option" data-icon="warehouse"><i class="fas fa-warehouse"></i></div>
+                                <div class="icon-option" data-icon="project-diagram"><i class="fas fa-project-diagram"></i></div>
+                                <div class="icon-option" data-icon="chart-line"><i class="fas fa-chart-line"></i></div>
+                            </div>
+                            <input type="hidden" name="icon" id="iconInput" value="{ cost_center.icon|default:'building' }">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Budget -->
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="fas fa-coins"></i>
+                        {% trans "الميزانية والحدود" %}
+                    </h5>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "الميزانية السنوية" %}</label>
+                            <div class="budget-input-group">
+                                <span class="currency">ج.م</span>
+                                <input type="number" name="annual_budget" class="form-control" 
+                                       value="{ cost_center.annual_budget }}" placeholder="0.00">
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "الميزانية الشهرية" %}</label>
+                            <div class="budget-input-group">
+                                <span class="currency">ج.م</span>
+                                <input type="number" name="monthly_budget" class="form-control" 
+                                       value="{ cost_center.monthly_budget }}" placeholder="0.00">
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "نسبة التحذير" %}</label>
+                            <div class="input-group">
+                                <input type="number" name="warning_threshold" class="form-control" 
+                                       value="{ cost_center.warning_threshold|default:80 }}" min="0" max="100">
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Settings -->
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="fas fa-sliders-h"></i>
+                        {% trans "الإعدادات" %}
+                    </h5>
+                    
+                    <div class="switch-group">
+                        <div>
+                            <div class="switch-label">{% trans "مفعّل" %}</div>
+                            <div class="switch-description">{% trans "مركز التكلفة متاح للاستخدام في القيود والتقارير" %}</div>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="is_active" 
+                                   {% if cost_center.is_active != False %}checked{% endif %}>
+                        </div>
+                    </div>
+                    
+                    <div class="switch-group">
+                        <div>
+                            <div class="switch-label">{% trans "تنبيهات تجاوز الميزانية" %}</div>
+                            <div class="switch-description">{% trans "إرسال تنبيه عند تجاوز نسبة التحذير" %}</div>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="budget_alerts" 
+                                   {% if cost_center.budget_alerts %}checked{% endif %}>
+                        </div>
+                    </div>
+                    
+                    <div class="switch-group">
+                        <div>
+                            <div class="switch-label">{% trans "قابل للتوزيع" %}</div>
+                            <div class="switch-description">{% trans "يمكن توزيع التكاليف من هذا المركز لمراكز أخرى" %}</div>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="allow_allocation" 
+                                   {% if cost_center.allow_allocation %}checked{% endif %}>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Form Actions -->
+            <div class="form-actions">
+                <div>
+                    {% if cost_center %}
+                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                        <i class="fas fa-trash me-1"></i>
+                        {% trans "حذف" %}
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'accounting:cost_centers_list' %}" class="btn btn-light">
+                        {% trans "إلغاء" %}
+                    </a>
+                    <button type="submit" class="btn btn-save">
+                        <i class="fas fa-save me-1"></i>
+                        {% if cost_center %}{% trans "حفظ التغييرات" %}{% else %}{% trans "إنشاء مركز التكلفة" %}{% endif %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Delete Modal -->
+{% if cost_center %}
+<div class="modal fade" id="deleteModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    {% trans "تأكيد الحذف" %}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "هل أنت متأكد من حذف مركز التكلفة:" %}</p>
+                <h5 class="text-danger">{{ cost_center.code }} - {{ cost_center.name }}</h5>
+                <div class="alert alert-warning mt-3">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    {% trans "سيتم حذف جميع المراكز الفرعية أيضاً!" %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "إلغاء" %}</button>
+                <form method="post" action="{% url 'accounting:cost_center_delete' cost_center.pk %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">{% trans "حذف نهائياً" %}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Live preview updates
+    const nameInput = document.getElementById('nameInput');
+    const codeInput = document.getElementById('codeInput');
+    const previewName = document.getElementById('previewName');
+    const previewCode = document.getElementById('previewCode');
+    const currentPreview = document.getElementById('currentPreview');
+    
+    nameInput.addEventListener('input', function() {
+        previewName.textContent = this.value || '{% trans "اسم مركز التكلفة" %}';
+        currentPreview.textContent = this.value || '{% trans "الفرع الجديد" %}';
+    });
+    
+    codeInput.addEventListener('input', function() {
+        previewCode.textContent = this.value || 'CC-001';
+    });
+    
+    // Color picker
+    document.querySelectorAll('.color-option').forEach(option => {
+        option.addEventListener('click', function() {
+            document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+            this.classList.add('selected');
+            document.getElementById('colorInput').value = this.dataset.color;
+            document.getElementById('previewIcon').style.background = this.dataset.color;
+        });
+    });
+    
+    // Icon picker
+    document.querySelectorAll('.icon-option').forEach(option => {
+        option.addEventListener('click', function() {
+            document.querySelectorAll('.icon-option').forEach(o => o.classList.remove('selected'));
+            this.classList.add('selected');
+            document.getElementById('iconInput').value = this.dataset.icon;
+            document.getElementById('previewIcon').innerHTML = '<i class="fas fa-' + this.dataset.icon + '"></i>';
+        });
+    });
+});
+</script>
+{% endblock %}
+

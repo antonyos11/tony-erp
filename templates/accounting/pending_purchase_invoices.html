@@ -1,0 +1,567 @@
+﻿{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "فواتير المشتريات المعلقة" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+    }
+    
+    .page-hero {
+        background: linear-gradient(135deg, #fd7e14 0%, #e55100 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    
+    .pending-count {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: rgba(255,255,255,0.2);
+        border-radius: 25px;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
+    
+    .hero-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+    
+    .btn-hero {
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-hero-primary {
+        background: white;
+        color: #fd7e14;
+    }
+    
+    .btn-hero-primary:hover {
+        background: #f8f9fa;
+        color: #e55100;
+        transform: translateY(-2px);
+    }
+    
+    .btn-hero-secondary {
+        background: rgba(255,255,255,0.2);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+    
+    /* Summary Row */
+    .summary-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .summary-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        text-align: center;
+    }
+    
+    .summary-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem;
+        font-size: 1.25rem;
+    }
+    
+    .summary-icon.warning { background: rgba(253, 126, 20, 0.15); color: #fd7e14; }
+    .summary-icon.amount { background: rgba(30, 58, 95, 0.15); color: var(--primary-color); }
+    .summary-icon.vendors { background: rgba(0, 212, 170, 0.15); color: var(--accent-color); }
+    
+    .summary-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .summary-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    /* Invoice List */
+    .invoice-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .invoice-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .invoice-card:hover {
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+    
+    .invoice-card.selected {
+        border: 2px solid #fd7e14;
+    }
+    
+    .invoice-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .invoice-check {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .invoice-check input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        accent-color: #fd7e14;
+    }
+    
+    .invoice-number {
+        font-weight: 700;
+        color: var(--primary-color);
+        font-size: 1.1rem;
+    }
+    
+    .invoice-date {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .invoice-body {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr 1fr;
+        gap: 1.5rem;
+        padding: 1.25rem 1.5rem;
+        align-items: center;
+    }
+    
+    .vendor-info {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .vendor-avatar {
+        width: 45px;
+        height: 45px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #fd7e14, #e55100);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+    }
+    
+    .vendor-name { font-weight: 600; color: var(--primary-color); }
+    .vendor-code { font-size: 0.85rem; color: #6c757d; }
+    
+    .info-block label {
+        display: block;
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+    
+    .info-block .value {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+    
+    .info-block .value.amount {
+        font-size: 1.25rem;
+        color: #fd7e14;
+    }
+    
+    .invoice-actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+    }
+    
+    .btn-action {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .btn-create {
+        background: linear-gradient(135deg, var(--accent-color), #00b894);
+        color: white;
+    }
+    
+    .btn-create:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 3px 10px rgba(0, 212, 170, 0.3);
+    }
+    
+    .btn-view {
+        background: rgba(30, 58, 95, 0.1);
+        color: var(--primary-color);
+    }
+    
+    .btn-skip {
+        background: rgba(108, 117, 125, 0.1);
+        color: #6c757d;
+    }
+    
+    /* Bulk Actions */
+    .bulk-actions {
+        background: white;
+        border-radius: 12px;
+        padding: 1.25rem 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        margin-bottom: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .select-all {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .select-all input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        accent-color: #fd7e14;
+    }
+    
+    .selected-info {
+        color: #6c757d;
+    }
+    
+    .selected-info strong {
+        color: var(--primary-color);
+    }
+    
+    .bulk-btns {
+        display: flex;
+        gap: 1rem;
+    }
+    
+    .btn-bulk {
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+    }
+    
+    .btn-bulk-create {
+        background: linear-gradient(135deg, #fd7e14, #e55100);
+        color: white;
+    }
+    
+    .btn-bulk-create:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(253, 126, 20, 0.3);
+    }
+    
+    .btn-bulk-skip {
+        background: #f8f9fa;
+        color: #666;
+        border: 2px solid #dee2e6;
+    }
+    
+    [data-bs-theme="dark"] .summary-card,
+    [data-bs-theme="dark"] .invoice-card,
+    [data-bs-theme="dark"] .bulk-actions {
+        background: #1a1d21;
+    }
+    
+    [data-bs-theme="dark"] .invoice-header {
+        border-color: #3d4248;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Hero Section -->
+    <div class="page-hero">
+        <div class="pending-count">
+            <i class="fas fa-exclamation-circle"></i>
+            8 {% trans "فاتورة معلقة" %}
+        </div>
+        <h1 class="h2 mb-2">
+            <i class="fas fa-file-invoice me-2"></i>
+            {% trans "فواتير المشتريات المعلقة" %}
+        </h1>
+        <p class="mb-0 opacity-75">
+            {% trans "فواتير المشتريات التي لم يتم إنشاء قيود محاسبية لها بعد" %}
+        </p>
+        <div class="hero-actions">
+            <a href="#" class="btn-hero btn-hero-primary">
+                <i class="fas fa-magic"></i>
+                {% trans "إنشاء قيود لجميع الفواتير" %}
+            </a>
+            <a href="{% url 'purchases:invoice_list' %}" class="btn-hero btn-hero-secondary">
+                <i class="fas fa-list"></i>
+                {% trans "عرض جميع الفواتير" %}
+            </a>
+        </div>
+    </div>
+    
+    <!-- Summary Row -->
+    <div class="summary-row">
+        <div class="summary-card">
+            <div class="summary-icon warning">
+                <i class="fas fa-file-invoice"></i>
+            </div>
+            <div class="summary-value">8</div>
+            <div class="summary-label">{% trans "فاتورة معلقة" %}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-icon amount">
+                <i class="fas fa-coins"></i>
+            </div>
+            <div class="summary-value">245,500</div>
+            <div class="summary-label">{% trans "إجمالي المبلغ" %}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-icon vendors">
+                <i class="fas fa-truck"></i>
+            </div>
+            <div class="summary-value">5</div>
+            <div class="summary-label">{% trans "موردين" %}</div>
+        </div>
+    </div>
+    
+    <!-- Bulk Actions -->
+    <div class="bulk-actions">
+        <div class="select-all">
+            <input type="checkbox" id="selectAll">
+            <label for="selectAll">{% trans "تحديد الكل" %}</label>
+            <span class="selected-info">
+                (<strong id="selectedCount">0</strong> {% trans "محددة" %})
+            </span>
+        </div>
+        <div class="bulk-btns">
+            <button class="btn-bulk btn-bulk-skip" disabled>
+                <i class="fas fa-forward"></i>
+                {% trans "تخطي المحدد" %}
+            </button>
+            <button class="btn-bulk btn-bulk-create" disabled>
+                <i class="fas fa-check-double"></i>
+                {% trans "إنشاء قيود للمحدد" %}
+            </button>
+        </div>
+    </div>
+    
+    <!-- Invoice List -->
+    <div class="invoice-list">
+        <!-- Invoice 1 -->
+        <div class="invoice-card">
+            <div class="invoice-header">
+                <div class="invoice-check">
+                    <input type="checkbox" class="invoice-checkbox">
+                    <div>
+                        <div class="invoice-number">PO-2025-0892</div>
+                        <div class="invoice-date">15 يونيو 2025</div>
+                    </div>
+                </div>
+            </div>
+            <div class="invoice-body">
+                <div class="vendor-info">
+                    <div class="vendor-avatar">ش.إ</div>
+                    <div>
+                        <div class="vendor-name">{% trans "شركة الإمداد التجارية" %}</div>
+                        <div class="vendor-code">SUP-001</div>
+                    </div>
+                </div>
+                <div class="info-block">
+                    <label>{% trans "عدد الأصناف" %}</label>
+                    <div class="value">12 {% trans "صنف" %}</div>
+                </div>
+                <div class="info-block">
+                    <label>{% trans "المبلغ" %}</label>
+                    <div class="value amount">45,000 {% trans "ج.م" %}</div>
+                </div>
+                <div class="invoice-actions">
+                    <button class="btn-action btn-skip">
+                        <i class="fas fa-forward"></i>
+                        {% trans "تخطي" %}
+                    </button>
+                    <button class="btn-action btn-view">
+                        <i class="fas fa-eye"></i>
+                        {% trans "عرض" %}
+                    </button>
+                    <button class="btn-action btn-create">
+                        <i class="fas fa-plus-circle"></i>
+                        {% trans "إنشاء قيد" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Invoice 2 -->
+        <div class="invoice-card">
+            <div class="invoice-header">
+                <div class="invoice-check">
+                    <input type="checkbox" class="invoice-checkbox">
+                    <div>
+                        <div class="invoice-number">PO-2025-0915</div>
+                        <div class="invoice-date">18 يونيو 2025</div>
+                    </div>
+                </div>
+            </div>
+            <div class="invoice-body">
+                <div class="vendor-info">
+                    <div class="vendor-avatar">م.ن</div>
+                    <div>
+                        <div class="vendor-name">{% trans "مؤسسة النور للتوريدات" %}</div>
+                        <div class="vendor-code">SUP-005</div>
+                    </div>
+                </div>
+                <div class="info-block">
+                    <label>{% trans "عدد الأصناف" %}</label>
+                    <div class="value">5 {% trans "صنف" %}</div>
+                </div>
+                <div class="info-block">
+                    <label>{% trans "المبلغ" %}</label>
+                    <div class="value amount">28,500 {% trans "ج.م" %}</div>
+                </div>
+                <div class="invoice-actions">
+                    <button class="btn-action btn-skip">
+                        <i class="fas fa-forward"></i>
+                        {% trans "تخطي" %}
+                    </button>
+                    <button class="btn-action btn-view">
+                        <i class="fas fa-eye"></i>
+                        {% trans "عرض" %}
+                    </button>
+                    <button class="btn-action btn-create">
+                        <i class="fas fa-plus-circle"></i>
+                        {% trans "إنشاء قيد" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Invoice 3 -->
+        <div class="invoice-card">
+            <div class="invoice-header">
+                <div class="invoice-check">
+                    <input type="checkbox" class="invoice-checkbox">
+                    <div>
+                        <div class="invoice-number">PO-2025-0923</div>
+                        <div class="invoice-date">20 يونيو 2025</div>
+                    </div>
+                </div>
+            </div>
+            <div class="invoice-body">
+                <div class="vendor-info">
+                    <div class="vendor-avatar">ت.ع</div>
+                    <div>
+                        <div class="vendor-name">{% trans "توريدات عامة" %}</div>
+                        <div class="vendor-code">SUP-012</div>
+                    </div>
+                </div>
+                <div class="info-block">
+                    <label>{% trans "عدد الأصناف" %}</label>
+                    <div class="value">8 {% trans "صنف" %}</div>
+                </div>
+                <div class="info-block">
+                    <label>{% trans "المبلغ" %}</label>
+                    <div class="value amount">62,000 {% trans "ج.م" %}</div>
+                </div>
+                <div class="invoice-actions">
+                    <button class="btn-action btn-skip">
+                        <i class="fas fa-forward"></i>
+                        {% trans "تخطي" %}
+                    </button>
+                    <button class="btn-action btn-view">
+                        <i class="fas fa-eye"></i>
+                        {% trans "عرض" %}
+                    </button>
+                    <button class="btn-action btn-create">
+                        <i class="fas fa-plus-circle"></i>
+                        {% trans "إنشاء قيد" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.invoice-checkbox');
+    const selectedCount = document.getElementById('selectedCount');
+    const bulkBtns = document.querySelectorAll('.btn-bulk');
+    
+    function updateSelection() {
+        const checked = document.querySelectorAll('.invoice-checkbox:checked').length;
+        selectedCount.textContent = checked;
+        bulkBtns.forEach(btn => btn.disabled = checked === 0);
+        
+        checkboxes.forEach(cb => {
+            cb.closest('.invoice-card').classList.toggle('selected', cb.checked);
+        });
+    }
+    
+    selectAll.addEventListener('change', function() {
+        checkboxes.forEach(cb => cb.checked = this.checked);
+        updateSelection();
+    });
+    
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', updateSelection);
+    });
+});
+</script>
+{% endblock %}
+

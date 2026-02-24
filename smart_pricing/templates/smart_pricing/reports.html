@@ -1,0 +1,286 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "تقارير التسعير" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-card {
+        border-radius: 15px;
+        overflow: hidden;
+    }
+    .report-stat {
+        padding: 20px;
+        text-align: center;
+        border-radius: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'smart_pricing:dashboard' %}">{% trans "التسعير الذكي" %}</a>
+                    </li>
+                    <li class="breadcrumb-item active">{% trans "التقارير" %}</li>
+                </ol>
+            </nav>
+            <h2>
+                <i class="fas fa-chart-bar text-primary"></i>
+                {% trans "تقارير التسعير" %}
+            </h2>
+        </div>
+    </div>
+
+    <!-- اختيار نوع التقرير -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="btn-group">
+                <a href="?type=history" class="btn btn-{% if report_type == 'history' %}primary{% else %}outline-primary{% endif %}">
+                    <i class="fas fa-history"></i> {% trans "تاريخ الأسعار" %}
+                </a>
+                <a href="?type=competitor" class="btn btn-{% if report_type == 'competitor' %}primary{% else %}outline-primary{% endif %}">
+                    <i class="fas fa-users"></i> {% trans "تحليل المنافسين" %}
+                </a>
+                <a href="?type=profitability" class="btn btn-{% if report_type == 'profitability' %}primary{% else %}outline-primary{% endif %}">
+                    <i class="fas fa-dollar-sign"></i> {% trans "الربحية" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if report_type == 'history' %}
+    <!-- تقرير تاريخ الأسعار -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="report-stat bg-primary text-white">
+                <h2>{{ data.statistics.total_changes|default:0 }}</h2>
+                <small>{% trans "إجمالي التغييرات" %}</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="report-stat bg-success text-white">
+                <h2>{{ data.statistics.increases|default:0 }}</h2>
+                <small>{% trans "زيادات" %}</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="report-stat bg-danger text-white">
+                <h2>{{ data.statistics.decreases|default:0 }}</h2>
+                <small>{% trans "تخفيضات" %}</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="report-stat bg-info text-white">
+                <h2>{{ data.statistics.avg_change|floatformat:1|default:0 }}%</h2>
+                <small>{% trans "متوسط التغيير" %}</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- التغييرات حسب السبب -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card report-card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-pie-chart text-primary"></i>
+                        {% trans "التغييرات حسب السبب" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% for item in data.by_reason %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>{{ item.reason }}</span>
+                        <span class="badge bg-primary">{{ item.count }}</span>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted">{% trans "لا توجد بيانات" %}</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card report-card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list text-success"></i>
+                        {% trans "أحدث التغييرات" %}
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{% trans "المنتج" %}</th>
+                                    <th>{% trans "التغيير" %}</th>
+                                    <th>{% trans "التاريخ" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for change in data.recent_changes %}
+                                <tr>
+                                    <td>{{ change.product__name|truncatewords:3 }}</td>
+                                    <td>
+                                        <span class="{% if change.price_change_percentage > 0 %}text-success{% else %}text-danger{% endif %}">
+                                            {{ change.price_change_percentage|floatformat:1 }}%
+                                        </span>
+                                    </td>
+                                    <td><small>{{ change.changed_at|date:"d/m" }}</small></td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center">{% trans "لا توجد بيانات" %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% elif report_type == 'competitor' %}
+    <!-- تقرير تحليل المنافسين -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="report-stat bg-info text-white">
+                <h2>{{ data.summary.total_competitors|default:0 }}</h2>
+                <small>{% trans "عدد المنافسين" %}</small>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="report-stat bg-success text-white">
+                <h2>{{ data.summary.total_tracked_prices|default:0 }}</h2>
+                <small>{% trans "أسعار مسجلة" %}</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card report-card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">{% trans "تحليل المنافسين" %}</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{% trans "المنافس" %}</th>
+                                    <th>{% trans "النوع" %}</th>
+                                    <th>{% trans "الحصة السوقية" %}</th>
+                                    <th>{% trans "مستوى السعر" %}</th>
+                                    <th>{% trans "الجودة" %}</th>
+                                    <th>{% trans "أسعار مسجلة" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for comp in data.competitors %}
+                                <tr>
+                                    <td><strong>{{ comp.name }}</strong></td>
+                                    <td>{{ comp.type }}</td>
+                                    <td>
+                                        <div class="progress" style="height: 8px;">
+                                            <div class="progress-bar" style="width: {{ comp.market_share }}%;"></div>
+                                        </div>
+                                        <small>{{ comp.market_share }}%</small>
+                                    </td>
+                                    <td>{{ comp.price_level }}</td>
+                                    <td>{{ comp.quality_rating }}/10</td>
+                                    <td>{{ comp.tracked_prices }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center">{% trans "لا توجد بيانات" %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% elif report_type == 'profitability' %}
+    <!-- تقرير الربحية -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="report-stat bg-success text-white">
+                <h2>{{ data.summary.overall_margin|floatformat:1|default:0 }}%</h2>
+                <small>{% trans "الهامش الإجمالي" %}</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="report-stat bg-primary text-white">
+                <h2>{{ data.summary.average_margin|floatformat:1|default:0 }}%</h2>
+                <small>{% trans "متوسط الهامش" %}</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="report-stat bg-info text-white">
+                <h2>{{ data.summary.total_products|default:0 }}</h2>
+                <small>{% trans "عدد المنتجات" %}</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card report-card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">{% trans "ربحية المنتجات" %}</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{% trans "المنتج" %}</th>
+                                    <th>{% trans "سعر البيع" %}</th>
+                                    <th>{% trans "التكلفة" %}</th>
+                                    <th>{% trans "الربح" %}</th>
+                                    <th>{% trans "الهامش" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for product in data.products %}
+                                <tr>
+                                    <td><strong>{{ product.name|truncatewords:4 }}</strong></td>
+                                    <td>{{ product.price|floatformat:2 }} ر.س</td>
+                                    <td>{{ product.cost_price|floatformat:2 }} ر.س</td>
+                                    <td class="text-success">{{ product.profit|floatformat:2 }} ر.س</td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if product.margin_percentage >= 30 %}bg-success
+                                            {% elif product.margin_percentage >= 15 %}bg-warning
+                                            {% else %}bg-danger{% endif %}">
+                                            {{ product.margin_percentage|floatformat:1 }}%
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center">{% trans "لا توجد بيانات" %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

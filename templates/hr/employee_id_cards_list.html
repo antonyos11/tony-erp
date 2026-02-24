@@ -1,0 +1,394 @@
+﻿{% extends 'base_templates/_list_professional.html' %}
+
+{% block hero_icon %}bi-person-badge-fill{% endblock %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{{ page_title|default:'قائمة البطاقات التعريفية' }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --idc-ink: var(--neo-text);
+        --idc-muted: var(--neo-muted);
+        --idc-accent: #7c7bff;
+        --idc-accent-2: #17e9b5;
+        --idc-surface: rgba(255,255,255,0.04);
+        --idc-border: var(--neo-border);
+    }
+
+    .page-hero {
+        background: radial-gradient(circle at 12% 22%, rgba(124,123,255,0.22), transparent 32%),
+                    radial-gradient(circle at 88% 6%, rgba(23,233,181,0.22), transparent 30%),
+                    linear-gradient(135deg, #0d1226 0%, #101b3a 60%, #0b1021 100%);
+        color: #f5f7ff;
+        padding: 1.9rem 1.6rem;
+        border-radius: 20px;
+        margin-bottom: 1.6rem;
+        box-shadow: 0 26px 60px rgba(0,0,0,0.35);
+        position: relative;
+        overflow: hidden;
+    }
+    .page-hero::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(120deg, rgba(124,123,255,0.25), rgba(23,233,181,0.1));
+        opacity: .4;
+        pointer-events: none;
+    }
+    .page-hero h1 { font-size: 1.65rem; font-weight: 800; margin: 0; letter-spacing: -.2px; }
+    .page-hero p { margin: 0.45rem 0 0; color: rgba(245,247,255,0.8); }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1.1rem; position: relative; z-index: 1; }
+    .stat-card { background: rgba(255,255,255,0.06); border: 1px solid var(--idc-border); border-radius: 14px; padding: 1rem; color: #fff; display: flex; align-items: center; gap: 0.85rem; box-shadow: 0 14px 34px rgba(0,0,0,0.22); }
+    .stat-icon { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: rgba(255,255,255,0.14); font-size: 1.1rem; }
+    .stat-label { font-size: 0.82rem; opacity: 0.82; }
+    .stat-value { font-weight: 800; letter-spacing: -0.2px; }
+
+    /* Quick Actions */
+    .quick-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.6rem; }
+    .quick-action-card { background: var(--idc-surface); border: 1px solid var(--idc-border); border-radius: 18px; padding: 1.15rem; display: flex; align-items: center; gap: 1rem; text-decoration: none; color: var(--idc-ink); box-shadow: 0 16px 40px rgba(0,0,0,0.25); transition: transform .25s ease, box-shadow .25s ease, border-color .2s ease; }
+    .quick-action-card:hover { transform: translateY(-4px); box-shadow: 0 22px 55px rgba(0,0,0,0.32); border-color: rgba(124,123,255,0.45); }
+    .quick-action-icon { width: 54px; height: 54px; border-radius: 16px; display: grid; place-items: center; font-size: 1.35rem; flex-shrink: 0; }
+    .quick-action-icon.blue { background: rgba(124,123,255,0.18); color: #a5a7ff; }
+    .quick-action-icon.green { background: rgba(23,233,181,0.15); color: #2eedc7; }
+    .quick-action-icon.purple { background: rgba(128,90,213,0.16); color: #c1a2ff; }
+    .quick-action-icon.orange { background: rgba(245,158,11,0.16); color: #ffc166; }
+    .quick-action-icon.pink { background: rgba(236,72,153,0.16); color: #ffa4d0; }
+    .quick-action-icon.indigo { background: rgba(99,102,241,0.18); color: #c2c5ff; }
+    .quick-action-title { font-weight: 800; font-size: 1rem; margin: 0; letter-spacing: -.2px; }
+    .quick-action-desc { font-size: 0.86rem; color: var(--idc-muted); margin: 0.25rem 0 0; }
+
+    .content-card { background: var(--idc-surface); border: 1px solid var(--idc-border); border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.28); overflow: hidden; backdrop-filter: blur(12px); }
+    .card-toolbar { display: flex; flex-wrap: wrap; gap: 0.9rem; justify-content: space-between; align-items: center; padding: 1rem 1.35rem; border-bottom: 1px solid var(--idc-border); background: rgba(255,255,255,0.03); }
+    .search-box { position: relative; width: 320px; max-width: 100%; }
+    .search-box input { width: 100%; padding: 0.65rem 2.5rem 0.65rem 0.9rem; border: 1px solid var(--idc-border); border-radius: 12px; font-size: 0.96rem; transition: all 0.2s ease; background: rgba(255,255,255,0.04); color: var(--idc-ink); }
+    .search-box input:focus { outline: none; border-color: rgba(124,123,255,0.45); box-shadow: 0 0 0 4px rgba(124,123,255,0.12); background: rgba(255,255,255,0.08); }
+    .search-box i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--idc-muted); }
+    .toolbar-actions { display: flex; gap: 0.65rem; flex-wrap: wrap; }
+    .btn-primary-custom { background: linear-gradient(135deg, #5157ff, #17e9b5); color: #fff; border: none; padding: 0.65rem 1.05rem; border-radius: 12px; display: inline-flex; align-items: center; gap: 0.45rem; font-weight: 800; text-decoration: none; box-shadow: 0 18px 40px rgba(81,87,255,0.35); }
+    .btn-primary-custom:hover { transform: translateY(-2px); color: #fff; }
+    .btn-ghost { background: rgba(255,255,255,0.04); border: 1px solid var(--idc-border); padding: 0.6rem 0.95rem; border-radius: 12px; color: var(--idc-muted); text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; }
+    .btn-ghost:hover { border-color: rgba(124,123,255,0.45); color: #c7caff; }
+
+    .data-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+    .data-table th { background: rgba(255,255,255,0.05); padding: 0.95rem; text-align: right; font-weight: 800; color: var(--idc-ink); border-bottom: 1px solid var(--idc-border); letter-spacing: .2px; }
+    .data-table td { padding: 0.9rem; border-bottom: 1px solid var(--idc-border); vertical-align: middle; color: var(--idc-ink); }
+    .data-table tr:hover { background: rgba(124,123,255,0.06); }
+    
+    .employee-cell { display: flex; align-items: center; gap: 0.8rem; }
+    .employee-photo { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid var(--idc-border); }
+    .employee-photo-placeholder { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.05); display: grid; place-items: center; color: var(--idc-muted); }
+    .employee-name { font-weight: 800; }
+    .card-number { font-family: 'Space Grotesk', monospace; font-size: 0.88rem; color: var(--idc-muted); }
+    
+    .table-actions { display: flex; gap: 0.5rem; justify-content: center; }
+    .table-actions a, .table-actions button { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; border: 1px solid var(--idc-border); background: rgba(255,255,255,0.04); color: var(--idc-ink); transition: all 0.2s ease; cursor: pointer; box-shadow: 0 10px 24px rgba(0,0,0,0.2); }
+    .table-actions a:hover, .table-actions button:hover { border-color: rgba(124,123,255,0.45); color: #c7caff; transform: translateY(-2px); }
+    .empty-state { text-align: center; padding: 3rem 1rem; color: var(--idc-muted); }
+    .empty-state i { font-size: 3rem; margin-bottom: 0.5rem; color: var(--idc-accent); }
+
+    .pagination-wrapper { padding: 1rem; display: flex; justify-content: center; }
+    .pagination { display: flex; gap: 0.35rem; }
+    .pagination .page-link { padding: 0.55rem 0.8rem; border-radius: 12px; border: 1px solid var(--idc-border); color: var(--idc-ink); background: rgba(255,255,255,0.04); }
+    .pagination .active .page-link { background: linear-gradient(135deg, #5157ff, #17e9b5); color: #fff; border-color: transparent; box-shadow: 0 12px 28px rgba(81,87,255,0.32); }
+
+    @media (max-width: 768px) {
+        .card-toolbar { flex-direction: column; align-items: stretch; }
+        .search-box { width: 100%; }
+        .table-actions { gap: 0.35rem; }
+        .quick-actions { grid-template-columns: repeat(1, 1fr); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    {% with list_items=object_list|default:page_obj|default:cards %}
+    <div class="page-hero">
+        <h1><i class="bi bi-person-badge me-2"></i>{{ page_title|default:'قائمة البطاقات التعريفية' }}</h1>
+        <p>إدارة بطاقات الموظفين مع عرض الحالات والتواريخ وروابط الطباعة.</p>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="bi bi-collection"></i></div>
+                <div><div class="stat-label">إجمالي البطاقات</div><div class="stat-value">{{ total_cards|default:0 }}</div></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="bi bi-shield-check"></i></div>
+                <div><div class="stat-label">نشطة</div><div class="stat-value">{{ active_cards|default:0 }}</div></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="bi bi-clock-history"></i></div>
+                <div><div class="stat-label">منتهية قريباً</div><div class="stat-value">{{ expiring_soon|default:0 }}</div></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="bi bi-x-circle"></i></div>
+                <div><div class="stat-label">ملغاة/منتهية</div><div class="stat-value">{{ expired_cards|default:0 }}</div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- أزرار الوصول السريع للميزات الجديدة -->
+    <div class="quick-actions">
+        <a href="{% url 'hr:id_card_create_single' %}" class="quick-action-card">
+            <div class="quick-action-icon blue"><i class="bi bi-plus-circle"></i></div>
+            <div>
+                <p class="quick-action-title">إنشاء بطاقة جديدة</p>
+                <p class="quick-action-desc">إصدار بطاقة لموظف واحد</p>
+            </div>
+        </a>
+        <a href="{% url 'hr:id_card_bulk_create' %}" class="quick-action-card">
+            <div class="quick-action-icon green"><i class="bi bi-people"></i></div>
+            <div>
+                <p class="quick-action-title">إنشاء مجمع</p>
+                <p class="quick-action-desc">إصدار بطاقات لعدة موظفين</p>
+            </div>
+        </a>
+        <a href="{% url 'hr:id_card_template_list' %}" class="quick-action-card">
+            <div class="quick-action-icon purple"><i class="bi bi-palette"></i></div>
+            <div>
+                <p class="quick-action-title">قوالب التصميم</p>
+                <p class="quick-action-desc">تخصيص شكل البطاقات</p>
+            </div>
+        </a>
+        <a href="{% url 'hr:id_card_batch_list' %}" class="quick-action-card">
+            <div class="quick-action-icon orange"><i class="bi bi-printer"></i></div>
+            <div>
+                <p class="quick-action-title">دفعات الطباعة</p>
+                <p class="quick-action-desc">إدارة عمليات الطباعة</p>
+            </div>
+        </a>
+        <a href="{% url 'hr:id_card_verify_qr' %}" class="quick-action-card">
+            <div class="quick-action-icon pink"><i class="bi bi-qr-code-scan"></i></div>
+            <div>
+                <p class="quick-action-title">مسح QR للتحقق</p>
+                <p class="quick-action-desc">التحقق من صلاحية البطاقة</p>
+            </div>
+        </a>
+        <a href="{% url 'hr:id_card_reports' %}" class="quick-action-card">
+            <div class="quick-action-icon indigo"><i class="bi bi-graph-up"></i></div>
+            <div>
+                <p class="quick-action-title">التقارير والإحصائيات</p>
+                <p class="quick-action-desc">تحليل بيانات البطاقات</p>
+            </div>
+        </a>
+        <a href="#" class="quick-action-card" data-bs-toggle="modal" data-bs-target="#lostCardModal">
+            <div class="quick-action-icon" style="background: rgba(220,53,69,0.16); color: #ff8096;"><i class="bi bi-exclamation-triangle"></i></div>
+            <div>
+                <p class="quick-action-title">الإبلاغ عن فقدان</p>
+                <p class="quick-action-desc">إيقاف بطاقة وإصدار بديلة</p>
+            </div>
+        </a>
+    </div>
+
+    <!-- Modal اختيار بطاقة مفقودة -->
+    <div class="modal fade" id="lostCardModal" tabindex="-1" aria-labelledby="lostCardModalLabel" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="background: var(--neo-surface); border: 1px solid var(--neo-border); border-radius: 20px;">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title text-danger" id="lostCardModalLabel">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        الإبلاغ عن فقدان بطاقة
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">اختر البطاقة المفقودة لإيقافها وإصدار بطاقة بديلة:</p>
+                    <form id="lostCardForm" method="get" action="">
+                        <select id="lostCardSelect" class="form-select" required style="background: var(--idc-surface); border-color: var(--idc-border); color: var(--idc-ink);">
+                            <option value="">-- اختر البطاقة --</option>
+                            {% for card in list_items %}
+                            {% if card.status == 'active' %}
+                            <option value="{{ card.id }}">{{ card.employee.full_name|default:card.employee }} - {{ card.card_number }}</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                    </form>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="button" class="btn btn-danger" onclick="goToLostCard()">
+                        <i class="bi bi-shield-exclamation me-1"></i>
+                        متابعة
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="content-card">
+        <div class="card-toolbar">
+            <div class="search-box">
+                <input id="searchInput" type="search" placeholder="{% trans 'ابحث في البطاقات...' %}" onkeyup="filterTable()">
+                <i class="bi bi-search"></i>
+            </div>
+            <div class="toolbar-actions">
+                <a class="btn-primary-custom" href="{% url 'hr:id_card_select_employee' %}">
+                    <i class="bi bi-plus-lg"></i><span>إصدار بطاقة</span>
+                </a>
+                <a class="btn-ghost" href="{% url 'hr:id_card_bulk_create' %}">
+                    <i class="bi bi-people"></i> إصدار مجمع
+                </a>
+                <a class="btn-ghost" href="{% url 'hr:id_card_reports' %}">
+                    <i class="bi bi-bar-chart"></i> التقارير
+                </a>
+            </div>
+        </div>
+
+        {% if list_items %}
+        <div class="table-responsive">
+            <table class="data-table" id="dataTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>{% trans 'الموظف' %}</th>
+                        <th>{% trans 'رقم البطاقة' %}</th>
+                        <th>{% trans 'الحالة' %}</th>
+                        <th>{% trans 'تاريخ الإصدار' %}</th>
+                        <th>{% trans 'تاريخ الانتهاء' %}</th>
+                        <th style="text-align:center">{% trans 'الإجراءات' %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for card in list_items %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>
+                            <div class="employee-cell">
+                                {% if card.employee.photo %}
+                                    <img src="{{ card.employee.photo.url }}" alt="" class="employee-photo">
+                                {% else %}
+                                    <div class="employee-photo-placeholder"><i class="bi bi-person"></i></div>
+                                {% endif %}
+                                <div>
+                                    <div class="employee-name">{{ card.employee.full_name|default:card.employee }}</div>
+                                    <small class="text-muted">{{ card.employee.department|default:'-' }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td><code class="card-number">{{ card.card_number }}</code></td>
+                        <td>
+                            {% if card.status == 'active' and card.expiry_date >= today %}
+                                <span class="status-badge status-active"><i class="bi bi-check-circle"></i> نشطة</span>
+                            {% elif card.status == 'expired' or card.expiry_date < today %}
+                                <span class="status-badge status-expired"><i class="bi bi-clock-history"></i> منتهية</span>
+                            {% elif card.status == 'revoked' %}
+                                <span class="status-badge status-inactive"><i class="bi bi-x-circle"></i> ملغاة</span>
+                            {% else %}
+                                <span class="status-badge status-pending"><i class="bi bi-hourglass-split"></i> معلقة</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ card.issue_date|date:"Y/m/d" }}</td>
+                        <td>{{ card.expiry_date|date:"Y/m/d" }}</td>
+                        <td>
+                            <div class="table-actions">
+                                <a href="{% url 'hr:id_card_preview' card_id=card.id %}" title="معاينة"><i class="bi bi-eye"></i></a>
+                                <a href="{% url 'hr:id_card_download_pdf' card_id=card.id %}" title="تحميل PDF"><i class="bi bi-file-earmark-pdf"></i></a>
+                                <a href="{% url 'hr:id_card_download_pvc' card_id=card.id %}" title="بطاقة PVC"><i class="bi bi-credit-card"></i></a>
+                                <a href="{% url 'hr:id_card_history' employee_id=card.employee.id %}" title="السجل"><i class="bi bi-clock-history"></i></a>
+                                {% if card.status == 'active' %}
+                                <a href="{% url 'hr:id_card_lost_replacement' card_id=card.id %}" 
+                                   class="text-danger" 
+                                   title="الإبلاغ عن فقدان"
+                                   style="border-color: rgba(220,53,69,0.4);">
+                                    <i class="bi bi-shield-exclamation"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            <i class="bi bi-inbox"></i>
+                            <h5>{% trans 'لا توجد بطاقات' %}</h5>
+                            <p>{% trans 'لم يتم إصدار أي بطاقات بعد' %}</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <div class="pagination-wrapper">
+            <nav>
+                <ul class="pagination">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}"><i class="bi bi-chevron-right"></i></a></li>
+                    {% endif %}
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                        {% endif %}
+                    {% endfor %}
+                    {% if page_obj.has_next %}
+                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}"><i class="bi bi-chevron-left"></i></a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-person-badge"></i>
+            <h5>{% trans 'لا توجد بطاقات' %}</h5>
+            <p>{% trans 'ابدأ بإصدار بطاقات التعريف للموظفين' %}</p>
+            <div class="mt-3">
+                <a href="{% url 'hr:id_card_select_employee' %}" class="btn-primary-custom"><i class="bi bi-plus-lg"></i> إصدار بطاقة</a>
+                <a href="{% url 'hr:id_card_bulk_create' %}" class="btn-ghost me-2"><i class="bi bi-people"></i> إصدار مجمع</a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endwith %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filterTable() {
+    const input = document.getElementById('searchInput');
+    const filter = input ? input.value.toLowerCase() : '';
+    const table = document.getElementById('dataTable');
+    if (!table) return;
+    const rows = table.getElementsByTagName('tr');
+    for (let i = 1; i < rows.length; i++) {
+        const cells = rows[i].getElementsByTagName('td');
+        let found = false;
+        for (let j = 0; j < cells.length; j++) {
+            if (cells[j].textContent.toLowerCase().indexOf(filter) > -1) {
+                found = true;
+                break;
+            }
+        }
+        rows[i].style.display = found ? '' : 'none';
+    }
+}
+
+function confirmDelete(id) {
+    if (confirm('{% trans "هل أنت متأكد من الحذف؟" %}')) {
+        console.log('Delete:', id);
+        // TODO: wire delete endpoint
+    }
+}
+
+function exportTable() {
+    alert('{% trans "جاري التصدير..." %}');
+}
+
+function goToLostCard() {
+    const select = document.getElementById('lostCardSelect');
+    const cardId = select.value;
+    if (!cardId) {
+        alert('الرجاء اختيار بطاقة');
+        return;
+    }
+    window.location.href = '{% url "hr:id_card_lost_replacement" card_id=0 %}'.replace('/0/', '/' + cardId + '/');
+}
+</script>
+{% endblock %}
+

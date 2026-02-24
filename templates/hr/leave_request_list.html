@@ -1,0 +1,112 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}طلبات الإجازات{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-list-ul"></i> طلبات الإجازات</h4>
+    <div class="btn-group">
+      <a href="{% url 'hr:leave_request_create' %}" class="btn btn-outline-secondary">
+        نموذج متقدم
+      </a>
+      <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#quickLeaveModal">
+        <i class="bi bi-plus"></i> طلب سريع
+      </button>
+    </div>
+  </div>
+
+  <form method="get" class="row g-2 mb-3">
+    <div class="col-md-3">
+      <select class="form-select" name="status">
+        <option value="">جميع الحالات</option>
+        {% for s in status_choices %}
+          {# s.0 = value, s.1 = label #}
+          <option value="{{ s.0 }}" {% if request.GET.status == s.0 %}selected{% endif %}>{{ s.1 }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-outline-primary w-100" type="submit">تصفية</button>
+    </div>
+  </form>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>الموظف</th>
+              <th>نوع الإجازة</th>
+              <th>الفترة</th>
+              <th>الأيام</th>
+              <th>الحالة</th>
+              <th>تاريخ الإنشاء</th>
+              <th class="text-center" style="width: 160px;">إجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in requests %}
+            <tr>
+              <td>{{ r.employee.arabic_name }}</td>
+              <td>{{ r.leave_type.name }}</td>
+              <td>{{ r.start_date }} إلى {{ r.end_date }}</td>
+              <td><span class="badge bg-info">{{ r.days_requested }} يوم</span></td>
+              <td>
+                {% if r.status == 'pending' %}
+                  <span class="badge bg-warning">معلق</span>
+                {% elif r.status == 'approved' %}
+                  <span class="badge bg-success">موافق عليه</span>
+                {% elif r.status == 'rejected' %}
+                  <span class="badge bg-danger">مرفوض</span>
+                {% elif r.status == 'cancelled' %}
+                  <span class="badge bg-secondary">ملغي</span>
+                {% endif %}
+              </td>
+              <td>{{ r.created_at|date:'Y-m-d H:i' }}</td>
+              <td>
+                <div class="d-flex gap-2 justify-content-center">
+                  <a href="{% url 'hr:leave_request_detail' r.pk %}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-eye"></i>
+                  </a>
+                  {% if r.status == 'pending' %}
+                    <a href="{% url 'hr:leave_request_approve' r.pk %}" class="btn btn-sm btn-outline-success" title="موافقة">
+                      <i class="bi bi-check-lg"></i>
+                    </a>
+                    <a href="{% url 'hr:leave_request_reject' r.pk %}" class="btn btn-sm btn-outline-danger" title="رفض">
+                      <i class="bi bi-x-lg"></i>
+                    </a>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-4">
+                <i class="bi bi-calendar-x fs-2 d-block mb-2"></i>
+                لا توجد طلبات إجازة
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="quickLeaveModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post">{% csrf_token %}
+        <div class="modal-header"><h5 class="modal-title">طلب إجازة سريع</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          {% if form %}{{ form.as_p }}{% else %}<p class="text-muted">النموذج غير متاح حالياً.</p>{% endif %}
+        </div>
+        <div class="modal-footer"><button class="btn btn-primary" type="submit">حفظ</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,112 @@
+{% extends 'base_v2.html' %}
+{% load static %}
+
+{% block title %}تسجيل حضور/انصراف{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-lg">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="bi bi-clock me-2"></i>تسجيل حضور/انصراف</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'branches:attendance_punch' %}" id="punchForm">
+                        {% csrf_token %}
+                        
+                        {% if messages %}
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            {% for message in messages %}
+                            {{ message }}
+                            {% endfor %}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endif %}
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">الفرع <span class="text-danger">*</span></label>
+                            <select id="branchSelect" name="branch" class="form-select form-select-lg" required onchange="loadStaff()">
+                                <option value="">-- اختر الفرع --</option>
+                                {% for branch in branches %}
+                                <option value="{{ branch.id }}">{{ branch.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">الموظف <span class="text-danger">*</span></label>
+                            <select id="employeeSelect" name="employee" class="form-select form-select-lg" required disabled>
+                                <option value="">-- اختر الفرع أولاً --</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">الإجراء <span class="text-danger">*</span></label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="action" id="actionIn" value="in" required>
+                                <label class="btn btn-outline-success btn-lg" for="actionIn">
+                                    <i class="bi bi-arrow-right me-2"></i>حضور
+                                </label>
+
+                                <input type="radio" class="btn-check" name="action" id="actionOut" value="out" required>
+                                <label class="btn btn-outline-danger btn-lg" for="actionOut">
+                                    <i class="bi bi-arrow-left me-2"></i>انصراف
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 mt-5">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-check-circle me-2"></i>تسجيل
+                            </button>
+                            <a href="{% url 'branches:attendance_list' %}" class="btn btn-secondary btn-lg">
+                                <i class="bi bi-arrow-left me-2"></i>العودة
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function loadStaff() {
+    var branchId = document.getElementById('branchSelect').value;
+    var empSelect = document.getElementById('employeeSelect');
+    
+    if (!branchId) {
+        empSelect.innerHTML = '<option value="">-- اختر الفرع أولاً --</option>';
+        empSelect.disabled = true;
+        return;
+    }
+    
+    empSelect.innerHTML = '<option value="">جاري التحميل...</option>';
+    empSelect.disabled = true;
+    
+    fetch('/branches/api/staff/?branch=' + branchId)
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+            empSelect.innerHTML = '<option value="">-- اختر الموظف --</option>';
+            if (data.staff && data.staff.length > 0) {
+                data.staff.forEach(function(emp) {
+                    var opt = document.createElement('option');
+                    opt.value = emp.id;
+                    opt.textContent = emp.name;
+                    empSelect.appendChild(opt);
+                });
+                empSelect.disabled = false;
+            } else {
+                empSelect.innerHTML = '<option value="">لا توجد موظفون في هذا الفرع</option>';
+                empSelect.disabled = true;
+            }
+        })
+        .catch(function(err) {
+            console.error('خطأ:', err);
+            empSelect.innerHTML = '<option value="">خطأ في تحميل الموظفين</option>';
+            empSelect.disabled = true;
+        });
+}
+</script>
+{% endblock %}

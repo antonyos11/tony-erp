@@ -1,0 +1,340 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "التسعير الموسمي" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .season-card {
+        border-radius: 15px;
+        border: none;
+        transition: all 0.3s ease;
+        overflow: hidden;
+    }
+    .season-card:hover {
+        transform: translateY(-5px);
+    }
+    .season-active {
+        border-right: 5px solid #28a745;
+    }
+    .season-icon {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+    }
+    .season-header {
+        padding: 20px;
+        color: white;
+    }
+    .ramadan { background: linear-gradient(135deg, #4a1942 0%, #2c3e50 100%); }
+    .eid { background: linear-gradient(135deg, #f7b733 0%, #fc4a1a 100%); }
+    .back_to_school { background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%); }
+    .national_day { background: linear-gradient(135deg, #006400 0%, #228b22 100%); }
+    .summer { background: linear-gradient(135deg, #ff6b35 0%, #f7c59f 100%); }
+    .winter { background: linear-gradient(135deg, #667db6 0%, #0082c8 100%); }
+    .white_friday { background: linear-gradient(135deg, #141e30 0%, #243b55 100%); }
+    .default { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'smart_pricing:dashboard' %}">{% trans "التسعير الذكي" %}</a>
+                        </li>
+                        <li class="breadcrumb-item active">{% trans "التسعير الموسمي" %}</li>
+                    </ol>
+                </nav>
+                <h2>
+                    <i class="fas fa-calendar-alt text-primary"></i>
+                    {% trans "التسعير الموسمي" %}
+                </h2>
+                <p class="text-muted mb-0">{% trans "إدارة أسعار المنتجات حسب المواسم والمناسبات" %}</p>
+            </div>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addSeasonModal">
+                <i class="fas fa-plus"></i> {% trans "موسم جديد" %}
+            </button>
+        </div>
+    </div>
+
+    <!-- المواسم النشطة -->
+    {% with active_seasons=seasons|dictsort:"start_date" %}
+    {% for season in seasons %}
+    {% if season.is_currently_active %}
+    <div class="alert alert-success d-flex align-items-center mb-4" role="alert">
+        <i class="fas fa-star fa-2x me-3"></i>
+        <div>
+            <strong>{% trans "موسم نشط حالياً:" %}</strong> {{ season.name }}
+            <br>
+            <small>{% trans "نسبة التعديل:" %} 
+                {% if season.price_adjustment_percentage > 0 %}+{% endif %}{{ season.price_adjustment_percentage }}%
+            </small>
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+    {% endwith %}
+
+    <!-- قائمة المواسم -->
+    <div class="row">
+        {% for season in seasons %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card season-card shadow-sm h-100 {% if season.is_currently_active %}season-active{% endif %}">
+                <!-- رأس الموسم -->
+                <div class="season-header 
+                    {% if season.season_type == 'ramadan' %}ramadan
+                    {% elif season.season_type == 'eid' %}eid
+                    {% elif season.season_type == 'back_to_school' %}back_to_school
+                    {% elif season.season_type == 'national_day' %}national_day
+                    {% elif season.season_type == 'summer' %}summer
+                    {% elif season.season_type == 'winter' %}winter
+                    {% elif season.season_type == 'white_friday' %}white_friday
+                    {% else %}default{% endif %}">
+                    <div class="d-flex align-items-center">
+                        <div class="season-icon bg-white bg-opacity-25 me-3">
+                            {% if season.season_type == 'ramadan' %}
+                            <i class="fas fa-moon"></i>
+                            {% elif season.season_type == 'eid' %}
+                            <i class="fas fa-gift"></i>
+                            {% elif season.season_type == 'back_to_school' %}
+                            <i class="fas fa-school"></i>
+                            {% elif season.season_type == 'national_day' %}
+                            <i class="fas fa-flag"></i>
+                            {% elif season.season_type == 'summer' %}
+                            <i class="fas fa-sun"></i>
+                            {% elif season.season_type == 'winter' %}
+                            <i class="fas fa-snowflake"></i>
+                            {% elif season.season_type == 'white_friday' %}
+                            <i class="fas fa-tags"></i>
+                            {% else %}
+                            <i class="fas fa-calendar"></i>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <h5 class="mb-0">{{ season.name }}</h5>
+                            <small class="opacity-75">{{ season.get_season_type_display|default:season.season_type }}</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <!-- الحالة -->
+                    <div class="mb-3">
+                        {% if season.is_currently_active %}
+                        <span class="badge bg-success fs-6">
+                            <i class="fas fa-check-circle"></i> {% trans "نشط الآن" %}
+                        </span>
+                        {% elif season.is_active %}
+                        <span class="badge bg-info">
+                            <i class="fas fa-clock"></i> {% trans "مجدول" %}
+                        </span>
+                        {% else %}
+                        <span class="badge bg-secondary">
+                            <i class="fas fa-pause"></i> {% trans "متوقف" %}
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- التواريخ -->
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center text-muted mb-2">
+                            <i class="fas fa-play-circle text-success me-2"></i>
+                            <span>{% trans "البداية:" %} {{ season.start_date|date:"Y/m/d" }}</span>
+                        </div>
+                        <div class="d-flex align-items-center text-muted">
+                            <i class="fas fa-stop-circle text-danger me-2"></i>
+                            <span>{% trans "النهاية:" %} {{ season.end_date|date:"Y/m/d" }}</span>
+                        </div>
+                    </div>
+
+                    <!-- نسبة التعديل -->
+                    <div class="text-center py-3 bg-light rounded">
+                        <small class="text-muted d-block">{% trans "تعديل السعر" %}</small>
+                        <h3 class="mb-0 
+                            {% if season.price_adjustment_percentage > 0 %}text-success
+                            {% elif season.price_adjustment_percentage < 0 %}text-danger
+                            {% else %}text-secondary{% endif %}">
+                            {% if season.price_adjustment_percentage > 0 %}+{% endif %}
+                            {{ season.price_adjustment_percentage }}%
+                        </h3>
+                    </div>
+
+                    <!-- الوصف -->
+                    {% if season.description %}
+                    <p class="text-muted small mt-3 mb-0">
+                        {{ season.description|truncatewords:20 }}
+                    </p>
+                    {% endif %}
+                </div>
+
+                <div class="card-footer bg-white border-0">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-primary flex-grow-1"
+                                onclick="editSeason({{ season.id }})">
+                            <i class="fas fa-edit"></i> {% trans "تعديل" %}
+                        </button>
+                        <button class="btn btn-sm 
+                            {% if season.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}"
+                            onclick="toggleSeason({{ season.id }})">
+                            {% if season.is_active %}
+                            <i class="fas fa-pause"></i>
+                            {% else %}
+                            <i class="fas fa-play"></i>
+                            {% endif %}
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger"
+                                onclick="deleteSeason({{ season.id }})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card season-card shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-calendar-alt fa-4x text-muted mb-3"></i>
+                    <h4 class="text-muted">{% trans "لا توجد مواسم" %}</h4>
+                    <p class="text-muted mb-4">{% trans "قم بإنشاء مواسم لتعديل الأسعار في المناسبات" %}</p>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addSeasonModal">
+                        <i class="fas fa-plus"></i> {% trans "إنشاء أول موسم" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal إضافة موسم -->
+<div class="modal fade" id="addSeasonModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "إنشاء موسم جديد" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "اسم الموسم" %}</label>
+                            <input type="text" name="name" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "نوع الموسم" %}</label>
+                            <select name="season_type" class="form-select">
+                                <option value="ramadan">{% trans "رمضان" %}</option>
+                                <option value="eid">{% trans "العيد" %}</option>
+                                <option value="back_to_school">{% trans "العودة للمدارس" %}</option>
+                                <option value="national_day">{% trans "اليوم الوطني" %}</option>
+                                <option value="summer">{% trans "الصيف" %}</option>
+                                <option value="winter">{% trans "الشتاء" %}</option>
+                                <option value="white_friday">{% trans "الجمعة البيضاء" %}</option>
+                                <option value="custom">{% trans "مخصص" %}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "تاريخ البداية" %}</label>
+                            <input type="date" name="start_date" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "تاريخ النهاية" %}</label>
+                            <input type="date" name="end_date" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "نسبة تعديل السعر" %}</label>
+                        <div class="input-group">
+                            <input type="number" name="price_adjustment_percentage" class="form-control" 
+                                   step="0.1" value="0">
+                            <span class="input-group-text">%</span>
+                        </div>
+                        <small class="text-muted">
+                            {% trans "قيمة موجبة لزيادة السعر، سالبة للخصم" %}
+                        </small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "الوصف" %}</label>
+                        <textarea name="description" class="form-control" rows="3"></textarea>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" name="is_active" class="form-check-input" id="seasonActive" checked>
+                        <label class="form-check-label" for="seasonActive">
+                            {% trans "تفعيل الموسم" %}
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "إلغاء" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        {% trans "إنشاء الموسم" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var MSG_TOGGLE_SEASON = "{{ 'هل تريد تغيير حالة هذا الموسم؟'|escapejs }}";
+var MSG_DELETE_SEASON = "{{ 'هل أنت متأكد من حذف هذا الموسم؟'|escapejs }}";
+
+function editSeason(seasonId) {
+    alert('تعديل الموسم: ' + seasonId);
+}
+
+function toggleSeason(seasonId) {
+    if (confirm(MSG_TOGGLE_SEASON)) {
+        fetch(`/smart-pricing/seasonal/${seasonId}/toggle/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+}
+
+function deleteSeason(seasonId) {
+    if (confirm(MSG_DELETE_SEASON)) {
+        fetch(`/smart-pricing/seasonal/${seasonId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,167 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}المناطق{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="mb-0"><i class="fas fa-map-marker-alt text-danger"></i> المناطق</h4>
+            </div>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal">
+                <i class="fas fa-plus"></i> منطقة جديدة
+            </button>
+        </div>
+    </div>
+    
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>اسم المنطقة</th>
+                        <th>المنطقة الأم</th>
+                        <th>عدد العملاء</th>
+                        <th>الحالة</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for region in regions %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>
+                            <i class="fas fa-map-marker-alt text-danger me-1"></i>
+                            {{ region.name }}
+                        </td>
+                        <td>{{ region.parent.name|default:"-" }}</td>
+                        <td>{{ region.customers_count|default:0 }}</td>
+                        <td>
+                            {% if region.is_active %}
+                            <span class="badge bg-success">نشط</span>
+                            {% else %}
+                            <span class="badge bg-secondary">غير نشط</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                    onclick="editItem({{ region.id }}, '{{ region.name }}', '{{ region.parent_id|default:"" }}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteItem({{ region.id }})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            <i class="fas fa-map-marker-alt fa-3x mb-3 d-block"></i>
+                            لا توجد مناطق
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add Modal -->
+<div class="modal fade" id="addModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-plus text-primary"></i> إضافة منطقة</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">اسم المنطقة <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="parent" class="form-label">المنطقة الأم</label>
+                        <select class="form-select" id="parent" name="parent">
+                            <option value="">-- بدون --</option>
+                            {% for region in regions %}
+                            <option value="{{ region.id }}">{{ region.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="is_active" name="is_active" checked>
+                        <label class="form-check-label" for="is_active">نشط</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" id="editForm">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-edit text-primary"></i> تعديل منطقة</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit_name" class="form-label">اسم المنطقة <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="edit_name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_parent" class="form-label">المنطقة الأم</label>
+                        <select class="form-select" id="edit_parent" name="parent">
+                            <option value="">-- بدون --</option>
+                            {% for region in regions %}
+                            <option value="{{ region.id }}">{{ region.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">حفظ التعديلات</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<form id="deleteForm" method="post" style="display: none;">
+    {% csrf_token %}
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function editItem(id, name, parentId) {
+    document.getElementById('edit_name').value = name;
+    document.getElementById('edit_parent').value = parentId || '';
+    document.getElementById('editForm').action = `{% url 'crm:regions' %}${id}/edit/`;
+    new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+function deleteItem(id) {
+    if (confirm('هل أنت متأكد من الحذف؟')) {
+        const form = document.getElementById('deleteForm');
+        form.action = `{% url 'crm:regions' %}${id}/delete/`;
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

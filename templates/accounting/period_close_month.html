@@ -1,0 +1,497 @@
+﻿{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "إقفال الشهر" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+    }
+    
+    .close-hero {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .close-hero::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        animation: move 20s linear infinite;
+    }
+    
+    @keyframes move { 0% { transform: translate(0, 0); } 100% { transform: translate(50%, 50%); } }
+    
+    .close-hero > * { position: relative; z-index: 1; }
+    
+    .period-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: rgba(255,255,255,0.2);
+        border-radius: 25px;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
+    
+    /* Wizard Steps */
+    .wizard-container {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .wizard-header {
+        background: #f8f9fa;
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .steps-indicator {
+        display: flex;
+        justify-content: space-between;
+        position: relative;
+    }
+    
+    .steps-indicator::before {
+        content: '';
+        position: absolute;
+        top: 25px;
+        left: 50px;
+        right: 50px;
+        height: 3px;
+        background: #e9ecef;
+    }
+    
+    .step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .step-number {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: white;
+        border: 3px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: #6c757d;
+        transition: all 0.3s ease;
+    }
+    
+    .step.active .step-number {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        color: white;
+    }
+    
+    .step.completed .step-number {
+        background: var(--success-color);
+        border-color: var(--success-color);
+        color: white;
+    }
+    
+    .step-label {
+        margin-top: 0.75rem;
+        font-size: 0.9rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    .step.active .step-label { color: var(--primary-color); font-weight: 600; }
+    
+    .wizard-body { padding: 2rem; }
+    
+    /* Checklist */
+    .checklist-section {
+        margin-bottom: 2rem;
+    }
+    
+    .section-title {
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .check-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .check-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 1.25rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+        border: 2px solid transparent;
+        transition: all 0.3s ease;
+    }
+    
+    .check-item.passed {
+        border-color: var(--success-color);
+        background: rgba(40, 167, 69, 0.05);
+    }
+    
+    .check-item.failed {
+        border-color: var(--danger-color);
+        background: rgba(220, 53, 69, 0.05);
+    }
+    
+    .check-item.warning {
+        border-color: var(--warning-color);
+        background: rgba(255, 193, 7, 0.05);
+    }
+    
+    .check-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+    }
+    
+    .check-icon.passed { background: var(--success-color); color: white; }
+    .check-icon.failed { background: var(--danger-color); color: white; }
+    .check-icon.warning { background: var(--warning-color); color: white; }
+    .check-icon.pending { background: #e9ecef; color: #6c757d; }
+    
+    .check-content { flex: 1; }
+    .check-content h5 { margin: 0 0 0.25rem; font-size: 1rem; }
+    .check-content p { margin: 0; font-size: 0.85rem; color: #6c757d; }
+    
+    .check-action {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        text-decoration: none;
+    }
+    
+    .btn-fix {
+        background: var(--danger-color);
+        color: white;
+    }
+    
+    .btn-view {
+        background: rgba(30, 58, 95, 0.1);
+        color: var(--primary-color);
+    }
+    
+    /* Summary Cards */
+    .summary-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .summary-card {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 1.25rem;
+        text-align: center;
+    }
+    
+    .summary-card .label {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+    }
+    
+    .summary-card .value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .summary-card .value.positive { color: var(--success-color); }
+    .summary-card .value.negative { color: var(--danger-color); }
+    
+    /* Warning Box */
+    .warning-box {
+        background: rgba(220, 53, 69, 0.1);
+        border: 2px solid var(--danger-color);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .warning-box h5 {
+        color: var(--danger-color);
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .warning-box ul {
+        margin: 0;
+        padding-right: 1.25rem;
+        color: #666;
+    }
+    
+    .warning-box li { margin-bottom: 0.5rem; }
+    
+    /* Wizard Actions */
+    .wizard-actions {
+        display: flex;
+        justify-content: space-between;
+        padding: 1.5rem 2rem;
+        background: #f8f9fa;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .btn-wizard {
+        padding: 0.875rem 2rem;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 1rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-back {
+        background: white;
+        border: 2px solid #dee2e6;
+        color: #666;
+    }
+    
+    .btn-next {
+        background: var(--primary-color);
+        border: none;
+        color: white;
+    }
+    
+    .btn-close-period {
+        background: var(--danger-color);
+        border: none;
+        color: white;
+    }
+    
+    .btn-next:hover, .btn-close-period:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    
+    [data-bs-theme="dark"] .wizard-container {
+        background: #1a1d21;
+    }
+    
+    [data-bs-theme="dark"] .wizard-header,
+    [data-bs-theme="dark"] .wizard-actions,
+    [data-bs-theme="dark"] .check-item,
+    [data-bs-theme="dark"] .summary-card {
+        background: #2d3238;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Hero Section -->
+    <div class="close-hero">
+        <div class="period-badge">
+            <i class="fas fa-calendar-alt"></i>
+            {% trans "يونيو 2025" %}
+        </div>
+        <h1 class="h2 mb-2">
+            <i class="fas fa-lock me-2"></i>
+            {% trans "إقفال الفترة المحاسبية" %}
+        </h1>
+        <p class="mb-0 opacity-75">
+            {% trans "تأكد من اكتمال جميع العمليات قبل الإقفال - لا يمكن التراجع عن هذا الإجراء" %}
+        </p>
+    </div>
+    
+    <!-- Wizard Container -->
+    <div class="wizard-container">
+        <!-- Wizard Header - Steps -->
+        <div class="wizard-header">
+            <div class="steps-indicator">
+                <div class="step completed">
+                    <div class="step-number"><i class="fas fa-check"></i></div>
+                    <div class="step-label">{% trans "المراجعة" %}</div>
+                </div>
+                <div class="step active">
+                    <div class="step-number">2</div>
+                    <div class="step-label">{% trans "التحقق" %}</div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-label">{% trans "التسويات" %}</div>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-label">{% trans "الإقفال" %}</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Wizard Body -->
+        <div class="wizard-body">
+            <!-- Summary Row -->
+            <div class="summary-row">
+                <div class="summary-card">
+                    <div class="label">{% trans "إجمالي الإيرادات" %}</div>
+                    <div class="value positive">+485,000</div>
+                </div>
+                <div class="summary-card">
+                    <div class="label">{% trans "إجمالي المصروفات" %}</div>
+                    <div class="value negative">-312,000</div>
+                </div>
+                <div class="summary-card">
+                    <div class="label">{% trans "صافي الربح" %}</div>
+                    <div class="value positive">+173,000</div>
+                </div>
+                <div class="summary-card">
+                    <div class="label">{% trans "عدد القيود" %}</div>
+                    <div class="value">156</div>
+                </div>
+            </div>
+            
+            <!-- Checklist Section -->
+            <div class="checklist-section">
+                <div class="section-title">
+                    <i class="fas fa-tasks"></i>
+                    {% trans "قائمة التحقق قبل الإقفال" %}
+                </div>
+                
+                <div class="check-list">
+                    <div class="check-item passed">
+                        <div class="check-icon passed">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <div class="check-content">
+                            <h5>{% trans "ميزان المراجعة متوازن" %}</h5>
+                            <p>{% trans "إجمالي المدين = إجمالي الدائن (1,245,000 ج.م)" %}</p>
+                        </div>
+                        <a href="{% url 'accounting:trial_balance' %}" class="check-action btn-view">{% trans "عرض" %}</a>
+                    </div>
+                    
+                    <div class="check-item passed">
+                        <div class="check-icon passed">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <div class="check-content">
+                            <h5>{% trans "تمت تسوية البنك" %}</h5>
+                            <p>{% trans "آخر تسوية: 28 يونيو 2025" %}</p>
+                        </div>
+                        <a href="{% url 'accounting:bank_reconciliation' %}" class="check-action btn-view">{% trans "عرض" %}</a>
+                    </div>
+                    
+                    <div class="check-item warning">
+                        <div class="check-icon warning">
+                            <i class="fas fa-exclamation"></i>
+                        </div>
+                        <div class="check-content">
+                            <h5>{% trans "قيود مسودة معلقة" %}</h5>
+                            <p>{% trans "يوجد 3 قيود في حالة مسودة تحتاج ترحيل أو حذف" %}</p>
+                        </div>
+                        <a href="{% url 'accounting:journal_drafts' %}" class="check-action btn-fix">{% trans "معالجة" %}</a>
+                    </div>
+                    
+                    <div class="check-item passed">
+                        <div class="check-icon passed">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <div class="check-content">
+                            <h5>{% trans "قيد استهلاك الأصول" %}</h5>
+                            <p>{% trans "تم تسجيل قيد الاستهلاك الشهري" %}</p>
+                        </div>
+                        <a href="#" class="check-action btn-view">{% trans "عرض" %}</a>
+                    </div>
+                    
+                    <div class="check-item failed">
+                        <div class="check-icon failed">
+                            <i class="fas fa-times"></i>
+                        </div>
+                        <div class="check-content">
+                            <h5>{% trans "فواتير مشتريات معلقة" %}</h5>
+                            <p>{% trans "5 فواتير مشتريات لم يتم إنشاء قيود لها" %}</p>
+                        </div>
+                        <a href="{% url 'accounting:pending_purchase_invoices' %}" class="check-action btn-fix">{% trans "إنشاء القيود" %}</a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Warning Box -->
+            <div class="warning-box">
+                <h5>
+                    <i class="fas fa-exclamation-triangle"></i>
+                    {% trans "تحذير مهم" %}
+                </h5>
+                <ul>
+                    <li>{% trans "بعد الإقفال لن يمكن إضافة أو تعديل أو حذف أي قيد في هذه الفترة" %}</li>
+                    <li>{% trans "تأكد من مراجعة جميع القيود والفواتير قبل المتابعة" %}</li>
+                    <li>{% trans "يُنصح بأخذ نسخة احتياطية قبل الإقفال" %}</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Wizard Actions -->
+        <div class="wizard-actions">
+            <a href="{% url 'accounting:dashboard' %}" class="btn-wizard btn-back">
+                <i class="fas fa-arrow-right"></i>
+                {% trans "رجوع" %}
+            </a>
+            <div>
+                <button type="button" class="btn-wizard btn-next" disabled>
+                    {% trans "متابعة" %}
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if all items pass
+    const allPassed = document.querySelectorAll('.check-item.failed, .check-item.warning').length === 0;
+    document.querySelector('.btn-next').disabled = !allPassed;
+    
+    if (allPassed) {
+        document.querySelector('.btn-next').classList.remove('btn-next');
+        document.querySelector('.btn-next').classList.add('btn-close-period');
+        document.querySelector('.btn-close-period').innerHTML = '<i class="fas fa-lock me-2"></i> {% trans "إقفال الفترة" %}';
+    }
+});
+</script>
+{% endblock %}
+

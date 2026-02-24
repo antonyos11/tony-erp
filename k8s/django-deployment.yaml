@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tony-erp-django
+  namespace: tony-erp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: tony-erp
+      component: django
+  template:
+    metadata:
+      labels:
+        app: tony-erp
+        component: django
+    spec:
+      containers:
+      - name: django
+        image: your-registry/tony-erp:latest
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - configMapRef:
+            name: tony-erp-config
+        - secretRef:
+            name: tony-erp-secrets
+        volumeMounts:
+        - name: media
+          mountPath: /app/media
+        - name: staticfiles
+          mountPath: /app/staticfiles
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health/live/
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health/ready/
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: media
+        persistentVolumeClaim:
+          claimName: tony-erp-media-pvc
+      - name: staticfiles
+        persistentVolumeClaim:
+          claimName: tony-erp-static-pvc

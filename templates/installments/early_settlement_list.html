@@ -1,0 +1,136 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans 'طلبات التسوية المبكرة' %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">
+                <i class="fas fa-handshake text-primary me-2"></i>
+                {% trans 'طلبات التسوية المبكرة' %}
+            </h2>
+            <p class="text-muted mb-0">{% trans 'إدارة طلبات التسوية والإغلاق المبكر للعقود' %}</p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">{% trans 'الحالة' %}</label>
+                    <select name="status" class="form-select">
+                        <option value="">{% trans 'الكل' %}</option>
+                        {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search me-1"></i> {% trans 'بحث' %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- List -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% trans 'رقم العقد' %}</th>
+                            <th>{% trans 'العميل' %}</th>
+                            <th>{% trans 'المبلغ المتبقي' %}</th>
+                            <th>{% trans 'الخصم' %}</th>
+                            <th>{% trans 'مبلغ التسوية' %}</th>
+                            <th>{% trans 'الحالة' %}</th>
+                            <th>{% trans 'تاريخ الطلب' %}</th>
+                            <th>{% trans 'إجراءات' %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for settlement in settlements %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'installments:contract_detail' pk=settlement.contract.pk %}">
+                                    {{ settlement.contract.contract_number }}
+                                </a>
+                            </td>
+                            <td>{{ settlement.contract.customer.name }}</td>
+                            <td>{{ settlement.remaining_principal|intcomma }} ج.م</td>
+                            <td>
+                                {% if settlement.discount_percentage > 0 %}
+                                <span class="badge bg-success">{{ settlement.discount_percentage }}%</span>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td class="fw-bold text-primary">{{ settlement.settlement_amount|intcomma }} ج.م</td>
+                            <td>
+                                {% if settlement.status == 'pending' %}
+                                <span class="badge bg-warning">{% trans 'قيد المراجعة' %}</span>
+                                {% elif settlement.status == 'approved' %}
+                                <span class="badge bg-info">{% trans 'موافق عليه' %}</span>
+                                {% elif settlement.status == 'completed' %}
+                                <span class="badge bg-success">{% trans 'مكتمل' %}</span>
+                                {% elif settlement.status == 'rejected' %}
+                                <span class="badge bg-danger">{% trans 'مرفوض' %}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ settlement.request_date|date:"Y/m/d" }}</td>
+                            <td>
+                                <a href="{% url 'installments:early_settlement_detail' pk=settlement.pk %}" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5">
+                                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                <p class="text-muted mb-0">{% trans 'لا توجد طلبات تسوية' %}</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if settlements.has_other_pages %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if settlements.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ settlements.previous_page_number }}&status={{ request.GET.status }}">
+                    {% trans 'السابق' %}
+                </a>
+            </li>
+            {% endif %}
+            <li class="page-item active">
+                <span class="page-link">{{ settlements.number }} / {{ settlements.paginator.num_pages }}</span>
+            </li>
+            {% if settlements.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ settlements.next_page_number }}&status={{ request.GET.status }}">
+                    {% trans 'التالي' %}
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

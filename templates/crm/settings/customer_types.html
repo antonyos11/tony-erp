@@ -1,0 +1,199 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}أنواع العملاء - CRM{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-0"><i class="fas fa-tags text-primary me-2"></i>أنواع العملاء</h3>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'crm:dashboard' %}">CRM</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'crm:settings' %}">الإعدادات</a></li>
+                    <li class="breadcrumb-item active">أنواع العملاء</li>
+                </ol>
+            </nav>
+        </div>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTypeModal">
+            <i class="fas fa-plus me-1"></i> نوع جديد
+        </button>
+    </div>
+
+    <!-- Types Table -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>الاسم</th>
+                            <th>الوصف</th>
+                            <th>اللون</th>
+                            <th class="text-center">عدد العملاء</th>
+                            <th class="text-center">الحالة</th>
+                            <th class="text-center">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for type in customer_types %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <span class="badge" style="background-color: {{ type.color|default:'#6c757d' }};">
+                                    {{ type.name }}
+                                </span>
+                            </td>
+                            <td>{{ type.description|default:"-"|truncatewords:10 }}</td>
+                            <td>
+                                <span class="d-inline-block rounded" style="width: 25px; height: 25px; background-color: {{ type.color|default:'#6c757d' }};"></span>
+                                <code class="ms-1">{{ type.color|default:'#6c757d' }}</code>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary">{{ type.customer_count|default:0 }}</span>
+                            </td>
+                            <td class="text-center">
+                                {% if type.is_active %}
+                                <span class="badge bg-success">نشط</span>
+                                {% else %}
+                                <span class="badge bg-danger">غير نشط</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-info" 
+                                            onclick="editType({{ type.pk }}, '{{ type.name }}', '{{ type.description|default:'' }}', '{{ type.color|default:'#6c757d' }}', {{ type.is_active|yesno:'true,false' }})"
+                                            data-bs-toggle="modal" data-bs-target="#editTypeModal">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger" onclick="confirmDelete({{ type.pk }}, '{{ type.name }}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <i class="fas fa-tags fa-4x text-muted mb-3"></i>
+                                <h5>لا توجد أنواع عملاء</h5>
+                                <p class="text-muted">ابدأ بإضافة أنواع العملاء</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Type Modal -->
+<div class="modal fade" id="addTypeModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-plus me-2"></i>إضافة نوع عميل</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">اسم النوع <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الوصف</label>
+                        <textarea name="description" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">اللون</label>
+                        <input type="color" name="color" class="form-control form-control-color" value="#0d6efd">
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_active" id="addIsActive" checked>
+                        <label class="form-check-label" for="addIsActive">نشط</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" name="action" value="add" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> حفظ
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Type Modal -->
+<div class="modal fade" id="editTypeModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="type_id" id="editTypeId">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-edit me-2"></i>تعديل نوع عميل</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">اسم النوع <span class="text-danger">*</span></label>
+                        <input type="text" name="name" id="editTypeName" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الوصف</label>
+                        <textarea name="description" id="editTypeDesc" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">اللون</label>
+                        <input type="color" name="color" id="editTypeColor" class="form-control form-control-color">
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_active" id="editIsActive">
+                        <label class="form-check-label" for="editIsActive">نشط</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" name="action" value="edit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> حفظ التعديلات
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Form (hidden) -->
+<form id="deleteForm" method="post" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="delete">
+    <input type="hidden" name="type_id" id="deleteTypeId">
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function editType(id, name, desc, color, isActive) {
+    document.getElementById('editTypeId').value = id;
+    document.getElementById('editTypeName').value = name;
+    document.getElementById('editTypeDesc').value = desc;
+    document.getElementById('editTypeColor').value = color;
+    document.getElementById('editIsActive').checked = isActive;
+}
+
+function confirmDelete(id, name) {
+    if (confirm('هل أنت متأكد من حذف نوع العميل "' + name + '"؟')) {
+        document.getElementById('deleteTypeId').value = id;
+        document.getElementById('deleteForm').submit();
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,252 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}الموافقات{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="mb-0"><i class="fas fa-check-double text-success"></i> الموافقات</h4>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">{{ pending_count|default:0 }}</h4>
+                            <small>في الانتظار</small>
+                        </div>
+                        <i class="fas fa-hourglass-half fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">{{ approved_count|default:0 }}</h4>
+                            <small>تمت الموافقة</small>
+                        </div>
+                        <i class="fas fa-check-circle fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">{{ rejected_count|default:0 }}</h4>
+                            <small>تم الرفض</small>
+                        </div>
+                        <i class="fas fa-times-circle fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <ul class="nav nav-tabs mb-4" id="approvalTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="pending-tab" data-bs-toggle="tab" data-bs-target="#pending" type="button">
+                <i class="fas fa-hourglass-half text-warning"></i> في الانتظار
+                {% if pending_count %}<span class="badge bg-warning ms-1">{{ pending_count }}</span>{% endif %}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="approved-tab" data-bs-toggle="tab" data-bs-target="#approved" type="button">
+                <i class="fas fa-check-circle text-success"></i> تمت الموافقة
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="rejected-tab" data-bs-toggle="tab" data-bs-target="#rejected" type="button">
+                <i class="fas fa-times-circle text-danger"></i> تم الرفض
+            </button>
+        </li>
+    </ul>
+    
+    <div class="tab-content" id="approvalTabsContent">
+        <div class="tab-pane fade show active" id="pending" role="tabpanel">
+            <div class="card border-0 shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>النوع</th>
+                                <th>العنصر</th>
+                                <th>مقدم الطلب</th>
+                                <th>تاريخ الطلب</th>
+                                <th>الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for approval in pending_approvals %}
+                            <tr>
+                                <td>
+                                    <span class="badge bg-info">{{ approval.get_type_display }}</span>
+                                </td>
+                                <td>{{ approval.item_name }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" 
+                                             style="width: 30px; height: 30px; font-size: 12px;">
+                                            {{ approval.requester.first_name|slice:":1" }}
+                                        </div>
+                                        {{ approval.requester.get_full_name }}
+                                    </div>
+                                </td>
+                                <td>{{ approval.created_at|date:"Y/m/d H:i" }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-success" onclick="approveItem({{ approval.id }})">
+                                            <i class="fas fa-check"></i> موافقة
+                                        </button>
+                                        <button type="button" class="btn btn-danger" onclick="rejectItem({{ approval.id }})">
+                                            <i class="fas fa-times"></i> رفض
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">
+                                    <i class="fas fa-check-circle fa-3x text-success mb-3 d-block"></i>
+                                    لا توجد طلبات في الانتظار
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tab-pane fade" id="approved" role="tabpanel">
+            <div class="card border-0 shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>النوع</th>
+                                <th>العنصر</th>
+                                <th>مقدم الطلب</th>
+                                <th>الموافق</th>
+                                <th>تاريخ الموافقة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for approval in approved_approvals %}
+                            <tr>
+                                <td><span class="badge bg-info">{{ approval.get_type_display }}</span></td>
+                                <td>{{ approval.item_name }}</td>
+                                <td>{{ approval.requester.get_full_name }}</td>
+                                <td>{{ approval.approver.get_full_name }}</td>
+                                <td>{{ approval.approved_at|date:"Y/m/d H:i" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">
+                                    لا توجد موافقات سابقة
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tab-pane fade" id="rejected" role="tabpanel">
+            <div class="card border-0 shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>النوع</th>
+                                <th>العنصر</th>
+                                <th>مقدم الطلب</th>
+                                <th>سبب الرفض</th>
+                                <th>تاريخ الرفض</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for approval in rejected_approvals %}
+                            <tr>
+                                <td><span class="badge bg-info">{{ approval.get_type_display }}</span></td>
+                                <td>{{ approval.item_name }}</td>
+                                <td>{{ approval.requester.get_full_name }}</td>
+                                <td>{{ approval.rejection_reason|default:"-" }}</td>
+                                <td>{{ approval.rejected_at|date:"Y/m/d H:i" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">
+                                    لا توجد رفوضات سابقة
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div class="modal fade" id="rejectModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" id="rejectForm">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="reject">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-times-circle text-danger"></i> رفض الطلب</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="rejection_reason" class="form-label">سبب الرفض</label>
+                        <textarea class="form-control" id="rejection_reason" name="rejection_reason" rows="3" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-danger">رفض</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<form id="approveForm" method="post" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="approve">
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function approveItem(id) {
+    if (confirm('هل أنت متأكد من الموافقة على هذا الطلب؟')) {
+        const form = document.getElementById('approveForm');
+        form.action = `{% url 'crm:admin_approvals' %}${id}/action/`;
+        form.submit();
+    }
+}
+
+function rejectItem(id) {
+    document.getElementById('rejectForm').action = `{% url 'crm:admin_approvals' %}${id}/action/`;
+    new bootstrap.Modal(document.getElementById('rejectModal')).show();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,191 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mb-0"><i class="bi bi-lightning-charge me-2"></i>{{ page_title }}</h2>
+        </div>
+    </div>
+
+    <!-- بطاقات الإحصائيات -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">إجمالي العدادات</h5>
+                    <h2>{{ total_meters }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">إجمالي القراءات</h5>
+                    <h2>{{ total_readings }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5 class="card-title">متوسط الاستهلاك</h5>
+                    <h2>{{ avg_consumption|floatformat:2 }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- أزرار الإجراءات -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <a href="{% url 'energy_management:meter_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-1"></i>إضافة عداد
+            </a>
+            <a href="{% url 'energy_management:meter_list' %}" class="btn btn-secondary">
+                <i class="bi bi-list me-1"></i>قائمة العدادات
+            </a>
+            <a href="{% url 'energy_management:reading_create' %}" class="btn btn-success">
+                <i class="bi bi-speedometer2 me-1"></i>تسجيل قراءة
+            </a>
+            <a href="{% url 'energy_management:reading_list' %}" class="btn btn-info">
+                <i class="bi bi-clock-history me-1"></i>سجل القراءات
+            </a>
+        </div>
+    </div>
+
+    <!-- العدادات والقراءات -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-speedometer me-2"></i>العدادات النشطة</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>رقم العداد</th>
+                                    <th>الاسم</th>
+                                    <th>النوع</th>
+                                    <th>الموقع</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for meter in meters %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'energy_management:meter_detail' meter.pk %}">
+                                            {{ meter.meter_number }}
+                                        </a>
+                                    </td>
+                                    <td>{{ meter.location|truncatechars:20 }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if meter.utility_type == 'electricity' %}warning{% elif meter.utility_type == 'water' %}info{% else %}secondary{% endif %}">
+                                            {{ meter.get_utility_type_display|default:meter.utility_type }}
+                                        </span>
+                                    </td>
+                                    <td>{% if meter.is_active %}نشط{% else %}غير نشط{% endif %}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">
+                                        لا توجد عدادات
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- آخر القراءات -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>آخر القراءات</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>العداد</th>
+                                    <th>القراءة</th>
+                                    <th>الاستهلاك</th>
+                                    <th>التاريخ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for reading in recent_readings %}
+                                <tr>
+                                    <td>{{ reading.meter.meter_number|truncatechars:15 }}</td>
+                                    <td>{{ reading.current_reading|floatformat:2 }}</td>
+                                    <td>{{ reading.consumption|floatformat:2|default:"-" }}</td>
+                                    <td>{{ reading.reading_date|date:"Y-m-d" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">
+                                        لا توجد قراءات
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- تحليلات الاستهلاك -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>تحليلات الاستهلاك</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>الفترة</th>
+                                    <th>نوع الطاقة</th>
+                                    <th>إجمالي الاستهلاك</th>
+                                    <th>التكلفة</th>
+                                    <th>التاريخ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for analysis in analyses %}
+                                <tr>
+                                    <td>{{ analysis.period_start|date:"Y-m-d" }} - {{ analysis.period_end|date:"Y-m-d" }}</td>
+                                    <td>{{ analysis.meter.get_utility_type_display|default:"-" }}</td>
+                                    <td>{{ analysis.total_consumption|floatformat:2|default:"-" }}</td>
+                                    <td>{{ analysis.total_cost|floatformat:2|default:"-" }} ج.م</td>
+                                    <td>{{ analysis.period_end|date:"Y-m-d" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">
+                                        لا توجد تحليلات
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

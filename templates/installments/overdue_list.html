@@ -1,0 +1,381 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+{% block extra_head %}
+<style>
+    :root {
+        --ink: #0f172a;
+        --muted: #94a3b8;
+        --primary: #ef4444;
+        --accent: #fb7185;
+        --card: rgba(255,255,255,0.12);
+        --glass: rgba(255,255,255,0.07);
+        --success: #22c55e;
+        --warning: #f59e0b;
+    }
+
+    .page-container {
+        position: relative;
+        padding: 26px;
+        max-width: 1400px;
+        margin: 0 auto;
+        background: radial-gradient(circle at 15% 20%, rgba(239,68,68,0.18), transparent 35%),
+                    radial-gradient(circle at 85% 0%, rgba(251,113,133,0.2), transparent 38%),
+                    linear-gradient(135deg, #0b0f1f, #0f172a 60%, #111827);
+        border-radius: 30px;
+        box-shadow: 0 30px 70px rgba(0,0,0,0.35);
+        overflow: hidden;
+    }
+
+    .page-container::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 70% 50%, rgba(239,68,68,0.12), transparent 30%);
+        pointer-events: none;
+    }
+
+    .page-header {
+        position: relative;
+        background: linear-gradient(120deg, rgba(239,68,68,0.4), rgba(251,113,133,0.32));
+        border-radius: 20px;
+        padding: 26px;
+        color: #fff;
+        border: 1px solid rgba(255,255,255,0.08);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.28);
+    }
+
+    .page-title {
+        font-size: 1.8rem;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 0 0 6px 0;
+    }
+
+    .page-subtitle { margin: 0; opacity: 0.9; color: #f8fafc; }
+
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 14px; margin-bottom: 18px; }
+    .stat-card {
+        background: var(--glass);
+        border-radius: 16px;
+        padding: 16px;
+        text-align: center;
+        color: #e2e8f0;
+        border: 1px solid rgba(255,255,255,0.08);
+        box-shadow: 0 15px 35px rgba(0,0,0,0.25);
+    }
+    .stat-value { font-size: 1.9rem; font-weight: 800; color: #fca5a5; }
+    .stat-label { color: #cbd5e1; font-size: 0.9rem; }
+
+    .filter-card,
+    .overdue-card {
+        position: relative;
+        background: rgba(255,255,255,0.06);
+        border-radius: 18px;
+        padding: 20px;
+        margin-bottom: 18px;
+        border: 1px solid rgba(255,255,255,0.08);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 20px 45px rgba(0,0,0,0.3);
+    }
+
+    .overdue-table { width: 100%; border-collapse: collapse; color: #e2e8f0; }
+    .overdue-table th {
+        background: rgba(255,255,255,0.05);
+        padding: 14px;
+        font-weight: 700;
+        color: #cbd5e1;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        letter-spacing: 0.35px;
+        font-size: 0.82rem;
+    }
+    .overdue-table td { padding: 14px; border-bottom: 1px solid rgba(255,255,255,0.06); background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0)); }
+    .overdue-table tbody tr { transition: transform 0.15s ease, background 0.2s ease; }
+    .overdue-table tbody tr:hover { background: rgba(239,68,68,0.06); transform: translateY(-1px); }
+
+    .customer-cell { display: flex; align-items: center; gap: 12px; }
+    .customer-avatar {
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #f87171, #fb7185);
+        color: #0f172a;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+    }
+    .customer-name { font-weight: 700; color: #e2e8f0; }
+    .customer-phone { font-size: 0.85rem; color: #cbd5e1; }
+
+    .days-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 0.82rem;
+        border: 1px solid rgba(255,255,255,0.12);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
+    }
+    .days-badge.critical { background: rgba(239,68,68,0.16); color: #fecdd3; }
+    .days-badge.warning { background: rgba(245,158,11,0.16); color: #fde68a; }
+    .days-badge.normal { background: rgba(148,163,184,0.14); color: #e2e8f0; }
+
+    .amount-cell { font-weight: 800; color: #fecdd3; font-size: 1.05rem; }
+
+    .action-btns { display: flex; gap: 8px; }
+    .btn-action {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.12);
+        display: grid;
+        place-items: center;
+        background: rgba(255,255,255,0.06);
+        color: #e2e8f0;
+        transition: transform 0.15s ease, background 0.2s ease;
+    }
+    .btn-action:hover { transform: translateY(-2px); background: rgba(255,255,255,0.12); }
+    .btn-pay { color: #4ade80; border-color: rgba(34,197,94,0.3); }
+    .btn-remind { color: #fbbf24; border-color: rgba(251,191,36,0.35); }
+    .btn-view { color: #60a5fa; border-color: rgba(96,165,250,0.3); }
+
+    .empty-state { text-align: center; padding: 70px 20px; color: #cbd5e1; }
+    .empty-icon { font-size: 3.5rem; opacity: 0.35; margin-bottom: 12px; }
+
+    .filter-card .form-control,
+    .filter-card .form-select {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.12);
+        color: #e2e8f0;
+    }
+    .filter-card .form-control::placeholder { color: #94a3b8; }
+    .filter-card label { color: #e2e8f0; font-weight: 600; }
+
+    @media (max-width: 992px) {
+        .page-container { padding: 18px; }
+        .page-title { font-size: 1.5rem; }
+        .action-btns { flex-wrap: wrap; }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-container">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="page-title">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    {% trans 'الأقساط المتأخرة' %}
+                </h1>
+                <p class="page-subtitle">{% trans 'متابعة وتحصيل الأقساط المتأخرة عن موعد السداد' %}</p>
+            </div>
+            <a href="{% url 'installments:dashboard' %}" class="btn btn-light">
+                <i class="bi bi-arrow-right me-2"></i>{% trans 'العودة' %}
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-value">{{ overdue_count|default:0 }}</div>
+            <div class="stat-label">{% trans 'عدد المتأخرات' %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ total_overdue_amount|floatformat:0|intcomma|default:0 }}</div>
+            <div class="stat-label">{% trans 'إجمالي المبالغ المتأخرة' %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color: var(--warning);">{{ avg_days_overdue|floatformat:0|default:0 }}</div>
+            <div class="stat-label">{% trans 'متوسط أيام التأخر' %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color: var(--primary);">{{ customers_count|default:0 }}</div>
+            <div class="stat-label">{% trans 'عدد العملاء المتأخرين' %}</div>
+        </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="filter-card">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">{% trans 'البحث' %}</label>
+                <input type="text" name="search" class="form-control" placeholder="{% trans 'اسم العميل أو رقم الهاتف...' %}" value="{{ request.GET.search }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">{% trans 'أيام التأخر' %}</label>
+                <select name="days" class="form-select">
+                    <option value="">{% trans 'الكل' %}</option>
+                    <option value="7" {% if request.GET.days == '7' %}selected{% endif %}>{% trans 'أقل من 7 أيام' %}</option>
+                    <option value="30" {% if request.GET.days == '30' %}selected{% endif %}>{% trans '7-30 يوم' %}</option>
+                    <option value="90" {% if request.GET.days == '90' %}selected{% endif %}>{% trans '30-90 يوم' %}</option>
+                    <option value="90+" {% if request.GET.days == '90+' %}selected{% endif %}>{% trans 'أكثر من 90 يوم' %}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">{% trans 'الترتيب' %}</label>
+                <select name="order" class="form-select">
+                    <option value="days" {% if request.GET.order == 'days' %}selected{% endif %}>{% trans 'بأيام التأخر' %}</option>
+                    <option value="amount" {% if request.GET.order == 'amount' %}selected{% endif %}>{% trans 'بالمبلغ' %}</option>
+                    <option value="customer" {% if request.GET.order == 'customer' %}selected{% endif %}>{% trans 'بالعميل' %}</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-danger w-100">
+                    <i class="bi bi-search me-2"></i>{% trans 'بحث' %}
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Overdue List -->
+    <div class="overdue-card">
+        {% if overdue_list %}
+        <div class="table-responsive"><table class="overdue-table">
+            <thead>
+                <tr>
+                    <th>{% trans 'العميل' %}</th>
+                    <th>{% trans 'رقم العقد' %}</th>
+                    <th>{% trans 'تاريخ الاستحقاق' %}</th>
+                    <th>{% trans 'أيام التأخر' %}</th>
+                    <th>{% trans 'المبلغ المتأخر' %}</th>
+                    <th>{% trans 'الإجراءات' %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in overdue_list %}
+                <tr>
+                    <td>
+                        <div class="customer-cell">
+                            <div class="customer-avatar">
+                                {{ item.contract.customer.name|slice:":1" }}
+                            </div>
+                            <div class="customer-info">
+                                <div class="customer-name">{{ item.contract.customer.name }}</div>
+                                <div class="customer-phone">
+                                    <i class="bi bi-telephone me-1"></i>{{ item.contract.phone|default:"-" }}
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <a href="{% url 'installments:contract_detail' item.contract.pk %}">
+                            {{ item.contract.contract_number }}
+                        </a>
+                    </td>
+                    <td>{{ item.due_date|date:"Y/m/d" }}</td>
+                    <td>
+                        <span class="days-badge {% if item.days_overdue > 30 %}critical{% elif item.days_overdue > 7 %}warning{% else %}normal{% endif %}">
+                            <i class="bi bi-clock"></i>
+                            {{ item.days_overdue }} {% trans 'يوم' %}
+                        </span>
+                    </td>
+                    <td class="amount-cell">{{ item.amount|floatformat:0|intcomma }}</td>
+                    <td>
+                        <div class="action-btns">
+                            <button class="btn-action btn-pay" title="{% trans 'تسجيل دفعة' %}" 
+                                    data-bs-toggle="modal" data-bs-target="#payModal" 
+                                    data-installment-id="{{ item.id }}" data-amount="{{ item.remaining_amount }}">
+                                <i class="bi bi-cash"></i>
+                            </button>
+                            <button class="btn-action btn-remind" title="{% trans 'إرسال تذكير' %}" 
+                                    onclick="sendReminder({{ item.id }})">
+                                <i class="bi bi-bell"></i>
+                            </button>
+                            <a href="{% url 'installments:contract_detail' item.contract.pk %}" class="btn-action btn-view" title="{% trans 'عرض العقد' %}">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="empty-title">{% trans 'لا توجد أقساط متأخرة' %}</div>
+            <p class="empty-text">{% trans 'جميع الأقساط مسددة في مواعيدها' %}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Payment Modal -->
+<div class="modal fade" id="payModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans 'تسجيل دفعة' %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="payForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="installment_id" id="installmentId">
+                    <div class="mb-3">
+                        <label class="form-label">{% trans 'المبلغ' %}</label>
+                        <input type="number" name="amount" id="payAmount" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans 'ملاحظات' %}</label>
+                        <textarea name="notes" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans 'إلغاء' %}</button>
+                    <button type="submit" class="btn btn-success">{% trans 'تأكيد الدفع' %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Setup payment modal
+    const payModal = document.getElementById('payModal');
+    if (payModal) {
+        payModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const installmentId = button.getAttribute('data-installment-id');
+            const amount = button.getAttribute('data-amount');
+            
+            document.getElementById('installmentId').value = installmentId;
+            document.getElementById('payAmount').value = amount;
+        });
+    }
+});
+
+function sendReminder(installmentId) {
+    if (confirm("{% trans 'هل تريد إرسال تذكير للعميل؟' %}")) {
+        fetch("{% url 'installments:send_reminder' 0 %}".replace('0', installmentId), {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert("{% trans 'تم إرسال التذكير بنجاح' %}");
+            } else {
+                alert(data.error || "{% trans 'حدث خطأ' %}");
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

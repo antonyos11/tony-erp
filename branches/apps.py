@@ -1,19 +1,14 @@
-# branches/apps.py
 from django.apps import AppConfig
-from django.utils.translation import gettext_lazy as _
 
 
 class BranchesConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'branches'
-    verbose_name = _('إدارة الفروع والمعارض')
+    verbose_name = 'إدارة الفروع'
     
     def ready(self):
-        """
-        تهيئة الوحدة عند بدء التشغيل
-        """
-        # استيراد الإشارات إن وجدت
+        """تحميل الإشارات عند بدء التطبيق"""
         try:
-            from . import signals  # noqa
+            import branches.signals
         except ImportError:
             pass

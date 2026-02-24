@@ -1,0 +1,258 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load user_extras %}
+
+{% block title %}إدارة الصلاحيات - {{ block.super }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.permission-matrix {
+    font-size: 0.875rem;
+}
+
+.permission-matrix th {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    text-align: center;
+    vertical-align: middle;
+    min-width: 80px;
+}
+
+.permission-matrix td {
+    border: 1px solid #dee2e6;
+    text-align: center;
+    vertical-align: middle;
+    padding: 0.375rem;
+}
+
+.permission-checkbox {
+    margin: 0;
+    transform: scale(1.2);
+}
+
+.module-header {
+    background-color: #e9ecef;
+    font-weight: bold;
+}
+
+.role-column {
+    background-color: #f8f9fa;
+    font-weight: bold;
+    min-width: 150px;
+}
+
+.permission-allowed {
+    background-color: #d4edda;
+}
+
+.permission-denied {
+    background-color: #f8d7da;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-shield-lock"></i> إدارة الصلاحيات</h2>
+            <div>
+                <button class="btn btn-success" onclick="saveAllPermissions()">
+                    <i class="bi bi-check-circle"></i> حفظ جميع التغييرات
+                </button>
+                <button class="btn btn-secondary" onclick="resetPermissions()">
+                    <i class="bi bi-arrow-clockwise"></i> إعادة تعيين
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>تعليمات:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>اختر الدور من الصف الأول</li>
+                        <li>اختر الوحدة والعملية المطلوبة</li>
+                        <li>ضع علامة ✓ للسماح أو ✗ للمنع</li>
+                        <li>اضغط "حفظ" لتطبيق التغييرات</li>
+                    </ul>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered permission-matrix">
+                        <thead>
+                            <tr>
+                                <th class="role-column">الدور / الصلاحية</th>
+                                {% for action_code, action_name in actions %}
+                                    <th>{{ action_name }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for module_code, module_name in modules %}
+                                <tr class="module-header">
+                                    <td colspan="{ actions|length|add:1 }">
+                                        <i class="bi bi-folder"></i> {{ module_name }}
+                                    </td>
+                                </tr>
+                                {% for role in roles %}
+                                    <tr>
+                                        <td class="role-column">{{ role.display_name }}</td>
+                                        {% for action_code, action_name in actions %}
+                                            {% with perm=permissions|lookup:role.id|lookup:module_code|lookup:action_code %}
+                                            <td class="{% permission_class perm %}">
+                                                <div class="d-flex align-items-center justify-content-center">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        class="permission-checkbox me-2"
+                                                        data-role="{{ role.id }}"
+                                                        data-module="{{ module_code }}"
+                                                        data-action="{ action_code }"
+                                                        {% if perm %}checked{% endif %}
+                                                        onchange="updatePermission(this)"
+                                                    >
+                                                    <i class="{% permission_icon perm %}"></i>
+                                                </div>
+                                            </td>
+                                            {% endwith %}
+                                        {% endfor %}
+                                    </tr>
+                                {% endfor %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-people"></i> إحصائيات الأدوار</h5>
+                    </div>
+                    <div class="card-body">
+                        {% for role in roles %}
+                            {% with count=permissions|count_role_permissions:role.id total_count=permission_stats.total_permissions %}
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span>{{ role.display_name }}</span>
+                                <div>
+                                    <span class="badge bg-primary">{{ count }} صلاحية</span>
+                                    <span class="badge bg-secondary">{{ count|percentage:total_count }}%</span>
+                                </div>
+                            </div>
+                            {% endwith %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-diagram-3"></i> إحصائيات الوحدات</h5>
+                    </div>
+                    <div class="card-body">
+                        {% for module_code, module_name in modules %}
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>{{ module_name }}</span>
+                                <span class="badge bg-info">{{ actions|length }} عملية</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// إضافة filter lookup للـ template
+{% load static %}
+{% verbatim %}
+function updatePermission(checkbox) {
+    const role = checkbox.dataset.role;
+    const module = checkbox.dataset.module;
+    const action = checkbox.dataset.action;
+    const isAllowed = checkbox.checked;
+    
+    // تغيير لون الخلية
+    const cell = checkbox.parentElement;
+    if (isAllowed) {
+        cell.className = 'permission-allowed';
+    } else {
+        cell.className = 'permission-denied';
+    }
+    
+    // حفظ التغيير فوراً
+    fetch('{% endverbatim %}{% url "users:permissions_manager" %}{% verbatim %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: new URLSearchParams({
+            'role_id': role,
+            'module': module,
+            'action': action,
+            'is_allowed': isAllowed
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.success) {
+            console.error('خطأ في حفظ الصلاحية:', data.message);
+            checkbox.checked = !isAllowed; // إرجاع الحالة السابقة
+        }
+    })
+    .catch(error => {
+        console.error('خطأ في الشبكة:', error);
+        checkbox.checked = !isAllowed; // إرجاع الحالة السابقة
+    });
+}
+
+function saveAllPermissions() {
+    // عرض رسالة تأكيد
+    const toast = document.createElement('div');
+    toast.className = 'toast-container position-fixed top-0 end-0 p-3';
+    toast.innerHTML = `
+        <div class="toast show" role="alert">
+            <div class="toast-header">
+                <i class="bi bi-check-circle text-success me-2"></i>
+                <strong class="me-auto">نجح الحفظ</strong>
+            </div>
+            <div class="toast-body">
+                تم حفظ جميع الصلاحيات بنجاح
+            </div>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    
+    // إزالة التوست بعد 3 ثوانٍ
+    setTimeout(() => {
+        document.body.removeChild(toast);
+    }, 3000);
+}
+
+function resetPermissions() {
+    if (confirm('هل أنت متأكد من إعادة تعيين جميع الصلاحيات؟')) {
+        location.reload();
+    }
+}
+{% endverbatim %}
+</script>
+
+<!-- إضافة CSRF token -->
+{% csrf_token %}
+
+<!-- إضافة template filter للبحث في القواميس -->
+<script>
+// Helper function for template-like behavior
+function lookup(obj, key) {
+    return obj && obj[key];
+}
+</script>
+{% endblock %}

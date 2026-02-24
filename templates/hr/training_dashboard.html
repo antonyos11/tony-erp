@@ -1,0 +1,331 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load currency_tags %}
+{% load static %}
+
+{% block title %}لوحة تحكم التدريب والتطوير{% endblock %}
+
+{% block extra_css %}
+<style>
+    .training-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    .training-stat {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    .program-card {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 15px;
+        transition: all 0.3s ease;
+    }
+    .program-card:hover {
+        border-color: #007bff;
+        box-shadow: 0 5px 15px rgba(0,123,255,0.1);
+        transform: translateY(-2px);
+    }
+    .status-active {
+        background-color: #28a745;
+    }
+    .status-upcoming {
+        background-color: #17a2b8;
+    }
+    .status-completed {
+        background-color: #6c757d;
+    }
+    .action-btn {
+        min-width: 150px;
+        margin: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="h3 mb-4">
+                <i class="fas fa-graduation-cap me-2"></i>
+                لوحة تحكم التدريب والتطوير
+            </h1>
+        </div>
+    </div>
+    
+    <!-- الإحصائيات الرئيسية -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="training-card">
+                <div class="training-stat">{{ active_programs }}</div>
+                <div>برامج نشطة</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="training-card">
+                <div class="training-stat">{{ upcoming_programs }}</div>
+                <div>برامج قادمة</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="training-card">
+                <div class="training-stat">{{ total_enrollments }}</div>
+                <div>إجمالي التسجيلات</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="training-card">
+                <div class="training-stat">{{ completion_rate|default:0 }}%</div>
+                <div>معدل الإكمال</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- إجراءات سريعة -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-cogs me-2"></i>
+                        إدارة التدريب
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <a href="{% url 'hr:training_program_create' %}" class="btn btn-success action-btn">
+                                <i class="fas fa-plus"></i><br>
+                                <small>برنامج جديد</small>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'hr:training_program_list' %}" class="btn btn-primary action-btn">
+                                <i class="fas fa-list"></i><br>
+                                <small>إدارة البرامج</small>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'hr:training_enroll' %}" class="btn btn-info action-btn">
+                                <i class="fas fa-user-plus"></i><br>
+                                <small>تسجيل موظفين</small>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-warning action-btn" onclick="generateCertificates()">
+                                <i class="fas fa-certificate"></i><br>
+                                <small>إنشاء شهادات</small>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- البرامج الحديثة -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-calendar-alt me-2"></i>
+                        البرامج التدريبية الحديثة
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for program in recent_programs %}
+                        <div class="col-md-6 col-lg-4">
+                            <div class="program-card">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <h6 class="mb-0">{{ program.title }}</h6>
+                                    {% if program.start_date <= today and program.end_date >= today %}
+                                        <span class="badge status-active">نشط</span>
+                                    {% elif program.start_date > today %}
+                                        <span class="badge status-upcoming">قادم</span>
+                                    {% else %}
+                                        <span class="badge status-completed">منتهي</span>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="mb-2">
+                                    <small class="text-muted">
+                                        <i class="fas fa-building me-1"></i>{{ program.provider }}
+                                    </small>
+                                </div>
+                                
+                                <div class="mb-2">
+                                    <small class="text-muted">
+                                        <i class="fas fa-calendar me-1"></i>{{ program.start_date }} - {{ program.end_date }}
+                                    </small>
+                                </div>
+                                
+                                <div class="mb-2">
+                                    <small class="text-muted">
+                                        <i class="fas fa-clock me-1"></i>{{ program.duration_hours }} ساعة
+                                    </small>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <small class="text-muted">
+                                        <i class="fas fa-money-bill me-1"></i>{{ program.cost|currency_format }}
+                                    </small>
+                                </div>
+                                
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">
+                                        المسجلين: {{ program.enrolled_count|default:0 }}/{{ program.max_participants }}
+                                    </small>
+                                    <a href="{% url 'hr:training_program_detail' program.pk %}" class="btn btn-sm btn-outline-primary">
+                                        التفاصيل
+                                    </a>
+                                </div>
+                                
+                                <!-- شريط التقدم -->
+                                <div class="progress mt-2" style="height: 5px;">
+                                    <div class="progress-bar" 
+                                         style="width: { program.enrollment_percentage|default:0 }%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12 text-center text-muted py-4">
+                            <i class="fas fa-graduation-cap fa-3x mb-3"></i>
+                            <p>لا توجد برامج تدريبية حديثة</p>
+                            <a href="{% url 'hr:training_program_create' %}" class="btn btn-primary">إنشاء برنامج جديد</a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- إحصائيات إضافية -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        إحصائيات التدريب الشهرية
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="trainingChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-users me-2"></i>
+                        أفضل المتدربين
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        {% for trainee in top_trainees %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ trainee.employee__first_name }} {{ trainee.employee__last_name }}</strong>
+                                <br><small class="text-muted">{{ trainee.employee__job_title|default:"موظف" }}</small>
+                            </div>
+                            <span class="badge bg-success rounded-pill">{{ trainee.course_count }} دورات</span>
+                        </div>
+                        {% empty %}
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-users fa-2x mb-2"></i>
+                            <p>لا توجد بيانات متدربين بعد</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- نصائح وإرشادات -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <h6><i class="fas fa-lightbulb me-2"></i>نصائح لإدارة فعالة للتدريب:</h6>
+                <ul class="mb-0">
+                    <li>حدد احتياجات التدريب بناءً على تقييمات الأداء</li>
+                    <li>نوع في أساليب التدريب (حضوري، عن بعد، تطبيقي)</li>
+                    <li>قم بقياس أثر التدريب على الأداء الوظيفي</li>
+                    <li>شجع الموظفين على مشاركة ما تعلموه مع الآخرين</li>
+                    <li>اربط التدريب بخطط التطوير المهني للموظفين</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// رسم بياني لإحصائيات التدريب
+const ctx = document.getElementById('trainingChart').getContext('2d');
+const trainingChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: {{ chart_labels|safe|default:"[]" }},
+        datasets: [{
+            label: 'عدد المتدربين',
+            data: {{ chart_trainees|safe|default:"[]" }},
+            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+        }, {
+            label: 'عدد البرامج',
+            data: {{ chart_programs|safe|default:"[]" }},
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            borderColor: 'rgba(255, 99, 132, 1)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+
+function generateCertificates() {
+    if (confirm('هل تريد إنشاء شهادات إتمام للمتدربين المؤهلين؟')) {
+        // إرسال طلب AJAX لإنشاء الشهادات
+        fetch('{% url "hr:training_program_list" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{ csrf_token }',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'generate_certificates'
+            })
+        }).then(response => {
+            if (response.ok) {
+                alert('تم إنشاء الشهادات بنجاح');
+                location.reload();
+            } else {
+                alert('حدث خطأ أثناء إنشاء الشهادات');
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

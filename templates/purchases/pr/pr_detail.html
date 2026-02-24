@@ -1,0 +1,147 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تفاصيل طلب الشراء #{{ pr.pr_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-file-alt me-2 text-primary"></i>طلب شراء #{{ pr.pr_number }}</h2>
+            <p class="text-muted mb-0">{{ pr.created_at|date:"Y/m/d H:i" }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if pr.status == 'draft' %}
+            <a href="{% url 'purchases:pr_edit' pr.pk %}" class="btn btn-outline-primary">
+                <i class="fas fa-edit me-1"></i> تعديل
+            </a>
+            {% endif %}
+            <button class="btn btn-outline-secondary" onclick="window.print()">
+                <i class="fas fa-print me-1"></i> طباعة
+            </button>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- معلومات الطلب -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-3">
+                            <small class="text-muted d-block">الحالة</small>
+                            <span class="badge bg-{{ pr.status_color }} fs-6">{{ pr.get_status_display }}</span>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted d-block">القسم</small>
+                            <strong>{{ pr.department.name }}</strong>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted d-block">مقدم الطلب</small>
+                            <strong>{{ pr.requested_by.get_full_name }}</strong>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted d-block">الأولوية</small>
+                            <span class="badge bg-{{ pr.priority_color }}">{{ pr.get_priority_display }}</span>
+                        </div>
+                    </div>
+
+                    {% if pr.reason %}
+                    <div class="mb-4">
+                        <h6 class="text-muted">سبب الطلب</h6>
+                        <p class="mb-0">{{ pr.reason }}</p>
+                    </div>
+                    {% endif %}
+
+                    <h6 class="mb-3">المواد المطلوبة</h6>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>المادة</th>
+                                    <th>الكمية</th>
+                                    <th>السعر التقديري</th>
+                                    <th>الإجمالي</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in pr.items.all %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>
+                                        <strong>{{ item.product.name }}</strong>
+                                        {% if item.product.sku %}<br><small class="text-muted">{{ item.product.sku }}</small>{% endif %}
+                                    </td>
+                                    <td>{{ item.quantity }} {{ item.get_unit_display }}</td>
+                                    <td>{{ item.estimated_price }} ج.م</td>
+                                    <td><strong>{{ item.total_price }} ج.م</strong></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="bg-success bg-opacity-10">
+                                <tr>
+                                    <th colspan="4" class="text-end">الإجمالي:</th>
+                                    <th>{{ pr.total_amount }} ج.م</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- الإجراءات والتاريخ -->
+        <div class="col-lg-4">
+            <!-- الإجراءات -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-0 py-3">
+                    <h6 class="mb-0">الإجراءات</h6>
+                </div>
+                <div class="card-body">
+                    {% if pr.status == 'pending' and can_approve %}
+                    <a href="{% url 'purchases:pr_approve' pr.pk %}" class="btn btn-success w-100 mb-2">
+                        <i class="fas fa-check me-1"></i> اعتماد الطلب
+                    </a>
+                    <a href="{% url 'purchases:pr_reject' pr.pk %}" class="btn btn-danger w-100 mb-2">
+                        <i class="fas fa-times me-1"></i> رفض الطلب
+                    </a>
+                    {% endif %}
+                    {% if pr.status == 'approved' %}
+                    <a href="{% url 'purchases:pr_to_po' pr.pk %}" class="btn btn-primary w-100">
+                        <i class="fas fa-file-invoice me-1"></i> تحويل لأمر شراء
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- سجل الإجراءات -->
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white border-0 py-3">
+                    <h6 class="mb-0">سجل الإجراءات</h6>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        {% for log in pr.logs.all %}
+                        <div class="d-flex mb-3">
+                            <div class="me-3">
+                                <div class="bg-{{ log.action_color }} bg-opacity-10 rounded-circle p-2">
+                                    <i class="fas fa-{{ log.action_icon }} text-{{ log.action_color }}"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <strong>{{ log.get_action_display }}</strong>
+                                <div class="small text-muted">{{ log.user.get_full_name }} - {{ log.created_at|date:"Y/m/d H:i" }}</div>
+                                {% if log.notes %}<p class="small mb-0 mt-1">{{ log.notes }}</p>{% endif %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p class="text-muted text-center mb-0">لا يوجد سجل</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

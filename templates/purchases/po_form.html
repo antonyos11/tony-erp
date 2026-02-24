@@ -1,0 +1,460 @@
+﻿{% extends 'base_templates/_form_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% if po %}{% trans 'تعديل أمر الشراء' %}{% else %}{% trans 'إنشاء أمر شراء' %}{% endif %}{% endblock %}
+{% block hero_icon %}bi-cart-plus{% endblock %}
+{% block hero_title %}{% if po %}{% trans 'تعديل أمر الشراء' %} - {{ po.po_number }}{% else %}{% trans 'إنشاء أمر شراء جديد' %}{% endif %}{% endblock %}
+{% block hero_subtitle %}{% trans 'إنشاء أمر شراء للموردين' %}{% endblock %}
+
+{% block back_url %}{% url 'purchases:po_list' %}{% endblock %}
+
+{% block form_styles %}
+<style>
+.supplier-selector {
+  background: linear-gradient(135deg, rgba(var(--color-brand-primary-rgb),0.08) 0%, rgba(var(--color-brand-primary-rgb),0.02) 100%);
+  border: 2px solid var(--color-brand-primary);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.supplier-selector .selector-label {
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-brand-primary);
+}
+.po-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.items-editor-card {
+  border: 1px solid var(--bs-border-color);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+.items-editor-card .editor-header {
+  background: var(--bs-tertiary-bg);
+  padding: 1rem 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+.items-editor-card .header-title {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.items-editor-card .header-title i {
+  color: var(--color-brand-accent);
+}
+.po-items-table {
+  width: 100%;
+  margin: 0;
+}
+.po-items-table thead th {
+  background: var(--bs-tertiary-bg);
+  padding: 0.75rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.po-items-table tbody td {
+  padding: 0.75rem 1rem;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+.po-items-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.po-items-table .form-control,
+.po-items-table .form-select {
+  font-size: 0.9rem;
+}
+.po-items-table .line-total {
+  font-weight: 700;
+  color: var(--color-brand-primary);
+}
+.btn-remove {
+  color: #dc3545;
+  background: none;
+  border: none;
+  padding: 0.35rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.btn-remove:hover {
+  background: rgba(220,53,69,0.1);
+}
+.totals-section {
+  background: var(--bs-tertiary-bg);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+.totals-section .totals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.totals-section .grand-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 1rem;
+  border-top: 2px solid var(--color-brand-accent);
+}
+.totals-section .grand-total .label {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+.totals-section .grand-total .value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-brand-accent);
+}
+</style>
+{% endblock %}
+
+{% block form_content %}
+{% now "Y-m-d" as today %}
+{# Supplier Selector #}
+<div class="supplier-selector">
+  <div class="selector-label">
+    <i class="bi bi-building"></i>
+    {% trans 'المورد' %} <span class="text-danger">*</span>
+  </div>
+  <select name="supplier" id="supplierSelect" class="form-select form-select-lg" required>
+    <option value="">{% trans '-- اختر المورد --' %}</option>
+    {% for supplier in suppliers %}
+    <option value="{{ supplier.pk }}" {% if po.supplier.pk == supplier.pk %}selected{% endif %}>
+      {{ supplier.name }}
+    </option>
+    {% endfor %}
+  </select>
+</div>
+
+{# PO Meta Grid #}
+<div class="po-meta-grid">
+  <div class="form-field">
+    <label class="form-label">{% trans 'رقم أمر الشراء' %}</label>
+    <input type="text" name="po_number" class="form-control" 
+           value="{{ po.po_number|default:'' }}" readonly>
+  </div>
+  <div class="form-field">
+    <label class="form-label">{% trans 'التاريخ' %} <span class="text-danger">*</span></label>
+    <input type="date" name="date" class="form-control" 
+           value="{{ po.date|date:'Y-m-d'|default:today }}" required>
+  </div>
+  <div class="form-field">
+    <label class="form-label">{% trans 'تاريخ التوريد المتوقع' %}</label>
+    <input type="date" name="delivery_date" class="form-control" 
+           value="{{ po.delivery_date|date:'Y-m-d'|default:'' }}">
+  </div>
+  <div class="form-field">
+    <label class="form-label">{% trans 'طلب الشراء المرتبط' %}</label>
+    <select name="purchase_request" class="form-select">
+      <option value="">{% trans '-- اختياري --' %}</option>
+      {% for pr in purchase_requests %}
+      <option value="{{ pr.pk }}" {% if po.purchase_request.pk == pr.pk %}selected{% endif %}>
+        {{ pr.pr_number }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="form-field">
+    <label class="form-label">{% trans 'عرض السعر المرتبط' %}</label>
+    <select name="quotation" class="form-select">
+      <option value="">{% trans '-- اختياري --' %}</option>
+      {% for q in quotations %}
+      <option value="{{ q.pk }}" {% if po.quotation.pk == q.pk %}selected{% endif %}>
+        {{ q.quotation_number }} - {{ q.supplier.name }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="form-field">
+    <label class="form-label">{% trans 'المستودع' %} <span class="text-danger">*</span></label>
+    <select name="warehouse" class="form-select" required>
+      <option value="">{% trans '-- اختر --' %}</option>
+      {% for wh in warehouses %}
+      <option value="{{ wh.pk }}" {% if po.warehouse.pk == wh.pk %}selected{% endif %}>
+        {{ wh.name }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+
+{# Items Editor #}
+<div class="items-editor-card">
+  <div class="editor-header">
+    <div class="header-title">
+      <i class="bi bi-box-seam"></i>
+      {% trans 'أصناف الأمر' %}
+    </div>
+    <button type="button" class="btn btn-outline-primary btn-sm" onclick="addItem()">
+      <i class="bi bi-plus-circle me-1"></i>{% trans 'إضافة صنف' %}
+    </button>
+  </div>
+  
+  <div class="table-responsive">
+    <table class="po-items-table">
+      <thead>
+        <tr>
+          <th style="width: 30%">{% trans 'الصنف' %}</th>
+          <th class="text-center" style="width: 10%">{% trans 'الكمية' %}</th>
+          <th class="text-center" style="width: 8%">{% trans 'الوحدة' %}</th>
+          <th class="text-end" style="width: 15%">{% trans 'السعر' %}</th>
+          <th class="text-center" style="width: 10%">{% trans 'الخصم %' %}</th>
+          <th class="text-end" style="width: 15%">{% trans 'الإجمالي' %}</th>
+          <th style="width: 7%"></th>
+        </tr>
+      </thead>
+      <tbody id="itemsBody">
+        {% for item in po.items.all %}
+        <tr class="item-row">
+          <td>
+            <select name="items[][product]" class="form-select" required onchange="updateItemInfo(this)">
+              <option value="">{% trans '-- اختر --' %}</option>
+              {% for product in products %}
+              <option value="{{ product.pk }}" data-unit="{{ product.unit }}" data-price="{{ product.purchase_price }}"
+                      {% if item.product.pk == product.pk %}selected{% endif %}>
+                {{ product.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </td>
+          <td>
+            <input type="number" name="items[][quantity]" class="form-control text-center item-qty" 
+                   value="{{ item.quantity }}" min="0.01" step="0.01" required onchange="calcLineTotal(this)">
+          </td>
+          <td>
+            <input type="text" class="form-control text-center item-unit" 
+                   value="{{ item.product.unit }}" readonly>
+          </td>
+          <td>
+            <input type="number" name="items[][price]" class="form-control text-end item-price" 
+                   value="{{ item.unit_price }}" min="0" step="0.01" required onchange="calcLineTotal(this)">
+          </td>
+          <td>
+            <input type="number" name="items[][discount]" class="form-control text-center item-discount" 
+                   value="{{ item.discount_percent|default:0 }}" min="0" max="100" step="0.5" onchange="calcLineTotal(this)">
+          </td>
+          <td class="text-end">
+            <span class="line-total">{{ item.line_total|floatformat:2 }}</span>
+            <input type="hidden" name="items[][line_total]" class="line-total-input" value="{{ item.line_total }}">
+          </td>
+          <td class="text-center">
+            <button type="button" class="btn-remove" onclick="removeItem(this)">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        </tr>
+        {% empty %}
+        <tr class="item-row">
+          <td>
+            <select name="items[][product]" class="form-select" required onchange="updateItemInfo(this)">
+              <option value="">{% trans '-- اختر --' %}</option>
+              {% for product in products %}
+              <option value="{{ product.pk }}" data-unit="{{ product.unit }}" data-price="{{ product.purchase_price }}">
+                {{ product.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </td>
+          <td>
+            <input type="number" name="items[][quantity]" class="form-control text-center item-qty" 
+                   value="1" min="0.01" step="0.01" required onchange="calcLineTotal(this)">
+          </td>
+          <td>
+            <input type="text" class="form-control text-center item-unit" readonly>
+          </td>
+          <td>
+            <input type="number" name="items[][price]" class="form-control text-end item-price" 
+                   min="0" step="0.01" required onchange="calcLineTotal(this)">
+          </td>
+          <td>
+            <input type="number" name="items[][discount]" class="form-control text-center item-discount" 
+                   value="0" min="0" max="100" step="0.5" onchange="calcLineTotal(this)">
+          </td>
+          <td class="text-end">
+            <span class="line-total">0.00</span>
+            <input type="hidden" name="items[][line_total]" class="line-total-input" value="0">
+          </td>
+          <td class="text-center">
+            <button type="button" class="btn-remove" onclick="removeItem(this)">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Totals Section #}
+<div class="totals-section">
+  <div class="totals-grid">
+    <div class="form-field">
+      <label class="form-label">{% trans 'شروط الدفع' %}</label>
+      <select name="payment_terms" class="form-select">
+        <option value="cash" {% if po.payment_terms == 'cash' %}selected{% endif %}>{% trans 'نقداً' %}</option>
+        <option value="credit_30" {% if po.payment_terms == 'credit_30' %}selected{% endif %}>{% trans 'آجل 30 يوم' %}</option>
+        <option value="credit_60" {% if po.payment_terms == 'credit_60' %}selected{% endif %}>{% trans 'آجل 60 يوم' %}</option>
+        <option value="credit_90" {% if po.payment_terms == 'credit_90' %}selected{% endif %}>{% trans 'آجل 90 يوم' %}</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label class="form-label">{% trans 'نسبة الضريبة %' %}</label>
+      <input type="number" name="tax_rate" id="taxRate" class="form-control" 
+             value="{{ po.tax_rate|default:15 }}" min="0" max="100" step="0.5" onchange="calcGrandTotal()">
+    </div>
+    <div class="form-field">
+      <label class="form-label">{% trans 'خصم إضافي' %}</label>
+      <input type="number" name="extra_discount" id="extraDiscount" class="form-control" 
+             value="{{ po.extra_discount|default:0 }}" min="0" step="0.01" onchange="calcGrandTotal()">
+    </div>
+    <div class="form-field">
+      <label class="form-label">{% trans 'مكان التسليم' %}</label>
+      <input type="text" name="delivery_location" class="form-control" 
+             value="{{ po.delivery_location|default:'' }}">
+    </div>
+  </div>
+  
+  <div class="grand-total">
+    <span class="label">{% trans 'الإجمالي الكلي' %}</span>
+    <span class="value" id="grandTotal">0.00 {% trans 'ج.م' %}</span>
+  </div>
+</div>
+
+{# Notes #}
+<div class="form-card mt-4">
+  <div class="card-header">
+    <div class="section-icon warning">
+      <i class="bi bi-sticky"></i>
+    </div>
+    <h5>{% trans 'ملاحظات' %}</h5>
+  </div>
+  <div class="card-body">
+    <textarea name="notes" class="form-control" rows="3" 
+              placeholder="{% trans 'أي ملاحظات على أمر الشراء...' %}">{{ po.notes|default:'' }}</textarea>
+  </div>
+</div>
+{% endblock %}
+
+{% block form_buttons %}
+<a href="{% url 'purchases:po_list' %}" class="btn btn-outline-secondary">
+  <i class="bi bi-x-lg me-1"></i>{% trans 'إلغاء' %}
+</a>
+<button type="submit" name="action" value="save" class="btn btn-outline-primary">
+  <i class="bi bi-floppy me-1"></i>{% trans 'حفظ كمسودة' %}
+</button>
+<button type="submit" name="action" value="submit" class="btn btn-success">
+  <i class="bi bi-check-circle me-1"></i>{% trans 'حفظ وإرسال للاعتماد' %}
+</button>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const productOptions = document.querySelector('[name="items[][product]"]').innerHTML;
+
+function addItem() {
+  const tbody = document.getElementById('itemsBody');
+  const row = document.createElement('tr');
+  row.className = 'item-row';
+  row.innerHTML = `
+    <td>
+      <select name="items[][product]" class="form-select" required onchange="updateItemInfo(this)">
+        ${productOptions}
+      </select>
+    </td>
+    <td>
+      <input type="number" name="items[][quantity]" class="form-control text-center item-qty" 
+             value="1" min="0.01" step="0.01" required onchange="calcLineTotal(this)">
+    </td>
+    <td>
+      <input type="text" class="form-control text-center item-unit" readonly>
+    </td>
+    <td>
+      <input type="number" name="items[][price]" class="form-control text-end item-price" 
+             min="0" step="0.01" required onchange="calcLineTotal(this)">
+    </td>
+    <td>
+      <input type="number" name="items[][discount]" class="form-control text-center item-discount" 
+             value="0" min="0" max="100" step="0.5" onchange="calcLineTotal(this)">
+    </td>
+    <td class="text-end">
+      <span class="line-total">0.00</span>
+      <input type="hidden" name="items[][line_total]" class="line-total-input" value="0">
+    </td>
+    <td class="text-center">
+      <button type="button" class="btn-remove" onclick="removeItem(this)">
+        <i class="bi bi-trash"></i>
+      </button>
+    </td>
+  `;
+  tbody.appendChild(row);
+}
+
+function removeItem(btn) {
+  const rows = document.querySelectorAll('.item-row');
+  if (rows.length > 1) {
+    btn.closest('tr').remove();
+    calcGrandTotal();
+  }
+}
+
+function updateItemInfo(select) {
+  const row = select.closest('tr');
+  const selected = select.options[select.selectedIndex];
+  const unit = selected.dataset.unit || '';
+  const price = selected.dataset.price || 0;
+  
+  row.querySelector('.item-unit').value = unit;
+  row.querySelector('.item-price').value = price;
+  calcLineTotal(select);
+}
+
+function calcLineTotal(input) {
+  const row = input.closest('tr');
+  const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+  const price = parseFloat(row.querySelector('.item-price').value) || 0;
+  const discount = parseFloat(row.querySelector('.item-discount').value) || 0;
+  
+  const subtotal = qty * price;
+  const total = subtotal - (subtotal * discount / 100);
+  
+  row.querySelector('.line-total').textContent = total.toFixed(2);
+  row.querySelector('.line-total-input').value = total.toFixed(2);
+  calcGrandTotal();
+}
+
+function calcGrandTotal() {
+  const lineTotals = document.querySelectorAll('.line-total');
+  let subtotal = 0;
+  lineTotals.forEach(t => subtotal += parseFloat(t.textContent) || 0);
+  
+  const taxRate = parseFloat(document.getElementById('taxRate').value) || 0;
+  const extraDiscount = parseFloat(document.getElementById('extraDiscount').value) || 0;
+  
+  const afterDiscount = subtotal - extraDiscount;
+  const tax = afterDiscount * taxRate / 100;
+  const grand = afterDiscount + tax;
+  
+  document.getElementById('grandTotal').textContent = grand.toFixed(2) + ' {% trans "ج.م" %}';
+}
+
+// Initialize
+calcGrandTotal();
+</script>
+{% endblock %}
+

@@ -1,0 +1,294 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}النسخ الاحتياطي السحابي - Tony ERP{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-gradient-info text-white">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h2><i class="bi bi-cloud-arrow-up me-2"></i>النسخ الاحتياطي السحابي</h2>
+                            <p class="mb-0">حماية بياناتك بنسخ احتياطية آمنة على السحابة</p>
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <button class="btn btn-light btn-lg" onclick="startBackup()">
+                                <i class="bi bi-cloud-upload me-2"></i>نسخ احتياطي الآن
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- الإحصائيات -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="bi bi-cloud-check fa-2x text-success mb-2"></i>
+                    <h4>{{ total_backups|default:0 }}</h4>
+                    <small class="text-muted">إجمالي النسخ</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="bi bi-hdd fa-2x text-primary mb-2"></i>
+                    <h4>{{ total_size|filesizeformat|default:"0 B" }}</h4>
+                    <small class="text-muted">الحجم الكلي</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="bi bi-clock-history fa-2x text-info mb-2"></i>
+                    <h4>{{ last_backup_time|timesince|default:"لم يتم بعد" }}</h4>
+                    <small class="text-muted">آخر نسخة</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="bi bi-calendar-check fa-2x text-warning mb-2"></i>
+                    <h4>{{ next_scheduled|date:"H:i"|default:"غير مجدول" }}</h4>
+                    <small class="text-muted">النسخة القادمة</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- النسخ الاحتياطية -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-archive me-2"></i>النسخ الاحتياطية</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary active">الكل</button>
+                        <button class="btn btn-outline-secondary">تلقائية</button>
+                        <button class="btn btn-outline-secondary">يدوية</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>النسخة</th>
+                                <th>النوع</th>
+                                <th>الحجم</th>
+                                <th>التاريخ</th>
+                                <th>الحالة</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for backup in backups %}
+                            <tr>
+                                <td>
+                                    <i class="bi bi-file-earmark-zip text-warning me-2"></i>
+                                    {{ backup.name }}
+                                </td>
+                                <td>
+                                    {% if backup.is_automatic %}
+                                    <span class="badge bg-info">تلقائية</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">يدوية</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ backup.size|filesizeformat }}</td>
+                                <td>{{ backup.created_at|date:"Y/m/d H:i" }}</td>
+                                <td>
+                                    {% if backup.status == 'completed' %}
+                                    <span class="badge bg-success"><i class="bi bi-check me-1"></i>مكتملة</span>
+                                    {% elif backup.status == 'in_progress' %}
+                                    <span class="badge bg-warning"><i class="bi bi-arrow-repeat me-1"></i>جاري</span>
+                                    {% else %}
+                                    <span class="badge bg-danger"><i class="bi bi-x me-1"></i>فشلت</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary" onclick="downloadBackup({{ backup.id }})" title="تحميل">
+                                            <i class="bi bi-download"></i>
+                                        </button>
+                                        <button class="btn btn-outline-success" onclick="restoreBackup({{ backup.id }})" title="استعادة">
+                                            <i class="bi bi-arrow-counterclockwise"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger" onclick="deleteBackup({{ backup.id }})" title="حذف">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <i class="bi bi-cloud-slash fa-3x text-muted mb-3"></i>
+                                    <p class="text-muted">لا توجد نسخ احتياطية</p>
+                                    <button class="btn btn-primary" onclick="startBackup()">
+                                        إنشاء نسخة احتياطية
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- الإعدادات -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-gear me-2"></i>إعدادات النسخ</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'cloud_backup:backup_now' %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">التخزين السحابي</label>
+                            <select class="form-select" name="provider">
+                                <option value="local" {% if settings.provider == 'local' %}selected{% endif %}>محلي</option>
+                                <option value="aws" {% if settings.provider == 'aws' %}selected{% endif %}>Amazon S3</option>
+                                <option value="google" {% if settings.provider == 'google' %}selected{% endif %}>Google Cloud</option>
+                                <option value="azure" {% if settings.provider == 'azure' %}selected{% endif %}>Azure Blob</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="auto_backup" 
+                                       id="autoBackup" {% if settings.auto_backup %}checked{% endif %}>
+                                <label class="form-check-label" for="autoBackup">نسخ احتياطي تلقائي</label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">الجدولة</label>
+                            <select class="form-select" name="schedule">
+                                <option value="daily">يومياً</option>
+                                <option value="weekly">أسبوعياً</option>
+                                <option value="monthly">شهرياً</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">الاحتفاظ بالنسخ (أيام)</label>
+                            <input type="number" class="form-control" name="retention_days" value="{{ settings.retention_days|default:30 }}">
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-check me-2"></i>حفظ الإعدادات
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- ما يتم نسخه -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-list-check me-2"></i>محتوى النسخة</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item d-flex justify-content-between">
+                        <span><i class="bi bi-database me-2"></i>قاعدة البيانات</span>
+                        <i class="bi bi-check-circle-fill text-success"></i>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between">
+                        <span><i class="bi bi-image me-2"></i>ملفات الوسائط</span>
+                        <i class="bi bi-check-circle-fill text-success"></i>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between">
+                        <span><i class="bi bi-file-earmark me-2"></i>المستندات</span>
+                        <i class="bi bi-check-circle-fill text-success"></i>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between">
+                        <span><i class="bi bi-gear me-2"></i>الإعدادات</span>
+                        <i class="bi bi-check-circle-fill text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-gradient-info {
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+}
+</style>
+
+<!-- Modal التقدم -->
+<div class="modal fade" id="backupProgressModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary mb-4" style="width: 3rem; height: 3rem;"></div>
+                <h5>جاري إنشاء النسخة الاحتياطية...</h5>
+                <div class="progress mt-4">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                         id="backupProgress" style="width: 0%"></div>
+                </div>
+                <p class="text-muted mt-3" id="backupStatus">جاري تحضير البيانات...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function startBackup() {
+    const modal = new bootstrap.Modal(document.getElementById('backupProgressModal'));
+    modal.show();
+    
+    fetch('{% url "cloud_backup:backup_now" %}', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.task_id) {
+            checkBackupProgress(data.task_id);
+        }
+    });
+}
+
+function checkBackupProgress(taskId) {
+    fetch(`/backup/progress/${taskId}/`)
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('backupProgress').style.width = data.progress + '%';
+        document.getElementById('backupStatus').textContent = data.status;
+        
+        if (data.progress < 100) {
+            setTimeout(() => checkBackupProgress(taskId), 1000);
+        } else {
+            setTimeout(() => location.reload(), 1500);
+        }
+    });
+}
+
+function restoreBackup(backupId) {
+    if (confirm('تحذير: سيتم استبدال جميع البيانات الحالية بالنسخة الاحتياطية. هل أنت متأكد؟')) {
+        // استعادة النسخة
+    }
+}
+
+function deleteBackup(backupId) {
+    if (confirm('هل تريد حذف هذه النسخة الاحتياطية؟')) {
+        fetch(`/backup/${backupId}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        }).then(() => location.reload());
+    }
+}
+</script>
+{% endblock %}

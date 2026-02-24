@@ -1,0 +1,123 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load currency_tags %}
+
+{% block title %}تحليل تكاليف الصيانة{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">تحليل تكاليف الصيانة</h3>
+    <form method="get" class="d-flex gap-2">
+      <input type="date" class="form-control" name="date_from" value="{{ date_from }}">
+      <input type="date" class="form-control" name="date_to" value="{{ date_to }}">
+      <button class="btn btn-primary" type="submit">تحديث</button>
+    </form>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-3">
+      <div class="card border-primary">
+        <div class="card-body">
+          <div class="text-muted">إجمالي التكلفة</div>
+          <div class="h4 mb-0">{{ total_cost|currency_format }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card">
+        <div class="card-body">
+          <div class="text-muted">تكلفة العمالة</div>
+          <div class="h5 mb-0">{{ sums.labor|currency_format }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card">
+        <div class="card-body">
+          <div class="text-muted">تكلفة قطع الغيار</div>
+          <div class="h5 mb-0">{{ sums.parts|currency_format }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card">
+        <div class="card-body">
+          <div class="text-muted">خدمات خارجية + أخرى</div>
+          <div class="h6 mb-0">{{ sums.external|add:sums.other|currency_format }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <canvas id="costChart" height="80"></canvas>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-header">أكثر الماكينات تكلفة</div>
+        <div class="card-body p-0">
+          <div class="table-responsive"><table class="table mb-0">
+            <thead><tr><th>الماكينة</th><th class="text-end">التكلفة</th></tr></thead>
+            <tbody>
+              {% for m in top_machines %}
+              <tr>
+                <td>{{ m.machine__name }}</td>
+                <td class="text-end">{{ m.total|currency_format }}</td>
+              </tr>
+              {% empty %}<tr><td colspan="2" class="text-center text-muted">لا توجد بيانات</td></tr>{% endfor %}
+            </tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-header">أكثر أنواع الصيانة تكلفة</div>
+        <div class="card-body p-0">
+          <div class="table-responsive"><table class="table mb-0">
+            <thead><tr><th>النوع</th><th class="text-end">التكلفة</th></tr></thead>
+            <tbody>
+              {% for t in top_types %}
+              <tr>
+                <td>{{ t.maintenance_type__name }}</td>
+                <td class="text-end">{{ t.total|currency_format }}</td>
+              </tr>
+              {% empty %}<tr><td colspan="2" class="text-center text-muted">لا توجد بيانات</td></tr>{% endfor %}
+            </tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ chart_labels|json_script:'labels-data' }}
+{{ chart_totals|json_script:'totals-data' }}
+{{ chart_labor|json_script:'labor-data' }}
+{{ chart_parts|json_script:'parts-data' }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const labels = JSON.parse(document.getElementById('labels-data').textContent);
+  const totals = JSON.parse(document.getElementById('totals-data').textContent);
+  const labor = JSON.parse(document.getElementById('labor-data').textContent);
+  const parts = JSON.parse(document.getElementById('parts-data').textContent);
+  new Chart(document.getElementById('costChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {label: 'الإجمالي', data: totals, borderColor: '#0d6efd', tension: .2},
+        {label: 'العمالة', data: labor, borderColor: '#198754', tension: .2},
+        {label: 'قطع الغيار', data: parts, borderColor: '#fd7e14', tension: .2}
+      ]
+    },
+    options: {responsive: true, interaction: {mode: 'index', intersect: false}}
+  });
+</script>
+{% endblock %}

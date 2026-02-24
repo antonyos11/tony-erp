@@ -1,0 +1,593 @@
+﻿{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "نظرة عامة على الأصول" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+    }
+    
+    .page-hero {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    
+    .assets-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .summary-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .summary-card::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 100px;
+        height: 100px;
+        background: radial-gradient(circle at top right, rgba(0,212,170,0.1), transparent);
+    }
+    
+    .card-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        color: white;
+        margin-bottom: 1rem;
+    }
+    
+    .card-icon.total { background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); }
+    .card-icon.depreciated { background: linear-gradient(135deg, var(--warning-color), #e0a800); }
+    .card-icon.net { background: linear-gradient(135deg, var(--accent-color), #00b894); }
+    .card-icon.count { background: linear-gradient(135deg, #6f42c1, #8b5cf6); }
+    
+    .card-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .card-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .categories-section {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .category-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+        transition: transform 0.3s ease;
+    }
+    
+    .category-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .category-header {
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .category-icon {
+        width: 45px;
+        height: 45px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        color: white;
+    }
+    
+    .category-title {
+        font-weight: 600;
+        color: var(--primary-color);
+        margin: 0;
+    }
+    
+    .category-count {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .category-body {
+        padding: 1.5rem;
+    }
+    
+    .category-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .stat-item {
+        text-align: center;
+        padding: 0.75rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+    }
+    
+    .stat-value {
+        font-weight: 700;
+        color: var(--primary-color);
+        font-size: 1.1rem;
+    }
+    
+    .stat-label {
+        font-size: 0.75rem;
+        color: #6c757d;
+    }
+    
+    .depreciation-bar {
+        margin-top: 1rem;
+    }
+    
+    .depreciation-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.85rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .progress {
+        height: 8px;
+        border-radius: 4px;
+        background: #e9ecef;
+    }
+    
+    .progress-bar {
+        border-radius: 4px;
+    }
+    
+    .assets-list-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .list-header {
+        padding: 1.25rem 1.5rem;
+        background: #fafbfc;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .filter-group {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .assets-table {
+        width: 100%;
+        margin: 0;
+    }
+    
+    .assets-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+        color: var(--primary-color);
+        padding: 1rem;
+        border: none;
+    }
+    
+    .assets-table td {
+        padding: 1rem;
+        border-bottom: 1px solid #eee;
+        vertical-align: middle;
+    }
+    
+    .assets-table tbody tr:hover {
+        background: rgba(0, 212, 170, 0.03);
+    }
+    
+    .asset-info {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .asset-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1rem;
+    }
+    
+    .asset-name {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+    
+    .asset-code {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    .status-badge {
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    
+    .status-active { background: rgba(40, 167, 69, 0.15); color: var(--success-color); }
+    .status-maintenance { background: rgba(255, 193, 7, 0.15); color: #b38600; }
+    .status-disposed { background: rgba(108, 117, 125, 0.15); color: #6c757d; }
+    
+    .btn-new-asset {
+        background: linear-gradient(135deg, var(--accent-color), #00b894);
+        border: none;
+        color: white;
+        padding: 0.6rem 1.25rem;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+    
+    .btn-new-asset:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 212, 170, 0.3);
+        color: white;
+    }
+    
+    .action-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+        background: white;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+        transition: all 0.2s ease;
+    }
+    
+    .action-btn:hover {
+        background: var(--accent-color);
+        border-color: var(--accent-color);
+        color: white;
+    }
+    
+    [data-bs-theme="dark"] .summary-card,
+    [data-bs-theme="dark"] .category-card,
+    [data-bs-theme="dark"] .assets-list-card {
+        background: #1a1d21;
+    }
+    
+    [data-bs-theme="dark"] .list-header,
+    [data-bs-theme="dark"] .assets-table th {
+        background: #2d3238;
+    }
+    
+    [data-bs-theme="dark"] .stat-item {
+        background: #2d3238;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Hero Section -->
+    <div class="page-hero">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="h2 mb-2">
+                    <i class="fas fa-building me-2"></i>
+                    {% trans "نظرة عامة على الأصول الثابتة" %}
+                </h1>
+                <p class="mb-0 opacity-75">
+                    {% trans "إدارة وتتبع الأصول الثابتة والإهلاك" %}
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <a href="{% url 'fixed_assets:asset_create' %}" class="btn btn-new-asset">
+                    <i class="fas fa-plus me-1"></i>
+                    {% trans "أصل جديد" %}
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="assets-summary">
+        <div class="summary-card">
+            <div class="card-icon total">
+                <i class="fas fa-coins"></i>
+            </div>
+            <div class="card-value">{{ total_cost|default:"2,500,000"|intcomma }} <small>ج.م</small></div>
+            <div class="card-label">{% trans "إجمالي تكلفة الأصول" %}</div>
+        </div>
+        <div class="summary-card">
+            <div class="card-icon depreciated">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <div class="card-value">{{ accumulated_dep|default:"750,000"|intcomma }} <small>ج.م</small></div>
+            <div class="card-label">{% trans "مجمع الإهلاك" %}</div>
+        </div>
+        <div class="summary-card">
+            <div class="card-icon net">
+                <i class="fas fa-balance-scale"></i>
+            </div>
+            <div class="card-value">{{ net_value|default:"1,750,000"|intcomma }} <small>ج.م</small></div>
+            <div class="card-label">{% trans "صافي القيمة الدفترية" %}</div>
+        </div>
+        <div class="summary-card">
+            <div class="card-icon count">
+                <i class="fas fa-cubes"></i>
+            </div>
+            <div class="card-value">{{ assets_count|default:"45" }}</div>
+            <div class="card-label">{% trans "عدد الأصول" %}</div>
+        </div>
+    </div>
+    
+    <!-- Categories Section -->
+    <div class="categories-section">
+        <div class="category-card">
+            <div class="category-header">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="category-icon" style="background: linear-gradient(135deg, #1e3a5f, #2c5282);">
+                        <i class="fas fa-building"></i>
+                    </div>
+                    <div>
+                        <h5 class="category-title">{% trans "المباني والعقارات" %}</h5>
+                        <span class="category-count">8 {% trans "أصول" %}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="category-body">
+                <div class="category-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">1,200,000</div>
+                        <div class="stat-label">{% trans "التكلفة" %}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value text-success">1,080,000</div>
+                        <div class="stat-label">{% trans "القيمة الحالية" %}</div>
+                    </div>
+                </div>
+                <div class="depreciation-bar">
+                    <div class="depreciation-label">
+                        <span>{% trans "نسبة الإهلاك" %}</span>
+                        <span>10%</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar bg-primary" style="width: 10%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="category-card">
+            <div class="category-header">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="category-icon" style="background: linear-gradient(135deg, #28a745, #20c997);">
+                        <i class="fas fa-cogs"></i>
+                    </div>
+                    <div>
+                        <h5 class="category-title">{% trans "الآلات والمعدات" %}</h5>
+                        <span class="category-count">18 {% trans "أصل" %}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="category-body">
+                <div class="category-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">800,000</div>
+                        <div class="stat-label">{% trans "التكلفة" %}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value text-success">480,000</div>
+                        <div class="stat-label">{% trans "القيمة الحالية" %}</div>
+                    </div>
+                </div>
+                <div class="depreciation-bar">
+                    <div class="depreciation-label">
+                        <span>{% trans "نسبة الإهلاك" %}</span>
+                        <span>40%</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar bg-warning" style="width: 40%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="category-card">
+            <div class="category-header">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="category-icon" style="background: linear-gradient(135deg, #6f42c1, #8b5cf6);">
+                        <i class="fas fa-truck"></i>
+                    </div>
+                    <div>
+                        <h5 class="category-title">{% trans "المركبات" %}</h5>
+                        <span class="category-count">12 {% trans "أصل" %}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="category-body">
+                <div class="category-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">350,000</div>
+                        <div class="stat-label">{% trans "التكلفة" %}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value text-success">140,000</div>
+                        <div class="stat-label">{% trans "القيمة الحالية" %}</div>
+                    </div>
+                </div>
+                <div class="depreciation-bar">
+                    <div class="depreciation-label">
+                        <span>{% trans "نسبة الإهلاك" %}</span>
+                        <span>60%</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar bg-danger" style="width: 60%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Assets List -->
+    <div class="assets-list-card">
+        <div class="list-header">
+            <h5 class="mb-0">
+                <i class="fas fa-list me-2"></i>
+                {% trans "قائمة الأصول" %}
+            </h5>
+            <div class="filter-group">
+                <select class="form-select form-select-sm">
+                    <option value="">{% trans "كل الفئات" %}</option>
+                    <option>{% trans "المباني" %}</option>
+                    <option>{% trans "الآلات" %}</option>
+                    <option>{% trans "المركبات" %}</option>
+                </select>
+                <select class="form-select form-select-sm">
+                    <option value="">{% trans "كل الحالات" %}</option>
+                    <option value="active">{% trans "نشط" %}</option>
+                    <option value="maintenance">{% trans "صيانة" %}</option>
+                    <option value="disposed">{% trans "مستبعد" %}</option>
+                </select>
+                <input type="text" class="form-control form-control-sm" placeholder="{% trans 'بحث...' %}">
+            </div>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table assets-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "الأصل" %}</th>
+                        <th>{% trans "الفئة" %}</th>
+                        <th>{% trans "تاريخ الشراء" %}</th>
+                        <th>{% trans "التكلفة" %}</th>
+                        <th>{% trans "القيمة الحالية" %}</th>
+                        <th>{% trans "الحالة" %}</th>
+                        <th>{% trans "إجراءات" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <div class="asset-info">
+                                <div class="asset-icon" style="background: #1e3a5f;">
+                                    <i class="fas fa-building"></i>
+                                </div>
+                                <div>
+                                    <div class="asset-name">{% trans "مبنى المصنع الرئيسي" %}</div>
+                                    <div class="asset-code">AST-001</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{% trans "مباني" %}</td>
+                        <td>2020-01-15</td>
+                        <td><strong>500,000</strong></td>
+                        <td class="text-success"><strong>450,000</strong></td>
+                        <td><span class="status-badge status-active">{% trans "نشط" %}</span></td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <button class="action-btn" title="{% trans 'عرض' %}"><i class="fas fa-eye"></i></button>
+                                <button class="action-btn" title="{% trans 'تعديل' %}"><i class="fas fa-edit"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="asset-info">
+                                <div class="asset-icon" style="background: #28a745;">
+                                    <i class="fas fa-cogs"></i>
+                                </div>
+                                <div>
+                                    <div class="asset-name">{% trans "ماكينة تصنيع CNC" %}</div>
+                                    <div class="asset-code">AST-015</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{% trans "آلات" %}</td>
+                        <td>2022-06-20</td>
+                        <td><strong>150,000</strong></td>
+                        <td class="text-success"><strong>105,000</strong></td>
+                        <td><span class="status-badge status-active">{% trans "نشط" %}</span></td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <button class="action-btn" title="{% trans 'عرض' %}"><i class="fas fa-eye"></i></button>
+                                <button class="action-btn" title="{% trans 'تعديل' %}"><i class="fas fa-edit"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="asset-info">
+                                <div class="asset-icon" style="background: #6f42c1;">
+                                    <i class="fas fa-truck"></i>
+                                </div>
+                                <div>
+                                    <div class="asset-name">{% trans "شاحنة توصيل - 01" %}</div>
+                                    <div class="asset-code">AST-030</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{% trans "مركبات" %}</td>
+                        <td>2021-03-10</td>
+                        <td><strong>85,000</strong></td>
+                        <td class="text-success"><strong>34,000</strong></td>
+                        <td><span class="status-badge status-maintenance">{% trans "صيانة" %}</span></td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <button class="action-btn" title="{% trans 'عرض' %}"><i class="fas fa-eye"></i></button>
+                                <button class="action-btn" title="{% trans 'تعديل' %}"><i class="fas fa-edit"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

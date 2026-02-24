@@ -1,0 +1,454 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'التقارير والتحليلات' %}{% endblock %}
+
+{% block content %}
+<style>
+  .analytics-hero {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+    margin-bottom: 2rem;
+  }
+  .analytics-hero h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  .period-selector {
+    display: flex;
+    gap: 0.5rem;
+    background: rgba(255,255,255,0.1);
+    padding: 0.5rem;
+    border-radius: var(--radius);
+  }
+  .period-btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    background: transparent;
+    color: rgba(255,255,255,0.7);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .period-btn:hover {
+    background: rgba(255,255,255,0.1);
+    color: white;
+  }
+  .period-btn.active {
+    background: white;
+    color: var(--primary);
+  }
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .kpi-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--primary);
+  }
+  .kpi-card.revenue::before { background: #10b981; }
+  .kpi-card.orders::before { background: #3b82f6; }
+  .kpi-card.customers::before { background: #f59e0b; }
+  .kpi-card.returns::before { background: #ef4444; }
+  .kpi-card .kpi-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .kpi-card.revenue .kpi-icon { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+  .kpi-card.orders .kpi-icon { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+  .kpi-card.customers .kpi-icon { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+  .kpi-card.returns .kpi-icon { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+  .kpi-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 0.25rem;
+  }
+  .kpi-label {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+  }
+  .kpi-change {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+  }
+  .kpi-change.up { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+  .kpi-change.down { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+  .chart-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+  }
+  .chart-header {
+    padding: 1rem 1.5rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .chart-header h5 {
+    margin: 0;
+    font-weight: 600;
+  }
+  .chart-body {
+    padding: 1.5rem;
+  }
+  .chart-container {
+    height: 300px;
+    position: relative;
+  }
+  .reports-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .report-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: var(--transition);
+    border: 2px solid transparent;
+  }
+  .report-card:hover {
+    border-color: var(--primary);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-3px);
+  }
+  .report-card .report-icon {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, var(--primary) 0%, #2d5a87 100%);
+    color: white;
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .report-card h5 {
+    margin-bottom: 0.5rem;
+  }
+  .report-card p {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    margin-bottom: 0;
+  }
+  .top-list {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .top-list-header {
+    padding: 1rem 1.5rem;
+    background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+    color: white;
+  }
+  .top-list-body {
+    padding: 1rem;
+  }
+  .top-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .top-item:last-child {
+    border-bottom: none;
+  }
+  .top-item .rank {
+    width: 28px;
+    height: 28px;
+    background: var(--primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .top-item .rank.gold { background: #f59e0b; }
+  .top-item .rank.silver { background: #9ca3af; }
+  .top-item .rank.bronze { background: #b45309; }
+  .top-item .info {
+    flex: 1;
+  }
+  .top-item .name {
+    font-weight: 600;
+  }
+  .top-item .meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .top-item .value {
+    font-weight: 700;
+    color: var(--success);
+  }
+</style>
+
+<!-- Hero -->
+<div class="analytics-hero">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div>
+      <h1><i class="bi bi-graph-up-arrow me-2"></i>{% trans 'التقارير والتحليلات' %}</h1>
+      <p class="mb-0 opacity-75">{% trans 'تحليل شامل لأداء المبيعات' %}</p>
+    </div>
+    <div class="d-flex gap-3 align-items-center">
+      <div class="period-selector">
+        <button class="period-btn" data-period="today">{% trans 'اليوم' %}</button>
+        <button class="period-btn" data-period="week">{% trans 'الأسبوع' %}</button>
+        <button class="period-btn active" data-period="month">{% trans 'الشهر' %}</button>
+        <button class="period-btn" data-period="year">{% trans 'السنة' %}</button>
+      </div>
+      <a href="{% url 'sales:export_customers_csv' %}" class="btn btn-light">
+        <i class="bi bi-download me-1"></i>{% trans 'تصدير' %}
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="kpi-grid">
+  <div class="kpi-card revenue">
+    <span class="kpi-change up"><i class="bi bi-arrow-up me-1"></i>{{ kpis.revenue_change }}%</span>
+    <div class="kpi-icon"><i class="bi bi-cash-stack"></i></div>
+    <div class="kpi-value">{{ kpis.total_revenue|floatformat:0 }}</div>
+    <div class="kpi-label">{% trans 'إجمالي المبيعات' %}</div>
+  </div>
+  <div class="kpi-card orders">
+    <span class="kpi-change up"><i class="bi bi-arrow-up me-1"></i>{{ kpis.orders_change }}%</span>
+    <div class="kpi-icon"><i class="bi bi-receipt"></i></div>
+    <div class="kpi-value">{{ kpis.total_orders }}</div>
+    <div class="kpi-label">{% trans 'عدد الفواتير' %}</div>
+  </div>
+  <div class="kpi-card customers">
+    <span class="kpi-change up"><i class="bi bi-arrow-up me-1"></i>{{ kpis.customers_change }}%</span>
+    <div class="kpi-icon"><i class="bi bi-people"></i></div>
+    <div class="kpi-value">{{ kpis.active_customers }}</div>
+    <div class="kpi-label">{% trans 'عملاء نشطين' %}</div>
+  </div>
+  <div class="kpi-card returns">
+    <span class="kpi-change down"><i class="bi bi-arrow-down me-1"></i>{{ kpis.returns_change }}%</span>
+    <div class="kpi-icon"><i class="bi bi-arrow-return-left"></i></div>
+    <div class="kpi-value">{{ kpis.total_returns|floatformat:0 }}</div>
+    <div class="kpi-label">{% trans 'المرتجعات' %}</div>
+  </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-8">
+    <div class="chart-card">
+      <div class="chart-header">
+        <h5><i class="bi bi-bar-chart me-2"></i>{% trans 'تطور المبيعات' %}</h5>
+        <select class="form-select form-select-sm" style="width: auto;">
+          <option>{% trans 'يومي' %}</option>
+          <option selected>{% trans 'أسبوعي' %}</option>
+          <option>{% trans 'شهري' %}</option>
+        </select>
+      </div>
+      <div class="chart-body">
+        <div class="chart-container">
+          <canvas id="salesChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="chart-card">
+      <div class="chart-header">
+        <h5><i class="bi bi-pie-chart me-2"></i>{% trans 'طرق الدفع' %}</h5>
+      </div>
+      <div class="chart-body">
+        <div class="chart-container">
+          <canvas id="paymentChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Reports -->
+<h5 class="mb-3"><i class="bi bi-file-text me-2"></i>{% trans 'التقارير السريعة' %}</h5>
+<div class="reports-grid">
+  <a href="{% url 'sales:daily_report' %}" class="report-card text-decoration-none">
+    <div class="report-icon"><i class="bi bi-calendar-day"></i></div>
+    <h5>{% trans 'التقرير اليومي' %}</h5>
+    <p>{% trans 'ملخص مبيعات ومدفوعات اليوم' %}</p>
+  </a>
+  <a href="{% url 'sales:quick_report' %}" class="report-card text-decoration-none">
+    <div class="report-icon"><i class="bi bi-box-seam"></i></div>
+    <h5>{% trans 'المبيعات بالمنتج' %}</h5>
+    <p>{% trans 'تحليل المبيعات حسب المنتجات' %}</p>
+  </a>
+  <a href="{% url 'sales:quick_report' %}" class="report-card text-decoration-none">
+    <div class="report-icon"><i class="bi bi-people"></i></div>
+    <h5>{% trans 'المبيعات بالعميل' %}</h5>
+    <p>{% trans 'تحليل المبيعات حسب العملاء' %}</p>
+  </a>
+  <a href="{% url 'sales:quick_report' %}" class="report-card text-decoration-none">
+    <div class="report-icon"><i class="bi bi-person-badge"></i></div>
+    <h5>{% trans 'أداء المندوبين' %}</h5>
+    <p>{% trans 'تقييم أداء فريق المبيعات' %}</p>
+  </a>
+</div>
+
+<!-- Top Lists -->
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="top-list">
+      <div class="top-list-header">
+        <h6 class="mb-0"><i class="bi bi-star me-2"></i>{% trans 'أفضل المنتجات' %}</h6>
+      </div>
+      <div class="top-list-body">
+        {% for product in top_products %}
+        <div class="top-item">
+          <span class="rank {% if forloop.counter == 1 %}gold{% elif forloop.counter == 2 %}silver{% elif forloop.counter == 3 %}bronze{% endif %}">{{ forloop.counter }}</span>
+          <div class="info">
+            <div class="name">{{ product.name }}</div>
+            <div class="meta">{{ product.qty_sold }} {% trans 'وحدة' %}</div>
+          </div>
+          <span class="value">{{ product.revenue|floatformat:0 }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="top-list">
+      <div class="top-list-header">
+        <h6 class="mb-0"><i class="bi bi-trophy me-2"></i>{% trans 'أفضل العملاء' %}</h6>
+      </div>
+      <div class="top-list-body">
+        {% for customer in top_customers %}
+        <div class="top-item">
+          <span class="rank {% if forloop.counter == 1 %}gold{% elif forloop.counter == 2 %}silver{% elif forloop.counter == 3 %}bronze{% endif %}">{{ forloop.counter }}</span>
+          <div class="info">
+            <div class="name">{{ customer.name }}</div>
+            <div class="meta">{{ customer.orders_count }} {% trans 'طلب' %}</div>
+          </div>
+          <span class="value">{{ customer.total_spent|floatformat:0 }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="top-list">
+      <div class="top-list-header">
+        <h6 class="mb-0"><i class="bi bi-person-check me-2"></i>{% trans 'أفضل المندوبين' %}</h6>
+      </div>
+      <div class="top-list-body">
+        {% for rep in top_reps %}
+        <div class="top-item">
+          <span class="rank {% if forloop.counter == 1 %}gold{% elif forloop.counter == 2 %}silver{% elif forloop.counter == 3 %}bronze{% endif %}">{{ forloop.counter }}</span>
+          <div class="info">
+            <div class="name">{{ rep.get_full_name }}</div>
+            <div class="meta">{{ rep.sales_count }} {% trans 'فاتورة' %}</div>
+          </div>
+          <span class="value">{{ rep.total_sales|floatformat:0 }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  // Sales Chart
+  new Chart(document.getElementById('salesChart'), {
+    type: 'line',
+    data: {
+      labels: { chart_labels|safe }},
+      datasets: [{
+        label: '{% trans "المبيعات" %}',
+        data: { chart_data|safe }},
+        borderColor: '#6366f1',
+        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+        fill: true,
+        tension: 0.4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+
+  // Payment Chart
+  new Chart(document.getElementById('paymentChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['{% trans "نقدي" %}', '{% trans "آجل" %}', '{% trans "بطاقة" %}', '{% trans "تحويل" %}'],
+      datasets: [{
+        data: { payment_data|safe },
+        backgroundColor: ['#10b981', '#f59e0b', '#3b82f6', '#8b5cf6']
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom' }
+      }
+    }
+  });
+
+  // Period selector
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      // Reload data for period
+    });
+  });
+</script>
+{% endblock %}
+

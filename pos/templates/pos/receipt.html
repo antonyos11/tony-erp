@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans 'إيصال نقطة البيع' %}{% endblock %}
+{% block content %}
+<div class="container mt-3">
+  <div class="card">
+    <div class="card-body">
+      <!-- 1. بيانات الشركة -->
+      <div class="text-center mb-3">
+        {% if company_info.logo_url %}<img src="{{ company_info.logo_url }}" alt="Logo" style="max-height: 120px; max-width: 280px; margin-bottom: 15px; object-fit: contain;">
+        {% elif company.logo %}<img src="{{ company.logo }}" alt="Logo" style="max-height: 120px; max-width: 280px; margin-bottom: 15px; object-fit: contain;">{% endif %}
+        <h4 class="mb-1">{{ company_info.name|default:company.name|default:"Tony ERP" }}</h4>
+        {% if company_info.slogan %}<p class="mb-0 text-muted small" style="font-style: italic;">{{ company_info.slogan }}</p>{% endif %}
+        {% if company_info.address|default:company.address %}<p class="mb-0 text-muted small">📍 {{ company_info.address|default:company.address }}</p>{% endif %}
+        {% if company_info.phone|default:company.phone %}<p class="mb-0 text-muted small">📞 {{ company_info.phone|default:company.phone }}</p>{% endif %}
+        {% for phone in company_info.print_phones %}
+        <p class="mb-0 text-muted small">📞 {{ phone.phone_type_display }}: {{ phone.phone_number }}</p>
+        {% endfor %}
+        {% if order.is_tax_invoice and company_info.tax_id|default:company.vat_number %}<p class="mb-0 text-muted small">🧾 {% trans 'الرقم الضريبي' %}: {{ company_info.tax_id|default:company.vat_number }}</p>{% endif %}
+      </div>
+      
+      <!-- 2. بيانات المعرض/الفرع -->
+      <div class="text-center mb-3 p-2 bg-light rounded">
+        <strong>🏪 {{ branch.name|default:order.location }}</strong>
+        {% if branch.code %}<small class="text-muted">({{ branch.code }})</small>{% endif %}
+      </div>
+      
+      <!-- 3. رقم الإيصال والكاشير والوقت -->
+      <div class="border rounded p-2 mb-3">
+        <h5 class="text-center mb-2">{% trans 'إيصال بيع' %} <strong>{{ order.number }}</strong></h5>
+        <div class="row small">
+          <div class="col-6">
+            <strong>{% trans 'التاريخ' %}:</strong> {{ order.created_at|date:'Y-m-d' }}<br>
+            <strong>{% trans 'الوقت' %}:</strong> {{ order.created_at|date:'H:i' }}
+          </div>
+          <div class="col-6 text-end">
+            <strong>{% trans 'الكاشير' %}:</strong> {% if cashier_name %}{{ cashier_name }}{% elif order.session and order.session.user %}{{ order.session.user.username }}{% else %}-{% endif %}<br>
+            <strong>{% trans 'العميل' %}:</strong> {{ order.customer|default:_('عميل نقدي') }}
+          </div>
+        </div>
+      </div>
+      
+      <!-- 4. تفاصيل المنتجات -->
+  <div class="table-responsive"><table class="table table-sm receipt-table">
+        <thead>
+          <tr>
+            <th>{% trans 'المنتج' %}</th>
+            <th>{% trans 'الكمية' %}</th>
+            <th>{% trans 'السعر' %}</th>
+            <th>{% trans 'الإجمالي' %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for line in lines %}
+          <tr>
+            <td>{{ line.product.name }}</td>
+            <td>{{ line.quantity }}</td>
+            <td>{{ line.price }}</td>
+            <td>{{ line.total }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th colspan="3" class="text-end">{% trans 'المجموع الفرعي' %}</th>
+            <th>{{ order.subtotal|default:order.total }}</th>
+          </tr>
+          {% if order.discount_amount %}
+          <tr>
+            <th colspan="3" class="text-end">{% trans 'الخصم' %}</th>
+            <th>-{{ order.discount_amount }}</th>
+          </tr>
+          {% endif %}
+          {% if order.is_tax_invoice and order.tax_amount %}
+          <tr>
+            <th colspan="3" class="text-end">{% trans 'ضريبة القيمة المضافة' %} ({{ order.vat_rate }}%)</th>
+            <th>{{ order.tax_amount }}</th>
+          </tr>
+          {% endif %}
+          {% if order.withholding_tax_amount %}
+          <tr>
+            <th colspan="3" class="text-end">{% trans 'ضريبة المنبع' %} ({{ order.withholding_tax_rate }}%)</th>
+            <th>-{{ order.withholding_tax_amount }}</th>
+          </tr>
+          {% endif %}
+          {% if order.shipping_cost %}
+          <tr>
+            <th colspan="3" class="text-end">{% trans 'مصاريف الشحن' %}</th>
+            <th>{{ order.shipping_cost }}</th>
+          </tr>
+          {% endif %}
+          <tr class="table-active">
+            <th colspan="3" class="text-end">{% trans 'الإجمالي النهائي' %}</th>
+            <th>{{ order.total }}</th>
+          </tr>
+          <tr>
+            <th colspan="3" class="text-end">{% trans 'مدفوع' %}</th>
+            <th>{{ order.paid_amount }}</th>
+          </tr>
+        </tfoot>
+      </table></div>
+      <p class="text-center mt-3">{% trans 'شكراً لتسوقكم معنا' %}</p>
+      <div class="text-center no-print">
+        <button onclick="directPrintAgent()" class="btn btn-info btn-lg" id="directPrintBtn">
+          🖨️ {% trans 'XPrinter مباشر' %}
+          <span id="receiptPrinterStatus" class="badge bg-light text-dark ms-1" style="font-size: 0.65rem;">⏳</span>
+        </button>
+        <a href="{% url 'pos:invoice_a4' order.id %}" class="btn btn-dark btn-lg" target="_blank">📄 {% trans 'فاتورة A4' %}</a>
+        <a href="{% url 'pos:dashboard' %}" class="btn btn-primary btn-lg">{% trans 'رجوع' %}</a>
+      </div>
+      
+      <!-- Modal لاختيار الطابعة -->
+      <div class="modal fade" id="printerModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">اختيار الطابعة</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label">الطابعة:</label>
+                <select class="form-select" id="printerSelect">
+                  <option value="">جاري التحميل...</option>
+                </select>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="openDrawer">
+                <label class="form-check-label" for="openDrawer">فتح درج النقود</label>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+              <button type="button" class="btn btn-primary" onclick="sendToPrinter()">طباعة</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+// ========== نظام الطباعة عبر TonyPrint Agent ==========
+
+// فحص حالة وكيل الطباعة (يعتمد فقط على TonyPrint)
+function checkReceiptPrinterStatus() {
+    const statusEl = document.getElementById('receiptPrinterStatus');
+    if (typeof TonyPrint !== 'undefined' && TonyPrint.isConnected()) {
+        if (statusEl) {
+            statusEl.innerHTML = '🟢';
+            statusEl.title = 'وكيل الطباعة متصل';
+        }
+    } else {
+        if (statusEl) {
+            statusEl.innerHTML = '🔴';
+            statusEl.title = 'وكيل الطباعة غير متصل - شغّل agent_windows.py';
+        }
+    }
+}
+
+// طباعة مباشرة عبر TonyPrint Agent
+async function directPrintAgent() {
+    const btn = document.getElementById('directPrintBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '⏳ جاري الطباعة...';
+    
+    try {
+        if (typeof TonyPrint === 'undefined') {
+            alert('❌ نظام الطباعة غير محمّل - أعد تحميل الصفحة');
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            return;
+        }
+        
+        if (!TonyPrint.isConnected()) {
+            alert('❌ وكيل الطباعة غير متصل!\n\nشغّل agent_windows.py على جهازك المحلي أولاً.');
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            return;
+        }
+        
+        const result = await TonyPrint.printOrderReceipt({{ order.id }}, {open_drawer: true});
+        if (result.success) {
+            btn.innerHTML = '✅ تمت الطباعة!';
+            setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+        } else {
+            alert('❌ خطأ في الطباعة: ' + (result.error || 'خطأ غير معروف'));
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    } catch (error) {
+        alert('❌ خطأ: ' + (error.message || 'خطأ غير معروف'));
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+// Legacy fallback
+function directPrint(openDrawer) {
+    directPrintAgent();
+}
+
+// فحص عند تحميل الصفحة وكل 10 ثواني
+checkReceiptPrinterStatus();
+setInterval(checkReceiptPrinterStatus, 10000);
+</script>
+<style>
+/* Thermal mode (narrow width when ?thermal=1) */
+{% if request.GET.thermal %}
+body { background:#fff; }
+.container { max-width:320px; }
+.receipt-table th,.receipt-table td { font-size:12px; padding:2px 4px; }
+{% endif %}
+@media print { .no-print { display:none } body { direction:rtl } }
+</style>
+{% endblock %}

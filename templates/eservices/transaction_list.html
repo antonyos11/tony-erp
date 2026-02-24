@@ -1,0 +1,130 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load i18n %}
+
+{% block title %}{% trans "المعاملات" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-list-check me-2"></i>{% trans "المعاملات" %}</h2>
+        <a href="{% url 'eservices:dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i>{% trans "العودة" %}
+        </a>
+    </div>
+
+    <!-- فلاتر -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "الحالة" %}</label>
+                    <select name="status" class="form-select">
+                        <option value="">{% trans "الكل" %}</option>
+                        <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>{% trans "معلقة" %}</option>
+                        <option value="processing" {% if request.GET.status == 'processing' %}selected{% endif %}>{% trans "جارية" %}</option>
+                        <option value="completed" {% if request.GET.status == 'completed' %}selected{% endif %}>{% trans "مكتملة" %}</option>
+                        <option value="failed" {% if request.GET.status == 'failed' %}selected{% endif %}>{% trans "فاشلة" %}</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "من تاريخ" %}</label>
+                    <input type="date" name="date_from" class="form-control" value="{{ request.GET.date_from }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "إلى تاريخ" %}</label>
+                    <input type="date" name="date_to" class="form-control" value="{{ request.GET.date_to }}">
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">{% trans "بحث" %}</button>
+                    <a href="{% url 'eservices:transaction_list' %}" class="btn btn-outline-secondary">{% trans "إعادة تعيين" %}</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% trans "رقم المعاملة" %}</th>
+                            <th>{% trans "الخدمة" %}</th>
+                            <th>{% trans "المستخدم" %}</th>
+                            <th>{% trans "المبلغ" %}</th>
+                            <th>{% trans "الرسوم" %}</th>
+                            <th>{% trans "الإجمالي" %}</th>
+                            <th>{% trans "الحالة" %}</th>
+                            <th>{% trans "التاريخ" %}</th>
+                            <th>{% trans "إجراءات" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for trans in transactions %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'eservices:transaction_detail' trans.pk %}">
+                                    {{ trans.transaction_id }}
+                                </a>
+                            </td>
+                            <td>{{ trans.service.name }}</td>
+                            <td>{{ trans.created_by.username|default:"-" }}</td>
+                            <td>{{ trans.amount }}</td>
+                            <td>{{ trans.fee }}</td>
+                            <td><strong>{{ trans.total }}</strong></td>
+                            <td>
+                                <span class="badge 
+                                    {% if trans.status == 'completed' %}bg-success
+                                    {% elif trans.status == 'processing' %}bg-info
+                                    {% elif trans.status == 'pending' %}bg-warning text-dark
+                                    {% elif trans.status == 'failed' %}bg-danger
+                                    {% elif trans.status == 'refunded' %}bg-secondary
+                                    {% else %}bg-dark{% endif %}">
+                                    {{ trans.get_status_display }}
+                                </span>
+                            </td>
+                            <td>{{ trans.created_at|date:"Y/m/d H:i" }}</td>
+                            <td>
+                                <a href="{% url 'eservices:transaction_detail' trans.pk %}" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-4 text-muted">
+                                {% trans "لا توجد معاملات" %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ترقيم الصفحات -->
+    {% if transactions.has_other_pages %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if transactions.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ transactions.previous_page_number }}">{% trans "السابق" %}</a>
+            </li>
+            {% endif %}
+            {% for num in transactions.paginator.page_range %}
+            <li class="page-item {% if transactions.number == num %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+            </li>
+            {% endfor %}
+            {% if transactions.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ transactions.next_page_number }}">{% trans "التالي" %}</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

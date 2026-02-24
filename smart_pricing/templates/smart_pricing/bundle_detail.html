@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ bundle.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bundle-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        color: white;
+        padding: 30px;
+    }
+    .item-card {
+        border-radius: 10px;
+        border: none;
+        transition: all 0.3s ease;
+    }
+    .item-card:hover {
+        transform: translateY(-3px);
+    }
+    .price-comparison {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'smart_pricing:dashboard' %}">{% trans "التسعير الذكي" %}</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'smart_pricing:bundles_list' %}">{% trans "الباقات" %}</a>
+            </li>
+            <li class="breadcrumb-item active">{{ bundle.name }}</li>
+        </ol>
+    </nav>
+
+    <!-- رأس الباقة -->
+    <div class="bundle-header mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h2 class="mb-2">
+                    <i class="fas fa-cubes me-2"></i>
+                    {{ bundle.name }}
+                </h2>
+                <p class="mb-3 opacity-75">{{ bundle.description }}</p>
+                
+                <div class="d-flex gap-3">
+                    {% if bundle.is_active %}
+                    <span class="badge bg-light text-success fs-6">
+                        <i class="fas fa-check-circle"></i> {% trans "نشطة" %}
+                    </span>
+                    {% else %}
+                    <span class="badge bg-light text-secondary fs-6">
+                        <i class="fas fa-pause-circle"></i> {% trans "متوقفة" %}
+                    </span>
+                    {% endif %}
+                    
+                    {% if bundle.start_date and bundle.end_date %}
+                    <span class="badge bg-light text-dark fs-6">
+                        <i class="fas fa-calendar"></i>
+                        {{ bundle.start_date|date:"Y/m/d" }} - {{ bundle.end_date|date:"Y/m/d" }}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="bg-white rounded-3 p-3 text-dark">
+                    <small class="d-block text-muted">{% trans "سعر الباقة" %}</small>
+                    <h2 class="mb-0 text-primary">{{ bundle.bundle_price|floatformat:2 }} ر.س</h2>
+                    <del class="text-muted">{{ bundle.original_total_price|floatformat:2 }} ر.س</del>
+                    <span class="badge bg-danger ms-2">
+                        {% trans "وفر" %} {{ bundle.discount_percentage|floatformat:0 }}%
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- منتجات الباقة -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm" style="border-radius: 15px; border: none;">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-box text-primary"></i>
+                        {% trans "منتجات الباقة" %}
+                        <span class="badge bg-primary">{{ items.count }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for item in items %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card item-card shadow-sm">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center">
+                                        {% if item.product.main_image %}
+                                        <img src="{{ item.product.main_image.url }}" 
+                                             class="rounded me-3" 
+                                             style="width: 60px; height: 60px; object-fit: cover;">
+                                        {% else %}
+                                        <div class="bg-light rounded me-3 d-flex align-items-center justify-content-center"
+                                             style="width: 60px; height: 60px;">
+                                            <i class="fas fa-box fa-2x text-muted"></i>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">{{ item.product.name }}</h6>
+                                            <small class="text-muted">{{ item.product.sku }}</small>
+                                        </div>
+                                        
+                                        <div class="text-end">
+                                            <span class="badge bg-primary fs-6">× {{ item.quantity }}</span>
+                                            <br>
+                                            <small class="text-muted">
+                                                {{ item.product.price|floatformat:2 }} ر.س
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12 text-center py-5">
+                            <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">{% trans "لا توجد منتجات في هذه الباقة" %}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ملخص السعر -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4" style="border-radius: 15px; border: none;">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calculator text-success"></i>
+                        {% trans "ملخص السعر" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="price-comparison">
+                        <div class="d-flex justify-content-between mb-3">
+                            <span>{% trans "السعر الأصلي:" %}</span>
+                            <strong>{{ bundle.original_total_price|floatformat:2 }} ر.س</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-3 text-danger">
+                            <span>{% trans "الخصم:" %}</span>
+                            <strong>- {{ bundle.discount_amount|floatformat:2 }} ر.س</strong>
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-between">
+                            <span class="h5 mb-0">{% trans "السعر النهائي:" %}</span>
+                            <strong class="h5 mb-0 text-success">{{ bundle.bundle_price|floatformat:2 }} ر.س</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- إحصائيات -->
+            <div class="card shadow-sm" style="border-radius: 15px; border: none;">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie text-info"></i>
+                        {% trans "إحصائيات" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <h4 class="text-primary mb-0">{{ items.count }}</h4>
+                            <small class="text-muted">{% trans "منتج" %}</small>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <h4 class="text-success mb-0">{{ bundle.discount_percentage|floatformat:0 }}%</h4>
+                            <small class="text-muted">{% trans "نسبة الخصم" %}</small>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-info mb-0">{{ bundle.times_sold|default:0 }}</h4>
+                            <small class="text-muted">{% trans "مرات البيع" %}</small>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-warning mb-0">{{ bundle.total_revenue|floatformat:0|default:0 }}</h4>
+                            <small class="text-muted">{% trans "الإيرادات" %}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- أزرار الإجراءات -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="d-flex gap-2">
+                <a href="{% url 'smart_pricing:bundles_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-right"></i> {% trans "العودة للقائمة" %}
+                </a>
+                <button class="btn btn-primary">
+                    <i class="fas fa-edit"></i> {% trans "تعديل الباقة" %}
+                </button>
+                <button class="btn btn-success">
+                    <i class="fas fa-shopping-cart"></i> {% trans "إضافة لعرض سعر" %}
+                </button>
+                {% if bundle.is_active %}
+                <button class="btn btn-warning">
+                    <i class="fas fa-pause"></i> {% trans "إيقاف الباقة" %}
+                </button>
+                {% else %}
+                <button class="btn btn-success">
+                    <i class="fas fa-play"></i> {% trans "تفعيل الباقة" %}
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

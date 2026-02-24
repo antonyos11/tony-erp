@@ -10,7 +10,17 @@ class TrialBalanceViewTests(TestCase):
         self.user.is_staff = True
         self.user.is_superuser = True
         self.user.save()
-        self.client = Client(); self.client.login(username='tbuser', password='pw')
+        # تعطيل إلزام تغيير كلمة المرور
+        try:
+            from users.models import UserProfile
+            profile = UserProfile.objects.get(user=self.user)
+            profile.must_change_password = False
+            profile.is_approved = True
+            profile.save()
+        except Exception:
+            pass
+        self.client = Client()
+        self.client.force_login(self.user)
         # Create sample accounts
         self.cash = Account.objects.create(code='1000', name='صندوق', account_type='asset')
         self.rev = Account.objects.create(code='4000', name='إيراد', account_type='revenue')

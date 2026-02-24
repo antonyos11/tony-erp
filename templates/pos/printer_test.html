@@ -1,0 +1,328 @@
+{% extends BASE_TEMPLATE %}
+{% load static i18n %}
+
+{% block title %}اختبار الطابعة الحرارية{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-printer me-2"></i>
+                        اختبار الطابعة الحرارية - QZ Tray
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- حالة الاتصال -->
+                    <div class="alert alert-secondary" id="connectionStatus">
+                        <i class="bi bi-hourglass-split me-2"></i>
+                        جاري فحص الاتصال بـ QZ Tray...
+                    </div>
+                    
+                    <!-- قائمة الطابعات -->
+                    <div class="mb-4" id="printerSection" style="display:none;">
+                        <h5><i class="bi bi-list-ul me-2"></i>الطابعات المتاحة:</h5>
+                        <select class="form-select form-select-lg mb-3" id="printerList">
+                            <option value="">-- اختر الطابعة --</option>
+                        </select>
+                        
+                        <div class="alert alert-info">
+                            <strong>💡 نصيحة:</strong> اختر الطابعة الحرارية (عادةً تكون XPrinter أو POS أو Thermal)
+                        </div>
+                    </div>
+                    
+                    <!-- أزرار الاختبار -->
+                    <div class="d-grid gap-3">
+                        <button class="btn btn-primary btn-lg" onclick="refreshPrinters()">
+                            <i class="bi bi-arrow-clockwise me-2"></i>
+                            تحديث قائمة الطابعات
+                        </button>
+                        
+                        <button class="btn btn-success btn-lg" onclick="testPrint()" id="testPrintBtn" disabled>
+                            <i class="bi bi-printer me-2"></i>
+                            طباعة صفحة اختبار
+                        </button>
+                        
+                        <button class="btn btn-warning btn-lg" onclick="openCashDrawer()" id="drawerBtn" disabled>
+                            <i class="bi bi-box-arrow-up me-2"></i>
+                            فتح درج النقود
+                        </button>
+                    </div>
+                    
+                    <!-- سجل العمليات -->
+                    <div class="mt-4">
+                        <h5><i class="bi bi-journal-text me-2"></i>سجل العمليات:</h5>
+                        <div class="bg-dark text-light p-3 rounded" style="height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px;" id="logArea">
+                            <div class="text-muted">في انتظار العمليات...</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-footer">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="text-muted small">QZ Tray</div>
+                            <span class="badge bg-secondary" id="qzStatus">غير متصل</span>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-muted small">الطابعة</div>
+                            <span class="badge bg-secondary" id="printerStatus">غير محدد</span>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-muted small">آخر طباعة</div>
+                            <span class="badge bg-secondary" id="lastPrint">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- تعليمات -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>تعليمات الإعداد</h5>
+                </div>
+                <div class="card-body">
+                    <ol class="mb-0">
+                        <li class="mb-2">تأكد من تشغيل <strong>QZ Tray</strong> (أيقونة خضراء في شريط المهام)</li>
+                        <li class="mb-2">عند الطلب، اضغط <strong>"Allow"</strong> للسماح للموقع</li>
+                        <li class="mb-2">اختر الطابعة الحرارية من القائمة</li>
+                        <li class="mb-2">اضغط <strong>"طباعة صفحة اختبار"</strong></li>
+                        <li>إذا طُبع الإيصال بنجاح، الطابعة جاهزة! ✅</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- QZ Tray -->
+<script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.min.js"></script>
+<script>
+let selectedPrinter = null;
+
+// تسجيل رسالة
+function log(message, type = 'info') {
+    const logArea = document.getElementById('logArea');
+    const time = new Date().toLocaleTimeString('ar-EG');
+    const colors = {
+        'info': '#17a2b8',
+        'success': '#28a745',
+        'error': '#dc3545',
+        'warning': '#ffc107'
+    };
+    logArea.innerHTML += `<div style="color:${colors[type]}">[${time}] ${message}</div>`;
+    logArea.scrollTop = logArea.scrollHeight;
+}
+
+// تحديث حالة الاتصال
+function updateConnectionStatus(connected) {
+    const statusEl = document.getElementById('connectionStatus');
+    const qzStatus = document.getElementById('qzStatus');
+    
+    if (connected) {
+        statusEl.className = 'alert alert-success';
+        statusEl.innerHTML = '<i class="bi bi-check-circle me-2"></i>✅ متصل بـ QZ Tray بنجاح!';
+        qzStatus.className = 'badge bg-success';
+        qzStatus.textContent = 'متصل';
+        document.getElementById('printerSection').style.display = 'block';
+        log('✅ تم الاتصال بـ QZ Tray', 'success');
+    } else {
+        statusEl.className = 'alert alert-danger';
+        statusEl.innerHTML = `
+            <i class="bi bi-x-circle me-2"></i>
+            ❌ غير متصل بـ QZ Tray
+            <hr>
+            <strong>الحل:</strong>
+            <ol class="mb-0 mt-2">
+                <li>تأكد من تثبيت QZ Tray من <a href="https://qz.io/download" target="_blank">qz.io/download</a></li>
+                <li>شغّل QZ Tray من قائمة البرامج</li>
+                <li>أعد تحميل هذه الصفحة</li>
+            </ol>
+        `;
+        qzStatus.className = 'badge bg-danger';
+        qzStatus.textContent = 'غير متصل';
+    }
+}
+
+// الاتصال بـ QZ Tray
+async function connectQZ() {
+    log('جاري الاتصال بـ QZ Tray...', 'info');
+    
+    try {
+        if (!qz.websocket.isActive()) {
+            await qz.websocket.connect();
+        }
+        updateConnectionStatus(true);
+        await refreshPrinters();
+    } catch (err) {
+        log('❌ فشل الاتصال: ' + err.message, 'error');
+        updateConnectionStatus(false);
+    }
+}
+
+// تحديث قائمة الطابعات
+async function refreshPrinters() {
+    log('جاري البحث عن الطابعات...', 'info');
+    
+    try {
+        const printers = await qz.printers.find();
+        const select = document.getElementById('printerList');
+        select.innerHTML = '<option value="">-- اختر الطابعة --</option>';
+        
+        printers.forEach(printer => {
+            const option = document.createElement('option');
+            option.value = printer;
+            option.textContent = printer;
+            
+            // تمييز الطابعات الحرارية
+            const lowerName = printer.toLowerCase();
+            if (lowerName.includes('xp') || lowerName.includes('pos') || 
+                lowerName.includes('thermal') || lowerName.includes('receipt') ||
+                lowerName.includes('80mm') || lowerName.includes('58mm')) {
+                option.textContent = '🖨️ ' + printer + ' (حرارية)';
+                option.style.fontWeight = 'bold';
+            }
+            
+            select.appendChild(option);
+        });
+        
+        log(`✅ تم العثور على ${printers.length} طابعة`, 'success');
+        
+        // اختيار تلقائي للطابعة الحرارية
+        for (const printer of printers) {
+            const lowerName = printer.toLowerCase();
+            if (lowerName.includes('xp') || lowerName.includes('pos') || lowerName.includes('thermal')) {
+                select.value = printer;
+                onPrinterSelect();
+                break;
+            }
+        }
+        
+    } catch (err) {
+        log('❌ خطأ في جلب الطابعات: ' + err.message, 'error');
+    }
+}
+
+// عند اختيار طابعة
+function onPrinterSelect() {
+    const select = document.getElementById('printerList');
+    selectedPrinter = select.value;
+    
+    const testBtn = document.getElementById('testPrintBtn');
+    const drawerBtn = document.getElementById('drawerBtn');
+    const printerStatus = document.getElementById('printerStatus');
+    
+    if (selectedPrinter) {
+        testBtn.disabled = false;
+        drawerBtn.disabled = false;
+        printerStatus.className = 'badge bg-success';
+        printerStatus.textContent = 'جاهز';
+        log('✅ تم اختيار: ' + selectedPrinter, 'success');
+    } else {
+        testBtn.disabled = true;
+        drawerBtn.disabled = true;
+        printerStatus.className = 'badge bg-secondary';
+        printerStatus.textContent = 'غير محدد';
+    }
+}
+
+// طباعة صفحة اختبار
+async function testPrint() {
+    if (!selectedPrinter) {
+        alert('يرجى اختيار طابعة أولاً');
+        return;
+    }
+    
+    log('🖨️ جاري الطباعة على: ' + selectedPrinter, 'info');
+    
+    try {
+        const config = qz.configs.create(selectedPrinter);
+        
+        // أوامر ESC/POS
+        const ESC = '\x1B';
+        const GS = '\x1D';
+        
+        let data = '';
+        data += ESC + '@';           // Reset
+        data += ESC + 'a1';          // Center
+        data += GS + '!1';           // Double height
+        data += 'Tony ERP\n';
+        data += GS + '!0';           // Normal
+        data += '================================\n';
+        data += ESC + 'a0';          // Right align
+        data += 'اختبار الطابعة الحرارية\n';
+        data += 'Thermal Printer Test\n';
+        data += '--------------------------------\n';
+        data += 'التاريخ: ' + new Date().toLocaleDateString('ar-EG') + '\n';
+        data += 'الوقت: ' + new Date().toLocaleTimeString('ar-EG') + '\n';
+        data += '--------------------------------\n';
+        data += ESC + 'a1';          // Center
+        data += '\n';
+        data += '✓ الطباعة تعمل بنجاح!\n';
+        data += 'Printing works!\n';
+        data += '\n';
+        data += '================================\n';
+        data += 'شكراً لاستخدامكم Tony ERP\n';
+        data += '\n\n\n';
+        data += GS + 'V\x01';        // Partial cut
+        
+        await qz.print(config, [{
+            type: 'raw',
+            format: 'command',
+            flavor: 'plain',
+            data: data
+        }]);
+        
+        log('✅ تمت الطباعة بنجاح!', 'success');
+        document.getElementById('lastPrint').className = 'badge bg-success';
+        document.getElementById('lastPrint').textContent = new Date().toLocaleTimeString('ar-EG');
+        
+        alert('✅ تمت الطباعة بنجاح! تحقق من الطابعة.');
+        
+    } catch (err) {
+        log('❌ فشلت الطباعة: ' + err.message, 'error');
+        alert('❌ فشلت الطباعة: ' + err.message);
+    }
+}
+
+// فتح درج النقود
+async function openCashDrawer() {
+    if (!selectedPrinter) {
+        alert('يرجى اختيار طابعة أولاً');
+        return;
+    }
+    
+    log('📦 جاري فتح درج النقود...', 'info');
+    
+    try {
+        const config = qz.configs.create(selectedPrinter);
+        
+        // أمر فتح الدرج
+        const ESC = '\x1B';
+        const drawerCommand = ESC + 'p\x00\x19\xfa';
+        
+        await qz.print(config, [{
+            type: 'raw',
+            format: 'command',
+            flavor: 'plain',
+            data: drawerCommand
+        }]);
+        
+        log('✅ تم إرسال أمر فتح الدرج', 'success');
+        
+    } catch (err) {
+        log('❌ فشل فتح الدرج: ' + err.message, 'error');
+    }
+}
+
+// تهيئة عند تحميل الصفحة
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('printerList').addEventListener('change', onPrinterSelect);
+    
+    // محاولة الاتصال
+    setTimeout(connectQZ, 500);
+});
+</script>
+{% endblock %}

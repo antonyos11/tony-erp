@@ -1,0 +1,84 @@
+{% extends BASE_TEMPLATE %}
+{% load i18n static %}
+
+{% block title %}وعد التسليم الذكي{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-gradient-primary text-white">
+                    <h3 class="mb-0">
+                        <i class="bi bi-calendar-check me-2"></i>
+                        وعد التسليم الذكي
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">احسب مواعيد التسليم بناءً على العمليات الإنتاجية وسلاسل التوريد</p>
+                    
+                    <form id="deliveryPromiseForm" class="mt-4">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">المنتج</label>
+                                <select name="product_id" class="form-select" required>
+                                    <option value="">اختر المنتج...</option>
+                                    <!-- سيتم تحميل المنتجات ديناميكياً -->
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">الكمية المطلوبة</label>
+                                <input type="number" name="quantity" class="form-control" min="1" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-calculator me-2"></i>
+                            احسب موعد التسليم
+                        </button>
+                    </form>
+                    
+                    <div id="deliveryResult" class="mt-4" style="display: none;">
+                        <div class="alert alert-success">
+                            <h5>نتيجة الحساب:</h5>
+                            <p id="deliveryDate" class="mb-1"></p>
+                            <p id="deliveryDetails" class="mb-0 text-muted"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('deliveryPromiseForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch('/production/delivery-promise/calculate/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('deliveryDate').textContent = 
+                `موعد التسليم المتوقع: ${data.delivery_date}`;
+            document.getElementById('deliveryDetails').textContent = 
+                `المدة: ${data.lead_time_days} يوم`;
+            document.getElementById('deliveryResult').style.display = 'block';
+        } else {
+            alert('حدث خطأ: ' + data.error);
+        }
+    } catch (error) {
+        alert('حدث خطأ في الاتصال');
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,239 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}تم استبدال البطاقة بنجاح{% endblock %}
+
+{% block extra_css %}
+<style>
+    .success-icon {
+        width: 100px;
+        height: 100px;
+        background: linear-gradient(135deg, #00d4aa 0%, #00b894 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(0, 212, 170, 0.4); }
+        70% { box-shadow: 0 0 0 20px rgba(0, 212, 170, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(0, 212, 170, 0); }
+    }
+    
+    .success-icon i {
+        font-size: 3rem;
+        color: white;
+    }
+    
+    .credentials-box {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        padding: 25px;
+        color: white;
+        margin: 20px 0;
+    }
+    
+    .credential-item {
+        background: rgba(255,255,255,0.15);
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 10px;
+    }
+    
+    .credential-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .credential-label {
+        font-size: 0.85rem;
+        opacity: 0.8;
+        margin-bottom: 5px;
+    }
+    
+    .credential-value {
+        font-size: 1.3rem;
+        font-weight: bold;
+        font-family: monospace;
+        letter-spacing: 1px;
+    }
+    
+    .copy-btn {
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        padding: 5px 12px;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .copy-btn:hover {
+        background: rgba(255,255,255,0.3);
+    }
+    
+    .warning-box {
+        background: #fff3cd;
+        border: 1px solid #ffecb5;
+        border-radius: 12px;
+        padding: 15px;
+        margin-top: 20px;
+    }
+    
+    .print-section {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        margin-top: 20px;
+    }
+    
+    @media print {
+        .no-print { display: none !important; }
+        .credentials-box { 
+            background: #333 !important; 
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card shadow-lg border-0">
+                <div class="card-body p-4">
+                    <div class="text-center">
+                        <div class="success-icon">
+                            <i class="bi bi-check-lg"></i>
+                        </div>
+                        <h4 class="text-success mb-2">تم استبدال البطاقة بنجاح!</h4>
+                        <p class="text-muted">تم إيقاف البطاقة المفقودة وإنشاء بطاقة جديدة</p>
+                    </div>
+                    
+                    <!-- معلومات الموظف -->
+                    <div class="text-center mb-4">
+                        <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center" 
+                             style="width: 70px; height: 70px;">
+                            {% if employee.photo %}
+                            <img src="{{ employee.photo.url }}" alt="{{ employee }}" 
+                                 class="rounded-circle" style="width: 66px; height: 66px; object-fit: cover;">
+                            {% else %}
+                            <i class="bi bi-person-fill text-secondary" style="font-size: 2rem;"></i>
+                            {% endif %}
+                        </div>
+                        <h5 class="mt-2 mb-0">{{ employee.arabic_name|default:employee.get_full_name }}</h5>
+                        <p class="text-muted">{{ employee.employee_id }}</p>
+                    </div>
+                    
+                    <!-- البطاقة الجديدة -->
+                    <div class="bg-success bg-opacity-10 p-3 rounded mb-3">
+                        <h6 class="text-success mb-2">
+                            <i class="bi bi-credit-card-2-front me-1"></i>
+                            البطاقة الجديدة
+                        </h6>
+                        <p class="mb-1"><strong>رقم البطاقة:</strong> {{ new_card.card_number }}</p>
+                        <p class="mb-0"><strong>صالحة حتى:</strong> {{ new_card.expiry_date|date:"Y/m/d" }}</p>
+                    </div>
+                    
+                    <!-- البطاقة القديمة -->
+                    <div class="bg-danger bg-opacity-10 p-3 rounded mb-3">
+                        <h6 class="text-danger mb-2">
+                            <i class="bi bi-x-circle me-1"></i>
+                            البطاقة الملغاة
+                        </h6>
+                        <p class="mb-0"><strong>رقم البطاقة:</strong> <del>{{ old_card.card_number }}</del></p>
+                    </div>
+                    
+                    {% if username and temp_password %}
+                    <!-- بيانات الدخول المؤقتة -->
+                    <div class="credentials-box">
+                        <h6 class="mb-3 text-center">
+                            <i class="bi bi-key me-2"></i>
+                            بيانات الدخول المؤقتة
+                        </h6>
+                        
+                        <div class="credential-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="credential-label">اسم المستخدم</div>
+                                    <div class="credential-value" id="usernameValue">{{ username }}</div>
+                                </div>
+                                <button type="button" class="copy-btn no-print" onclick="copyToClipboard('usernameValue')">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="credential-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="credential-label">كلمة المرور المؤقتة</div>
+                                    <div class="credential-value" id="passwordValue">{{ temp_password }}</div>
+                                </div>
+                                <button type="button" class="copy-btn no-print" onclick="copyToClipboard('passwordValue')">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="warning-box">
+                        <p class="mb-0">
+                            <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                            <strong>تنبيه:</strong> يُنصح الموظف بتغيير كلمة المرور فور تسجيل الدخول الأول.
+                            قم بطباعة هذه الصفحة أو نسخ البيانات وتسليمها للموظف بشكل آمن.
+                        </p>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- أزرار الإجراءات -->
+                    <div class="print-section no-print">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <button type="button" class="btn btn-primary w-100" onclick="window.print()">
+                                    <i class="bi bi-printer me-2"></i>
+                                    طباعة البيانات
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <a href="{% url 'hr:id_card_print_pdf' new_card.id %}" class="btn btn-success w-100">
+                                    <i class="bi bi-credit-card me-2"></i>
+                                    طباعة البطاقة
+                                </a>
+                            </div>
+                            <div class="col-12">
+                                <a href="{% url 'hr:employee_id_cards_list' %}" class="btn btn-outline-secondary w-100">
+                                    <i class="bi bi-arrow-right me-2"></i>
+                                    العودة لقائمة البطاقات
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyToClipboard(elementId) {
+    const text = document.getElementById(elementId).innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        // Show feedback
+        const btn = event.target.closest('button');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check"></i>';
+        setTimeout(() => {
+            btn.innerHTML = originalHTML;
+        }, 1500);
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,494 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}{{ document.title }} - تحرير{% endblock %}
+
+{% block extra_css %}
+<style>
+.editor-container {
+    display: flex;
+    height: calc(100vh - 120px);
+}
+
+.editor-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: white;
+}
+
+.editor-toolbar {
+    background: #f8f9fa;
+    padding: 10px 15px;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.toolbar-btn {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.toolbar-btn:hover {
+    background: #e9ecef;
+}
+
+.toolbar-btn.active {
+    background: #007bff;
+    color: white;
+}
+
+.toolbar-divider {
+    width: 1px;
+    background: #dee2e6;
+    margin: 0 10px;
+}
+
+.editor-content {
+    flex: 1;
+    padding: 30px 50px;
+    overflow-y: auto;
+}
+
+.editor-content:focus {
+    outline: none;
+}
+
+.comments-panel {
+    width: 350px;
+    border-left: 1px solid #dee2e6;
+    background: #f8f9fa;
+    display: none;
+}
+
+.comments-panel.open {
+    display: block;
+}
+
+.comments-header {
+    padding: 15px;
+    border-bottom: 1px solid #dee2e6;
+    background: white;
+}
+
+.comments-list {
+    padding: 15px;
+    height: calc(100% - 150px);
+    overflow-y: auto;
+}
+
+.comment-item {
+    background: white;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.comment-user {
+    font-weight: bold;
+    color: #007bff;
+    margin-bottom: 5px;
+}
+
+.comment-input {
+    padding: 15px;
+    border-top: 1px solid #dee2e6;
+    background: white;
+}
+
+.share-modal .user-chip {
+    display: inline-block;
+    background: #e9ecef;
+    padding: 5px 15px;
+    border-radius: 20px;
+    margin: 3px;
+}
+
+.version-item {
+    padding: 10px 15px;
+    border-bottom: 1px solid #dee2e6;
+    cursor: pointer;
+}
+
+.version-item:hover {
+    background: #f8f9fa;
+}
+
+.autosave-status {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.autosave-status.saving {
+    color: #ffc107;
+}
+
+.autosave-status.saved {
+    color: #28a745;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- شريط العنوان -->
+<div class="bg-white border-bottom px-3 py-2 d-flex align-items-center">
+    <a href="{% url 'collaborative_docs:dashboard' %}" class="btn btn-link">
+        <i class="fas fa-arrow-right"></i>
+    </a>
+    <input type="text" id="docTitle" class="form-control form-control-lg border-0 fw-bold" 
+           value="{{ document.title }}" style="max-width: 400px;">
+    
+    <div class="ms-auto d-flex align-items-center gap-3">
+        <span class="autosave-status" id="autosaveStatus">
+            <i class="fas fa-check-circle"></i> تم الحفظ
+        </span>
+        
+        <div class="btn-group">
+            <button class="btn btn-outline-secondary" onclick="toggleComments()">
+                <i class="fas fa-comment"></i>
+            </button>
+            <button class="btn btn-outline-secondary" onclick="showVersions()">
+                <i class="fas fa-history"></i>
+            </button>
+            {% if is_owner %}
+            <button class="btn btn-primary" onclick="showShareModal()">
+                <i class="fas fa-share me-2"></i>مشاركة
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="editor-container">
+    <!-- المحرر الرئيسي -->
+    <div class="editor-main">
+        <!-- شريط الأدوات -->
+        {% if can_edit %}
+        <div class="editor-toolbar">
+            <button class="toolbar-btn" onclick="execCommand('undo')" title="تراجع">
+                <i class="fas fa-undo"></i>
+            </button>
+            <button class="toolbar-btn" onclick="execCommand('redo')" title="إعادة">
+                <i class="fas fa-redo"></i>
+            </button>
+            
+            <div class="toolbar-divider"></div>
+            
+            <select class="form-select form-select-sm" style="width: 150px;" onchange="execCommand('formatBlock', this.value)">
+                <option value="p">نص عادي</option>
+                <option value="h1">عنوان 1</option>
+                <option value="h2">عنوان 2</option>
+                <option value="h3">عنوان 3</option>
+            </select>
+            
+            <div class="toolbar-divider"></div>
+            
+            <button class="toolbar-btn" onclick="execCommand('bold')" title="عريض">
+                <i class="fas fa-bold"></i>
+            </button>
+            <button class="toolbar-btn" onclick="execCommand('italic')" title="مائل">
+                <i class="fas fa-italic"></i>
+            </button>
+            <button class="toolbar-btn" onclick="execCommand('underline')" title="خط سفلي">
+                <i class="fas fa-underline"></i>
+            </button>
+            <button class="toolbar-btn" onclick="execCommand('strikeThrough')" title="خط متوسط">
+                <i class="fas fa-strikethrough"></i>
+            </button>
+            
+            <div class="toolbar-divider"></div>
+            
+            <button class="toolbar-btn" onclick="execCommand('justifyRight')" title="محاذاة يمين">
+                <i class="fas fa-align-right"></i>
+            </button>
+            <button class="toolbar-btn" onclick="execCommand('justifyCenter')" title="توسيط">
+                <i class="fas fa-align-center"></i>
+            </button>
+            <button class="toolbar-btn" onclick="execCommand('justifyLeft')" title="محاذاة يسار">
+                <i class="fas fa-align-left"></i>
+            </button>
+            
+            <div class="toolbar-divider"></div>
+            
+            <button class="toolbar-btn" onclick="execCommand('insertUnorderedList')" title="قائمة نقطية">
+                <i class="fas fa-list-ul"></i>
+            </button>
+            <button class="toolbar-btn" onclick="execCommand('insertOrderedList')" title="قائمة رقمية">
+                <i class="fas fa-list-ol"></i>
+            </button>
+            
+            <div class="toolbar-divider"></div>
+            
+            <button class="toolbar-btn" onclick="insertLink()" title="رابط">
+                <i class="fas fa-link"></i>
+            </button>
+            <button class="toolbar-btn" onclick="insertImage()" title="صورة">
+                <i class="fas fa-image"></i>
+            </button>
+            <button class="toolbar-btn" onclick="insertTable()" title="جدول">
+                <i class="fas fa-table"></i>
+            </button>
+        </div>
+        {% endif %}
+        
+        <!-- محتوى المستند -->
+        <div class="editor-content" id="editor" contenteditable="{{ can_edit|yesno:'true,false' }}">
+            {{ document.content|safe }}
+        </div>
+    </div>
+    
+    <!-- لوحة التعليقات -->
+    <div class="comments-panel" id="commentsPanel">
+        <div class="comments-header">
+            <h6 class="mb-0">التعليقات</h6>
+        </div>
+        <div class="comments-list" id="commentsList">
+            {% for comment in comments %}
+            <div class="comment-item">
+                <div class="comment-user">{{ comment.user.get_full_name|default:comment.user.username }}</div>
+                <div class="comment-text">{{ comment.content }}</div>
+                <small class="text-muted">{{ comment.created_at|date:"m/d H:i" }}</small>
+            </div>
+            {% empty %}
+            <div class="text-center text-muted py-4">
+                لا توجد تعليقات
+            </div>
+            {% endfor %}
+        </div>
+        {% if can_comment %}
+        <div class="comment-input">
+            <textarea class="form-control mb-2" id="newComment" rows="2" placeholder="اكتب تعليقك..."></textarea>
+            <button class="btn btn-primary btn-sm" onclick="addComment()">إضافة تعليق</button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal المشاركة -->
+<div class="modal fade" id="shareModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">مشاركة المستند</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">رابط المستند</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="shareLink" readonly 
+                               value="{{ request.build_absolute_uri }}">
+                        <button class="btn btn-outline-secondary" onclick="copyShareLink()">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">المتعاونون الحاليون</label>
+                    <div id="currentCollaborators">
+                        {% for collab in collaborators %}
+                        <span class="user-chip">
+                            {{ collab.user.username }} - {{ collab.get_permission_display }}
+                        </span>
+                        {% empty %}
+                        <p class="text-muted">لا يوجد متعاونون</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal النسخ -->
+<div class="modal fade" id="versionsModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">سجل النسخ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0" id="versionsList">
+                <!-- سيتم ملؤها ديناميكياً -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const docUuid = '{{ document.uuid }}';
+let saveTimeout = null;
+
+// تنفيذ أوامر التنسيق
+function execCommand(command, value = null) {
+    document.execCommand(command, false, value);
+    document.getElementById('editor').focus();
+    scheduleAutoSave();
+}
+
+// إدراج رابط
+function insertLink() {
+    const url = prompt('أدخل الرابط:');
+    if (url) {
+        execCommand('createLink', url);
+    }
+}
+
+// إدراج صورة
+function insertImage() {
+    const url = prompt('أدخل رابط الصورة:');
+    if (url) {
+        execCommand('insertImage', url);
+    }
+}
+
+// إدراج جدول
+function insertTable() {
+    const rows = prompt('عدد الصفوف:', '3');
+    const cols = prompt('عدد الأعمدة:', '3');
+    
+    if (rows && cols) {
+        let table = '<div class="table-responsive"><table class="table table-bordered"><tbody>';
+        for (let i = 0; i < parseInt(rows); i++) {
+            table += '<tr>';
+            for (let j = 0; j < parseInt(cols); j++) {
+                table += '<td>&nbsp;</td>';
+            }
+            table += '</tr>';
+        }
+        table += '</tbody></table></div>';
+        document.execCommand('insertHTML', false, table);
+    }
+}
+
+// الحفظ التلقائي
+function scheduleAutoSave() {
+    if (saveTimeout) clearTimeout(saveTimeout);
+    
+    document.getElementById('autosaveStatus').innerHTML = 
+        '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...';
+    document.getElementById('autosaveStatus').className = 'autosave-status saving';
+    
+    saveTimeout = setTimeout(saveDocument, 2000);
+}
+
+function saveDocument() {
+    const title = document.getElementById('docTitle').value;
+    const content = document.getElementById('editor').innerHTML;
+    
+    fetch(`/docs/save/${docUuid}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ title, content })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('autosaveStatus').innerHTML = 
+                '<i class="fas fa-check-circle"></i> تم الحفظ';
+            document.getElementById('autosaveStatus').className = 'autosave-status saved';
+        }
+    });
+}
+
+// التعليقات
+function toggleComments() {
+    document.getElementById('commentsPanel').classList.toggle('open');
+}
+
+function addComment() {
+    const content = document.getElementById('newComment').value.trim();
+    if (!content) return;
+    
+    fetch(`/docs/comment/${docUuid}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ content })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const comment = data.comment;
+            const html = `
+                <div class="comment-item">
+                    <div class="comment-user">${comment.user}</div>
+                    <div class="comment-text">${comment.content}</div>
+                    <small class="text-muted">الآن</small>
+                </div>
+            `;
+            document.getElementById('commentsList').insertAdjacentHTML('beforeend', html);
+            document.getElementById('newComment').value = '';
+        }
+    });
+}
+
+// النسخ
+function showVersions() {
+    fetch(`/docs/versions/${docUuid}/`)
+    .then(response => response.json())
+    .then(data => {
+        let html = '';
+        data.versions.forEach(v => {
+            html += `
+                <div class="version-item" onclick="restoreVersion(${v.id})">
+                    <div class="fw-bold">النسخة ${v.version_number}</div>
+                    <small class="text-muted">${v.created_by} - ${new Date(v.created_at).toLocaleString('ar-EG')}</small>
+                </div>
+            `;
+        });
+        
+        if (!html) html = '<div class="p-4 text-center text-muted">لا توجد نسخ سابقة</div>';
+        
+        document.getElementById('versionsList').innerHTML = html;
+        new bootstrap.Modal(document.getElementById('versionsModal')).show();
+    });
+}
+
+function restoreVersion(versionId) {
+    if (confirm('هل تريد استعادة هذه النسخة؟')) {
+        fetch(`/docs/restore/${docUuid}/${versionId}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+}
+
+// المشاركة
+function showShareModal() {
+    new bootstrap.Modal(document.getElementById('shareModal')).show();
+}
+
+function copyShareLink() {
+    document.getElementById('shareLink').select();
+    document.execCommand('copy');
+    alert('تم نسخ الرابط');
+}
+
+// مستمعات الأحداث
+document.getElementById('editor').addEventListener('input', scheduleAutoSave);
+document.getElementById('docTitle').addEventListener('change', scheduleAutoSave);
+</script>
+{% endblock %}

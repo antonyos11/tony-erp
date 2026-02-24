@@ -1,0 +1,99 @@
+{% extends "ecommerce/store_base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "جاري التحقق من الدفع" %} - {{ settings.store_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <div class="card shadow-sm border-0 rounded-lg overflow-hidden">
+                <div class="card-body p-5">
+                    <div class="pending-icon mb-4">
+                        <div class="spinner-grow text-primary" style="width: 3rem; height: 3rem;" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                    
+                    <h1 class="h3 mb-3">{% trans "جاري التحقق من عملية الدفع" %}</h1>
+                    
+                    <p class="lead text-muted mb-4">
+                        {% if message %}
+                            {{ message }}
+                        {% else %}
+                            {% trans "استلمنا تأكيداً مبدئياً لعملية الدفع. يرجى الانتظار قليلاً بينما نقوم بتحديث حالة طلبك." %}
+                        {% endif %}
+                    </p>
+                    
+                    <div class="order-info mb-4 p-3 bg-light rounded text-start mx-auto" style="max-width: 300px;">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted small">{% trans "رقم الطلب" %}:</span>
+                            <span class="fw-bold">#{{ order.order_number }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted small">{% trans "الحالة الحالية" %}:</span>
+                            <span class="badge bg-warning text-dark" id="order-status-badge">{{ order.get_payment_status_display }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="loader-dots mb-4">
+                        <span class="dot d1">.</span><span class="dot d2">.</span><span class="dot d3">.</span>
+                    </div>
+                    
+                    <div class="actions">
+                        <a href="{% url 'ecommerce:order_detail' order.id %}" class="btn btn-outline-secondary px-4">
+                            {% trans "الانتقال لتفاصيل الطلب" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <p class="mt-4 text-muted small">
+                {% trans "إذا لم يتم توجيهك تلقائياً خلال دقيقة، يرجى تحديث الصفحة أو مراجعة بريدك الإلكتروني." %}
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dot { font-size: 2rem; animation: blink 1.4s infinite; }
+    .d1 { animation-delay: 0s; }
+    .d2 { animation-delay: 0.2s; }
+    .d3 { animation-delay: 0.4s; }
+    @keyframes blink {
+        0%, 100% { opacity: 0; }
+        50% { opacity: 1; }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const orderId = "{{ order.id }}";
+        const statusBadge = document.getElementById('order-status-badge');
+        
+        let checkCount = 0;
+        let checkInterval = setInterval(() => {
+            checkCount++;
+            fetch(`/store/payment/check-status/${orderId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.paid) {
+                        window.location.href = "{% url 'ecommerce:payment_success' order.id %}";
+                        clearInterval(checkInterval);
+                    } else if (data.status === 'failed') {
+                        window.location.href = "{% url 'ecommerce:payment_failed' order.id %}";
+                        clearInterval(checkInterval);
+                    }
+                })
+                .catch(err => console.error('Status check error:', err));
+            
+            // Auto stop after 5 minutes
+            if (checkCount > 60) clearInterval(checkInterval);
+        }, 5000);
+    });
+</script>
+{% endblock %}

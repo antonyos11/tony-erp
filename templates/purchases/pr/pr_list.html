@@ -1,0 +1,188 @@
+﻿{% extends 'base_templates/_list_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'طلبات الشراء' %}{% endblock %}
+{% block hero_icon %}bi-clipboard-check{% endblock %}
+{% block hero_title %}{% trans 'طلبات الشراء' %}{% endblock %}
+{% block hero_subtitle %}{% trans 'إدارة طلبات الشراء الداخلية ومتابعة حالات الاعتماد' %}{% endblock %}
+
+{% block hero_actions %}
+<a href="{% url 'purchases:pr_create' %}" class="btn btn-light">
+  <i class="bi bi-plus-lg me-1"></i>{% trans 'طلب شراء جديد' %}
+</a>
+{% endblock %}
+
+{% block stats_section %}
+<div class="stats-grid">
+  <div class="stat-card primary">
+    <div class="stat-icon"><i class="bi bi-clipboard"></i></div>
+    <div class="stat-value">{{ stats.total|default:0 }}</div>
+    <div class="stat-label">{% trans 'إجمالي الطلبات' %}</div>
+  </div>
+  <div class="stat-card warning">
+    <div class="stat-icon"><i class="bi bi-hourglass-split"></i></div>
+    <div class="stat-value">{{ stats.pending|default:0 }}</div>
+    <div class="stat-label">{% trans 'بانتظار الاعتماد' %}</div>
+  </div>
+  <div class="stat-card success">
+    <div class="stat-icon"><i class="bi bi-check-circle"></i></div>
+    <div class="stat-value">{{ stats.approved|default:0 }}</div>
+    <div class="stat-label">{% trans 'معتمدة' %}</div>
+  </div>
+  <div class="stat-card danger">
+    <div class="stat-icon"><i class="bi bi-exclamation-circle"></i></div>
+    <div class="stat-value">{{ stats.urgent|default:0 }}</div>
+    <div class="stat-label">{% trans 'عاجلة' %}</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block filter_fields %}
+<div class="filter-group">
+  <label>{% trans 'بحث' %}</label>
+  <div class="input-group input-group-sm">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input type="text" name="search" class="form-control" placeholder="{% trans 'رقم الطلب...' %}" value="{{ search }}">
+  </div>
+</div>
+<div class="filter-group">
+  <label>{% trans 'الحالة' %}</label>
+  <select name="status" class="form-select form-select-sm">
+    <option value="">{% trans 'الكل' %}</option>
+    <option value="draft" {% if status == 'draft' %}selected{% endif %}>{% trans 'مسودة' %}</option>
+    <option value="pending" {% if status == 'pending' %}selected{% endif %}>{% trans 'بانتظار الاعتماد' %}</option>
+    <option value="approved" {% if status == 'approved' %}selected{% endif %}>{% trans 'معتمد' %}</option>
+    <option value="rejected" {% if status == 'rejected' %}selected{% endif %}>{% trans 'مرفوض' %}</option>
+    <option value="converted" {% if status == 'converted' %}selected{% endif %}>{% trans 'تم التحويل' %}</option>
+  </select>
+</div>
+<div class="filter-group">
+  <label>{% trans 'الأولوية' %}</label>
+  <select name="priority" class="form-select form-select-sm">
+    <option value="">{% trans 'الكل' %}</option>
+    <option value="urgent" {% if priority == 'urgent' %}selected{% endif %}>{% trans 'عاجل' %}</option>
+    <option value="high" {% if priority == 'high' %}selected{% endif %}>{% trans 'عالي' %}</option>
+    <option value="normal" {% if priority == 'normal' %}selected{% endif %}>{% trans 'عادي' %}</option>
+    <option value="low" {% if priority == 'low' %}selected{% endif %}>{% trans 'منخفض' %}</option>
+  </select>
+</div>
+<div class="filter-group">
+  <label>{% trans 'القسم' %}</label>
+  <select name="department" class="form-select form-select-sm">
+    <option value="">{% trans 'الكل' %}</option>
+    {% for dept in departments %}
+    <option value="{{ dept.id }}" {% if department == dept.id|stringformat:"s" %}selected{% endif %}>{{ dept.name }}</option>
+    {% endfor %}
+  </select>
+</div>
+{% endblock %}
+
+{% block table_icon %}bi-clipboard-check{% endblock %}
+{% block table_title %}{% trans 'طلبات الشراء' %}{% endblock %}
+
+{% block table_headers %}
+<th>#</th>
+<th>{% trans 'رقم الطلب' %}</th>
+<th>{% trans 'الطالب' %}</th>
+<th>{% trans 'القسم' %}</th>
+<th>{% trans 'التاريخ' %}</th>
+<th>{% trans 'الأولوية' %}</th>
+<th class="text-end">{% trans 'المبلغ التقديري' %}</th>
+<th>{% trans 'الحالة' %}</th>
+<th class="text-center">{% trans 'الإجراءات' %}</th>
+{% endblock %}
+
+{% block table_body %}
+{% for pr in purchase_requests|default:object_list %}
+<tr>
+  <td>{{ forloop.counter }}</td>
+  <td>
+    <div class="cell-main">
+      <a href="{% url 'purchases:pr_detail' pr.pk %}">{{ pr.pr_number }}</a>
+    </div>
+    {% if pr.items_count %}
+    <div class="cell-sub">{{ pr.items_count }} {% trans 'صنف' %}</div>
+    {% endif %}
+  </td>
+  <td>
+    <div class="d-flex align-items-center gap-2">
+      <div class="cell-avatar">
+        <i class="bi bi-person"></i>
+      </div>
+      <div>
+        <div class="fw-medium">{{ pr.requested_by.get_full_name|default:pr.requested_by.username }}</div>
+      </div>
+    </div>
+  </td>
+  <td>{{ pr.department.name|default:"-" }}</td>
+  <td>
+    <div>{{ pr.date|date:"Y/m/d" }}</div>
+    <div class="cell-sub">{{ pr.date|timesince }} {% trans 'مضت' %}</div>
+  </td>
+  <td>
+    {% if pr.priority == 'urgent' %}
+    <span class="priority-badge urgent">{% trans 'عاجل' %}</span>
+    {% elif pr.priority == 'high' %}
+    <span class="priority-badge high">{% trans 'عالي' %}</span>
+    {% elif pr.priority == 'normal' %}
+    <span class="priority-badge normal">{% trans 'عادي' %}</span>
+    {% else %}
+    <span class="priority-badge low">{% trans 'منخفض' %}</span>
+    {% endif %}
+  </td>
+  <td class="text-end">
+    <div class="fw-medium">{{ pr.estimated_total|floatformat:2 }}</div>
+    <div class="cell-sub">{% trans 'ج.م' %}</div>
+  </td>
+  <td>
+    {% if pr.status == 'draft' %}
+    <span class="pro-badge draft"><i class="bi bi-pencil"></i> {% trans 'مسودة' %}</span>
+    {% elif pr.status == 'pending' %}
+    <span class="pro-badge pending"><i class="bi bi-hourglass"></i> {% trans 'بانتظار الاعتماد' %}</span>
+    {% elif pr.status == 'approved' %}
+    <span class="pro-badge approved"><i class="bi bi-check"></i> {% trans 'معتمد' %}</span>
+    {% elif pr.status == 'rejected' %}
+    <span class="pro-badge rejected"><i class="bi bi-x"></i> {% trans 'مرفوض' %}</span>
+    {% elif pr.status == 'converted' %}
+    <span class="pro-badge converted"><i class="bi bi-cart-check"></i> {% trans 'تم التحويل' %}</span>
+    {% endif %}
+  </td>
+  <td>
+    <div class="action-buttons">
+      <a href="{% url 'purchases:pr_detail' pr.pk %}" class="action-btn view" title="{% trans 'عرض' %}">
+        <i class="bi bi-eye"></i>
+      </a>
+      {% if pr.status == 'pending' and perms.purchases.can_approve_pr %}
+      <a href="{% url 'purchases:pr_approve' pr.pk %}" class="action-btn approve" title="{% trans 'اعتماد' %}">
+        <i class="bi bi-check-lg"></i>
+      </a>
+      {% endif %}
+      {% if pr.status == 'approved' %}
+      <a href="{% url 'purchases:pr_to_rfq' pr.pk %}" class="action-btn convert" title="{% trans 'تحويل لـRFQ' %}">
+        <i class="bi bi-arrow-left-right"></i>
+      </a>
+      {% endif %}
+      {% if pr.status == 'draft' %}
+      <a href="{% url 'purchases:pr_edit' pr.pk %}" class="action-btn edit" title="{% trans 'تعديل' %}">
+        <i class="bi bi-pencil"></i>
+      </a>
+      {% endif %}
+    </div>
+  </td>
+</tr>
+{% empty %}
+<tr>
+  <td colspan="9">
+    <div class="empty-state">
+      <div class="empty-icon"><i class="bi bi-clipboard"></i></div>
+      <h5>{% trans 'لا توجد طلبات شراء' %}</h5>
+      <p>{% trans 'أنشئ طلب شراء جديد لبدء عملية الشراء' %}</p>
+      <a href="{% url 'purchases:pr_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus me-1"></i>{% trans 'طلب شراء جديد' %}
+      </a>
+    </div>
+  </td>
+</tr>
+{% endfor %}
+{% endblock %}

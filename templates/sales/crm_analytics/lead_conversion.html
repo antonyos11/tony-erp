@@ -1,0 +1,167 @@
+﻿{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}تقرير تحويل العملاء المحتملين{% endblock %}
+
+{% block extra_css %}
+<style>
+    .conversion-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        padding: 25px;
+        color: white;
+        margin-bottom: 20px;
+    }
+    .conversion-card h3 { font-size: 2.5rem; font-weight: bold; }
+    
+    .metric-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    .metric-card h4 { font-size: 1.8rem; font-weight: bold; margin: 10px 0; }
+    
+    .journey-timeline { position: relative; padding-right: 30px; }
+    .journey-timeline::before {
+        content: '';
+        position: absolute;
+        right: 10px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e9ecef;
+    }
+    .journey-item {
+        position: relative;
+        padding: 10px 0;
+        padding-right: 25px;
+    }
+    .journey-item::before {
+        content: '';
+        position: absolute;
+        right: -3px;
+        top: 15px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #667eea;
+    }
+    .journey-item.completed::before { background: #28a745; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-1"><i class="bi bi-arrow-left-right text-primary me-2"></i>تقرير تحويل العملاء المحتملين</h3>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">الرئيسية</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'sales:crm_analytics_dashboard' %}">تحليلات العملاء</a></li>
+                    <li class="breadcrumb-item active">تحويل العملاء</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <!-- الفلاتر -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">من تاريخ</label>
+                    <input type="date" name="period_start" class="form-control" value="{ period_start|date:'Y-m-d' }">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">إلى تاريخ</label>
+                    <input type="date" name="period_end" class="form-control" value="{ period_end|date:'Y-m-d' }">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-filter me-1"></i> تصفية</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- مقاييس التحويل -->
+    {% if conversion_metrics %}
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="metric-card">
+                <p class="text-muted mb-0">إجمالي العملاء المحتملين</p>
+                <h4 class="text-primary">{{ conversion_metrics.total_leads|default:0 }}</h4>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-card">
+                <p class="text-muted mb-0">تم التحويل</p>
+                <h4 class="text-success">{{ conversion_metrics.converted|default:0 }}</h4>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-card">
+                <p class="text-muted mb-0">نسبة التحويل</p>
+                <h4 class="text-info">{{ conversion_metrics.conversion_rate|floatformat:1|default:0 }}%</h4>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-card">
+                <p class="text-muted mb-0">متوسط وقت التحويل</p>
+                <h4 class="text-warning">{{ conversion_metrics.avg_days|floatformat:0|default:0 }} يوم</h4>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- رحلات العملاء -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="bi bi-signpost-2 me-2"></i>رحلات العملاء</h5>
+        </div>
+        <div class="card-body">
+            {% if customer_journeys %}
+            <div class="row">
+                {% for item in customer_journeys %}
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header bg-light">
+                            <strong>{{ item.customer.name }}</strong>
+                            <br><small class="text-muted">{{ item.customer.phone }}</small>
+                        </div>
+                        <div class="card-body">
+                            <div class="journey-timeline">
+                                {% for step in item.journey.steps %}
+                                <div class="journey-item {% if step.completed %}completed{% endif %}">
+                                    <small class="text-muted">{{ step.date|date:"d/m" }}</small>
+                                    <div>{{ step.name }}</div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="card-footer bg-white">
+                            <span class="badge {% if item.journey.converted %}bg-success{% else %}bg-warning{% endif %}">
+                                {% if item.journey.converted %}تم التحويل{% else %}قيد المتابعة{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-signpost-split display-1 text-muted"></i>
+                <h5 class="mt-3">لا توجد بيانات رحلات</h5>
+                <p class="text-muted">لا توجد رحلات عملاء مسجلة للفترة المحددة</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+

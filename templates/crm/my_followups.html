@@ -1,0 +1,111 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}متابعاتي{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="mb-0"><i class="fas fa-user-check text-primary"></i> متابعاتي</h4>
+                <p class="text-muted mb-0">المتابعات المخصصة لي</p>
+            </div>
+            <a href="{% url 'crm:followup_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> متابعة جديدة
+            </a>
+        </div>
+    </div>
+    
+    <!-- الفلاتر -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <select name="status" class="form-select">
+                        <option value="">كل الحالات</option>
+                        <option value="pending" {% if selected_status == 'pending' %}selected{% endif %}>قيد الانتظار</option>
+                        <option value="in_progress" {% if selected_status == 'in_progress' %}selected{% endif %}>جارية</option>
+                        <option value="completed" {% if selected_status == 'completed' %}selected{% endif %}>مكتملة</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-outline-primary w-100">
+                        <i class="fas fa-filter"></i> فلترة
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- قائمة المتابعات -->
+    <div class="row g-4">
+        {% for followup in followups %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <span class="badge bg-{% if followup.priority == 'urgent' %}danger{% elif followup.priority == 'high' %}warning{% elif followup.priority == 'medium' %}info{% else %}secondary{% endif %}">
+                        {{ followup.get_priority_display }}
+                    </span>
+                    <span class="badge bg-{% if followup.status == 'completed' %}success{% elif followup.status == 'in_progress' %}info{% else %}warning{% endif %}">
+                        {{ followup.get_status_display }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <a href="{% url 'crm:customer_detail' followup.customer.pk %}" class="text-decoration-none">
+                            {{ followup.customer }}
+                        </a>
+                    </h6>
+                    <p class="text-muted small mb-2">
+                        <i class="fas fa-calendar me-1"></i> {{ followup.followup_date|date:"Y/m/d H:i" }}
+                    </p>
+                    <p class="card-text small">{{ followup.notes|truncatewords:20 }}</p>
+                </div>
+                <div class="card-footer bg-white border-0">
+                    <div class="btn-group btn-group-sm w-100">
+                        <a href="{% url 'crm:followup_detail' followup.pk %}" class="btn btn-outline-info">
+                            <i class="fas fa-eye"></i> عرض
+                        </a>
+                        {% if followup.status != 'completed' %}
+                        <form action="{% url 'crm:followup_complete' followup.pk %}" method="post" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-success">
+                                <i class="fas fa-check"></i> إتمام
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-inbox fa-4x mb-3"></i>
+                <p>لا توجد متابعات مخصصة لك</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- التقسيم -->
+    {% if followups.has_other_pages %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if followups.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ followups.previous_page_number }}">السابق</a>
+            </li>
+            {% endif %}
+            <li class="page-item active"><span class="page-link">{{ followups.number }}</span></li>
+            {% if followups.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ followups.next_page_number }}">التالي</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

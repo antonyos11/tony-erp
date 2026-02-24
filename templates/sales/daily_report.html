@@ -1,0 +1,384 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'التقرير اليومي' %}{% endblock %}
+
+{% block content %}
+<style>
+  .report-hero {
+    background: linear-gradient(135deg, var(--primary) 0%, #2d5a87 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+    margin-bottom: 2rem;
+  }
+  .report-hero h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  .date-selector {
+    background: rgba(255,255,255,0.1);
+    padding: 1rem 1.5rem;
+    border-radius: var(--radius);
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .kpi-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--primary);
+  }
+  .kpi-card.sales::before { background: #10b981; }
+  .kpi-card.invoices::before { background: #3b82f6; }
+  .kpi-card.payments::before { background: #8b5cf6; }
+  .kpi-card.returns::before { background: #f59e0b; }
+  .kpi-card .kpi-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .kpi-card.sales .kpi-icon { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+  .kpi-card.invoices .kpi-icon { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+  .kpi-card.payments .kpi-icon { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+  .kpi-card.returns .kpi-icon { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+  .kpi-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 0.25rem;
+  }
+  .kpi-label {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+  }
+  .kpi-change {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+  }
+  .kpi-change.up { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+  .kpi-change.down { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+  .section-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+  }
+  .section-header {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .section-header i {
+    font-size: 1.25rem;
+    color: var(--primary);
+  }
+  .section-header h5 {
+    margin: 0;
+    font-weight: 600;
+  }
+  .section-body {
+    padding: 1.5rem;
+  }
+  .invoice-mini {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    transition: var(--transition);
+  }
+  .invoice-mini:last-child {
+    border-bottom: none;
+  }
+  .invoice-mini:hover {
+    background: rgba(var(--primary-rgb), 0.05);
+  }
+  .invoice-mini .customer {
+    font-weight: 600;
+    color: var(--text-dark);
+  }
+  .invoice-mini .amount {
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .hourly-chart-container {
+    height: 250px;
+    position: relative;
+  }
+  .payment-methods {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+  }
+  .payment-method {
+    text-align: center;
+    padding: 1rem;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+  }
+  .payment-method .amount {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-top: 0.5rem;
+  }
+  .top-products {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .product-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .product-item .rank {
+    width: 28px;
+    height: 28px;
+    background: var(--primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .product-item .info {
+    flex: 1;
+  }
+  .product-item .name {
+    font-weight: 600;
+  }
+  .product-item .qty {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .product-item .revenue {
+    font-weight: 700;
+    color: var(--success);
+  }
+</style>
+
+<!-- Report Hero -->
+<div class="report-hero">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div>
+      <h1><i class="bi bi-calendar-day me-2"></i>{% trans 'التقرير اليومي للمبيعات' %}</h1>
+      <p class="mb-0 opacity-75">{% trans 'ملخص شامل لنشاط المبيعات' %}</p>
+    </div>
+    <form method="get" class="date-selector">
+      <i class="bi bi-calendar3"></i>
+      <input type="date" name="date" class="form-control form-control-sm bg-transparent border-0 text-white" 
+             value="{ report_date|date:'Y-m-d' }}" onchange="this.form.submit()">
+    </form>
+  </div>
+</div>
+
+<!-- KPI Grid -->
+<div class="kpi-grid">
+  <div class="kpi-card sales">
+    <span class="kpi-change {% if stats.sales_change >= 0 %}up{% else %}down{% endif %}">
+      {% if stats.sales_change >= 0 %}+{% endif %}{{ stats.sales_change|floatformat:1 }}%
+    </span>
+    <div class="kpi-icon"><i class="bi bi-cash-stack"></i></div>
+    <div class="kpi-value">{{ stats.total_sales|floatformat:2 }}</div>
+    <div class="kpi-label">{% trans 'إجمالي المبيعات' %}</div>
+  </div>
+  <div class="kpi-card invoices">
+    <span class="kpi-change {% if stats.invoices_change >= 0 %}up{% else %}down{% endif %}">
+      {% if stats.invoices_change >= 0 %}+{% endif %}{{ stats.invoices_change|floatformat:0 }}
+    </span>
+    <div class="kpi-icon"><i class="bi bi-receipt"></i></div>
+    <div class="kpi-value">{{ stats.invoice_count }}</div>
+    <div class="kpi-label">{% trans 'عدد الفواتير' %}</div>
+  </div>
+  <div class="kpi-card payments">
+    <div class="kpi-icon"><i class="bi bi-wallet2"></i></div>
+    <div class="kpi-value">{{ stats.total_payments|floatformat:2 }}</div>
+    <div class="kpi-label">{% trans 'المبالغ المحصلة' %}</div>
+  </div>
+  <div class="kpi-card returns">
+    <div class="kpi-icon"><i class="bi bi-arrow-return-left"></i></div>
+    <div class="kpi-value">{{ stats.total_returns|floatformat:2 }}</div>
+    <div class="kpi-label">{% trans 'المرتجعات' %}</div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Hourly Sales Chart -->
+  <div class="col-lg-8">
+    <div class="section-card">
+      <div class="section-header">
+        <i class="bi bi-graph-up"></i>
+        <h5>{% trans 'المبيعات بالساعة' %}</h5>
+      </div>
+      <div class="section-body">
+        <div class="hourly-chart-container">
+          <canvas id="hourlyChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment Methods -->
+  <div class="col-lg-4">
+    <div class="section-card">
+      <div class="section-header">
+        <i class="bi bi-credit-card"></i>
+        <h5>{% trans 'طرق الدفع' %}</h5>
+      </div>
+      <div class="section-body">
+        <div class="payment-methods">
+          <div class="payment-method">
+            <i class="bi bi-cash fs-3 text-success"></i>
+            <div class="amount">{{ stats.cash|floatformat:2 }}</div>
+            <div class="small text-muted">{% trans 'نقدي' %}</div>
+          </div>
+          <div class="payment-method">
+            <i class="bi bi-credit-card fs-3 text-primary"></i>
+            <div class="amount">{{ stats.card|floatformat:2 }}</div>
+            <div class="small text-muted">{% trans 'بطاقة' %}</div>
+          </div>
+          <div class="payment-method">
+            <i class="bi bi-bank fs-3 text-info"></i>
+            <div class="amount">{{ stats.bank|floatformat:2 }}</div>
+            <div class="small text-muted">{% trans 'تحويل' %}</div>
+          </div>
+          <div class="payment-method">
+            <i class="bi bi-clock-history fs-3 text-warning"></i>
+            <div class="amount">{{ stats.credit|floatformat:2 }}</div>
+            <div class="small text-muted">{% trans 'آجل' %}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mt-2">
+  <!-- Top Products -->
+  <div class="col-lg-6">
+    <div class="section-card">
+      <div class="section-header">
+        <i class="bi bi-star"></i>
+        <h5>{% trans 'أكثر المنتجات مبيعاً' %}</h5>
+      </div>
+      <div class="section-body">
+        <div class="top-products">
+          {% for product in top_products %}
+          <div class="product-item">
+            <span class="rank">{{ forloop.counter }}</span>
+            <div class="info">
+              <div class="name">{{ product.name }}</div>
+              <div class="qty">{{ product.quantity }} {% trans 'وحدة' %}</div>
+            </div>
+            <span class="revenue">{{ product.revenue|floatformat:2 }}</span>
+          </div>
+          {% empty %}
+          <div class="text-center text-muted py-3">{% trans 'لا توجد بيانات' %}</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Today's Invoices -->
+  <div class="col-lg-6">
+    <div class="section-card">
+      <div class="section-header">
+        <i class="bi bi-receipt"></i>
+        <h5>{% trans 'فواتير اليوم' %}</h5>
+      </div>
+      <div class="section-body p-0">
+        {% for invoice in today_invoices %}
+        <div class="invoice-mini">
+          <div>
+            <a href="{% url 'sales:invoice_detail' invoice.pk %}" class="customer">{{ invoice.customer.name }}</a>
+            <div class="small text-muted">{{ invoice.invoice_number }} - {{ invoice.date|time:"H:i" }}</div>
+          </div>
+          <span class="amount">{{ invoice.total|floatformat:2 }}</span>
+        </div>
+        {% empty %}
+        <div class="text-center text-muted py-4">{% trans 'لا توجد فواتير اليوم' %}</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const hourlyData = {{ hourly_data|safe }};
+  
+  new Chart(document.getElementById('hourlyChart'), {
+    type: 'bar',
+    data: {
+      labels: hourlyData.labels,
+      datasets: [{
+        label: '{% trans "المبيعات" %}',
+        data: hourlyData.values,
+        backgroundColor: 'rgba(30, 58, 95, 0.7)',
+        borderColor: '#1e3a5f',
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: 'rgba(0,0,0,0.05)' }
+        },
+        x: {
+          grid: { display: false }
+        }
+      }
+    }
+  });
+</script>
+{% endblock %}
+

@@ -1,0 +1,7 @@
+from django.apps import AppConfig
+
+
+class VideoCallsConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'video_calls'
+    verbose_name = 'مكالمات الفيديو'

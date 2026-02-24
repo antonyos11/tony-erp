@@ -1,0 +1,406 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'عقد تقسيط' %} #{{ plan.id }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    @media print {
+        .no-print { display: none !important; }
+        .contract-container { padding: 0 !important; margin: 0 !important; }
+        body { font-size: 12pt; }
+    }
+    
+    .contract-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        font-family: 'Tahoma', 'Arial', sans-serif;
+    }
+    
+    .contract-header {
+        text-align: center;
+        border-bottom: 3px double #333;
+        padding-bottom: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .company-logo {
+        max-height: 80px;
+        margin-bottom: 10px;
+    }
+    
+    .contract-title {
+        font-size: 24px;
+        font-weight: bold;
+        color: #2c3e50;
+        margin: 15px 0;
+    }
+    
+    .contract-number {
+        font-size: 16px;
+        color: #666;
+    }
+    
+    .section {
+        margin-bottom: 25px;
+    }
+    
+    .section-title {
+        background: #3498db;
+        color: white;
+        padding: 8px 15px;
+        font-weight: bold;
+        border-radius: 5px 5px 0 0;
+        margin-bottom: 0;
+    }
+    
+    .section-body {
+        border: 1px solid #ddd;
+        border-top: none;
+        padding: 15px;
+        border-radius: 0 0 5px 5px;
+    }
+    
+    .info-row {
+        display: flex;
+        margin-bottom: 8px;
+    }
+    
+    .info-label {
+        font-weight: bold;
+        min-width: 150px;
+        color: #555;
+    }
+    
+    .info-value {
+        flex: 1;
+    }
+    
+    .schedule-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+    }
+    
+    .schedule-table th, .schedule-table td {
+        border: 1px solid #ddd;
+        padding: 10px;
+        text-align: center;
+    }
+    
+    .schedule-table th {
+        background: #f8f9fa;
+        font-weight: bold;
+    }
+    
+    .schedule-table tr:nth-child(even) {
+        background: #fafafa;
+    }
+    
+    .summary-box {
+        background: #e8f4fd;
+        border: 2px solid #3498db;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+    }
+    
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        font-size: 14px;
+    }
+    
+    .summary-row.total {
+        font-size: 18px;
+        font-weight: bold;
+        color: #2c3e50;
+        border-top: 2px solid #3498db;
+        padding-top: 10px;
+        margin-top: 10px;
+    }
+    
+    .signatures {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 50px;
+        padding-top: 20px;
+    }
+    
+    .signature-box {
+        text-align: center;
+        width: 200px;
+    }
+    
+    .signature-line {
+        border-top: 1px solid #333;
+        margin-top: 60px;
+        padding-top: 5px;
+    }
+    
+    .terms {
+        font-size: 11px;
+        color: #666;
+        border: 1px solid #ddd;
+        padding: 15px;
+        background: #fafafa;
+        border-radius: 5px;
+    }
+    
+    .terms h4 {
+        color: #333;
+        margin-bottom: 10px;
+    }
+    
+    .terms ul {
+        margin: 0;
+        padding-right: 20px;
+    }
+    
+    .terms li {
+        margin-bottom: 5px;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    
+    .status-active { background: #d4edda; color: #155724; }
+    .status-completed { background: #cce5ff; color: #004085; }
+    .status-defaulted { background: #f8d7da; color: #721c24; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3 no-print">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4><i class="bi bi-file-earmark-text me-2"></i>{% trans 'عقد التقسيط' %}</h4>
+        <div>
+            <button class="btn btn-primary" onclick="window.print()">
+                <i class="bi bi-printer me-1"></i>{% trans 'طباعة' %}
+            </button>
+            <a href="{% url 'pos:installment_detail' plan.id %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-right me-1"></i>{% trans 'رجوع' %}
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="contract-container">
+    <!-- رأس العقد -->
+    <div class="contract-header">
+        {% if company.logo %}
+        <img src="{{ company.logo }}" alt="{{ company.name }}" class="company-logo">
+        {% endif %}
+        <h1 class="contract-title">{% trans 'عقد بيع بالتقسيط' %}</h1>
+        <div class="contract-number">
+            {% trans 'رقم العقد:' %} <strong>INST-{{ plan.id|stringformat:"05d" }}</strong>
+        </div>
+        <div class="mt-2">
+            {% trans 'التاريخ:' %} {{ plan.created_at|date:"Y/m/d" }}
+        </div>
+    </div>
+    
+    <!-- بيانات البائع -->
+    <div class="section">
+        <div class="section-title">{% trans 'الطرف الأول (البائع)' %}</div>
+        <div class="section-body">
+            <div class="info-row">
+                <span class="info-label">{% trans 'اسم الشركة:' %}</span>
+                <span class="info-value">{{ company.name }}</span>
+            </div>
+            {% if company.address %}
+            <div class="info-row">
+                <span class="info-label">{% trans 'العنوان:' %}</span>
+                <span class="info-value">{{ company.address }}</span>
+            </div>
+            {% endif %}
+            {% if company.phone %}
+            <div class="info-row">
+                <span class="info-label">{% trans 'الهاتف:' %}</span>
+                <span class="info-value">{{ company.phone }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- بيانات المشتري -->
+    <div class="section">
+        <div class="section-title">{% trans 'الطرف الثاني (المشتري)' %}</div>
+        <div class="section-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="info-row">
+                        <span class="info-label">{% trans 'الاسم:' %}</span>
+                        <span class="info-value">{{ plan.customer.name }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{% trans 'رقم الهاتف:' %}</span>
+                        <span class="info-value" dir="ltr">{{ plan.customer_phone }}</span>
+                    </div>
+                    {% if plan.customer_phone2 %}
+                    <div class="info-row">
+                        <span class="info-label">{% trans 'هاتف إضافي:' %}</span>
+                        <span class="info-value" dir="ltr">{{ plan.customer_phone2 }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    {% if plan.customer_national_id %}
+                    <div class="info-row">
+                        <span class="info-label">{% trans 'رقم الهوية:' %}</span>
+                        <span class="info-value" dir="ltr">{{ plan.customer_national_id }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="info-row">
+                        <span class="info-label">{% trans 'العنوان:' %}</span>
+                        <span class="info-value">{{ plan.customer_address }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- بيانات الضامن -->
+    {% if plan.guarantor_name %}
+    <div class="section">
+        <div class="section-title">{% trans 'الضامن' %}</div>
+        <div class="section-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="info-row">
+                        <span class="info-label">{% trans 'الاسم:' %}</span>
+                        <span class="info-value">{{ plan.guarantor_name }}</span>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    {% if plan.guarantor_phone %}
+                    <div class="info-row">
+                        <span class="info-label">{% trans 'رقم الهاتف:' %}</span>
+                        <span class="info-value" dir="ltr">{{ plan.guarantor_phone }}</span>
+                    </div>
+                    {% endif %}
+                    {% if plan.guarantor_national_id %}
+                    <div class="info-row">
+                        <span class="info-label">{% trans 'رقم الهوية:' %}</span>
+                        <span class="info-value" dir="ltr">{{ plan.guarantor_national_id }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- ملخص التقسيط -->
+    <div class="summary-box">
+        <h5 class="text-center mb-3">{% trans 'ملخص التقسيط' %}</h5>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="summary-row">
+                    <span>{% trans 'إجمالي الفاتورة:' %}</span>
+                    <span>{{ plan.total_amount|floatformat:2 }} {% trans 'ج.م' %}</span>
+                </div>
+                <div class="summary-row">
+                    <span>{% trans 'الدفعة المقدمة:' %}</span>
+                    <span>{{ plan.down_payment|floatformat:2 }} {% trans 'ج.م' %}</span>
+                </div>
+                <div class="summary-row">
+                    <span>{% trans 'نسبة الفائدة:' %}</span>
+                    <span>{{ plan.interest_rate }}%</span>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="summary-row">
+                    <span>{% trans 'عدد الأقساط:' %}</span>
+                    <span>{{ plan.number_of_installments }} {% trans 'قسط' %}</span>
+                </div>
+                <div class="summary-row">
+                    <span>{% trans 'قيمة القسط:' %}</span>
+                    <span>{{ plan.installment_amount|floatformat:2 }} {% trans 'ج.م' %}</span>
+                </div>
+                <div class="summary-row total">
+                    <span>{% trans 'إجمالي المبلغ المستحق:' %}</span>
+                    <span>{{ plan.remaining_amount|floatformat:2 }} {% trans 'ج.م' %}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- جدول الأقساط -->
+    <div class="section">
+        <div class="section-title">{% trans 'جدول الأقساط' %}</div>
+        <div class="section-body">
+            <div class="table-responsive"><table class="schedule-table">
+                <thead>
+                    <tr>
+                        <th style="width: 60px;">{% trans 'القسط' %}</th>
+                        <th>{% trans 'تاريخ الاستحقاق' %}</th>
+                        <th>{% trans 'المبلغ' %}</th>
+                        <th>{% trans 'الحالة' %}</th>
+                        <th>{% trans 'توقيع الاستلام' %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inst in installments %}
+                    <tr>
+                        <td>{{ inst.installment_number }}</td>
+                        <td>{{ inst.due_date|date:"Y/m/d" }}</td>
+                        <td>{{ inst.amount|floatformat:2 }} {% trans 'ج.م' %}</td>
+                        <td>
+                            {% if inst.is_paid %}
+                            <span class="badge bg-success">{% trans 'مدفوع' %}</span>
+                            {% elif inst.due_date < today %}
+                            <span class="badge bg-danger">{% trans 'متأخر' %}</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">{% trans 'معلق' %}</span>
+                            {% endif %}
+                        </td>
+                        <td style="min-width: 100px;"></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table></div>
+        </div>
+    </div>
+    
+    <!-- الشروط والأحكام -->
+    <div class="terms">
+        <h4>{% trans 'الشروط والأحكام' %}</h4>
+        <ul>
+            <li>{% trans 'يلتزم الطرف الثاني (المشتري) بسداد الأقساط في مواعيدها المحددة.' %}</li>
+            <li>{% trans 'في حالة التأخر عن السداد، تُطبق غرامة تأخير حسب سياسة الشركة.' %}</li>
+            <li>{% trans 'تظل ملكية البضاعة للطرف الأول حتى سداد كامل الأقساط.' %}</li>
+            <li>{% trans 'يحق للطرف الأول استرداد البضاعة في حالة التأخر عن سداد 3 أقساط متتالية.' %}</li>
+            <li>{% trans 'يتعهد الضامن بسداد المبالغ المستحقة في حالة تخلف المشتري عن السداد.' %}</li>
+            <li>{% trans 'أي نزاع ينشأ عن هذا العقد يُحل ودياً أو أمام الجهات المختصة.' %}</li>
+        </ul>
+    </div>
+    
+    <!-- التوقيعات -->
+    <div class="signatures">
+        <div class="signature-box">
+            <div class="signature-line">{% trans 'توقيع البائع' %}</div>
+        </div>
+        <div class="signature-box">
+            <div class="signature-line">{% trans 'توقيع المشتري' %}</div>
+        </div>
+        {% if plan.guarantor_name %}
+        <div class="signature-box">
+            <div class="signature-line">{% trans 'توقيع الضامن' %}</div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="text-center mt-4 text-muted" style="font-size: 11px;">
+        {% trans 'تم إنشاء هذا العقد بواسطة نظام' %} Tony ERP - {{ plan.created_at|date:"Y/m/d H:i" }}
+    </div>
+</div>
+{% endblock %}

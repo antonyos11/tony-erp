@@ -1,0 +1,612 @@
+﻿{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "تقرير القيود المحاسبية" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+    }
+    
+    .report-hero {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    
+    .filter-panel {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        margin-bottom: 2rem;
+    }
+    
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+        align-items: end;
+    }
+    
+    .form-label {
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .form-control, .form-select {
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.15);
+    }
+    
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .summary-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        text-align: center;
+        border-top: 4px solid;
+    }
+    
+    .summary-card.total { border-color: var(--primary-color); }
+    .summary-card.debit { border-color: var(--danger-color); }
+    .summary-card.credit { border-color: var(--success-color); }
+    .summary-card.posted { border-color: var(--accent-color); }
+    
+    .summary-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .summary-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .report-container {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .report-header {
+        padding: 1.25rem 1.5rem;
+        background: #fafbfc;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .report-title {
+        font-weight: 600;
+        color: var(--primary-color);
+        margin: 0;
+    }
+    
+    .view-toggle {
+        display: flex;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .view-btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        background: white;
+        color: #6c757d;
+        cursor: pointer;
+    }
+    
+    .view-btn.active {
+        background: var(--accent-color);
+        color: white;
+    }
+    
+    .entries-table {
+        width: 100%;
+        margin: 0;
+    }
+    
+    .entries-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+        color: var(--primary-color);
+        padding: 1rem;
+        border: none;
+        white-space: nowrap;
+    }
+    
+    .entries-table td {
+        padding: 1rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .entries-table tbody tr:hover {
+        background: rgba(0, 212, 170, 0.02);
+    }
+    
+    .entry-number {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+    
+    .entry-number a {
+        color: inherit;
+        text-decoration: none;
+    }
+    
+    .entry-number a:hover {
+        color: var(--accent-color);
+    }
+    
+    .entry-date {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .entry-desc {
+        max-width: 300px;
+    }
+    
+    .entry-desc .main {
+        font-weight: 500;
+    }
+    
+    .entry-desc .ref {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .entry-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    
+    .entry-status.posted { background: rgba(40, 167, 69, 0.1); color: var(--success-color); }
+    .entry-status.draft { background: rgba(255, 193, 7, 0.1); color: #856404; }
+    .entry-status.cancelled { background: rgba(108, 117, 125, 0.1); color: #6c757d; }
+    
+    .amount-debit {
+        color: var(--danger-color);
+        font-weight: 600;
+    }
+    
+    .amount-credit {
+        color: var(--success-color);
+        font-weight: 600;
+    }
+    
+    .entry-row.expanded {
+        background: rgba(0, 212, 170, 0.03);
+    }
+    
+    .entry-details-row {
+        display: none;
+    }
+    
+    .entry-details-row.show {
+        display: table-row;
+    }
+    
+    .entry-details {
+        background: #f8f9fa;
+        padding: 1.5rem;
+    }
+    
+    .detail-lines {
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        margin-top: 1rem;
+    }
+    
+    .detail-lines table {
+        width: 100%;
+        margin: 0;
+    }
+    
+    .detail-lines th {
+        background: #e9ecef;
+        padding: 0.75rem 1rem;
+        font-size: 0.85rem;
+    }
+    
+    .detail-lines td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .expand-btn {
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        border: none;
+        background: rgba(30, 58, 95, 0.1);
+        color: var(--primary-color);
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .expand-btn:hover {
+        background: var(--primary-color);
+        color: white;
+    }
+    
+    .expand-btn.expanded i {
+        transform: rotate(180deg);
+    }
+    
+    .pagination-container {
+        padding: 1.25rem 1.5rem;
+        border-top: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .export-dropdown .dropdown-menu {
+        border-radius: 10px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+    }
+    
+    .export-dropdown .dropdown-item {
+        padding: 0.75rem 1.25rem;
+    }
+    
+    .export-dropdown .dropdown-item i {
+        width: 20px;
+        margin-left: 0.5rem;
+    }
+    
+    [data-bs-theme="dark"] .filter-panel,
+    [data-bs-theme="dark"] .summary-card,
+    [data-bs-theme="dark"] .report-container {
+        background: #1a1d21;
+        border-color: #2d3238;
+    }
+    
+    [data-bs-theme="dark"] .report-header,
+    [data-bs-theme="dark"] .entries-table th {
+        background: #2d3238;
+    }
+    
+    [data-bs-theme="dark"] .form-control,
+    [data-bs-theme="dark"] .form-select {
+        background: #2d3238;
+        border-color: #3d4248;
+        color: #e9ecef;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Hero Section -->
+    <div class="report-hero">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="h2 mb-2">
+                    <i class="fas fa-file-alt me-2"></i>
+                    {% trans "تقرير القيود المحاسبية" %}
+                </h1>
+                <p class="mb-0 opacity-75">
+                    {% trans "عرض وتحليل جميع القيود المحاسبية المسجلة" %}
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <div class="dropdown export-dropdown">
+                    <button class="btn btn-light dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-download me-1"></i>
+                        {% trans "تصدير" %}
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-file-excel text-success"></i> Excel</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-file-pdf text-danger"></i> PDF</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-file-csv text-info"></i> CSV</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-print text-secondary"></i> {% trans "طباعة" %}</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filter Panel -->
+    <div class="filter-panel">
+        <form method="get" id="filterForm">
+            <div class="filter-grid">
+                <div>
+                    <label class="form-label">{% trans "من تاريخ" %}</label>
+                    <input type="date" name="date_from" class="form-control" value="{ date_from }">
+                </div>
+                <div>
+                    <label class="form-label">{% trans "إلى تاريخ" %}</label>
+                    <input type="date" name="date_to" class="form-control" value="{ date_to }">
+                </div>
+                <div>
+                    <label class="form-label">{% trans "الحساب" %}</label>
+                    <select name="account" class="form-select">
+                        <option value="">{% trans "كل الحسابات" %}</option>
+                        {% for account in accounts %}
+                        <option value="{ account.id }">{{ account.code }} - {{ account.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">{% trans "الحالة" %}</label>
+                    <select name="status" class="form-select">
+                        <option value="">{% trans "الكل" %}</option>
+                        <option value="posted">{% trans "مرحل" %}</option>
+                        <option value="draft">{% trans "مسودة" %}</option>
+                        <option value="cancelled">{% trans "ملغي" %}</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">{% trans "بحث" %}</label>
+                    <input type="text" name="search" class="form-control" placeholder="{% trans 'رقم القيد أو الوصف...' %}">
+                </div>
+                <div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-1"></i>
+                        {% trans "بحث" %}
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="summary-cards">
+        <div class="summary-card total">
+            <div class="summary-value">{{ total_entries|default:"156" }}</div>
+            <div class="summary-label">{% trans "إجمالي القيود" %}</div>
+        </div>
+        <div class="summary-card debit">
+            <div class="summary-value">{{ total_debit|default:"1,250,000"|intcomma }}</div>
+            <div class="summary-label">{% trans "إجمالي المدين" %}</div>
+        </div>
+        <div class="summary-card credit">
+            <div class="summary-value">{{ total_credit|default:"1,250,000"|intcomma }}</div>
+            <div class="summary-label">{% trans "إجمالي الدائن" %}</div>
+        </div>
+        <div class="summary-card posted">
+            <div class="summary-value">{{ posted_count|default:"142" }}</div>
+            <div class="summary-label">{% trans "القيود المرحلة" %}</div>
+        </div>
+    </div>
+    
+    <!-- Report Table -->
+    <div class="report-container">
+        <div class="report-header">
+            <h5 class="report-title">
+                <i class="fas fa-list me-2"></i>
+                {% trans "قائمة القيود" %}
+            </h5>
+            
+            <div class="d-flex gap-2 align-items-center">
+                <div class="view-toggle">
+                    <button class="view-btn active" data-view="compact">
+                        <i class="fas fa-list"></i>
+                    </button>
+                    <button class="view-btn" data-view="detailed">
+                        <i class="fas fa-th-list"></i>
+                    </button>
+                </div>
+                
+                <a href="{% url 'accounting:journal_entry_create' %}" class="btn btn-success">
+                    <i class="fas fa-plus me-1"></i>
+                    {% trans "قيد جديد" %}
+                </a>
+            </div>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table entries-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"></th>
+                        <th>{% trans "رقم القيد" %}</th>
+                        <th>{% trans "التاريخ" %}</th>
+                        <th>{% trans "الوصف" %}</th>
+                        <th>{% trans "المدين" %}</th>
+                        <th>{% trans "الدائن" %}</th>
+                        <th>{% trans "الحالة" %}</th>
+                        <th>{% trans "إجراءات" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in entries %}
+                    <tr class="entry-row" data-id="{ entry.id }">
+                        <td>
+                            <button class="expand-btn" title="{% trans 'عرض التفاصيل' %}">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </td>
+                        <td>
+                            <span class="entry-number">
+                                <a href="{% url 'accounting:journal_entry_detail' entry.id %}">{{ entry.number }}</a>
+                            </span>
+                        </td>
+                        <td>
+                            <span class="entry-date">{{ entry.date }}</span>
+                        </td>
+                        <td>
+                            <div class="entry-desc">
+                                <div class="main">{{ entry.description }}</div>
+                                {% if entry.reference %}
+                                <div class="ref"><i class="fas fa-link me-1"></i>{{ entry.reference }}</div>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="amount-debit">{{ entry.total_debit|intcomma }}</td>
+                        <td class="amount-credit">{{ entry.total_credit|intcomma }}</td>
+                        <td>
+                            <span class="entry-status { entry.status }">
+                                <i class="fas fa-circle" style="font-size: 0.5rem;"></i>
+                                {{ entry.status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'accounting:journal_entry_detail' entry.id %}" class="btn btn-outline-info" title="{% trans 'عرض' %}">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if entry.status == 'draft' %}
+                                <a href="{% url 'accounting:journal_entry_edit' entry.id %}" class="btn btn-outline-primary" title="{% trans 'تعديل' %}">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                {% endif %}
+                                <button class="btn btn-outline-secondary" title="{% trans 'طباعة' %}">
+                                    <i class="fas fa-print"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="entry-details-row" data-parent="{ entry.id }">
+                        <td colspan="8">
+                            <div class="entry-details">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <strong>{% trans "أنشأ بواسطة:" %}</strong> {{ entry.created_by }}<br>
+                                        <strong>{% trans "تاريخ الإنشاء:" %}</strong> {{ entry.created_date }}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>{% trans "رحل بواسطة:" %}</strong> {{ entry.posted_by|default:"-" }}<br>
+                                        <strong>{% trans "تاريخ الترحيل:" %}</strong> {{ entry.posted_date|default:"-" }}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>{% trans "مركز التكلفة:" %}</strong> {{ entry.cost_center|default:"-" }}<br>
+                                        <strong>{% trans "المرفقات:" %}</strong> {{ entry.attachments_count|default:"0" }}
+                                    </div>
+                                </div>
+                                
+                                <div class="detail-lines">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>{% trans "الحساب" %}</th>
+                                                <th>{% trans "البيان" %}</th>
+                                                <th>{% trans "مدين" %}</th>
+                                                <th>{% trans "دائن" %}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for line in entry.lines %}
+                                            <tr>
+                                                <td>{{ line.account_code }} - {{ line.account_name }}</td>
+                                                <td>{{ line.description }}</td>
+                                                <td class="amount-debit">{% if line.debit %}{{ line.debit|intcomma }}{% endif %}</td>
+                                                <td class="amount-credit">{% if line.credit %}{{ line.credit|intcomma }}{% endif %}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <i class="fas fa-book fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">{% trans "لا توجد قيود مطابقة للبحث" %}</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="pagination-container">
+            <div class="text-muted">
+                {% trans "عرض" %} {{ page_start|default:"1" }}-{{ page_end|default:"20" }} {% trans "من" %} {{ total_entries|default:"156" }}
+            </div>
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if not has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="?page={{ prev_page }}">{% trans "السابق" %}</a>
+                    </li>
+                    {% for p in page_range %}
+                    <li class="page-item {% if p == current_page %}active{% endif %}">
+                        <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+                    </li>
+                    {% endfor %}
+                    <li class="page-item {% if not has_next %}disabled{% endif %}">
+                        <a class="page-link" href="?page={{ next_page }}">{% trans "التالي" %}</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Expand/collapse entry details
+    document.querySelectorAll('.expand-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const row = this.closest('.entry-row');
+            const detailsRow = document.querySelector(`.entry-details-row[data-parent="${row.dataset.id}"]`);
+            
+            this.classList.toggle('expanded');
+            row.classList.toggle('expanded');
+            detailsRow?.classList.toggle('show');
+        });
+    });
+    
+    // View toggle
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            
+            if (this.dataset.view === 'detailed') {
+                document.querySelectorAll('.entry-details-row').forEach(row => row.classList.add('show'));
+                document.querySelectorAll('.expand-btn').forEach(btn => btn.classList.add('expanded'));
+            } else {
+                document.querySelectorAll('.entry-details-row').forEach(row => row.classList.remove('show'));
+                document.querySelectorAll('.expand-btn').forEach(btn => btn.classList.remove('expanded'));
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+

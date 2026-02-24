@@ -1,0 +1,351 @@
+﻿{% extends 'base_templates/_detail_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'تفاصيل سند الاستلام' %}{% endblock %}
+{% block hero_icon %}bi-box-arrow-in-down{% endblock %}
+{% block hero_title %}{% trans 'سند الاستلام' %} - {{ receipt.receipt_number }}{% endblock %}
+{% block hero_subtitle %}{% trans 'أمر الشراء' %}: {{ receipt.purchase_order.po_number }}{% endblock %}
+
+{% block hero_badge %}
+{% if receipt.status == 'pending' %}
+<span class="badge bg-warning text-dark">{% trans 'قيد الانتظار' %}</span>
+{% elif receipt.status == 'inspected' %}
+<span class="badge bg-info">{% trans 'تم الفحص' %}</span>
+{% elif receipt.status == 'completed' %}
+<span class="badge bg-success">{% trans 'مكتمل' %}</span>
+{% elif receipt.status == 'rejected' %}
+<span class="badge bg-danger">{% trans 'مرفوض' %}</span>
+{% else %}
+<span class="badge bg-secondary">{{ receipt.get_status_display }}</span>
+{% endif %}
+{% endblock %}
+
+{% block hero_actions %}
+{% if receipt.status == 'pending' %}
+<a href="{% url 'purchases:receipt_inspect' receipt.pk %}" class="btn btn-light">
+  <i class="bi bi-search me-1"></i>{% trans 'فحص' %}
+</a>
+{% endif %}
+<a href="{% url 'purchases:receipt_edit' receipt.pk %}" class="btn btn-outline-light">
+  <i class="bi bi-pencil me-1"></i>{% trans 'تعديل' %}
+</a>
+{% endblock %}
+
+{% block back_url %}{% url 'purchases:receipt_list' %}{% endblock %}
+
+{% block detail_styles %}
+<style>
+.supplier-info-card {
+  background: linear-gradient(135deg, var(--color-brand-primary) 0%, #2d5a8a 100%);
+  color: white;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.supplier-info-card .supplier-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+.supplier-info-card .po-ref {
+  opacity: 0.9;
+  font-size: 0.9rem;
+}
+.delivery-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.delivery-info-item {
+  background: var(--bs-tertiary-bg);
+  border-radius: 8px;
+  padding: 1rem;
+}
+.delivery-info-item .item-label {
+  font-size: 0.75rem;
+  color: var(--bs-secondary-color);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.delivery-info-item .item-value {
+  font-weight: 600;
+  margin-top: 0.25rem;
+}
+.inspection-status-card {
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.inspection-status-card.passed {
+  background: rgba(25,135,84,0.1);
+  border: 1px solid rgba(25,135,84,0.3);
+}
+.inspection-status-card.failed {
+  background: rgba(220,53,69,0.1);
+  border: 1px solid rgba(220,53,69,0.3);
+}
+.inspection-status-card.pending {
+  background: rgba(255,193,7,0.1);
+  border: 1px solid rgba(255,193,7,0.3);
+}
+.inspection-status-card .status-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.inspection-status-card .status-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+.inspection-status-card.passed .status-icon {
+  background: #198754;
+  color: white;
+}
+.inspection-status-card.failed .status-icon {
+  background: #dc3545;
+  color: white;
+}
+.inspection-status-card.pending .status-icon {
+  background: #ffc107;
+  color: #000;
+}
+.inspection-status-card .status-title {
+  font-weight: 700;
+}
+.condition-badge {
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.condition-badge.good {
+  background: rgba(25,135,84,0.15);
+  color: #198754;
+}
+.condition-badge.damaged {
+  background: rgba(220,53,69,0.15);
+  color: #dc3545;
+}
+.condition-badge.partial {
+  background: rgba(255,193,7,0.15);
+  color: #997404;
+}
+</style>
+{% endblock %}
+
+{% block info_cards %}
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon primary">
+      <i class="bi bi-hash"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'رقم السند' %}</div>
+      <div class="info-value">{{ receipt.receipt_number }}</div>
+    </div>
+  </div>
+</div>
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon success">
+      <i class="bi bi-calendar-check"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'تاريخ الاستلام' %}</div>
+      <div class="info-value">{{ receipt.receipt_date|date:"Y/m/d" }}</div>
+    </div>
+  </div>
+</div>
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon warning">
+      <i class="bi bi-box-seam"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'عدد الأصناف' %}</div>
+      <div class="info-value">{{ receipt.items.count }}</div>
+    </div>
+  </div>
+</div>
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon accent">
+      <i class="bi bi-building"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'المستودع' %}</div>
+      <div class="info-value">{{ receipt.warehouse.name|default:"-" }}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block main_content %}
+{# Supplier Info Card #}
+<div class="supplier-info-card">
+  <div class="d-flex justify-content-between align-items-start">
+    <div>
+      <div class="supplier-name">
+        <i class="bi bi-building me-2"></i>{{ receipt.purchase_order.supplier.name }}
+      </div>
+      <div class="po-ref">
+        {% trans 'أمر الشراء' %}: {{ receipt.purchase_order.po_number }} | 
+        {% trans 'تاريخ' %}: {{ receipt.purchase_order.date|date:"Y/m/d" }}
+      </div>
+    </div>
+    <a href="{% url 'purchases:po_detail' receipt.purchase_order.pk %}" class="btn btn-sm btn-light">
+      <i class="bi bi-eye me-1"></i>{% trans 'عرض أمر الشراء' %}
+    </a>
+  </div>
+</div>
+
+{# Delivery Info #}
+<div class="delivery-info-grid">
+  <div class="delivery-info-item">
+    <div class="item-label">{% trans 'المستلم' %}</div>
+    <div class="item-value">{{ receipt.received_by|default:"-" }}</div>
+  </div>
+  <div class="delivery-info-item">
+    <div class="item-label">{% trans 'رقم بوليصة الشحن' %}</div>
+    <div class="item-value">{{ receipt.shipping_ref|default:"-" }}</div>
+  </div>
+  <div class="delivery-info-item">
+    <div class="item-label">{% trans 'اسم السائق' %}</div>
+    <div class="item-value">{{ receipt.driver_name|default:"-" }}</div>
+  </div>
+  <div class="delivery-info-item">
+    <div class="item-label">{% trans 'رقم المركبة' %}</div>
+    <div class="item-value">{{ receipt.vehicle_plate|default:"-" }}</div>
+  </div>
+</div>
+
+{# Inspection Status #}
+<div class="inspection-status-card {% if receipt.inspection_passed %}passed{% elif receipt.status == 'pending' %}pending{% else %}failed{% endif %}">
+  <div class="status-header">
+    <div class="status-icon">
+      {% if receipt.inspection_passed %}
+      <i class="bi bi-check-lg"></i>
+      {% elif receipt.status == 'pending' %}
+      <i class="bi bi-hourglass-split"></i>
+      {% else %}
+      <i class="bi bi-x-lg"></i>
+      {% endif %}
+    </div>
+    <div>
+      <div class="status-title">
+        {% if receipt.inspection_passed %}
+        {% trans 'الفحص ناجح' %}
+        {% elif receipt.status == 'pending' %}
+        {% trans 'بانتظار الفحص' %}
+        {% else %}
+        {% trans 'يوجد ملاحظات على الفحص' %}
+        {% endif %}
+      </div>
+      <div class="small text-muted">
+        {% if receipt.inspected_by %}
+        {% trans 'تم الفحص بواسطة' %}: {{ receipt.inspected_by.get_full_name }} - {{ receipt.inspected_at|date:"Y/m/d H:i" }}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% if receipt.inspection_notes %}
+  <p class="mb-0 mt-2 small">{{ receipt.inspection_notes }}</p>
+  {% endif %}
+</div>
+
+{# Items Table #}
+<div class="items-section mb-4">
+  <h5 class="section-title">
+    <i class="bi bi-box-seam me-2"></i>{% trans 'الأصناف المستلمة' %}
+  </h5>
+  
+  <div class="table-responsive">
+    <table class="table pro-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>{% trans 'الصنف' %}</th>
+          <th class="text-center">{% trans 'المطلوب' %}</th>
+          <th class="text-center">{% trans 'المستلم' %}</th>
+          <th class="text-center">{% trans 'المقبول' %}</th>
+          <th class="text-center">{% trans 'الحالة' %}</th>
+          <th>{% trans 'ملاحظات' %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in receipt.items.all %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>
+            <div class="fw-medium">{{ item.product.name }}</div>
+            <div class="small text-muted">{{ item.product.code }}</div>
+          </td>
+          <td class="text-center">{{ item.ordered_qty|default:"-" }}</td>
+          <td class="text-center fw-medium">{{ item.received_qty }}</td>
+          <td class="text-center">
+            {% if item.accepted_qty != None %}
+            <span class="{% if item.accepted_qty < item.received_qty %}text-danger{% else %}text-success{% endif %}">
+              {{ item.accepted_qty }}
+            </span>
+            {% else %}-{% endif %}
+          </td>
+          <td class="text-center">
+            {% if item.condition == 'good' %}
+            <span class="condition-badge good">{% trans 'سليم' %}</span>
+            {% elif item.condition == 'damaged' %}
+            <span class="condition-badge damaged">{% trans 'تالف' %}</span>
+            {% elif item.condition == 'partial' %}
+            <span class="condition-badge partial">{% trans 'جزئي' %}</span>
+            {% else %}-{% endif %}
+          </td>
+          <td class="small text-muted">{{ item.note|default:"-" }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="text-center text-muted py-4">
+            {% trans 'لا توجد أصناف' %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Notes #}
+{% if receipt.notes %}
+<div class="info-section">
+  <h5 class="section-title">
+    <i class="bi bi-sticky me-2"></i>{% trans 'ملاحظات' %}
+  </h5>
+  <div class="p-3 bg-body-tertiary rounded-3">
+    <p class="mb-0">{{ receipt.notes }}</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block bottom_actions %}
+<a href="{% url 'purchases:receipt_list' %}" class="btn btn-outline-secondary">
+  <i class="bi bi-arrow-right me-1"></i>{% trans 'رجوع' %}
+</a>
+<div class="d-flex gap-2">
+  <button type="button" class="btn btn-outline-primary" onclick="window.print()">
+    <i class="bi bi-printer me-1"></i>{% trans 'طباعة' %}
+  </button>
+  {% if receipt.status == 'pending' %}
+  <a href="{% url 'purchases:receipt_inspect' receipt.pk %}" class="btn btn-success">
+    <i class="bi bi-search me-1"></i>{% trans 'فحص الاستلام' %}
+  </a>
+  {% endif %}
+</div>
+{% endblock %}
+

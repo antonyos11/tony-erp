@@ -368,8 +368,77 @@ def financial_analysis_dashboard(request):
 @login_required
 def financial_ratios_report(request):
     """تقرير النسب المالية التفصيلي"""
-    # يمكن توسيعه لاحقاً
+    from accounting.models import Account
+    from django.db.models import Sum
+    from decimal import Decimal
+
+    # حساب النسب المالية الحقيقية
+    def get_account_balance(account_type, is_current=None):
+        qs = Account.objects.filter(account_type=account_type)
+        if is_current is not None:
+            qs = qs.filter(is_current=is_current)
+        return qs.aggregate(
+            debit=Sum('journalentryline__debit'),
+            credit=Sum('journalentryline__credit'),
+        )
+
+    try:
+        current_assets_data = get_account_balance('asset', is_current=True)
+        current_assets = (current_assets_data.get('debit') or Decimal('0')) - (current_assets_data.get('credit') or Decimal('0'))
+
+        current_liabilities_data = get_account_balance('liability', is_current=True)
+        current_liabilities = (current_liabilities_data.get('credit') or Decimal('0')) - (current_liabilities_data.get('debit') or Decimal('0'))
+
+        total_assets_data = get_account_balance('asset')
+        total_assets = (total_assets_data.get('debit') or Decimal('0')) - (total_assets_data.get('credit') or Decimal('0'))
+
+        equity_data = get_account_balance('equity')
+        equity = (equity_data.get('credit') or Decimal('0')) - (equity_data.get('debit') or Decimal('0'))
+
+        revenue_data = get_account_balance('revenue')
+        revenue = (revenue_data.get('credit') or Decimal('0')) - (revenue_data.get('debit') or Decimal('0'))
+
+        expense_data = get_account_balance('expense')
+        expenses = (expense_data.get('debit') or Decimal('0')) - (expense_data.get('credit') or Decimal('0'))
+
+        net_income = revenue - expenses
+        total_liabilities = total_assets - equity
+
+        ratios = {
+            'current_ratio': float(current_assets / current_liabilities) if current_liabilities else 0,
+            'quick_ratio': float(current_assets / current_liabilities) if current_liabilities else 0,
+            'net_profit_margin': float(net_income / revenue * 100) if revenue else 0,
+            'gross_profit_margin': float((revenue - expenses) / revenue * 100) if revenue else 0,
+            'return_on_assets': float(net_income / total_assets * 100) if total_assets else 0,
+            'return_on_equity': float(net_income / equity * 100) if equity else 0,
+            'debt_to_equity': float(total_liabilities / equity) if equity else 0,
+            'debt_ratio': float(total_liabilities / total_assets * 100) if total_assets else 0,
+            'roa': float(net_income / total_assets * 100) if total_assets else 0,
+            'roe': float(net_income / equity * 100) if equity else 0,
+        }
+
+        summary = {
+            'revenue': float(revenue),
+            'expenses': float(expenses),
+            'net_income': float(net_income),
+            'total_assets': float(total_assets),
+            'total_liabilities': float(total_liabilities),
+            'equity': float(equity),
+        }
+    except Exception:
+        ratios = {
+            'current_ratio': 0, 'quick_ratio': 0, 'net_profit_margin': 0,
+            'gross_profit_margin': 0, 'return_on_assets': 0, 'return_on_equity': 0,
+            'debt_to_equity': 0, 'debt_ratio': 0, 'roa': 0, 'roe': 0,
+        }
+        summary = {
+            'revenue': 0, 'expenses': 0, 'net_income': 0,
+            'total_assets': 0, 'total_liabilities': 0, 'equity': 0,
+        }
+
     context = {
-        'page_title': 'تقرير النسب المالية'
+        'page_title': 'تقرير النسب المالية',
+        'ratios': ratios,
+        'summary': summary,
     }
     return render(request, 'accounting/advanced/financial_ratios.html', context)

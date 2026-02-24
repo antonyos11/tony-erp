@@ -1,0 +1,207 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'تعديل المستخدم' %} - {{ edit_user.username }}{% endblock %}
+
+{% block extra_head %}
+{{ block.super }}
+<style>
+    .form-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+    }
+    .form-section {
+        border-bottom: 1px solid #eee;
+        padding-bottom: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .form-section:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+    }
+    .section-title {
+        color: #667eea;
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+    .required-field::after {
+        content: ' *';
+        color: #dc3545;
+    }
+    .user-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 24px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- شريط التنقل والعنوان -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-1">
+                <i class="bi bi-person-gear text-primary me-2"></i>
+                {% trans 'تعديل المستخدم' %}
+            </h3>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">{% trans 'الرئيسية' %}</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'users:list' %}">{% trans 'المستخدمين' %}</a></li>
+                    <li class="breadcrumb-item active">{{ edit_user.username }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card form-card">
+                <!-- رأس البطاقة -->
+                <div class="card-header bg-white py-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="user-avatar">
+                            {{ edit_user.username|slice:":2"|upper }}
+                        </div>
+                        <div>
+                            <h5 class="mb-0">{{ edit_user.username }}</h5>
+                            <small class="text-muted">
+                                {% if profile.arabic_name %}{{ profile.arabic_name }} | {% endif %}
+                                {% trans 'انضم في' %} {{ edit_user.date_joined|date:"Y/m/d" }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body p-4">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+
+                        <!-- بيانات الحساب -->
+                        <div class="form-section">
+                            <h5 class="section-title">
+                                <i class="bi bi-person-circle me-2"></i>{% trans 'بيانات الحساب' %}
+                            </h5>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label required-field">{% trans 'اسم المستخدم' %}</label>
+                                    <input type="text" name="username" class="form-control" required
+                                           value="{{ edit_user.username }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">{% trans 'البريد الإلكتروني' %}</label>
+                                    <input type="email" name="email" class="form-control" dir="ltr"
+                                           value="{{ edit_user.email }}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- البيانات الشخصية -->
+                        <div class="form-section">
+                            <h5 class="section-title">
+                                <i class="bi bi-person-badge me-2"></i>{% trans 'البيانات الشخصية' %}
+                            </h5>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">{% trans 'الاسم الأول' %}</label>
+                                    <input type="text" name="first_name" class="form-control"
+                                           value="{{ edit_user.first_name }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">{% trans 'الاسم الأخير' %}</label>
+                                    <input type="text" name="last_name" class="form-control"
+                                           value="{{ edit_user.last_name }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">{% trans 'الاسم العربي' %}</label>
+                                    <input type="text" name="arabic_name" class="form-control"
+                                           value="{{ profile.arabic_name }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">{% trans 'رقم الموظف' %}</label>
+                                    <input type="text" name="employee_id" class="form-control" dir="ltr"
+                                           value="{{ profile.employee_id }}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- الصلاحيات -->
+                        <div class="form-section">
+                            <h5 class="section-title">
+                                <i class="bi bi-shield-check me-2"></i>{% trans 'الصلاحيات' %}
+                            </h5>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">{% trans 'الدور' %}</label>
+                                    <select name="role" class="form-select">
+                                        <option value="">{% trans '-- بدون دور --' %}</option>
+                                        {% for role in roles %}
+                                        <option value="{{ role.id }}" {% if profile.role_id == role.id %}selected{% endif %}>
+                                            {{ role.display_name|default:role.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">{% trans 'حالة الحساب' %}</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" name="is_active" id="is_active"
+                                               {% if edit_user.is_active %}checked{% endif %}>
+                                        <label class="form-check-label" for="is_active">{% trans 'حساب نشط' %}</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- تغيير كلمة المرور -->
+                        <div class="form-section">
+                            <h5 class="section-title">
+                                <i class="bi bi-key me-2"></i>{% trans 'تغيير كلمة المرور' %} <small class="text-muted">({% trans 'اختياري' %})</small>
+                            </h5>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">{% trans 'كلمة المرور الجديدة' %}</label>
+                                    <input type="password" name="new_password" class="form-control"
+                                           placeholder="{% trans 'اتركه فارغاً للإبقاء على كلمة المرور الحالية' %}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">{% trans 'تأكيد كلمة المرور' %}</label>
+                                    <input type="password" name="confirm_password" class="form-control"
+                                           placeholder="{% trans 'أعد كتابة كلمة المرور الجديدة' %}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- أزرار الإجراءات -->
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'users:list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-right me-1"></i> {% trans 'إلغاء' %}
+                            </a>
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'users:detail' edit_user.pk %}" class="btn btn-outline-info">
+                                    <i class="bi bi-eye me-1"></i> {% trans 'عرض' %}
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-check-lg me-1"></i> {% trans 'حفظ التغييرات' %}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,214 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}النسخ الاحتياطي السحابي{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- الإحصائيات -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h2>{{ stats.total }}</h2>
+                    <p class="mb-0">إجمالي النسخ</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h2>{{ stats.successful }}</h2>
+                    <p class="mb-0">ناجحة</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h2>{{ stats.total_size }}</h2>
+                    <p class="mb-0">إجمالي الحجم</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-secondary text-white">
+                <div class="card-body text-center">
+                    <h2>{{ stats.providers }}</h2>
+                    <p class="mb-0">مزودون</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- الأزرار -->
+    <div class="d-flex gap-2 mb-4">
+        <a href="{% url 'cloud_backup:backup_now' %}" class="btn btn-primary btn-lg">
+            <i class="fas fa-cloud-upload-alt"></i> نسخ احتياطي الآن
+        </a>
+        <a href="{% url 'cloud_backup:providers' %}" class="btn btn-outline-primary">
+            <i class="fas fa-server"></i> المزودون
+        </a>
+        <a href="{% url 'cloud_backup:schedules' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-clock"></i> الجداول
+        </a>
+    </div>
+    
+    <div class="row">
+        <!-- النسخ الأخيرة -->
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-history"></i> النسخ الاحتياطية الأخيرة
+                </div>
+                <div class="card-body p-0">
+                    {% if recent_backups %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>الاسم</th>
+                                    <th>الحالة</th>
+                                    <th>الحجم</th>
+                                    <th>التاريخ</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for backup in recent_backups %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'cloud_backup:backup_detail' backup.uuid %}">
+                                            {{ backup.name }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if backup.status == 'completed' %}success{% elif backup.status == 'running' %}warning{% elif backup.status == 'failed' %}danger{% else %}secondary{% endif %}">
+                                            {{ backup.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ backup.file_size_display }}</td>
+                                    <td>{{ backup.created_at|date:"Y/m/d H:i" }}</td>
+                                    <td>
+                                        {% if backup.status == 'completed' %}
+                                        <button class="btn btn-sm btn-outline-success" onclick="restoreBackup('{{ backup.uuid }}')">
+                                            <i class="fas fa-undo"></i>
+                                        </button>
+                                        {% endif %}
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteBackup('{{ backup.uuid }}')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-4">لا توجد نسخ احتياطية</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- الجداول النشطة -->
+        <div class="col-lg-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-calendar-alt"></i> الجداول النشطة
+                </div>
+                <div class="card-body p-0">
+                    {% if schedules %}
+                    <div class="list-group list-group-flush">
+                        {% for schedule in schedules %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ schedule.name }}</strong>
+                                <br>
+                                <small class="text-muted">{{ schedule.get_frequency_display }} - {{ schedule.time_of_day|time:"H:i" }}</small>
+                            </div>
+                            <span class="badge bg-success">نشط</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-4">لا توجد جداول</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- المزودون -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <i class="fas fa-cloud"></i> مزودو التخزين
+                </div>
+                <div class="card-body p-0">
+                    {% if providers %}
+                    <div class="list-group list-group-flush">
+                        {% for provider in providers %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="fas fa-{% if provider.provider_type == 'google_drive' %}google{% elif provider.provider_type == 'dropbox' %}dropbox{% elif provider.provider_type == 'aws_s3' %}aws{% else %}server{% endif %} me-2"></i>
+                                {{ provider.name }}
+                            </div>
+                            <span class="badge bg-{% if provider.connection_status %}success{% else %}secondary{% endif %}">
+                                {% if provider.connection_status %}متصل{% else %}غير متصل{% endif %}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-4">لا يوجد مزودون</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function restoreBackup(uuid) {
+    if (!confirm('هل أنت متأكد من استعادة هذه النسخة الاحتياطية؟\nسيتم استبدال البيانات الحالية!')) return;
+    
+    fetch(`/backup/restore/${uuid}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            restore_database: true,
+            restore_media: true
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('تم بدء الاستعادة بنجاح');
+            location.reload();
+        } else {
+            alert(data.error);
+        }
+    });
+}
+
+function deleteBackup(uuid) {
+    if (!confirm('هل أنت متأكد من حذف هذه النسخة؟')) return;
+    
+    fetch(`/backup/delete/${uuid}/`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+</script>
+{% endblock %}

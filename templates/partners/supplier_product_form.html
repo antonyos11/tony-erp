@@ -1,0 +1,194 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'partners:suppliers_list' %}">الموردين</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'partners:supplier_products' supplier.id %}">{{ supplier.name }}</a></li>
+                    <li class="breadcrumb-item active">{% if edit_mode %}تعديل{% else %}إضافة{% endif %} منتج</li>
+                </ol>
+            </nav>
+            <h2 class="mb-0">
+                <i class="bi bi-{% if edit_mode %}pencil{% else %}plus-lg{% endif %} text-primary me-2"></i>
+                {{ title }}
+            </h2>
+        </div>
+    </div>
+
+    <!-- Form Card -->
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-box-seam me-2"></i>
+                        بيانات المنتج والسعر
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        {% if not edit_mode %}
+                        <!-- اختيار المنتج -->
+                        <div class="mb-4">
+                            <label for="product" class="form-label fw-bold">المنتج <span class="text-danger">*</span></label>
+                            <select name="product" id="product" class="form-select form-select-lg" required>
+                                <option value="">-- اختر المنتج --</option>
+                                {% for product in available_products %}
+                                <option value="{{ product.id }}">{{ product.sku }} - {{ product.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">اختر المنتج الذي يورده هذا المورد</div>
+                        </div>
+                        {% else %}
+                        <!-- عرض المنتج (للتعديل) -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">المنتج</label>
+                            <div class="form-control-plaintext bg-light p-3 rounded">
+                                <strong>{{ supplier_product.product.sku }}</strong> - {{ supplier_product.product.name }}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="row">
+                            <!-- كود المورد -->
+                            <div class="col-md-6 mb-3">
+                                <label for="supplier_sku" class="form-label">كود المنتج عند المورد</label>
+                                <input type="text" name="supplier_sku" id="supplier_sku" class="form-control"
+                                       value="{% if edit_mode %}{{ supplier_product.supplier_sku }}{% endif %}"
+                                       placeholder="مثال: SUP-001">
+                                <div class="form-text">الكود الذي يستخدمه المورد للمنتج</div>
+                            </div>
+
+                            <!-- العملة -->
+                            <div class="col-md-6 mb-3">
+                                <label for="currency" class="form-label">العملة</label>
+                                <select name="currency" id="currency" class="form-select">
+                                    {% for code, name in currencies %}
+                                    <option value="{{ code }}" {% if edit_mode and supplier_product.currency == code %}selected{% elif code == 'EGP' %}selected{% endif %}>{{ name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <!-- السعر -->
+                            <div class="col-md-4 mb-3">
+                                <label for="price" class="form-label fw-bold">السعر <span class="text-danger">*</span></label>
+                                <div class="input-group input-group-lg">
+                                    <input type="number" name="price" id="price" class="form-control" step="0.01" min="0" required
+                                           value="{% if edit_mode %}{{ supplier_product.price }}{% else %}0{% endif %}">
+                                    <span class="input-group-text">ج.م</span>
+                                </div>
+                            </div>
+
+                            <!-- وحدة القياس -->
+                            <div class="col-md-4 mb-3">
+                                <label for="uom" class="form-label fw-bold">وحدة القياس</label>
+                                <select name="uom" id="uom" class="form-select form-select-lg" style="padding: 0.75rem;">
+                                    <option value="unit" {% if edit_mode and supplier_product.uom == 'unit' %}selected{% elif not edit_mode %}selected{% endif %}>وحدة</option>
+                                    <option value="kg" {% if edit_mode and supplier_product.uom == 'kg' %}selected{% endif %}>كيلوجرام</option>
+                                    <option value="g" {% if edit_mode and supplier_product.uom == 'g' %}selected{% endif %}>جرام</option>
+                                    <option value="m" {% if edit_mode and supplier_product.uom == 'm' %}selected{% endif %}>متر</option>
+                                    <option value="cm" {% if edit_mode and supplier_product.uom == 'cm' %}selected{% endif %}>سنتيمتر</option>
+                                    <option value="l" {% if edit_mode and supplier_product.uom == 'l' %}selected{% endif %}>لتر</option>
+                                    <option value="ml" {% if edit_mode and supplier_product.uom == 'ml' %}selected{% endif %}>مللي لتر</option>
+                                    <option value="m2" {% if edit_mode and supplier_product.uom == 'm2' %}selected{% endif %}>متر مربع</option>
+                                    <option value="m3" {% if edit_mode and supplier_product.uom == 'm3' %}selected{% endif %}>متر مكعب</option>
+                                    <option value="pcs" {% if edit_mode and supplier_product.uom == 'pcs' %}selected{% endif %}>قطعة</option>
+                                    <option value="pack" {% if edit_mode and supplier_product.uom == 'pack' %}selected{% endif %}>عبوة</option>
+                                    <option value="box" {% if edit_mode and supplier_product.uom == 'box' %}selected{% endif %}>صندوق</option>
+                                    <option value="roll" {% if edit_mode and supplier_product.uom == 'roll' %}selected{% endif %}>رول</option>
+                                    <option value="ton" {% if edit_mode and supplier_product.uom == 'ton' %}selected{% endif %}>طن</option>
+                                </select>
+                                <div class="form-text">الوحدة التي يبيع بها المورد</div>
+                            </div>
+
+                            <!-- الحد الأدنى للطلب -->
+                            <div class="col-md-4 mb-3">
+                                <label for="minimum_order_quantity" class="form-label">الحد الأدنى للطلب</label>
+                                <input type="number" name="minimum_order_quantity" id="minimum_order_quantity" class="form-control" step="0.001" min="0"
+                                       value="{% if edit_mode %}{{ supplier_product.minimum_order_quantity }}{% else %}1{% endif %}">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <!-- مدة التوريد -->
+                            <div class="col-md-6 mb-3">
+                                <label for="lead_time_days" class="form-label">مدة التوريد (بالأيام)</label>
+                                <input type="number" name="lead_time_days" id="lead_time_days" class="form-control" min="0"
+                                       value="{% if edit_mode %}{{ supplier_product.lead_time_days|default:'' }}{% endif %}"
+                                       placeholder="عدد الأيام">
+                            </div>
+
+                            <!-- خيارات -->
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">خيارات</label>
+                                <div class="form-check mt-2">
+                                    <input type="checkbox" name="is_preferred" id="is_preferred" class="form-check-input"
+                                           {% if edit_mode and supplier_product.is_preferred %}checked{% endif %}>
+                                    <label for="is_preferred" class="form-check-label">
+                                        ⭐ مورد مفضل <small class="text-muted">(يُستخدم سعره في حساب التكلفة)</small>
+                                    </label>
+                                </div>
+                                <div class="form-check mt-2">
+                                    <input type="checkbox" name="is_active" id="is_active" class="form-check-input"
+                                           {% if edit_mode %}{% if supplier_product.is_active %}checked{% endif %}{% else %}checked{% endif %}>
+                                    <label for="is_active" class="form-check-label">نشط</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ملاحظات -->
+                        <div class="mb-4">
+                            <label for="notes" class="form-label">ملاحظات</label>
+                            <textarea name="notes" id="notes" class="form-control" rows="2">{% if edit_mode %}{{ supplier_product.notes }}{% endif %}</textarea>
+                        </div>
+
+                        <!-- الأزرار -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'partners:supplier_products' supplier.id %}" class="btn btn-outline-secondary btn-lg">
+                                <i class="bi bi-x-lg me-1"></i> إلغاء
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-check-lg me-1"></i>
+                                {% if edit_mode %}حفظ التعديلات{% else %}إضافة المنتج{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* تحسينات للقوائم المنسدلة */
+.form-select {
+    background-color: white !important;
+    z-index: 1 !important;
+    position: relative;
+}
+
+.form-select:focus {
+    z-index: 2 !important;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+select.form-select option {
+    background-color: white;
+    color: black;
+    padding: 10px;
+}
+</style>
+
+{% endblock %}

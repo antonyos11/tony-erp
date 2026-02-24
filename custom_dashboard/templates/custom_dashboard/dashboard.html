@@ -1,0 +1,352 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}لوحة التحكم{% endblock %}
+
+{% block extra_css %}
+<style>
+.dashboard-container {
+    display: grid;
+    grid-template-columns: repeat({{ layout.columns }}, 1fr);
+    gap: 1rem;
+    padding: 1rem;
+}
+.widget-card {
+    background: var(--card-color, #fff);
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+.widget-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+}
+.widget-card.dragging {
+    opacity: 0.5;
+    transform: scale(1.02);
+}
+.widget-header {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: move;
+}
+.widget-body {
+    padding: 1rem;
+    min-height: 150px;
+}
+.widget-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+.widget-controls .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+.add-widget-btn {
+    border: 2px dashed #dee2e6;
+    background: transparent;
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.add-widget-btn:hover {
+    border-color: #007bff;
+    background: rgba(0,123,255,0.05);
+}
+.quick-actions-bar {
+    display: flex;
+    gap: 0.5rem;
+    padding: 1rem;
+    overflow-x: auto;
+    background: var(--surface-color, #f8f9fa);
+    border-radius: 10px;
+    margin-bottom: 1rem;
+}
+.quick-action-btn {
+    flex-shrink: 0;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+}
+.stat-change {
+    font-size: 0.875rem;
+}
+.stat-change.positive { color: #28a745; }
+.stat-change.negative { color: #dc3545; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <!-- شريط الأدوات -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0">
+            <i class="fas fa-th-large me-2"></i>
+            {{ layout.name }}
+        </h4>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-primary" id="editModeBtn">
+                <i class="fas fa-edit me-1"></i>
+                تعديل
+            </button>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addWidgetModal">
+                <i class="fas fa-plus me-1"></i>
+                إضافة ويدجت
+            </button>
+            <a href="{% url 'custom_dashboard:layouts' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-columns me-1"></i>
+                التخطيطات
+            </a>
+        </div>
+    </div>
+    
+    <!-- الإجراءات السريعة -->
+    {% if quick_actions %}
+    <div class="quick-actions-bar">
+        {% for action in quick_actions %}
+        <a href="{{ action.url }}" class="btn btn-{{ action.color }} quick-action-btn">
+            <i class="{{ action.icon }} me-1"></i>
+            {{ action.name }}
+        </a>
+        {% endfor %}
+        <button type="button" class="btn btn-light quick-action-btn" data-bs-toggle="modal" data-bs-target="#addActionModal">
+            <i class="fas fa-plus"></i>
+        </button>
+    </div>
+    {% endif %}
+    
+    <!-- لوحة التحكم -->
+    <div class="dashboard-container" id="dashboardGrid">
+        {% for item in widgets_data %}
+        <div class="widget-card" 
+             data-widget-id="{{ item.dashboard_widget.id }}"
+             style="grid-column: span {{ item.dashboard_widget.width }}; grid-row: span {{ item.dashboard_widget.height }};">
+            <div class="widget-header bg-{{ item.widget.color }}">
+                <span class="text-white">
+                    <i class="{{ item.widget.icon }} me-2"></i>
+                    {{ item.dashboard_widget.get_title }}
+                </span>
+                <div class="widget-controls edit-only d-none">
+                    <button type="button" class="btn btn-sm btn-light" onclick="refreshWidget({{ item.dashboard_widget.id }})">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-light" onclick="removeWidget({{ item.dashboard_widget.id }})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="widget-body" id="widget-body-{{ item.dashboard_widget.id }}">
+                {% include item.widget.template_name|default:'custom_dashboard/widgets/default.html' with data=item.data widget=item.widget %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="add-widget-btn" data-bs-toggle="modal" data-bs-target="#addWidgetModal">
+            <i class="fas fa-plus fa-2x text-muted mb-2"></i>
+            <span class="text-muted">إضافة ويدجت</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal إضافة ويدجت -->
+<div class="modal fade" id="addWidgetModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">إضافة ويدجت</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row" id="availableWidgets">
+                    {% for widget in available_widgets %}
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100 widget-option" data-widget-id="{{ widget.id }}">
+                            <div class="card-body text-center">
+                                <i class="{{ widget.icon }} fa-2x text-{{ widget.color }} mb-2"></i>
+                                <h6>{{ widget.name }}</h6>
+                                <small class="text-muted">{{ widget.description|truncatechars:50 }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal إضافة إجراء سريع -->
+<div class="modal fade" id="addActionModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">إضافة إجراء سريع</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="quickActionForm">
+                    <div class="mb-3">
+                        <label class="form-label">الاسم</label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الرابط</label>
+                        <input type="text" class="form-control" name="url" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الأيقونة</label>
+                        <input type="text" class="form-control" name="icon" value="fas fa-star">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">اللون</label>
+                        <select class="form-select" name="color">
+                            <option value="primary">أزرق</option>
+                            <option value="success">أخضر</option>
+                            <option value="warning">برتقالي</option>
+                            <option value="danger">أحمر</option>
+                            <option value="info">سماوي</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="saveQuickAction()">حفظ</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const grid = document.getElementById('dashboardGrid');
+    let editMode = false;
+    
+    // تفعيل السحب والإفلات
+    new Sortable(grid, {
+        animation: 150,
+        handle: '.widget-header',
+        ghostClass: 'dragging',
+        disabled: true,
+        onEnd: function(evt) {
+            savePositions();
+        }
+    });
+    
+    // وضع التعديل
+    document.getElementById('editModeBtn').addEventListener('click', function() {
+        editMode = !editMode;
+        this.classList.toggle('active');
+        
+        document.querySelectorAll('.edit-only').forEach(el => {
+            el.classList.toggle('d-none', !editMode);
+        });
+        
+        Sortable.get(grid).option('disabled', !editMode);
+    });
+    
+    // إضافة ويدجت
+    document.querySelectorAll('.widget-option').forEach(card => {
+        card.addEventListener('click', function() {
+            const widgetId = this.dataset.widgetId;
+            addWidget(widgetId);
+        });
+    });
+});
+
+function addWidget(widgetId) {
+    fetch('{% url "custom_dashboard:add_widget" layout.id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ widget_id: widgetId })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+function removeWidget(widgetId) {
+    if (!confirm('هل تريد إزالة هذا الويدجت؟')) return;
+    
+    fetch(`/dashboard/widgets/${widgetId}/remove/`, {
+        method: 'DELETE',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.querySelector(`[data-widget-id="${widgetId}"]`).remove();
+        }
+    });
+}
+
+function refreshWidget(widgetId) {
+    fetch(`/dashboard/widgets/${widgetId}/data/`)
+        .then(r => r.json())
+        .then(data => {
+            // تحديث المحتوى
+            console.log('Widget data refreshed:', data);
+        });
+}
+
+function savePositions() {
+    const positions = [];
+    document.querySelectorAll('.widget-card').forEach((card, index) => {
+        positions.push({
+            id: card.dataset.widgetId,
+            x: 0,
+            y: index,
+            width: 1,
+            height: 1
+        });
+    });
+    
+    fetch('{% url "custom_dashboard:save_positions" layout.id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ positions: positions })
+    });
+}
+
+function saveQuickAction() {
+    const form = document.getElementById('quickActionForm');
+    const data = Object.fromEntries(new FormData(form));
+    
+    fetch('{% url "custom_dashboard:create_quick_action" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+</script>
+{% endblock %}

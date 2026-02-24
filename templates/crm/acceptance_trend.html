@@ -1,0 +1,99 @@
+﻿{% extends BASE_TEMPLATE %}
+{% block title %}اتجاه قبول عروض الأسعار{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <h2 class="mb-3"><i class="bi bi-graph-up me-2"></i>اتجاه قبول عروض الأسعار{{ title_suffix }}</h2>
+
+  <form method="get" class="row g-3 align-items-end mb-3">
+    <div class="col-md-3">
+      <label class="form-label">من تاريخ</label>
+      <input type="date" class="form-control" name="start" value="{{ start }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">إلى تاريخ</label>
+      <input type="date" class="form-control" name="end" value="{{ end }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">مصدر العميل</label>
+      <select class="form-select" name="source">
+        <option value="">الكل</option>
+        {% for s in sources %}
+        <option value="{{ s.id }}" {% if selected_source == s.id %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <button class="btn btn-primary w-100" type="submit">تطبيق</button>
+    </div>
+    <div class="col-md-3">
+      <a class="btn btn-outline-secondary w-100" href="?{% if start %}start={{ start }}&{% endif %}{% if end %}end={{ end }}&{% endif %}{% if selected_source %}source={{ selected_source }}&{% endif %}export=csv">تصدير CSV</a>
+    </div>
+  </form>
+
+  <div class="row g-3">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body">
+          <canvas id="acceptanceRate" height="120"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body">
+          <canvas id="quotationsCounts" height="120"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  (function(){
+    const labels = {{ labels|safe }};
+    const rates = {{ rates|safe }};
+    const totalSeries = {{ total_series|safe }};
+    const acceptedSeries = {{ accepted_series|safe }};
+
+    const rateCtx = document.getElementById('acceptanceRate');
+    if (rateCtx) {
+      new Chart(rateCtx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'معدل القبول %',
+            data: rates,
+            tension: 0.3,
+            borderColor: '#198754',
+            backgroundColor: 'rgba(25, 135, 84, 0.2)',
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: { y: { beginAtZero: true, max: 100 } }
+        }
+      });
+    }
+
+    const countCtx = document.getElementById('quotationsCounts');
+    if (countCtx) {
+      new Chart(countCtx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: 'إجمالي العروض', data: totalSeries, backgroundColor: '#0d6efd' },
+            { label: 'العروض المقبولة', data: acceptedSeries, backgroundColor: '#20c997' },
+          ]
+        },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+      });
+    }
+  })();
+</script>
+{% endblock %}

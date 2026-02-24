@@ -1,0 +1,147 @@
+﻿{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}تحليل قيمة العميل - {{ customer.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .clv-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        padding: 25px;
+        color: white;
+        margin-bottom: 20px;
+    }
+    .clv-card h3 { font-size: 2rem; font-weight: bold; }
+    .clv-card p { margin: 0; opacity: 0.9; }
+    
+    .metric-card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .metric-card h4 { font-size: 1.5rem; color: #333; margin-bottom: 15px; }
+    
+    .rfm-score { font-size: 3rem; font-weight: bold; }
+    .rfm-label { font-size: 0.9rem; color: #666; }
+    
+    .journey-step { padding: 15px; border-right: 3px solid #667eea; margin-bottom: 15px; background: #f8f9fa; border-radius: 0 8px 8px 0; }
+    .journey-step.active { border-right-color: #28a745; background: #e8f5e9; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-1"><i class="bi bi-person-lines-fill text-primary me-2"></i>تحليل قيمة العميل</h3>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">الرئيسية</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'sales:crm_analytics_dashboard' %}">تحليلات العملاء</a></li>
+                    <li class="breadcrumb-item active">{{ customer.name }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- معلومات العميل -->
+        <div class="col-md-4">
+            <div class="clv-card">
+                <h4 class="mb-3">{{ customer.name }}</h4>
+                <p><i class="bi bi-envelope me-2"></i>{{ customer.email|default:"-" }}</p>
+                <p><i class="bi bi-phone me-2"></i>{{ customer.phone|default:"-" }}</p>
+                <hr style="border-color: rgba(255,255,255,0.3);">
+                <p class="mb-1">القيمة مدى الحياة المتوقعة</p>
+                <h3>{{ clv_data.predicted_clv|floatformat:0|default:"0" }}</h3>
+            </div>
+        </div>
+
+        <!-- تحليل RFM -->
+        <div class="col-md-8">
+            <div class="metric-card">
+                <h4><i class="bi bi-graph-up-arrow me-2"></i>تحليل RFM</h4>
+                {% if rfm_data %}
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <div class="rfm-score text-primary">{{ rfm_data.recency_score|default:0 }}</div>
+                        <div class="rfm-label">الحداثة (R)</div>
+                        <small class="text-muted">آخر عملية شراء</small>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="rfm-score text-success">{{ rfm_data.frequency_score|default:0 }}</div>
+                        <div class="rfm-label">التكرار (F)</div>
+                        <small class="text-muted">عدد العمليات</small>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="rfm-score text-warning">{{ rfm_data.monetary_score|default:0 }}</div>
+                        <div class="rfm-label">القيمة (M)</div>
+                        <small class="text-muted">إجمالي الإنفاق</small>
+                    </div>
+                </div>
+                <hr>
+                <div class="text-center">
+                    <span class="badge bg-primary fs-5 px-4 py-2">{{ rfm_data.segment|default:"غير محدد" }}</span>
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-4">لا تتوفر بيانات RFM كافية</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- إحصائيات CLV -->
+    <div class="row">
+        <div class="col-md-3">
+            <div class="metric-card text-center">
+                <h5 class="text-muted">إجمالي المشتريات</h5>
+                <div class="fs-2 text-primary">{{ clv_data.total_purchases|floatformat:0|default:"0" }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-card text-center">
+                <h5 class="text-muted">متوسط قيمة الطلب</h5>
+                <div class="fs-2 text-success">{{ clv_data.avg_order_value|floatformat:0|default:"0" }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-card text-center">
+                <h5 class="text-muted">عدد الطلبات</h5>
+                <div class="fs-2 text-info">{{ clv_data.order_count|default:"0" }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-card text-center">
+                <h5 class="text-muted">معدل الاحتفاظ</h5>
+                <div class="fs-2 text-warning">{{ clv_data.retention_rate|floatformat:0|default:"0" }}%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- رحلة العميل -->
+    {% if journey %}
+    <div class="card shadow-sm mt-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="bi bi-signpost-split me-2"></i>رحلة العميل</h5>
+        </div>
+        <div class="card-body">
+            {% for step in journey.steps %}
+            <div class="journey-step {% if step.completed %}active{% endif %}">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>{{ step.name }}</strong>
+                        <br><small class="text-muted">{{ step.date|date:"d/m/Y" }}</small>
+                    </div>
+                    {% if step.completed %}
+                    <i class="bi bi-check-circle-fill text-success fs-4"></i>
+                    {% else %}
+                    <i class="bi bi-circle text-muted fs-4"></i>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

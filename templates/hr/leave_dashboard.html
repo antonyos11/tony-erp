@@ -1,0 +1,243 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}لوحة تحكم الإجازات{% endblock %}
+
+{% block extra_css %}
+<style>
+    .leave-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    .leave-stat {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    .leave-type-card {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 15px;
+        transition: all 0.3s ease;
+    }
+    .leave-type-card:hover {
+        border-color: #007bff;
+        box-shadow: 0 5px 15px rgba(0,123,255,0.1);
+    }
+    .status-badge {
+        font-size: 0.8rem;
+        padding: 5px 10px;
+        border-radius: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="h3 mb-4">
+                <i class="fas fa-calendar-alt me-2"></i>
+                لوحة تحكم الإجازات
+            </h1>
+        </div>
+    </div>
+    
+    <!-- إحصائيات الإجازات -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="leave-card">
+                <div class="leave-stat">{{ pending_requests }}</div>
+                <div>طلبات معلقة</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="leave-card">
+                <div class="leave-stat">{{ approved_this_month }}</div>
+                <div>موافق عليها هذا الشهر</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="leave-card">
+                <div class="leave-stat">{{ leave_types.count }}</div>
+                <div>أنواع الإجازات المتاحة</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- إجراءات سريعة -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-bolt me-2"></i>
+                        إجراءات سريعة
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    <a href="{% url 'hr:leave_request_create' %}" class="btn btn-primary me-3 mb-2">
+                        <i class="fas fa-plus"></i> طلب إجازة جديد
+                    </a>
+                    <a href="{% url 'hr:leave_request_list' %}" class="btn btn-success me-3 mb-2">
+                        <i class="fas fa-list"></i> إدارة الطلبات
+                    </a>
+                    <button class="btn btn-info me-3 mb-2" onclick="exportLeaveReport()">
+                        <i class="fas fa-file-excel"></i> تصدير تقرير
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- أنواع الإجازات -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-tags me-2"></i>
+                        أنواع الإجازات المتاحة
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for leave_type in leave_types %}
+                        <div class="col-md-6 col-lg-4">
+                            <div class="leave-type-card">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="mb-0">{{ leave_type.name }}</h6>
+                                    {% if leave_type.is_paid %}
+                                        <span class="badge bg-success status-badge">مدفوعة</span>
+                                    {% else %}
+                                        <span class="badge bg-warning status-badge">غير مدفوعة</span>
+                                    {% endif %}
+                                </div>
+                                <p class="text-muted small mb-2">{{ leave_type.days_per_year }} يوم في السنة</p>
+                                <div class="d-flex justify-content-between small">
+                                    <span>
+                                        {% if leave_type.carry_forward %}
+                                            <i class="fas fa-check text-success"></i> قابلة للترحيل
+                                        {% else %}
+                                            <i class="fas fa-times text-danger"></i> غير قابلة للترحيل
+                                        {% endif %}
+                                    </span>
+                                    {% if leave_type.requires_approval %}
+                                        <span class="text-warning">
+                                            <i class="fas fa-user-check"></i> تحتاج موافقة
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- الطلبات الحديثة -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-clock me-2"></i>
+                        الطلبات الحديثة
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>الموظف</th>
+                                    <th>نوع الإجازة</th>
+                                    <th>فترة الإجازة</th>
+                                    <th>عدد الأيام</th>
+                                    <th>الحالة</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for request in recent_requests %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
+                                                <i class="fas fa-user fa-sm"></i>
+                                            </div>
+                                            {{ request.employee.arabic_name }}
+                                        </div>
+                                    </td>
+                                    <td>{{ request.leave_type.name }}</td>
+                                    <td>
+                                        {{ request.start_date }} إلى {{ request.end_date }}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ request.days_requested }} يوم</span>
+                                    </td>
+                                    <td>
+                                        {% if request.status == 'pending' %}
+                                            <span class="badge bg-warning">معلق</span>
+                                        {% elif request.status == 'approved' %}
+                                            <span class="badge bg-success">موافق عليه</span>
+                                        {% elif request.status == 'rejected' %}
+                                            <span class="badge bg-danger">مرفوض</span>
+                                        {% elif request.status == 'cancelled' %}
+                                            <span class="badge bg-secondary">ملغي</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'hr:leave_request_detail' request.pk %}" class="btn btn-outline-primary" title="التفاصيل">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            {% if request.status == 'pending' %}
+                                                <a href="{% url 'hr:leave_request_approve' request.pk %}" class="btn btn-outline-success" title="موافقة">
+                                                    <i class="fas fa-check"></i>
+                                                </a>
+                                                <a href="{% url 'hr:leave_request_reject' request.pk %}" class="btn btn-outline-danger" title="رفض">
+                                                    <i class="fas fa-times"></i>
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-4">
+                                        <i class="fas fa-calendar-times fa-3x mb-3"></i>
+                                        <p>لا توجد طلبات إجازات حديثة</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function exportLeaveReport() {
+    // تصدير تقرير الإجازات
+    window.location.href = '{% url "hr:reports_dashboard" %}?report=leaves';
+}
+
+// تحديث الصفحة كل 5 دقائق للحصول على أحدث البيانات
+setInterval(function() {
+    location.reload();
+}, 300000);
+</script>
+{% endblock %}

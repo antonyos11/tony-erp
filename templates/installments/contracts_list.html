@@ -1,0 +1,409 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans 'قائمة عقود التقسيط' %}{% endblock %}
+
+{% block extra_head %}
+<style>
+    :root {
+        --ink: #0f172a;
+        --muted: #94a3b8;
+        --glass: rgba(255,255,255,0.08);
+        --primary: #6366f1;
+        --accent: #22d3ee;
+        --danger: #ef4444;
+        --card: rgba(255,255,255,0.14);
+    }
+
+    .page-shell {
+        position: relative;
+        background: radial-gradient(circle at 20% 20%, rgba(99,102,241,0.12), transparent 35%),
+                    radial-gradient(circle at 80% 0%, rgba(34,211,238,0.12), transparent 40%),
+                    linear-gradient(135deg, #0b1224 0%, #0f172a 100%);
+        border-radius: 28px;
+        padding: 28px;
+        box-shadow: 0 25px 60px rgba(0,0,0,0.35);
+        overflow: hidden;
+    }
+
+    .page-shell::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: radial-gradient(circle at 70% 40%, rgba(99,102,241,0.14), transparent 30%);
+        opacity: 0.9;
+    }
+
+    .page-header {
+        position: relative;
+        background: linear-gradient(120deg, rgba(99,102,241,0.35), rgba(34,211,238,0.25));
+        color: #fff;
+        padding: 28px;
+        border-radius: 20px;
+        margin-bottom: 20px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.08);
+        box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+    }
+
+    .page-header h1 {
+        letter-spacing: 0.3px;
+    }
+
+    .page-header .quick-stat {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 14px;
+        padding: 12px 16px;
+        color: #fff;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+    }
+
+    .page-header .quick-stat-value {
+        font-size: 1.6rem;
+        font-weight: 700;
+    }
+
+    .filter-card,
+    .contracts-table-card {
+        position: relative;
+        background: rgba(255,255,255,0.06);
+        border-radius: 18px;
+        padding: 20px;
+        margin-bottom: 18px;
+        border: 1px solid rgba(255,255,255,0.08);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 20px 45px rgba(0,0,0,0.3);
+    }
+
+    .table-header {
+        padding: 16px 18px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: #e2e8f0;
+    }
+
+    .contracts-table {
+        width: 100%;
+        color: #e2e8f0;
+        margin: 0;
+    }
+
+    .contracts-table th {
+        background: rgba(255,255,255,0.05);
+        padding: 14px;
+        font-weight: 700;
+        color: #cbd5e1;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        white-space: nowrap;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        font-size: 0.82rem;
+    }
+
+    .contracts-table td {
+        padding: 14px;
+        vertical-align: middle;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0));
+    }
+
+    .contracts-table tbody tr { transition: transform 0.15s ease, background 0.2s ease; }
+    .contracts-table tbody tr:hover { background: rgba(255,255,255,0.04); transform: translateY(-1px); }
+
+    .customer-cell { display: flex; align-items: center; gap: 12px; }
+    .customer-avatar {
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #818cf8, #22d3ee);
+        color: #0b1224;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+    }
+    .customer-name { font-weight: 700; color: #e2e8f0; }
+    .customer-phone { font-size: 0.85rem; color: #94a3b8; }
+
+    .status-badge {
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        border: 1px solid rgba(255,255,255,0.12);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
+    }
+    .status-active { background: rgba(16,185,129,0.15); color: #34d399; }
+    .status-completed { background: rgba(59,130,246,0.15); color: #93c5fd; }
+    .status-cancelled { background: rgba(248,113,113,0.15); color: #fca5a5; }
+    .status-defaulted { background: rgba(248,113,113,0.2); color: #fecaca; }
+
+    .progress-cell { min-width: 170px; }
+    .progress-info { display: flex; justify-content: space-between; font-size: 0.82rem; color: #94a3b8; margin-bottom: 6px; }
+    .progress { height: 10px; border-radius: 6px; background: rgba(255,255,255,0.08); }
+    .progress-bar { background: linear-gradient(90deg, #22d3ee, #818cf8); box-shadow: 0 4px 12px rgba(99,102,241,0.35); }
+
+    .amount-cell { font-weight: 700; color: #e2e8f0; }
+    .amount-total { font-size: 1rem; }
+    .amount-remaining { font-size: 0.85rem; color: #fca5a5; }
+
+    .action-buttons { display: flex; gap: 8px; }
+    .btn-icon {
+        width: 36px;
+        height: 36px;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.12);
+        color: #e2e8f0;
+        background: rgba(255,255,255,0.06);
+        transition: transform 0.15s ease, background 0.2s ease;
+    }
+    .btn-icon:hover { transform: translateY(-2px); background: rgba(255,255,255,0.1); }
+
+    .empty-state { text-align: center; padding: 70px 20px; color: #cbd5e1; }
+    .empty-state i { font-size: 3.5rem; opacity: 0.35; margin-bottom: 12px; }
+
+    .pagination-wrapper { padding: 18px; border-top: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); }
+
+    .filter-card .form-control,
+    .filter-card .form-select {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.12);
+        color: #e2e8f0;
+    }
+    .filter-card .form-control::placeholder { color: #94a3b8; }
+    .filter-card label { color: #cbd5e1; font-weight: 600; }
+
+    @media (max-width: 992px) {
+        .page-shell { padding: 18px; }
+        .table-header { flex-direction: column; gap: 10px; align-items: flex-start; }
+        .action-buttons { flex-wrap: wrap; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 page-shell">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h1 class="h3 mb-2">
+                    <i class="bi bi-file-earmark-text me-2"></i>
+                    {% trans 'عقود التقسيط' %}
+                </h1>
+                <p class="mb-0 opacity-75">{% trans 'إدارة ومتابعة جميع عقود التقسيط' %}</p>
+            </div>
+            <div class="col-md-6">
+                <div class="quick-stats justify-content-md-end">
+                    <div class="quick-stat">
+                        <div class="quick-stat-value">{{ total_contracts|default:0 }}</div>
+                        <div class="quick-stat-label">{% trans 'إجمالي العقود' %}</div>
+                    </div>
+                    <div class="quick-stat">
+                        <div class="quick-stat-value">{{ active_contracts|default:0 }}</div>
+                        <div class="quick-stat-label">{% trans 'نشط' %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="filter-card">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">{% trans 'البحث' %}</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" name="q" class="form-control" placeholder="{% trans 'اسم العميل أو رقم الهاتف...' %}" value="{{ request.GET.q }}">
+                </div>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">{% trans 'الحالة' %}</label>
+                <select name="status" class="form-select">
+                    <option value="">{% trans 'الكل' %}</option>
+                    <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>{% trans 'نشط' %}</option>
+                    <option value="completed" {% if request.GET.status == 'completed' %}selected{% endif %}>{% trans 'مكتمل' %}</option>
+                    <option value="cancelled" {% if request.GET.status == 'cancelled' %}selected{% endif %}>{% trans 'ملغي' %}</option>
+                    <option value="defaulted" {% if request.GET.status == 'defaulted' %}selected{% endif %}>{% trans 'متعثر' %}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">{% trans 'من تاريخ' %}</label>
+                <input type="date" name="from_date" class="form-control" value="{{ request.GET.from_date }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">{% trans 'إلى تاريخ' %}</label>
+                <input type="date" name="to_date" class="form-control" value="{{ request.GET.to_date }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">{% trans 'الترتيب' %}</label>
+                <select name="order" class="form-select">
+                    <option value="-created_at" {% if request.GET.order == '-created_at' %}selected{% endif %}>{% trans 'الأحدث' %}</option>
+                    <option value="created_at" {% if request.GET.order == 'created_at' %}selected{% endif %}>{% trans 'الأقدم' %}</option>
+                    <option value="-total_amount" {% if request.GET.order == '-total_amount' %}selected{% endif %}>{% trans 'الأعلى قيمة' %}</option>
+                    <option value="total_amount" {% if request.GET.order == 'total_amount' %}selected{% endif %}>{% trans 'الأقل قيمة' %}</option>
+                </select>
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-funnel"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Contracts Table -->
+    <div class="contracts-table-card">
+        <div class="table-header">
+            <h5 class="mb-0">
+                <i class="bi bi-table me-2"></i>
+                {% trans 'قائمة العقود' %}
+                <span class="badge bg-primary ms-2">{{ contracts.paginator.count|default:contracts|length }}</span>
+            </h5>
+            <a href="{% url 'installments:contract_create' %}" class="btn btn-success">
+                <i class="bi bi-plus-circle me-1"></i>
+                {% trans 'عقد جديد' %}
+            </a>
+        </div>
+        
+        {% if contracts %}
+        <div class="table-responsive">
+            <table class="contracts-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>{% trans 'العميل' %}</th>
+                        <th>{% trans 'تاريخ العقد' %}</th>
+                        <th>{% trans 'إجمالي العقد' %}</th>
+                        <th>{% trans 'المقدم' %}</th>
+                        <th>{% trans 'القسط' %}</th>
+                        <th>{% trans 'التقدم' %}</th>
+                        <th>{% trans 'الحالة' %}</th>
+                        <th>{% trans 'إجراءات' %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for contract in contracts %}
+                    <tr>
+                        <td>{{ contract.id }}</td>
+                        <td>
+                            <div class="customer-cell">
+                                <div class="customer-avatar">
+                                    {{ contract.customer.name|slice:":1" }}
+                                </div>
+                                <div>
+                                    <div class="customer-name">{{ contract.customer.name }}</div>
+                                    <div class="customer-phone">{{ contract.customer_phone|default:contract.customer.phone|default:"-" }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ contract.created_at|date:"Y/m/d" }}</td>
+                        <td class="amount-cell">
+                            <div class="amount-total">{{ contract.total_amount|floatformat:2|intcomma }}</div>
+                            <div class="amount-remaining">متبقي: {{ contract.remaining_to_pay|floatformat:0|intcomma }}</div>
+                        </td>
+                        <td>{{ contract.down_payment|floatformat:0|intcomma }}</td>
+                        <td>{{ contract.installment_amount|floatformat:0|intcomma }}</td>
+                        <td class="progress-cell">
+                            {% with paid=contract.installments.all|dictsort:"is_paid"|last %}
+                            {% with paid_count=contract.paid_installments_count total=contract.number_of_installments %}
+                            <div class="progress-info">
+                                <span>{{ paid_count|default:0 }}/{{ total }}</span>
+                                <span>{% widthratio paid_count|default:0 total 100 %}%</span>
+                            </div>
+                            <div class="progress">
+                                <div class="progress-bar bg-success" style="width: {% widthratio paid_count|default:0 total 100 %}%"></div>
+                            </div>
+                            {% endwith %}
+                            {% endwith %}
+                        </td>
+                        <td>
+                            <span class="status-badge status-{{ contract.status }}">
+                                {% if contract.status == 'active' %}{% trans 'نشط' %}
+                                {% elif contract.status == 'completed' %}{% trans 'مكتمل' %}
+                                {% elif contract.status == 'cancelled' %}{% trans 'ملغي' %}
+                                {% elif contract.status == 'defaulted' %}{% trans 'متعثر' %}
+                                {% else %}{{ contract.status }}{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <a href="{% url 'installments:contract_detail' contract.id %}" 
+                                   class="btn btn-outline-primary btn-icon" title="{% trans 'تفاصيل' %}">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'installments:contract_print' contract.id %}" 
+                                   class="btn btn-outline-secondary btn-icon" title="{% trans 'طباعة' %}" target="_blank">
+                                    <i class="bi bi-printer"></i>
+                                </a>
+                                {% if contract.status == 'active' %}
+                                <a href="{% url 'installments:contract_edit' contract.id %}" 
+                                   class="btn btn-outline-warning btn-icon" title="{% trans 'تعديل' %}">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if contracts.has_other_pages %}
+        <div class="pagination-wrapper">
+            <nav>
+                <ul class="pagination mb-0 justify-content-center">
+                    {% if contracts.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ contracts.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in contracts.paginator.page_range %}
+                    {% if contracts.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > contracts.number|add:'-3' and num < contracts.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+                    
+                    {% if contracts.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ contracts.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+        
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-file-earmark-x"></i>
+            <h4>{% trans 'لا توجد عقود' %}</h4>
+            <p class="text-muted">{% trans 'لم يتم العثور على عقود تقسيط مطابقة للبحث' %}</p>
+            <a href="{% url 'installments:contract_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-1"></i>
+                {% trans 'إنشاء عقد جديد' %}
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

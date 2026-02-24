@@ -1,0 +1,481 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .order-card {
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        margin-bottom: 10px;
+        transition: all 0.3s;
+    }
+    .order-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border-color: #007bff;
+    }
+    .order-card.selected {
+        background-color: #e7f3ff;
+        border-color: #007bff;
+        border-width: 2px;
+    }
+    .order-checkbox {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+    }
+    .priority-badge {
+        padding: 4px 10px;
+        border-radius: 3px;
+        font-size: 11px;
+        font-weight: bold;
+    }
+    .optimization-option {
+        cursor: pointer;
+        padding: 15px;
+        border: 2px solid #dee2e6;
+        border-radius: 5px;
+        margin-bottom: 10px;
+        transition: all 0.3s;
+    }
+    .optimization-option:hover {
+        border-color: #007bff;
+        background-color: #f8f9fa;
+    }
+    .optimization-option.selected {
+        border-color: #007bff;
+        background-color: #e7f3ff;
+    }
+    .results-container {
+        display: none;
+        margin-top: 20px;
+    }
+    .timeline-item {
+        padding: 15px;
+        border-left: 3px solid #007bff;
+        margin-bottom: 15px;
+        background: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <h2><i class="fas fa-magic"></i> {{ page_title }}</h2>
+            <p class="text-muted">اختر أوامر الإنتاج وحدد معايير التحسين للحصول على جدولة مثلى</p>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <!-- Selection Panel -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-list-check"></i> اختيار أوامر الإنتاج</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Select All -->
+                    <div class="mb-3">
+                        <button class="btn btn-sm btn-outline-primary" onclick="selectAllOrders()">
+                            <i class="fas fa-check-double"></i> تحديد الكل
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="deselectAllOrders()">
+                            <i class="fas fa-times"></i> إلغاء التحديد
+                        </button>
+                        <span class="ms-3 text-muted">
+                            تم تحديد <strong id="selectedCount">0</strong> أمر
+                        </span>
+                    </div>
+
+                    <!-- Orders List -->
+                    <div id="ordersList">
+                        {% for order in orders %}
+                        <div class="order-card p-3" data-order-id="{ order.id }">
+                            <div class="row align-items-center">
+                                <div class="col-md-1">
+                                    <input type="checkbox" class="order-checkbox" 
+                                           value="{ order.id }}" 
+                                           onchange="updateSelection()">
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>{{ order.number }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ order.product.name }}</small>
+                                </div>
+                                <div class="col-md-2">
+                                    <span class="priority-badge 
+                                        {% if order.priority == 'urgent' %}bg-danger text-white
+                                        {% elif order.priority == 'high' %}bg-warning
+                                        {% elif order.priority == 'normal' %}bg-secondary text-white
+                                        {% else %}bg-light{% endif %}">
+                                        {{ order.get_priority_display }}
+                                    </span>
+                                </div>
+                                <div class="col-md-2">
+                                    <small class="text-muted">الكمية:</small>
+                                    <br>
+                                    <strong>{{ order.planned_quantity|floatformat:0 }}</strong>
+                                </div>
+                                <div class="col-md-2">
+                                    <small class="text-muted">البدء المخطط:</small>
+                                    <br>
+                                    <strong>{{ order.planned_start_date|date:"Y-m-d" }}</strong>
+                                </div>
+                                <div class="col-md-2">
+                                    <span class="badge bg-info">{{ order.get_status_display }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> لا توجد أوامر إنتاج متاحة للجدولة
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration Panel -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-cog"></i> معايير التحسين</h5>
+                </div>
+                <div class="card-body">
+                    <form id="scheduleForm">
+                        <!-- Start Date -->
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i class="fas fa-calendar"></i> تاريخ البدء
+                            </label>
+                            <input type="date" class="form-control" id="startDate" 
+                                   value="{ today|date:'Y-m-d' }}" required>
+                            <small class="text-muted">التاريخ الذي ستبدأ منه الجدولة</small>
+                        </div>
+
+                        <!-- Optimization Goal -->
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i class="fas fa-target"></i> هدف التحسين
+                            </label>
+                            
+                            <div class="optimization-option" data-value="minimize_time">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" 
+                                           name="optimization_goal" value="minimize_time" checked>
+                                    <label class="form-check-label">
+                                        <strong>تقليل الوقت</strong>
+                                        <br>
+                                        <small class="text-muted">
+                                            إنهاء الإنتاج في أقصر وقت ممكن
+                                        </small>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="optimization-option" data-value="balance_load">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" 
+                                           name="optimization_goal" value="balance_load">
+                                    <label class="form-check-label">
+                                        <strong>توازن الحمل</strong>
+                                        <br>
+                                        <small class="text-muted">
+                                            توزيع العمل بالتساوي على مراكز العمل
+                                        </small>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="optimization-option" data-value="minimize_cost">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" 
+                                           name="optimization_goal" value="minimize_cost">
+                                    <label class="form-check-label">
+                                        <strong>تقليل التكلفة</strong>
+                                        <br>
+                                        <small class="text-muted">
+                                            استخدام مراكز العمل الأقل تكلفة
+                                        </small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg" id="scheduleBtn">
+                                <i class="fas fa-play"></i> بدء الجدولة
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" 
+                                    onclick="window.location.href='{% url 'production:scheduling_dashboard' %}'">
+                                <i class="fas fa-arrow-left"></i> رجوع
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-chart-simple"></i> إحصائيات سريعة</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <small class="text-muted">إجمالي الأوامر:</small>
+                        <strong class="float-end">{{ orders|length }}</strong>
+                    </div>
+                    <div class="mb-2">
+                        <small class="text-muted">أوامر عاجلة:</small>
+                        <strong class="float-end text-danger">
+                            {{ orders|dictsort:"priority"|slice:":5"|length }}
+                        </strong>
+                    </div>
+                    <div class="mb-2">
+                        <small class="text-muted">تم التحديد:</small>
+                        <strong class="float-end text-primary" id="selectedCountSidebar">0</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Container -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="results-container" id="resultsContainer">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-check-circle"></i> نتائج الجدولة</h5>
+                    </div>
+                    <div class="card-body" id="resultsContent">
+                        <!-- سيتم ملء النتائج هنا عبر JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// تحديث التحديد
+function updateSelection() {
+    const checkboxes = document.querySelectorAll('.order-checkbox:checked');
+    const count = checkboxes.length;
+    
+    document.getElementById('selectedCount').textContent = count;
+    document.getElementById('selectedCountSidebar').textContent = count;
+    
+    // تحديث مظهر البطاقات
+    document.querySelectorAll('.order-card').forEach(card => {
+        const checkbox = card.querySelector('.order-checkbox');
+        if (checkbox.checked) {
+            card.classList.add('selected');
+        } else {
+            card.classList.remove('selected');
+        }
+    });
+}
+
+// تحديد الكل
+function selectAllOrders() {
+    document.querySelectorAll('.order-checkbox').forEach(cb => {
+        cb.checked = true;
+    });
+    updateSelection();
+}
+
+// إلغاء تحديد الكل
+function deselectAllOrders() {
+    document.querySelectorAll('.order-checkbox').forEach(cb => {
+        cb.checked = false;
+    });
+    updateSelection();
+}
+
+// تفعيل اختيار خيارات التحسين
+document.querySelectorAll('.optimization-option').forEach(option => {
+    option.addEventListener('click', function() {
+        document.querySelectorAll('.optimization-option').forEach(o => {
+            o.classList.remove('selected');
+        });
+        this.classList.add('selected');
+        this.querySelector('input[type="radio"]').checked = true;
+    });
+});
+
+// إرسال نموذج الجدولة
+document.getElementById('scheduleForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const selectedOrders = Array.from(document.querySelectorAll('.order-checkbox:checked'))
+        .map(cb => cb.value);
+    
+    if (selectedOrders.length === 0) {
+        alert('يرجى اختيار أمر إنتاج واحد على الأقل');
+        return;
+    }
+    
+    const optimizationGoal = document.querySelector('input[name="optimization_goal"]:checked').value;
+    const startDate = document.getElementById('startDate').value;
+    
+    // عرض مؤشر التحميل
+    const btn = document.getElementById('scheduleBtn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الجدولة...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('{% url "production:auto_schedule_orders" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                order_ids: selectedOrders,
+                optimization_goal: optimizationGoal,
+                start_date: startDate
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            displayResults(data.results);
+        } else {
+            alert('خطأ: ' + data.message);
+        }
+    } catch (error) {
+        alert('حدث خطأ أثناء الجدولة: ' + error.message);
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+});
+
+// عرض النتائج
+function displayResults(results) {
+    const container = document.getElementById('resultsContainer');
+    const content = document.getElementById('resultsContent');
+    
+    let html = '<h5 class="mb-4">تمت الجدولة بنجاح!</h5>';
+    
+    // الإحصائيات
+    html += `
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3>${results.statistics.total_orders}</h3>
+                    <small class="text-muted">أوامر مجدولة</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3>${results.statistics.total_duration_hours.toFixed(1)}</h3>
+                    <small class="text-muted">إجمالي الساعات</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3>${results.statistics.total_estimated_cost.toFixed(2)}</h3>
+                    <small class="text-muted">التكلفة المقدرة</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3>${results.warnings.length}</h3>
+                    <small class="text-muted">تحذيرات</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+    
+    // الأوامر المجدولة
+    html += '<h6 class="mt-4 mb-3">تفاصيل الجدولة:</h6>';
+    html += '<div class="timeline">';
+    
+    results.scheduled_orders.forEach(order => {
+        html += `
+        <div class="timeline-item">
+            <h6><strong>${order.order_number}</strong> - ${order.product_name}</h6>
+            <div class="row mt-2">
+                <div class="col-md-3">
+                    <small class="text-muted">تاريخ البدء:</small><br>
+                    <strong>${order.start_date}</strong>
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted">تاريخ الانتهاء:</small><br>
+                    <strong>${order.end_date}</strong>
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted">المدة:</small><br>
+                    <strong>${order.duration_hours.toFixed(1)} ساعة</strong>
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted">التكلفة المقدرة:</small><br>
+                    <strong>${order.estimated_cost.toFixed(2)}</strong>
+                </div>
+            </div>
+        </div>
+        `;
+    });
+    
+    html += '</div>';
+    
+    // التحذيرات
+    if (results.warnings.length > 0) {
+        html += '<div class="alert alert-warning mt-4">';
+        html += '<h6><i class="fas fa-exclamation-triangle"></i> تحذيرات:</h6>';
+        html += '<ul>';
+        results.warnings.forEach(warning => {
+            html += `<li>${warning.message}</li>`;
+        });
+        html += '</ul></div>';
+    }
+    
+    // زر الموافقة
+    html += `
+    <div class="mt-4 text-center">
+        <button class="btn btn-success btn-lg" onclick="confirmSchedule()">
+            <i class="fas fa-check"></i> تأكيد الجدولة
+        </button>
+        <button class="btn btn-outline-secondary btn-lg ms-2" onclick="hideResults()">
+            <i class="fas fa-times"></i> إلغاء
+        </button>
+    </div>
+    `;
+    
+    content.innerHTML = html;
+    container.style.display = 'block';
+    
+    // التمرير للنتائج
+    container.scrollIntoView({ behavior: 'smooth' });
+}
+
+function hideResults() {
+    document.getElementById('resultsContainer').style.display = 'none';
+}
+
+function confirmSchedule() {
+    alert('تم تأكيد الجدولة! سيتم تحديث أوامر الإنتاج.');
+    window.location.href = '{% url "production:scheduling_dashboard" %}';
+}
+</script>
+{% endblock %}
+

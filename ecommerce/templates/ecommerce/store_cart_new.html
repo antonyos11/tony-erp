@@ -1,0 +1,155 @@
+{% extends 'ecommerce/store_base_new.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}سلة التسوق - {{ store_settings.store_name|default:"Tony Store" }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="store-breadcrumb">
+    <div class="container">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'ecommerce:store_home' %}">الرئيسية</a></li>
+                <li class="breadcrumb-item active">سلة التسوق</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="container py-4">
+    <h1 style="font-size: 1.6rem; font-weight: 700; color: var(--text-dark); margin-bottom: 24px;">
+        <i class="bi bi-bag ms-2"></i> سلة التسوق
+        {% if cart_items %}
+        <span style="font-size: 0.9rem; color: var(--text-muted); font-weight: 400;">({{ cart_items|length }} منتج)</span>
+        {% endif %}
+    </h1>
+
+    {% if cart_items %}
+    <div class="row g-4">
+        <!-- Cart Items -->
+        <div class="col-lg-8">
+            {% for item in cart_items %}
+            <div class="cart-item d-flex align-items-center gap-3 gap-md-4">
+                <!-- Image -->
+                <div class="item-image">
+                    {% if item.product.image %}
+                    <img src="{{ item.product.image.url }}" alt="{{ item.product.name }}">
+                    {% else %}
+                    <div class="d-flex align-items-center justify-content-center h-100" style="background: var(--bg-light);">
+                        <i class="bi bi-image text-muted fs-4"></i>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Details -->
+                <div class="flex-grow-1">
+                    <h5 style="font-size: 1rem; font-weight: 600; color: var(--text-dark); margin-bottom: 4px;">
+                        <a href="{{ item.product.get_absolute_url }}" style="color: inherit;">{{ item.product.name }}</a>
+                    </h5>
+                    <p class="text-muted mb-2 d-none d-md-block" style="font-size: 0.82rem;">{{ item.product.short_description|truncatechars:60 }}</p>
+                    <div class="text-muted" style="font-size: 0.85rem;">سعر الوحدة: {{ item.product.price }} ج.م</div>
+                </div>
+                
+                <!-- Quantity -->
+                <div class="d-flex align-items-center gap-2">
+                    <form method="post" action="{% url 'ecommerce:cart_update' %}" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="item_id" value="{{ item.id }}">
+                        <div class="quantity-selector">
+                            <button type="submit" name="quantity" value="{{ item.quantity|add:'-1' }}">-</button>
+                            <input type="text" value="{{ item.quantity }}" readonly>
+                            <button type="submit" name="quantity" value="{{ item.quantity|add:'1' }}">+</button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Price -->
+                <div class="text-end d-none d-md-block" style="min-width: 100px;">
+                    <div style="font-size: 1.1rem; font-weight: 700; color: var(--primary);">{{ item.subtotal }} ج.م</div>
+                </div>
+                
+                <!-- Remove -->
+                <form method="post" action="{% url 'ecommerce:cart_remove' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="item_id" value="{{ item.id }}">
+                    <button type="submit" class="btn btn-link text-muted p-0" title="حذف" style="font-size: 1.1rem;">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </form>
+            </div>
+            {% endfor %}
+            
+            <!-- Cart Actions -->
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <a href="{% url 'ecommerce:product_list' %}" style="font-size: 0.9rem; color: var(--text-muted);">
+                    <i class="bi bi-arrow-right ms-1"></i> متابعة التسوق
+                </a>
+            </div>
+        </div>
+        
+        <!-- Cart Summary -->
+        <div class="col-lg-4">
+            <div class="cart-summary sticky-top" style="top: 90px;">
+                <h4 style="font-size: 1.1rem; font-weight: 700; color: var(--text-dark); margin-bottom: 20px;">ملخص الطلب</h4>
+                
+                <!-- Coupon -->
+                <form method="post" action="{% url 'ecommerce:apply_coupon' %}" class="mb-3">
+                    {% csrf_token %}
+                    <div class="input-group" style="border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border);">
+                        <input type="text" name="coupon_code" class="form-control border-0" placeholder="كود الخصم" style="font-size: 0.85rem;">
+                        <button class="btn border-0" type="submit" style="background: var(--bg-light); font-size: 0.82rem; font-weight: 600; color: var(--secondary-dark);">تطبيق</button>
+                    </div>
+                </form>
+                
+                <div class="summary-row">
+                    <span class="text-muted">المجموع الفرعي</span>
+                    <span style="font-weight: 600;">{{ cart.total|default:cart.total_amount }} ج.م</span>
+                </div>
+                
+                {% if cart.discount_amount %}
+                <div class="summary-row" style="color: var(--success);">
+                    <span>الخصم</span>
+                    <span>-{{ cart.discount_amount }} ج.م</span>
+                </div>
+                {% endif %}
+                
+                <div class="summary-row">
+                    <span class="text-muted">الضريبة ({{ store_settings.vat_rate|default:"14" }}%)</span>
+                    <span>{{ cart.tax_amount|default:"0" }} ج.م</span>
+                </div>
+                
+                <div class="summary-row">
+                    <span class="text-muted">الشحن</span>
+                    <span style="color: var(--success); font-weight: 500;">يحدد عند الطلب</span>
+                </div>
+                
+                <div class="summary-row total">
+                    <span>الإجمالي</span>
+                    <span style="color: var(--primary); font-size: 1.3rem;">{{ cart.final_amount|default:cart.total }} ج.م</span>
+                </div>
+                
+                <a href="{% url 'ecommerce:checkout' %}" class="btn-cart mt-3 d-block text-center" style="padding: 14px; font-size: 1rem;">
+                    <i class="bi bi-lock ms-1"></i> إتمام الطلب
+                </a>
+                
+                <div class="text-center mt-3">
+                    <div class="d-flex align-items-center justify-content-center gap-2" style="font-size: 0.78rem; color: var(--text-muted);">
+                        <i class="bi bi-shield-lock"></i>
+                        <span>معاملة آمنة ومشفرة</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Empty Cart -->
+    <div class="empty-state">
+        <i class="bi bi-bag-x d-block"></i>
+        <h3>سلة التسوق فارغة</h3>
+        <p>لم تضف أي منتجات بعد. تصفح منتجاتنا وابدأ التسوق</p>
+        <a href="{% url 'ecommerce:product_list' %}" class="btn-primary-store">تصفح المنتجات</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

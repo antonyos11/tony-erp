@@ -1,0 +1,568 @@
+﻿{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "القيود الدورية" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+    }
+    
+    .page-hero {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    
+    .hero-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+    
+    .btn-hero {
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-hero-primary {
+        background: var(--accent-color);
+        color: white;
+    }
+    
+    .btn-hero-primary:hover {
+        background: #00b894;
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    /* Stats Row */
+    .stats-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        text-align: center;
+    }
+    
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem;
+        font-size: 1.25rem;
+    }
+    
+    .stat-icon.active { background: rgba(40, 167, 69, 0.15); color: var(--success-color); }
+    .stat-icon.paused { background: rgba(255, 193, 7, 0.15); color: #b38600; }
+    .stat-icon.pending { background: rgba(0, 212, 170, 0.15); color: var(--accent-color); }
+    .stat-icon.total { background: rgba(30, 58, 95, 0.15); color: var(--primary-color); }
+    
+    .stat-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .stat-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    /* Recurring Cards */
+    .recurring-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .recurring-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .recurring-card:hover {
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+    
+    .card-main {
+        display: grid;
+        grid-template-columns: auto 1fr auto auto auto;
+        gap: 1.5rem;
+        align-items: center;
+        padding: 1.5rem;
+    }
+    
+    .status-indicator {
+        width: 8px;
+        height: 60px;
+        border-radius: 4px;
+    }
+    
+    .status-indicator.active { background: var(--success-color); }
+    .status-indicator.paused { background: var(--warning-color); }
+    .status-indicator.completed { background: #6c757d; }
+    
+    .entry-info h4 {
+        margin: 0 0 0.25rem;
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+    
+    .entry-info p {
+        margin: 0;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .frequency-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: rgba(0, 212, 170, 0.1);
+        color: var(--accent-color);
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    .amount-info {
+        text-align: left;
+    }
+    
+    .amount-info .amount {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .amount-info .next-run {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .card-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .btn-action {
+        width: 40px;
+        height: 40px;
+        border: none;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-action.play { background: rgba(40, 167, 69, 0.1); color: var(--success-color); }
+    .btn-action.pause { background: rgba(255, 193, 7, 0.1); color: #b38600; }
+    .btn-action.edit { background: rgba(30, 58, 95, 0.1); color: var(--primary-color); }
+    .btn-action.delete { background: rgba(220, 53, 69, 0.1); color: var(--danger-color); }
+    
+    .btn-action:hover {
+        transform: scale(1.1);
+    }
+    
+    .card-footer-expanded {
+        display: none;
+        background: #f8f9fa;
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .recurring-card.expanded .card-footer-expanded {
+        display: block;
+    }
+    
+    .progress-bar-container {
+        margin-top: 1rem;
+    }
+    
+    .progress-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+    }
+    
+    .progress-bar {
+        height: 8px;
+        background: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    
+    .progress-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+    
+    .progress-fill.active { background: var(--success-color); }
+    
+    .history-timeline {
+        margin-top: 1rem;
+    }
+    
+    .timeline-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.5rem 0;
+        font-size: 0.9rem;
+    }
+    
+    .timeline-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--accent-color);
+    }
+    
+    .timeline-date { color: #6c757d; }
+    .timeline-status { color: var(--success-color); font-weight: 500; }
+    
+    /* Calendar Preview */
+    .calendar-preview {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        margin-top: 2rem;
+    }
+    
+    .calendar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 0.5rem;
+        text-align: center;
+    }
+    
+    .calendar-day-name {
+        font-weight: 600;
+        color: #6c757d;
+        font-size: 0.85rem;
+        padding: 0.5rem;
+    }
+    
+    .calendar-day {
+        padding: 0.75rem;
+        border-radius: 8px;
+        position: relative;
+    }
+    
+    .calendar-day.has-entry {
+        background: rgba(0, 212, 170, 0.15);
+        color: var(--accent-color);
+        font-weight: 600;
+    }
+    
+    .calendar-day.has-entry::after {
+        content: '';
+        position: absolute;
+        bottom: 4px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent-color);
+    }
+    
+    [data-bs-theme="dark"] .stat-card,
+    [data-bs-theme="dark"] .recurring-card,
+    [data-bs-theme="dark"] .calendar-preview {
+        background: #1a1d21;
+    }
+    
+    [data-bs-theme="dark"] .card-footer-expanded {
+        background: #2d3238;
+        border-color: #3d4248;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Hero Section -->
+    <div class="page-hero">
+        <h1 class="h2 mb-2">
+            <i class="fas fa-repeat me-2"></i>
+            {% trans "القيود الدورية" %}
+        </h1>
+        <p class="mb-0 opacity-75">
+            {% trans "إدارة القيود المتكررة تلقائياً - إيجارات، رواتب، استهلاكات" %}
+        </p>
+        <div class="hero-actions">
+            <a href="{% url 'accounting:journal_template_create' %}" class="btn-hero btn-hero-primary">
+                <i class="fas fa-plus"></i>
+                {% trans "إضافة قيد دوري" %}
+            </a>
+        </div>
+    </div>
+    
+    <!-- Stats Row -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-icon active">
+                <i class="fas fa-play"></i>
+            </div>
+            <div class="stat-value">12</div>
+            <div class="stat-label">{% trans "نشط" %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon paused">
+                <i class="fas fa-pause"></i>
+            </div>
+            <div class="stat-value">3</div>
+            <div class="stat-label">{% trans "متوقف مؤقتاً" %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon pending">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-value">5</div>
+            <div class="stat-label">{% trans "تنفيذ هذا الأسبوع" %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon total">
+                <i class="fas fa-coins"></i>
+            </div>
+            <div class="stat-value">145K</div>
+            <div class="stat-label">{% trans "إجمالي شهري" %}</div>
+        </div>
+    </div>
+    
+    <!-- Recurring List -->
+    <div class="recurring-list">
+        <!-- Entry 1 -->
+        <div class="recurring-card">
+            <div class="card-main">
+                <div class="status-indicator active"></div>
+                <div class="entry-info">
+                    <h4>{% trans "إيجار المقر الرئيسي" %}</h4>
+                    <p>{% trans "من مصروف الإيجار إلى البنك" %}</p>
+                </div>
+                <div class="frequency-badge">
+                    <i class="fas fa-calendar-alt"></i>
+                    {% trans "شهري" %}
+                </div>
+                <div class="amount-info">
+                    <div class="amount">15,000 {% trans "ج.م" %}</div>
+                    <div class="next-run">{% trans "التالي:" %} 1 يوليو</div>
+                </div>
+                <div class="card-actions">
+                    <button class="btn-action pause" title="{% trans 'إيقاف مؤقت' %}">
+                        <i class="fas fa-pause"></i>
+                    </button>
+                    <button class="btn-action edit" title="{% trans 'تعديل' %}">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-action delete" title="{% trans 'حذف' %}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-footer-expanded">
+                <div class="progress-bar-container">
+                    <div class="progress-label">
+                        <span>{% trans "تم تنفيذ" %} 6 {% trans "من" %} 12</span>
+                        <span>50%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill active" style="width: 50%"></div>
+                    </div>
+                </div>
+                <div class="history-timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <span class="timeline-date">1 يونيو 2025</span>
+                        <span class="timeline-status">{% trans "تم التنفيذ" %}</span>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <span class="timeline-date">1 مايو 2025</span>
+                        <span class="timeline-status">{% trans "تم التنفيذ" %}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Entry 2 -->
+        <div class="recurring-card">
+            <div class="card-main">
+                <div class="status-indicator active"></div>
+                <div class="entry-info">
+                    <h4>{% trans "قيد استهلاك الأصول" %}</h4>
+                    <p>{% trans "من مصروف الاستهلاك إلى مجمع الاستهلاك" %}</p>
+                </div>
+                <div class="frequency-badge">
+                    <i class="fas fa-calendar-alt"></i>
+                    {% trans "شهري" %}
+                </div>
+                <div class="amount-info">
+                    <div class="amount">8,500 {% trans "ج.م" %}</div>
+                    <div class="next-run">{% trans "التالي:" %} 30 يونيو</div>
+                </div>
+                <div class="card-actions">
+                    <button class="btn-action pause" title="{% trans 'إيقاف مؤقت' %}">
+                        <i class="fas fa-pause"></i>
+                    </button>
+                    <button class="btn-action edit" title="{% trans 'تعديل' %}">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-action delete" title="{% trans 'حذف' %}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Entry 3 - Paused -->
+        <div class="recurring-card">
+            <div class="card-main">
+                <div class="status-indicator paused"></div>
+                <div class="entry-info">
+                    <h4>{% trans "قسط التأمين" %}</h4>
+                    <p>{% trans "من التأمين المقدم إلى مصروف التأمين" %}</p>
+                </div>
+                <div class="frequency-badge">
+                    <i class="fas fa-calendar-alt"></i>
+                    {% trans "ربع سنوي" %}
+                </div>
+                <div class="amount-info">
+                    <div class="amount">12,000 {% trans "ج.م" %}</div>
+                    <div class="next-run" style="color: var(--warning-color);">{% trans "متوقف" %}</div>
+                </div>
+                <div class="card-actions">
+                    <button class="btn-action play" title="{% trans 'تفعيل' %}">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <button class="btn-action edit" title="{% trans 'تعديل' %}">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-action delete" title="{% trans 'حذف' %}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Calendar Preview -->
+    <div class="calendar-preview">
+        <div class="calendar-header">
+            <h5 class="mb-0">
+                <i class="fas fa-calendar-alt me-2 text-primary"></i>
+                {% trans "تقويم القيود - يوليو 2025" %}
+            </h5>
+            <div class="btn-group">
+                <button class="btn btn-outline-secondary btn-sm"><i class="fas fa-chevron-right"></i></button>
+                <button class="btn btn-outline-secondary btn-sm"><i class="fas fa-chevron-left"></i></button>
+            </div>
+        </div>
+        <div class="calendar-grid">
+            <div class="calendar-day-name">{% trans "أحد" %}</div>
+            <div class="calendar-day-name">{% trans "إثنين" %}</div>
+            <div class="calendar-day-name">{% trans "ثلاثاء" %}</div>
+            <div class="calendar-day-name">{% trans "أربعاء" %}</div>
+            <div class="calendar-day-name">{% trans "خميس" %}</div>
+            <div class="calendar-day-name">{% trans "جمعة" %}</div>
+            <div class="calendar-day-name">{% trans "سبت" %}</div>
+            
+            <div class="calendar-day has-entry">1</div>
+            <div class="calendar-day">2</div>
+            <div class="calendar-day">3</div>
+            <div class="calendar-day">4</div>
+            <div class="calendar-day">5</div>
+            <div class="calendar-day">6</div>
+            <div class="calendar-day">7</div>
+            
+            <div class="calendar-day">8</div>
+            <div class="calendar-day">9</div>
+            <div class="calendar-day has-entry">10</div>
+            <div class="calendar-day">11</div>
+            <div class="calendar-day">12</div>
+            <div class="calendar-day">13</div>
+            <div class="calendar-day">14</div>
+            
+            <div class="calendar-day has-entry">15</div>
+            <div class="calendar-day">16</div>
+            <div class="calendar-day">17</div>
+            <div class="calendar-day">18</div>
+            <div class="calendar-day">19</div>
+            <div class="calendar-day">20</div>
+            <div class="calendar-day">21</div>
+            
+            <div class="calendar-day">22</div>
+            <div class="calendar-day">23</div>
+            <div class="calendar-day">24</div>
+            <div class="calendar-day has-entry">25</div>
+            <div class="calendar-day">26</div>
+            <div class="calendar-day">27</div>
+            <div class="calendar-day">28</div>
+            
+            <div class="calendar-day">29</div>
+            <div class="calendar-day has-entry">30</div>
+            <div class="calendar-day">31</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle card expansion
+    document.querySelectorAll('.recurring-card .card-main').forEach(main => {
+        main.style.cursor = 'pointer';
+        main.addEventListener('click', function(e) {
+            if (!e.target.closest('.btn-action')) {
+                this.closest('.recurring-card').classList.toggle('expanded');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+

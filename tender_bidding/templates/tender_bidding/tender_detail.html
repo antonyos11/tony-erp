@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-file-earmark-text me-2"></i>{{ page_title }}</h2>
+        <div>
+            <a href="{% url 'tender_bidding:tender_edit' tender.id %}" class="btn btn-warning">
+                <i class="bi bi-pencil"></i> تعديل
+            </a>
+            <a href="{% url 'tender_bidding:tender_list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> العودة
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>معلومات المناقصة</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive"><table class="table table-borderless">
+                        <tr>
+                            <th width="200">الرقم المرجعي:</th>
+                            <td><strong>{{ tender.reference_number }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>العنوان:</th>
+                            <td>{{ tender.title }}</td>
+                        </tr>
+                        <tr>
+                            <th>الوصف:</th>
+                            <td>{{ tender.description|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th>نوع المناقصة:</th>
+                            <td>{{ tender.get_tender_type_display }}</td>
+                        </tr>
+                        <tr>
+                            <th>الاتجاه:</th>
+                            <td>{{ tender.get_direction_display }}</td>
+                        </tr>
+                        <tr>
+                            <th>الحالة:</th>
+                            <td>
+                                <span class="badge bg-{% if tender.status == 'open' %}success{% elif tender.status == 'closed' %}danger{% else %}warning{% endif %} fs-6">
+                                    {{ tender.get_status_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>الجهة المصدرة:</th>
+                            <td>{{ tender.issuing_organization|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th>الموعد النهائي:</th>
+                            <td>{{ tender.submission_deadline|date:"Y-m-d H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <th>القيمة التقديرية:</th>
+                            <td class="fs-5 text-success">{{ tender.estimated_value|floatformat:2 }} ج.م</td>
+                        </tr>
+                        <tr>
+                            <th>تاريخ الإنشاء:</th>
+                            <td>{{ tender.created_at|date:"Y-m-d H:i" }}</td>
+                        </tr>
+                    </table></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-file-earmark me-2"></i>العطاءات المقدمة ({{ bids.count }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive"><table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>رقم العطاء</th>
+                                <th>اسم المقدم</th>
+                                <th>المبلغ</th>
+                                <th>الحالة</th>
+                                <th>التاريخ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for bid in bids %}
+                            <tr>
+                                <td>{{ bid.bid_number }}</td>
+                                <td>{{ bid.bidder_name }}</td>
+                                <td>{{ bid.bid_amount|floatformat:2 }} ج.م</td>
+                                <td><span class="badge bg-info">{{ bid.get_status_display }}</span></td>
+                                <td>{{ bid.submitted_at|date:"Y-m-d" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">
+                                    لا توجد عطاءات مقدمة بعد
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-lightning me-2"></i>إجراءات سريعة</h6>
+                </div>
+                <div class="card-body d-grid gap-2">
+                    <a href="{% url 'tender_bidding:bid_create' %}?tender={{ tender.id }}" class="btn btn-success">
+                        <i class="bi bi-plus-circle"></i> إضافة عطاء
+                    </a>
+                    <a href="{% url 'tender_bidding:tender_edit' tender.id %}" class="btn btn-warning">
+                        <i class="bi bi-pencil"></i> تعديل المناقصة
+                    </a>
+                    <a href="{% url 'tender_bidding:tender_delete' tender.id %}" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> حذف المناقصة
+                    </a>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>سجل الأحداث</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <small class="text-muted">{{ tender.created_at|date:"Y-m-d H:i" }}</small>
+                            <br>تم إنشاء المناقصة
+                        </li>
+                        {% if tender.published_date %}
+                        <li class="mb-2">
+                            <small class="text-muted">{{ tender.published_date|date:"Y-m-d" }}</small>
+                            <br>تم نشر المناقصة
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

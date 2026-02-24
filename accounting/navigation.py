@@ -283,9 +283,9 @@ def navigation_context(request: HttpRequest) -> dict:
     
     try:
         # فواتير شراء معلقة (من وحدة المشتريات إن وجدت)
-        from purchases.models import PurchaseInvoice
-        pending_purchases_count = PurchaseInvoice.objects.filter(
-            status__in=['draft', 'pending']
+        from purchases.models import PurchaseBill
+        pending_purchases_count = PurchaseBill.objects.filter(
+            status='draft'
         ).count()
     except (ImportError, Exception):
         pass

@@ -1,0 +1,114 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}توليد الرواتب{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-12">
+      <h1 class="h4 mb-4">
+        <i class="bi bi-calculator me-2"></i>
+        توليد الرواتب
+      </h1>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-8 col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <strong>حدد فترة الرواتب</strong>
+          <div class="d-none d-md-block small text-muted">سيتم إنشاء الرواتب للموظفين النشطين فقط</div>
+        </div>
+        <div class="card-body">
+          <form id="payrollGenerateForm" method="post" novalidate
+                data-default-start="{{ period_start }}" data-default-end="{{ period_end }}">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label for="period_start" class="form-label">تاريخ البداية</label>
+              <input type="date" id="period_start" name="period_start" class="form-control" required
+                     value="{{ period_start }}" min="2000-01-01" max="2100-12-31">
+              <div class="invalid-feedback">الرجاء اختيار تاريخ بداية صالح.</div>
+            </div>
+            <div class="mb-3">
+              <label for="period_end" class="form-label">تاريخ النهاية</label>
+              <input type="date" id="period_end" name="period_end" class="form-control" required
+                     value="{{ period_end }}" min="2000-01-01" max="2100-12-31">
+              <div class="invalid-feedback">الرجاء اختيار تاريخ نهاية صالح.</div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+              <button type="submit" class="btn btn-success">
+                <i class="bi bi-gear"></i>
+                توليد الرواتب
+              </button>
+              <button type="button" id="fillCurrentMonth" class="btn btn-outline-primary">
+                الشهر الحالي
+              </button>
+              <a href="{% url 'hr:payroll_dashboard' %}" class="btn btn-secondary ms-auto">
+                عودة للوحة الرواتب
+              </a>
+            </div>
+            <div id="rangeError" class="alert alert-warning py-2 px-3 d-none" role="alert">
+              تاريخ النهاية يجب أن يكون بعد أو يساوي تاريخ البداية.
+            </div>
+          </form>
+        </div>
+        <div class="card-footer text-muted small">
+          سيتم إنشاء رواتب لجميع الموظفين النشطين ضمن الفترة المحددة. في حال وجود رواتب منشأة مسبقاً لنفس الموظف ونفس الفترة فلن يتم تكرارها.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// مساعدة أمامية: تعبئة الشهر الحالي والتحقق من التواريخ
+(function() {
+  const form = document.getElementById('payrollGenerateForm');
+  if (!form) return;
+  const startInput = document.getElementById('period_start');
+  const endInput = document.getElementById('period_end');
+  const btnFill = document.getElementById('fillCurrentMonth');
+  const rangeError = document.getElementById('rangeError');
+
+  // زر تعبئة الشهر الحالي باستخدام القيم القادمة من الخادم
+  btnFill && btnFill.addEventListener('click', function() {
+    const ds = form.getAttribute('data-default-start');
+    const de = form.getAttribute('data-default-end');
+    if (ds) startInput.value = ds;
+    if (de) endInput.value = de;
+    validateRange();
+  });
+
+  // تحقق أن النهاية >= البداية
+  function validateRange() {
+    const s = startInput.value;
+    const e = endInput.value;
+    const ok = s && e && e >= s;
+    if (!ok) {
+      rangeError.classList.remove('d-none');
+      endInput.classList.add('is-invalid');
+    } else {
+      rangeError.classList.add('d-none');
+      endInput.classList.remove('is-invalid');
+    }
+    return ok;
+  }
+
+  startInput && startInput.addEventListener('change', validateRange);
+  endInput && endInput.addEventListener('change', validateRange);
+
+  form.addEventListener('submit', function(ev) {
+    if (!form.checkValidity() || !validateRange()) {
+      ev.preventDefault();
+      ev.stopPropagation();
+    }
+    form.classList.add('was-validated');
+  });
+})();
+</script>
+{% endblock %}

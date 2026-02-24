@@ -1,0 +1,233 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}التوقيعات الإلكترونية - Tony ERP{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="bi bi-pen text-primary me-2"></i>التوقيعات الإلكترونية</h2>
+                <a href="{% url 'digital_signatures:create_request' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-lg me-2"></i>طلب توقيع جديد
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- الإحصائيات -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 border-start border-4 border-warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ pending_count|default:0 }}</h3>
+                            <span class="text-muted">بانتظار التوقيع</span>
+                        </div>
+                        <i class="bi bi-hourglass-split fa-2x text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 border-start border-4 border-success">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ signed_count|default:0 }}</h3>
+                            <span class="text-muted">موقعة</span>
+                        </div>
+                        <i class="bi bi-check-circle fa-2x text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 border-start border-4 border-danger">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ rejected_count|default:0 }}</h3>
+                            <span class="text-muted">مرفوضة</span>
+                        </div>
+                        <i class="bi bi-x-circle fa-2x text-danger"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 border-start border-4 border-info">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ total_count|default:0 }}</h3>
+                            <span class="text-muted">إجمالي الطلبات</span>
+                        </div>
+                        <i class="bi bi-file-earmark-text fa-2x text-info"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- طلبات التوقيع الواردة -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="bi bi-inbox me-2"></i>طلبات واردة بانتظار توقيعي</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for request in pending_requests %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">{{ request.document_title }}</h6>
+                                <small class="text-muted">
+                                    من: {{ request.requester.get_full_name }}<br>
+                                    {{ request.created_at|date:"Y/m/d H:i" }}
+                                </small>
+                            </div>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'digital_signatures:sign' request.id %}" class="btn btn-success">
+                                    <i class="bi bi-pen me-1"></i>توقيع
+                                </a>
+                                <button class="btn btn-outline-danger" onclick="rejectRequest({{ request.id }})">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-center py-5">
+                        <i class="bi bi-inbox fa-3x text-muted mb-3"></i>
+                        <p class="text-muted mb-0">لا توجد طلبات بانتظار توقيعك</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- طلباتي المرسلة -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-send me-2"></i>طلباتي المرسلة</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for request in my_requests %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">{{ request.document_title }}</h6>
+                                <small class="text-muted">
+                                    إلى: {{ request.signer.get_full_name }}<br>
+                                    {{ request.created_at|date:"Y/m/d H:i" }}
+                                </small>
+                            </div>
+                            <span class="badge bg-{{ request.status_color }}">
+                                {{ request.get_status_display }}
+                            </span>
+                        </div>
+                        {% if request.status == 'signed' %}
+                        <div class="mt-2">
+                            <a href="{% url 'digital_signatures:download' request.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-download me-1"></i>تحميل الموقع
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-center py-5">
+                        <i class="bi bi-send fa-3x text-muted mb-3"></i>
+                        <p class="text-muted mb-0">لم ترسل أي طلبات توقيع</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- جميع المستندات الموقعة -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-archive me-2"></i>أرشيف المستندات الموقعة</h5>
+                    <input type="text" class="form-control w-25" placeholder="بحث..." id="searchDocs">
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>المستند</th>
+                                <th>الطالب</th>
+                                <th>الموقع</th>
+                                <th>تاريخ التوقيع</th>
+                                <th>الحالة</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for doc in signed_documents %}
+                            <tr>
+                                <td>
+                                    <i class="bi bi-file-earmark-pdf text-danger me-2"></i>
+                                    {{ doc.document_title }}
+                                </td>
+                                <td>{{ doc.requester.get_full_name }}</td>
+                                <td>{{ doc.signer.get_full_name }}</td>
+                                <td>{{ doc.signed_at|date:"Y/m/d H:i" }}</td>
+                                <td>
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-patch-check me-1"></i>موقع
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'digital_signatures:view' doc.id %}" class="btn btn-outline-primary">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a href="{% url 'digital_signatures:download' doc.id %}" class="btn btn-outline-success">
+                                            <i class="bi bi-download"></i>
+                                        </a>
+                                        <a href="{% url 'digital_signatures:verify' doc.id %}" class="btn btn-outline-info">
+                                            <i class="bi bi-shield-check"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <i class="bi bi-archive fa-3x text-muted mb-3"></i>
+                                    <p class="text-muted">لا توجد مستندات موقعة</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function rejectRequest(requestId) {
+    const reason = prompt('سبب الرفض:');
+    if (reason !== null) {
+        fetch(`/signatures/${requestId}/reject/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ reason: reason })
+        }).then(() => location.reload());
+    }
+}
+</script>
+{% endblock %}

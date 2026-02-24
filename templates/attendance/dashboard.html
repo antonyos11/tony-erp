@@ -1,0 +1,920 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --att-primary: #6366f1;
+        --att-success: #10b981;
+        --att-warning: #f59e0b;
+        --att-danger: #ef4444;
+        --att-info: #0ea5e9;
+    }
+    
+    /* Hero Section */
+    .att-hero {
+        background: radial-gradient(circle at 15% 15%, rgba(16, 185, 129, 0.25), transparent 35%),
+                    radial-gradient(circle at 85% 20%, rgba(99, 102, 241, 0.2), transparent 30%),
+                    linear-gradient(135deg, #0f172a 0%, #1e293b 45%, #334155 100%);
+        border-radius: 28px;
+        padding: 2.5rem;
+        color: #fff;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 25px 70px rgba(15, 23, 42, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .att-hero::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -15%;
+        width: 450px;
+        height: 450px;
+        background: radial-gradient(circle, rgba(16, 185, 129, 0.12) 0%, transparent 65%);
+        border-radius: 50%;
+        animation: float 8s ease-in-out infinite;
+    }
+    @keyframes float {
+        0%, 100% { transform: translate(0, 0); }
+        50% { transform: translate(-20px, 20px); }
+    }
+    .att-hero .hero-content { position: relative; z-index: 2; }
+    .att-hero .time-display {
+        font-size: 3.5rem;
+        font-weight: 800;
+        letter-spacing: -2px;
+        text-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    .att-hero .date-display { font-size: 1.25rem; opacity: 0.9; }
+    
+    /* Stat Cards */
+    .stat-mega-card {
+        border: 1px solid rgba(226, 232, 240, 0.6);
+        border-radius: 22px;
+        overflow: hidden;
+        transition: all 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 12px 45px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.02);
+        position: relative;
+    }
+    .stat-mega-card::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 22px;
+        padding: 1px;
+        background: linear-gradient(135deg, rgba(255,255,255,0.5), transparent);
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    .stat-mega-card:hover {
+        transform: translateY(-10px) scale(1.02);
+        box-shadow: 0 25px 70px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(15, 23, 42, 0.04);
+    }
+    .stat-mega-card:hover::before { opacity: 1; }
+    .stat-mega-card .card-body { padding: 24px; }
+    .stat-mega-card .stat-icon {
+        width: 68px; height: 68px;
+        border-radius: 18px;
+        display: grid; place-items: center;
+        font-size: 1.65rem;
+        position: relative;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15), inset 0 -2px 8px rgba(0, 0, 0, 0.1);
+    }
+    .stat-mega-card .stat-icon::after {
+        content: '';
+        position: absolute;
+        inset: 2px;
+        border-radius: 16px;
+        background: linear-gradient(to bottom, rgba(255,255,255,0.2), transparent);
+        pointer-events: none;
+    }
+    .stat-mega-card .stat-value { font-size: 2.5rem; font-weight: 800; line-height: 1; }
+    .stat-mega-card .stat-label { font-size: 0.95rem; color: #64748b; font-weight: 600; }
+    .stat-mega-card .stat-trend { font-size: 0.85rem; font-weight: 600; }
+    
+    .stat-employees { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); }
+    .stat-employees .stat-icon { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%); color: #fff; }
+    .stat-present { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); }
+    .stat-present .stat-icon { background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%); color: #fff; }
+    .stat-late { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); }
+    .stat-late .stat-icon { background: linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%); color: #fff; }
+    .stat-absent { background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); }
+    .stat-absent .stat-icon { background: linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%); color: #fff; }
+    
+    /* Progress Ring */
+    .progress-ring-container { position: relative; width: 140px; height: 140px; }
+    .progress-ring { transform: rotate(-90deg); }
+    .progress-ring-bg { fill: none; stroke: rgba(255,255,255,0.2); stroke-width: 12; }
+    .progress-ring-fill {
+        fill: none; stroke: #fff; stroke-width: 12; stroke-linecap: round;
+        stroke-dasharray: 377;
+        stroke-dashoffset: calc(377 - (377 * var(--progress)) / 100);
+        transition: stroke-dashoffset 1s ease-out;
+    }
+    .progress-ring-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+    .progress-ring-value { font-size: 2rem; font-weight: 800; }
+    .progress-ring-label { font-size: 0.85rem; opacity: 0.9; }
+    
+    /* My Attendance Card */
+    .my-attendance-card {
+        border: none; border-radius: 24px;
+        background: linear-gradient(135deg, #f8fafc 0%, #fff 100%);
+        box-shadow: 0 10px 40px rgba(15, 23, 42, 0.06);
+    }
+    .my-attendance-card .card-header { background: transparent; border: none; padding: 24px 24px 0; }
+    .my-attendance-card .time-box {
+        background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+        border-radius: 16px; padding: 20px; text-align: center;
+        transition: all 0.3s ease;
+    }
+    .my-attendance-card .time-box:hover { transform: scale(1.02); }
+    .my-attendance-card .time-box.success { background: linear-gradient(135deg, #dcfce7, #bbf7d0); }
+    .my-attendance-card .time-box.danger { background: linear-gradient(135deg, #fee2e2, #fecaca); }
+    .my-attendance-card .time-value { font-size: 2rem; font-weight: 800; color: #0f172a; }
+    .my-attendance-card .time-label { font-size: 0.9rem; color: #64748b; font-weight: 600; }
+    
+    /* Quick Actions */
+    .quick-action-btn {
+        border: none; border-radius: 18px; padding: 1.25rem 2.5rem;
+        font-size: 1.125rem; font-weight: 800;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 10px 35px rgba(0,0,0,0.15), inset 0 -2px 6px rgba(0,0,0,0.1);
+        position: relative;
+        overflow: hidden;
+    }
+    .quick-action-btn::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to bottom, rgba(255,255,255,0.2), transparent 50%);
+        pointer-events: none;
+    }
+    .quick-action-btn:hover { transform: translateY(-5px) scale(1.03); box-shadow: 0 15px 50px rgba(0,0,0,0.25); }
+    .btn-checkin { background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%); color: #fff; }
+    .btn-checkin:hover { background: linear-gradient(135deg, #059669 0%, #047857 50%, #065f46 100%); color: #fff; }
+    .btn-checkout { background: linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%); color: #fff; }
+    .btn-checkout:hover { background: linear-gradient(135deg, #dc2626 0%, #b91c1c 50%, #991b1b 100%); color: #fff; }
+    
+    /* Glass Card */
+    .glass-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 24px;
+        box-shadow: 0 10px 40px rgba(15, 23, 42, 0.06);
+    }
+    .glass-card .card-header { background: transparent; border: none; padding: 24px 24px 0; }
+    .glass-card .card-header h5 { font-weight: 700; color: #0f172a; }
+    
+    /* Chart Container */
+    .chart-container { height: 280px; position: relative; }
+    
+    /* Records Table */
+    .records-table { border-collapse: separate; border-spacing: 0 8px; }
+    .records-table thead th { border: none; color: #64748b; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; padding: 12px 16px; }
+    .records-table tbody tr { background: #f8fafc; transition: all 0.3s ease; }
+    .records-table tbody tr:hover { background: #f1f5f9; transform: scale(1.01); }
+    .records-table tbody td { border: none; padding: 16px; vertical-align: middle; }
+    .records-table tbody td:first-child { border-radius: 12px 0 0 12px; }
+    .records-table tbody td:last-child { border-radius: 0 12px 12px 0; }
+    
+    /* User Avatar */
+    .user-avatar {
+        width: 42px; height: 42px; border-radius: 12px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: #fff; display: grid; place-items: center;
+        font-weight: 700; font-size: 0.95rem;
+    }
+    
+    /* Status Badge */
+    .status-pill { padding: 6px 14px; border-radius: 999px; font-weight: 700; font-size: 0.85rem; }
+    .status-present { background: #dcfce7; color: #166534; }
+    .status-late { background: #fef3c7; color: #92400e; }
+    .status-absent { background: #fee2e2; color: #991b1b; }
+    
+    /* Early Birds List */
+    .early-bird-item {
+        display: flex; align-items: center; gap: 12px;
+        padding: 12px; background: #f8fafc; border-radius: 12px; margin-bottom: 8px;
+        transition: all 0.3s ease;
+    }
+    .early-bird-item:hover { background: #f1f5f9; transform: translateX(-4px); }
+    .early-bird-item .rank {
+        width: 28px; height: 28px; border-radius: 8px;
+        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+        color: #fff; display: grid; place-items: center;
+        font-weight: 800; font-size: 0.8rem;
+    }
+    .early-bird-item .rank.gold { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+    .early-bird-item .rank.silver { background: linear-gradient(135deg, #94a3b8, #64748b); }
+    .early-bird-item .rank.bronze { background: linear-gradient(135deg, #f97316, #ea580c); }
+    
+    /* Quick Links */
+    .quick-link-card {
+        border: none; border-radius: 16px; padding: 20px; text-align: center;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        background: #f8fafc; text-decoration: none; color: #0f172a;
+    }
+    .quick-link-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 15px 40px rgba(15, 23, 42, 0.12);
+        background: #fff; color: #0f172a;
+    }
+    .quick-link-card .icon-wrap {
+        width: 56px; height: 56px; border-radius: 16px;
+        display: grid; place-items: center;
+        margin: 0 auto 12px; font-size: 1.5rem; color: #fff;
+    }
+
+    /* Page Guide */
+    .att-guide-card {
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(16, 185, 129, 0.08));
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: 20px;
+        padding: 20px 24px;
+        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+    }
+    .guide-pill {
+        display: inline-flex; align-items: center; gap: 8px;
+        background: #0f172a; color: #fff;
+        padding: 8px 14px; border-radius: 999px; font-weight: 700;
+        letter-spacing: -0.2px;
+    }
+    .guide-title { font-weight: 800; color: #0f172a; margin-bottom: 4px; }
+    .guide-text { color: #334155; margin-bottom: 12px; }
+    .guide-step {
+        background: #fff;
+        border-radius: 14px;
+        padding: 12px;
+        display: flex; align-items: flex-start; gap: 10px;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    }
+    .guide-step .step-icon {
+        width: 36px; height: 36px;
+        border-radius: 10px;
+        display: grid; place-items: center;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: #fff; font-weight: 800;
+        box-shadow: 0 6px 18px rgba(99, 102, 241, 0.35);
+    }
+    .guide-step small { color: #475569; line-height: 1.5; }
+    .guide-hint { color: #475569; font-weight: 600; }
+    
+    /* Animations */
+    @keyframes pulse-ring {
+        0% { transform: scale(1); opacity: 1; }
+        100% { transform: scale(1.3); opacity: 0; }
+    }
+    .live-indicator { position: relative; }
+    .live-indicator::after {
+        content: '';
+        position: absolute; width: 12px; height: 12px;
+        background: #10b981; border-radius: 50%;
+        top: -4px; right: -4px;
+        animation: pulse-ring 1.5s infinite;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Guide -->
+    <div class="att-guide-card mb-4">
+        <div class="d-flex flex-wrap align-items-start gap-3">
+            <div class="guide-pill">
+                <i class="fas fa-circle-info"></i>
+                تعليمات سريعة
+            </div>
+            <div class="flex-grow-1">
+                <div class="guide-title">لماذا هذه الصفحة؟</div>
+                <p class="guide-text mb-2">
+                    هذه لوحة الحضور المركزية: تلخص حالة الموظفين لحظيًا، وتوفر أزرار تسجيل الحضور/الانصراف، مع روابط مباشرة للطلبات والتقارير.
+                </p>
+                <div class="row g-2">
+                    <div class="col-12 col-md-4">
+                        <div class="guide-step">
+                            <div class="step-icon">1</div>
+                            <div>
+                                <div class="fw-bold mb-1">ابدأ يومك</div>
+                                <small>استخدم زر تسجيل الحضور أو الانصراف بالأعلى لتوثيق وقتك في نفس اللحظة.</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <div class="guide-step">
+                            <div class="step-icon">2</div>
+                            <div>
+                                <div class="fw-bold mb-1">راقب الحالة</div>
+                                <small>تابع البطاقات والإحصائيات الأسبوعية لمعرفة الحضور، التأخير، والغياب بسرعة.</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <div class="guide-step">
+                            <div class="step-icon">3</div>
+                            <div>
+                                <div class="fw-bold mb-1">عالج الاستثناءات</div>
+                                <small>من روابط الوصول السريع: راجع الطلبات المعلقة، عدل السجلات، أو انتقل لقائمة السجلات الكاملة.</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="guide-hint mt-2">
+                    استخدم البحث الجانبي للوصول إلى وحدات أخرى، وراجع قسم "وصول سريع" أسفل الصفحة لأكثر الروابط استخدامًا.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hero Section -->
+    <div class="att-hero mb-4">
+        <div class="hero-content">
+            <div class="row align-items-center">
+                <div class="col-lg-7">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <div class="live-indicator">
+                            <span class="badge bg-white text-dark px-3 py-2 fw-bold">
+                                <i class="fas fa-broadcast-tower me-2"></i>
+                                مباشر
+                            </span>
+                        </div>
+                        <span class="opacity-75">{{ today|date:"l" }}</span>
+                    </div>
+                    <div class="time-display mb-2" id="live-time">{{ now|time:"H:i:s" }}</div>
+                    <div class="date-display mb-4">{{ today|date:"j F Y" }}</div>
+                    
+                    <div class="d-flex flex-wrap gap-3">
+                        {% if not my_attendance or not my_attendance.check_in_time %}
+                        <a href="{% url 'attendance:check_in' %}" class="quick-action-btn btn-checkin">
+                            <i class="fas fa-sign-in-alt me-2"></i>
+                            تسجيل الحضور
+                        </a>
+                        {% elif not my_attendance.check_out_time %}
+                        <a href="{% url 'attendance:check_out' %}" class="quick-action-btn btn-checkout">
+                            <i class="fas fa-sign-out-alt me-2"></i>
+                            تسجيل الانصراف
+                        </a>
+                        {% else %}
+                        <span class="quick-action-btn" style="background: rgba(255,255,255,0.2); cursor: default;">
+                            <i class="fas fa-check-double me-2"></i>
+                            تم التسجيل اليوم ✓
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-lg-5 text-center mt-4 mt-lg-0">
+                    <div class="progress-ring-container mx-auto" style="--progress: {{ attendance_rate }};">
+                        <svg class="progress-ring" width="140" height="140">
+                            <circle class="progress-ring-bg" cx="70" cy="70" r="60"></circle>
+                            <circle class="progress-ring-fill" cx="70" cy="70" r="60"></circle>
+                        </svg>
+                        <div class="progress-ring-text">
+                            <div class="progress-ring-value">{{ attendance_rate }}%</div>
+                            <div class="progress-ring-label">معدل الحضور</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-mega-card stat-employees">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-label mb-2">إجمالي الموظفين</div>
+                            <div class="stat-value text-primary">{{ total_employees }}</div>
+                            <div class="stat-trend text-primary mt-2">
+                                <i class="fas fa-users me-1"></i>
+                                موظف نشط
+                            </div>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-mega-card stat-present">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-label mb-2">الحاضرون اليوم</div>
+                            <div class="stat-value text-success">{{ checked_in_today }}</div>
+                            <div class="stat-trend text-success mt-2">
+                                <i class="fas fa-arrow-up me-1"></i>
+                                {{ present_count }} في الوقت
+                            </div>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="fas fa-user-check"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-mega-card stat-late">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-label mb-2">المتأخرون</div>
+                            <div class="stat-value text-warning">{{ late_count }}</div>
+                            <div class="stat-trend text-warning mt-2">
+                                <i class="fas fa-clock me-1"></i>
+                                متأخر عن الدوام
+                            </div>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="fas fa-hourglass-half"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-mega-card stat-absent">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-label mb-2">الغائبون</div>
+                            <div class="stat-value text-danger">{{ absent_count }}</div>
+                            <div class="stat-trend text-danger mt-2">
+                                <i class="fas fa-user-times me-1"></i>
+                                لم يسجلوا بعد
+                            </div>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="fas fa-user-slash"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- My Attendance Today -->
+        <div class="col-lg-5">
+            <div class="card my-attendance-card h-100">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 fw-bold">
+                            <i class="fas fa-id-badge me-2 text-primary"></i>
+                            حضوري اليوم
+                        </h5>
+                        {% if my_attendance %}
+                        <span class="status-pill {% if my_attendance.status == 'present' %}status-present{% elif my_attendance.status == 'late' %}status-late{% else %}status-absent{% endif %}">
+                            {{ my_attendance.get_status_display }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if my_attendance %}
+                    <div class="row g-3 mb-4">
+                        <div class="col-6">
+                            <div class="time-box {% if my_attendance.check_in_time %}success{% endif %}">
+                                <div class="time-label mb-1">
+                                    <i class="fas fa-sign-in-alt me-1"></i>
+                                    وقت الحضور
+                                </div>
+                                <div class="time-value">
+                                    {% if my_attendance.check_in_time %}
+                                    {{ my_attendance.check_in_time|time:"H:i" }}
+                                    {% else %}
+                                    --:--
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="time-box {% if my_attendance.check_out_time %}danger{% endif %}">
+                                <div class="time-label mb-1">
+                                    <i class="fas fa-sign-out-alt me-1"></i>
+                                    وقت الانصراف
+                                </div>
+                                <div class="time-value">
+                                    {% if my_attendance.check_out_time %}
+                                    {{ my_attendance.check_out_time|time:"H:i" }}
+                                    {% else %}
+                                    --:--
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3 mb-4">
+                        <div class="col-6">
+                            <div class="d-flex align-items-center gap-3 p-3 bg-light rounded-3">
+                                <i class="fas fa-clock fa-lg text-primary"></i>
+                                <div>
+                                    <div class="text-muted small">ساعات العمل</div>
+                                    <div class="fw-bold">{{ my_attendance.total_hours|floatformat:1 }} ساعة</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="d-flex align-items-center gap-3 p-3 bg-light rounded-3">
+                                <i class="fas fa-map-marker-alt fa-lg text-danger"></i>
+                                <div>
+                                    <div class="text-muted small">الموقع</div>
+                                    <div class="fw-bold">{{ my_attendance.location.name|default:"غير محدد" }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if not my_attendance.check_out_time and my_attendance.check_in_time %}
+                    <a href="{% url 'attendance:check_out' %}" class="btn btn-danger btn-lg w-100 py-3 fw-bold">
+                        <i class="fas fa-sign-out-alt me-2"></i>
+                        تسجيل الانصراف الآن
+                    </a>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center py-5">
+                        <div class="mb-4">
+                            <i class="fas fa-fingerprint fa-4x text-muted"></i>
+                        </div>
+                        <h5 class="text-muted mb-3">لم تسجل حضورك بعد</h5>
+                        <p class="text-muted mb-4">سجّل حضورك الآن لبدء يوم عمل جديد</p>
+                        <a href="{% url 'attendance:check_in' %}" class="btn btn-success btn-lg px-5 py-3 fw-bold">
+                            <i class="fas fa-sign-in-alt me-2"></i>
+                            تسجيل الحضور الآن
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Weekly Chart -->
+        <div class="col-lg-7">
+            <div class="card glass-card h-100">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-bar me-2 text-primary"></i>
+                            إحصائيات الأسبوع
+                        </h5>
+                        <div class="d-flex gap-3">
+                            <span class="d-flex align-items-center gap-2">
+                                <span style="width:12px;height:12px;background:#10b981;border-radius:3px;"></span>
+                                <small class="text-muted">حاضر</small>
+                            </span>
+                            <span class="d-flex align-items-center gap-2">
+                                <span style="width:12px;height:12px;background:#f59e0b;border-radius:3px;"></span>
+                                <small class="text-muted">متأخر</small>
+                            </span>
+                            <span class="d-flex align-items-center gap-2">
+                                <span style="width:12px;height:12px;background:#ef4444;border-radius:3px;"></span>
+                                <small class="text-muted">غائب</small>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="weeklyChart"></canvas>
+                    </div>
+                    
+                    <!-- Weekly Summary -->
+                    <div class="row g-3 mt-3">
+                        <div class="col-3">
+                            <div class="text-center p-3 bg-light rounded-3">
+                                <div class="text-muted small">إجمالي</div>
+                                <div class="h4 mb-0 fw-bold text-primary">{{ weekly_stats.total }}</div>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-center p-3 bg-light rounded-3">
+                                <div class="text-muted small">في الوقت</div>
+                                <div class="h4 mb-0 fw-bold text-success">{{ weekly_stats.present }}</div>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-center p-3 bg-light rounded-3">
+                                <div class="text-muted small">متأخرين</div>
+                                <div class="h4 mb-0 fw-bold text-warning">{{ weekly_stats.late }}</div>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-center p-3 bg-light rounded-3">
+                                <div class="text-muted small">معدل الساعات</div>
+                                <div class="h4 mb-0 fw-bold text-info">{{ weekly_stats.avg_hours|floatformat:1 }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-2">
+        <!-- Recent Records -->
+        <div class="col-lg-8">
+            <div class="card glass-card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-history me-2 text-primary"></i>
+                            آخر سجلات الحضور
+                        </h5>
+                        <a href="{% url 'attendance:attendance_list' %}" class="btn btn-outline-primary btn-sm">
+                            عرض الكل
+                            <i class="fas fa-arrow-left ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table records-table">
+                            <thead>
+                                <tr>
+                                    <th>الموظف</th>
+                                    <th>الحضور</th>
+                                    <th>الانصراف</th>
+                                    <th>الحالة</th>
+                                    <th>الموقع</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in recent_records %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="user-avatar">
+                                                {{ record.user.first_name|slice:":1" }}{{ record.user.last_name|slice:":1" }}
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold">{{ record.user.get_full_name }}</div>
+                                                <small class="text-muted">{{ record.date|date:"d/m" }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="fw-semibold">{{ record.check_in_time|time:"H:i" }}</span>
+                                        <br>
+                                        <small class="text-muted">{{ record.get_check_in_method_display|default:"-" }}</small>
+                                    </td>
+                                    <td>
+                                        {% if record.check_out_time %}
+                                        <span class="fw-semibold">{{ record.check_out_time|time:"H:i" }}</span>
+                                        {% else %}
+                                        <span class="text-muted">--:--</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="status-pill {% if record.status == 'present' %}status-present{% elif record.status == 'late' %}status-late{% else %}status-absent{% endif %}">
+                                            {{ record.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small>{{ record.location.name|default:"-" }}</small>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-5">
+                                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                        <p class="text-muted mb-0">لا توجد سجلات حتى الآن</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Early Birds -->
+            <div class="card glass-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-trophy me-2 text-warning"></i>
+                        أوائل الحاضرين اليوم
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% for record in early_birds %}
+                    <div class="early-bird-item">
+                        <div class="rank {% if forloop.counter == 1 %}gold{% elif forloop.counter == 2 %}silver{% elif forloop.counter == 3 %}bronze{% endif %}">
+                            {{ forloop.counter }}
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="fw-bold">{{ record.user.get_full_name }}</div>
+                            <small class="text-muted">{{ record.check_in_time|time:"H:i" }}</small>
+                        </div>
+                        <i class="fas fa-medal text-warning"></i>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-hourglass-start fa-2x mb-2"></i>
+                        <p class="mb-0">لا يوجد حضور بعد</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Pending Requests -->
+            <div class="card glass-card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-file-signature me-2 text-info"></i>
+                            طلبات معلقة
+                        </h5>
+                        {% if pending_count > 0 %}
+                        <span class="badge bg-danger">{{ pending_count }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% for req in pending_requests %}
+                    <div class="d-flex align-items-center gap-3 p-3 bg-light rounded-3 mb-2">
+                        <div class="user-avatar" style="width:36px;height:36px;font-size:0.8rem;">
+                            {{ req.user.first_name|slice:":1" }}
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold small">{{ req.user.get_full_name }}</div>
+                            <small class="text-muted">{{ req.get_request_type_display }}</small>
+                        </div>
+                        <small class="text-muted">{{ req.date|date:"d/m" }}</small>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                        <p class="text-muted mb-0">لا توجد طلبات معلقة</p>
+                    </div>
+                    {% endfor %}
+                    
+                    {% if pending_count > 5 %}
+                    <a href="{% url 'attendance:request_list' %}" class="btn btn-outline-primary btn-sm w-100 mt-3">
+                        عرض جميع الطلبات ({{ pending_count }})
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="row g-4 mt-2">
+        <div class="col-12">
+            <div class="card glass-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bolt me-2 text-warning"></i>
+                        وصول سريع
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6 col-md-4 col-lg-2">
+                            <a href="{% url 'attendance:my_attendance' %}" class="quick-link-card d-block">
+                                <div class="icon-wrap" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+                                    <i class="fas fa-calendar-alt"></i>
+                                </div>
+                                <div class="fw-bold">سجلاتي</div>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2">
+                            <a href="{% url 'attendance:request_create' %}" class="quick-link-card d-block">
+                                <div class="icon-wrap" style="background: linear-gradient(135deg, #0ea5e9, #06b6d4);">
+                                    <i class="fas fa-file-medical"></i>
+                                </div>
+                                <div class="fw-bold">طلب تعديل</div>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2">
+                            <a href="{% url 'attendance:locations_list' %}" class="quick-link-card d-block">
+                                <div class="icon-wrap" style="background: linear-gradient(135deg, #10b981, #059669);">
+                                    <i class="fas fa-map-marked-alt"></i>
+                                </div>
+                                <div class="fw-bold">المواقع</div>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2">
+                            <a href="{% url 'attendance:attendance_list' %}" class="quick-link-card d-block">
+                                <div class="icon-wrap" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                                    <i class="fas fa-clipboard-list"></i>
+                                </div>
+                                <div class="fw-bold">كل السجلات</div>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2">
+                            <a href="{% url 'attendance:request_list' %}" class="quick-link-card d-block">
+                                <div class="icon-wrap" style="background: linear-gradient(135deg, #ec4899, #db2777);">
+                                    <i class="fas fa-tasks"></i>
+                                </div>
+                                <div class="fw-bold">الطلبات</div>
+                            </a>
+                        </div>
+                        {% if user.is_staff %}
+                        <div class="col-6 col-md-4 col-lg-2">
+                            <a href="{% url 'attendance:settings' %}" class="quick-link-card d-block">
+                                <div class="icon-wrap" style="background: linear-gradient(135deg, #64748b, #475569);">
+                                    <i class="fas fa-cog"></i>
+                                </div>
+                                <div class="fw-bold">الإعدادات</div>
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Live Time Update
+function updateLiveTime() {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    document.getElementById('live-time').textContent = timeStr;
+}
+setInterval(updateLiveTime, 1000);
+
+// Weekly Chart
+const chartData = {{ chart_data|safe }};
+const ctx = document.getElementById('weeklyChart').getContext('2d');
+
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: chartData.map(d => d.date),
+        datasets: [
+            {
+                label: 'حاضر',
+                data: chartData.map(d => d.present),
+                backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                borderRadius: 8,
+                borderSkipped: false,
+            },
+            {
+                label: 'متأخر',
+                data: chartData.map(d => d.late),
+                backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                borderRadius: 8,
+                borderSkipped: false,
+            },
+            {
+                label: 'غائب',
+                data: chartData.map(d => d.absent),
+                backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                borderRadius: 8,
+                borderSkipped: false,
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                padding: 12,
+                cornerRadius: 8,
+                titleFont: { size: 14, weight: 'bold' },
+                bodyFont: { size: 13 },
+            }
+        },
+        scales: {
+            x: {
+                grid: { display: false },
+                ticks: { font: { weight: 600 } }
+            },
+            y: {
+                beginAtZero: true,
+                grid: { color: 'rgba(0,0,0,0.05)' },
+                ticks: { stepSize: 1 }
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

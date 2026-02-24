@@ -1,11 +1,19 @@
-from django.urls import path, re_path
+from django.urls import path, re_path, include
 from django.views.generic import RedirectView
+from rest_framework.routers import DefaultRouter
 from . import views
 from . import views_advanced_reports
 from . import views_costing
 from . import entry_api  # ميزات نموذج الإيراد/المنصرف
 from . import views_advanced  # الميزات المتقدمة الجديدة
 from . import financial_analysis  # التحليل المالي
+from . import api_views
+
+# DRF REST API Router
+accounting_api_router = DefaultRouter()
+accounting_api_router.register(r'accounts', api_views.AccountViewSet, basename='api-accounts')
+accounting_api_router.register(r'journal-entries', api_views.JournalEntryViewSet, basename='api-journal-entries')
+accounting_api_router.register(r'cost-centers', api_views.CostCenterViewSet, basename='api-cost-centers')
 
 app_name = 'accounting'
 
@@ -20,6 +28,14 @@ urlpatterns = [
     path('api/entry-templates/save/', entry_api.save_template, name='save_entry_template'),
     path('api/tax-settings/', entry_api.get_tax_settings, name='get_tax_settings'),
     
+    # روابط تصدير التقارير المالية
+    path('tools/export/trial-balance/excel', views.export_trial_balance_excel, name='export_trial_balance_excel'),
+    path('tools/export/trial-balance/pdf', views.export_trial_balance_pdf, name='export_trial_balance_pdf'),
+    path('tools/export/balance-sheet/excel', views.export_balance_sheet_excel, name='export_balance_sheet_excel'),
+    path('tools/export/income-statement/excel', views.export_income_statement_excel, name='export_income_statement_excel'),
+    path('tools/export/cash-flow/excel', views.export_cash_flow_excel, name='export_cash_flow_excel'),
+    path('tools/export/general-ledger/excel', views.export_general_ledger_excel, name='export_general_ledger_excel'),
+
     # روابط تصدير Excel وPDF
     path('tools/export/accounts/excel', views.export_accounts_excel, name='export_accounts_excel'),
     path('tools/export/accounts/pdf', views.export_accounts_pdf, name='export_accounts_pdf'),
@@ -49,12 +65,19 @@ urlpatterns = [
     path('tools/export/purchase-bills/pdf/', views.export_purchase_bills_pdf),
 
     # روابط تصدير البيانات المحاسبية
-    path('tools/export/accounts', views.export_accounts, name='export_accounts'),
-    path('tools/export/journal-entries', views.export_journal_entries, name='export_journal_entries'),
-    path('tools/export/customers', views.export_customers, name='export_customers'),
-    path('tools/export/suppliers', views.export_suppliers, name='export_suppliers'),
-    path('tools/export/invoices', views.export_invoices, name='export_invoices'),
-    path('tools/export/purchase-bills', views.export_purchase_bills, name='export_purchase_bills'),
+    path('tools/export/accounts/', views.export_accounts, name='export_accounts'),
+    path('tools/export/journal-entries/', views.export_journal_entries, name='export_journal_entries'),
+    path('tools/export/customers/', views.export_customers, name='export_customers'),
+    path('tools/export/suppliers/', views.export_suppliers, name='export_suppliers'),
+    path('tools/export/invoices/', views.export_invoices, name='export_invoices'),
+    path('tools/export/purchase-bills/', views.export_purchase_bills, name='export_purchase_bills'),
+    # دعم بدون سلاش
+    path('tools/export/accounts', views.export_accounts),
+    path('tools/export/journal-entries', views.export_journal_entries),
+    path('tools/export/customers', views.export_customers),
+    path('tools/export/suppliers', views.export_suppliers),
+    path('tools/export/invoices', views.export_invoices),
+    path('tools/export/purchase-bills', views.export_purchase_bills),
     
     # لوحة التحكم المحاسبية
     path('', views.accounting_dashboard, name='dashboard'),
@@ -93,6 +116,7 @@ urlpatterns = [
     path('settings/auto-journal/', views.settings_auto_journal, name='settings_auto_journal'),
     
     # دعم /settings/fiscal-year كاختصار لـ /fiscal-years/create/
+    path('settings/fiscal-year/', RedirectView.as_view(pattern_name='accounting:fiscal_year_create', permanent=False)),
     path('settings/fiscal-year', RedirectView.as_view(pattern_name='accounting:fiscal_year_create', permanent=False)),
     
     # السنوات المالية
@@ -116,6 +140,7 @@ urlpatterns = [
     path('accounts/statement', views.general_ledger),  # دعم بدون سلاش
     
     # دعم /accounts/new كاختصار لـ /accounts/create/
+    path('accounts/new/', RedirectView.as_view(pattern_name='accounting:account_create', permanent=False)),
     path('accounts/new', RedirectView.as_view(pattern_name='accounting:account_create', permanent=False)),
     path('accounts/create/', views.account_create, name='account_create'),
     path('accounts/expenses/', views.expense_accounts, name='expense_accounts'),
@@ -133,8 +158,10 @@ urlpatterns = [
     path('journal-entries/<int:pk>/reverse/', views.reverse_journal_entry, name='reverse_journal_entry'),
     
     # قيود غير مرحّلة (مسودة)
-    path('journal/drafts', views.journal_drafts_list, name='journal_drafts_list'),
-    path('journal/drafts/bulk-post', views.journal_drafts_bulk_post, name='journal_drafts_bulk_post'),
+    path('journal/drafts/', views.journal_drafts_list, name='journal_drafts_list'),
+    path('journal/drafts/bulk-post/', views.journal_drafts_bulk_post, name='journal_drafts_bulk_post'),
+    path('journal/drafts', views.journal_drafts_list),  # دعم بدون سلاش
+    path('journal/drafts/bulk-post', views.journal_drafts_bulk_post),  # دعم بدون سلاش
     
     # التقارير المحاسبية
     path('general-ledger/', views.general_ledger, name='general_ledger'),
@@ -145,9 +172,13 @@ urlpatterns = [
     path('balance-sheet/', views.balance_sheet, name='balance_sheet'),
     path('income-statement/', views.income_statement, name='income_statement'),
     path('cash-flow/', views.cash_flow_statement, name='cash_flow_statement'),
-    path('reports/aging/receivables', views.aging_receivables_report, name='aging_receivables_report'),
-    path('reports/aging/payables', views.aging_payables_report, name='aging_payables_report'),
-    path('reports/tax', views.tax_report_view, name='tax_report_view'),
+    path('reports/aging/receivables/', views.aging_receivables_report, name='aging_receivables_report'),
+    path('reports/aging/payables/', views.aging_payables_report, name='aging_payables_report'),
+    path('reports/tax/', views.tax_report_view, name='tax_report_view'),
+    # دعم بدون سلاش
+    path('reports/aging/receivables', views.aging_receivables_report),
+    path('reports/aging/payables', views.aging_payables_report),
+    path('reports/tax', views.tax_report_view),
     path('reports/daily-expenses/', views.daily_expenses_report, name='daily_expenses_report'),
 
     # إعادة توجيه للمسارات القديمة (compatibility)
@@ -205,9 +236,13 @@ urlpatterns = [
     path('cheques/<int:pk>/', views.cheque_detail, name='cheque_detail'),
     path('cheques/<int:pk>/delete/', views.cheque_delete, name='cheque_delete'),
     # أدوات / تشخيص
-    path('tools/diagnostics', views.diagnostics_view, name='diagnostics'),
-    path('tools/export', views.export_tools, name='export_tools'),
-    path('tools/fixes', views.tools_fixes, name='tools_fixes'),
+    path('tools/diagnostics/', views.diagnostics_view, name='diagnostics'),
+    path('tools/export/', views.export_tools, name='export_tools'),
+    path('tools/fixes/', views.tools_fixes, name='tools_fixes'),
+    # دعم بدون سلاش
+    path('tools/diagnostics', views.diagnostics_view),
+    path('tools/export', views.export_tools),
+    path('tools/fixes', views.tools_fixes),
     # استيراد قيود يومية (CSV بسيط)
     path('tools/import-journal', views.import_journal_view, name='import_journal'),
     path('tools/import-journal/', views.import_journal_view),
@@ -398,4 +433,31 @@ urlpatterns = [
     
     # التحليل المالي
     path('advanced/financial-analysis-page/', views_advanced.financial_analysis_page, name='financial_analysis'),
+
+    # الفترات المحاسبية المتقدمة
+    path('periods/', views_advanced.accounting_period_list, name='accounting_period_list'),
+    path('periods/create/', views_advanced.accounting_period_create, name='accounting_period_create'),
+    path('periods/<int:pk>/', views_advanced.accounting_period_detail, name='accounting_period_detail'),
+    path('periods/<int:pk>/edit/', views_advanced.accounting_period_edit, name='accounting_period_edit'),
+    path('periods/<int:pk>/close/', views_advanced.accounting_period_close, name='accounting_period_close'),
+    path('periods/<int:pk>/reopen/', views_advanced.accounting_period_reopen, name='accounting_period_reopen'),
+]
+
+# --- Stub URL patterns (auto-generated) ---
+
+from core.views_stub import stub_view  # noqa: E402
+
+urlpatterns += [
+    path('cheque-edit/<int:pk>/', stub_view, name='cheque_edit'),
+    path('cost-allocation-create/', stub_view, name='cost_allocation_create'),
+    path('cost-center-delete/<int:pk>/', stub_view, name='cost_center_delete'),
+    path('journal-drafts/', stub_view, name='journal_drafts'),
+    path('journal-template-edit/<int:pk>/', stub_view, name='journal_template_edit'),
+    path('journal-templates/', stub_view, name='journal_templates'),
+    path('loan-payment/<int:pk>/', stub_view, name='loan_payment'),
+]
+
+# REST API v1 endpoints
+urlpatterns += [
+    path('api/v1/', include(accounting_api_router.urls)),
 ]

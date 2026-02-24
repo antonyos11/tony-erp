@@ -1,0 +1,372 @@
+﻿{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "الميزانية العمومية" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --info-color: #17a2b8;
+    }
+    .page-hero {
+        background: linear-gradient(135deg, #2c5282 0%, #1e3a5f 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    .balance-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: rgba(255,255,255,0.2);
+        border-radius: 25px;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
+    .balance-status.balanced { background: rgba(40, 167, 69, 0.3); }
+    .balance-status.unbalanced { background: rgba(220, 53, 69, 0.3); }
+    .hero-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+        flex-wrap: wrap;
+    }
+    .btn-hero {
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        background: rgba(255,255,255,0.2);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.3);
+        cursor: pointer;
+    }
+    .btn-hero:hover {
+        background: rgba(255,255,255,0.3);
+        color: white;
+        transform: translateY(-1px);
+    }
+    .summary-row {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .summary-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+    .summary-card::before {
+        content: '';
+        position: absolute;
+        top: 0; right: 0; left: 0;
+        height: 4px;
+    }
+    .summary-card.assets-card::before { background: var(--success-color); }
+    .summary-card.liabilities-card::before { background: var(--danger-color); }
+    .summary-icon {
+        width: 60px; height: 60px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 1rem;
+        font-size: 1.5rem;
+    }
+    .summary-card.assets-card .summary-icon { background: rgba(40, 167, 69, 0.15); color: var(--success-color); }
+    .summary-card.liabilities-card .summary-icon { background: rgba(220, 53, 69, 0.15); color: var(--danger-color); }
+    .summary-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+    .summary-card.assets-card .summary-value { color: var(--success-color); }
+    .summary-card.liabilities-card .summary-value { color: var(--danger-color); }
+    .summary-label { color: #6c757d; font-size: 0.95rem; }
+    .section-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .section-header.assets-bg { background: rgba(40, 167, 69, 0.08); }
+    .section-header.liabilities-bg { background: rgba(220, 53, 69, 0.08); }
+    .section-header.equity-bg { background: rgba(23, 162, 184, 0.08); }
+    .bs-table { width: 100%; border-collapse: collapse; }
+    .bs-table th {
+        padding: 1rem 1.25rem;
+        background: #f8f9fa;
+        font-weight: 600;
+        color: var(--primary-color);
+        text-align: right;
+        border-bottom: 2px solid #e9ecef;
+    }
+    .bs-table th.amount-col { text-align: center; width: 25%; }
+    .bs-table td {
+        padding: 0.85rem 1.25rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .bs-table tr:hover { background: rgba(0, 212, 170, 0.03); }
+    .bs-table tr.total-row {
+        background: linear-gradient(135deg, rgba(0, 212, 170, 0.1), rgba(0, 184, 148, 0.1));
+    }
+    .bs-table tr.total-row td {
+        font-weight: 700; font-size: 1.05rem;
+        color: var(--primary-color);
+        border-top: 3px double #dee2e6;
+    }
+    .account-code {
+        font-family: monospace;
+        background: #f8f9fa;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-left: 0.5rem;
+    }
+    .amount-cell { text-align: center; font-weight: 600; }
+    .amount-positive { color: var(--success-color); }
+    .amount-negative { color: var(--danger-color); }
+    .balance-footer {
+        display: flex; justify-content: center; align-items: center;
+        gap: 0.75rem; padding: 1.5rem;
+    }
+    .balance-footer.balanced {
+        background: rgba(40, 167, 69, 0.1);
+        border-top: 2px solid rgba(40, 167, 69, 0.3);
+    }
+    .balance-footer.unbalanced {
+        background: rgba(220, 53, 69, 0.1);
+        border-top: 2px solid rgba(220, 53, 69, 0.3);
+    }
+    .empty-state { text-align: center; padding: 3rem; color: #6c757d; }
+    .empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+
+    [data-bs-theme="dark"] .summary-card,
+    [data-bs-theme="dark"] .section-card { background: #1a1d21; }
+    [data-bs-theme="dark"] .section-header { background: #2d3238; }
+    [data-bs-theme="dark"] .bs-table th { background: #2d3238; }
+    [data-bs-theme="dark"] .account-code { background: #2d3238; color: #adb5bd; }
+
+    @media print {
+        .page-hero, .hero-actions, nav, .sidebar, .navbar, footer, .no-print { display: none !important; }
+        .container { max-width: 100% !important; padding: 0 !important; }
+        .section-card { box-shadow: none !important; border: 1px solid #dee2e6; }
+        .summary-row { margin-bottom: 1rem; }
+        .summary-card { box-shadow: none !important; border: 1px solid #dee2e6; padding: 0.75rem; }
+        .summary-value { font-size: 1.3rem; }
+        .bs-table th, .bs-table td { padding: 0.5rem 0.75rem; font-size: 0.85rem; }
+        body { font-size: 12px; }
+        .print-header { display: block !important; text-align: center; margin-bottom: 1rem; }
+    }
+    .print-header { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="print-header">
+        <h2>{% trans "الميزانية العمومية" %}</h2>
+        <p>{% now "Y/m/d" %}</p>
+    </div>
+
+    <div class="page-hero">
+        {% if total_assets == total_liabilities_equity %}
+        <div class="balance-status balanced">
+            <i class="fas fa-check-circle"></i> {% trans "الميزانية متوازنة" %}
+        </div>
+        {% else %}
+        <div class="balance-status unbalanced">
+            <i class="fas fa-exclamation-triangle"></i> {% trans "الميزانية غير متوازنة!" %}
+        </div>
+        {% endif %}
+        <h1 class="h2 mb-2">
+            <i class="fas fa-landmark me-2"></i>
+            {% trans "الميزانية العمومية" %}
+        </h1>
+        <p class="mb-0 opacity-75">{% trans "عرض المركز المالي - الأصول والالتزامات وحقوق الملكية" %}</p>
+        <div class="hero-actions">
+            <a href="javascript:void(0)" onclick="window.print()" class="btn-hero">
+                <i class="fas fa-print"></i> {% trans "طباعة" %}
+            </a>
+            <a href="javascript:void(0)" onclick="window.print()" class="btn-hero">
+                <i class="fas fa-file-pdf"></i> {% trans "تصدير PDF" %}
+            </a>
+            <a href="{% url 'accounting:export_balance_sheet_excel' %}" class="btn-hero">
+                <i class="fas fa-file-excel"></i> {% trans "تصدير Excel" %}
+            </a>
+        </div>
+    </div>
+
+    <div class="summary-row">
+        <div class="summary-card assets-card">
+            <div class="summary-icon"><i class="fas fa-building"></i></div>
+            <div class="summary-value">{{ total_assets|floatformat:2|intcomma }}</div>
+            <div class="summary-label">{% trans "إجمالي الأصول" %}</div>
+        </div>
+        <div class="summary-card liabilities-card">
+            <div class="summary-icon"><i class="fas fa-hand-holding-usd"></i></div>
+            <div class="summary-value">{{ total_liabilities_equity|floatformat:2|intcomma }}</div>
+            <div class="summary-label">{% trans "إجمالي الالتزامات وحقوق الملكية" %}</div>
+        </div>
+    </div>
+
+    {% if assets or liabilities or equity %}
+
+    {# ==================== الأصول ==================== #}
+    <div class="section-card">
+        <div class="section-header assets-bg">
+            <h5 class="mb-0"><i class="fas fa-building me-2 text-success"></i> {% trans "الأصول" %}</h5>
+            <span class="badge bg-success">{{ assets|length }} {% trans "حساب" %}</span>
+        </div>
+        {% if assets %}
+        <div class="table-responsive"><table class="bs-table">
+            <thead>
+                <tr>
+                    <th style="width: 15%;">{% trans "الكود" %}</th>
+                    <th style="width: 55%;">{% trans "اسم الحساب" %}</th>
+                    <th class="amount-col">{% trans "الرصيد" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for acc, bal in assets %}
+                <tr>
+                    <td><span class="account-code">{{ acc.code }}</span></td>
+                    <td>{{ acc.name }}</td>
+                    <td class="amount-cell amount-positive">{{ bal|floatformat:2|intcomma }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="total-row">
+                    <td colspan="2">{% trans "إجمالي الأصول" %}</td>
+                    <td class="amount-cell amount-positive">{{ total_assets|floatformat:2|intcomma }}</td>
+                </tr>
+            </tbody>
+        </table></div>
+        {% else %}
+        <div class="empty-state"><p>{% trans "لا توجد أصول" %}</p></div>
+        {% endif %}
+    </div>
+
+    {# ==================== الالتزامات ==================== #}
+    <div class="section-card">
+        <div class="section-header liabilities-bg">
+            <h5 class="mb-0"><i class="fas fa-file-invoice-dollar me-2 text-danger"></i> {% trans "الالتزامات" %}</h5>
+            <span class="badge bg-danger">{{ liabilities|length }} {% trans "حساب" %}</span>
+        </div>
+        {% if liabilities %}
+        <div class="table-responsive"><table class="bs-table">
+            <thead>
+                <tr>
+                    <th style="width: 15%;">{% trans "الكود" %}</th>
+                    <th style="width: 55%;">{% trans "اسم الحساب" %}</th>
+                    <th class="amount-col">{% trans "الرصيد" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for acc, bal in liabilities %}
+                <tr>
+                    <td><span class="account-code">{{ acc.code }}</span></td>
+                    <td>{{ acc.name }}</td>
+                    <td class="amount-cell amount-negative">{{ bal|floatformat:2|intcomma }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+        {% else %}
+        <div class="empty-state"><p>{% trans "لا توجد التزامات" %}</p></div>
+        {% endif %}
+    </div>
+
+    {# ==================== حقوق الملكية ==================== #}
+    <div class="section-card">
+        <div class="section-header equity-bg">
+            <h5 class="mb-0"><i class="fas fa-users me-2 text-info"></i> {% trans "حقوق الملكية" %}</h5>
+            <span class="badge bg-info">{{ equity|length }} {% trans "حساب" %}</span>
+        </div>
+        {% if equity %}
+        <div class="table-responsive"><table class="bs-table">
+            <thead>
+                <tr>
+                    <th style="width: 15%;">{% trans "الكود" %}</th>
+                    <th style="width: 55%;">{% trans "اسم الحساب" %}</th>
+                    <th class="amount-col">{% trans "الرصيد" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for acc, bal in equity %}
+                <tr>
+                    <td><span class="account-code">{{ acc.code }}</span></td>
+                    <td>{{ acc.name }}</td>
+                    <td class="amount-cell">{{ bal|floatformat:2|intcomma }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+        {% else %}
+        <div class="empty-state"><p>{% trans "لا توجد حقوق ملكية" %}</p></div>
+        {% endif %}
+    </div>
+
+    {# ==================== ملخص التوازن ==================== #}
+    <div class="section-card">
+        {% if total_assets == total_liabilities_equity %}
+        <div class="balance-footer balanced">
+            <i class="fas fa-check-circle" style="font-size: 1.5rem; color: var(--success-color);"></i>
+            <span style="font-weight: 600; color: var(--success-color); font-size: 1.1rem;">
+                {% trans "الميزانية العمومية متوازنة" %} ✓
+            </span>
+        </div>
+        {% else %}
+        <div class="balance-footer unbalanced">
+            <i class="fas fa-exclamation-circle" style="font-size: 1.5rem; color: var(--danger-color);"></i>
+            <span style="font-weight: 600; color: var(--danger-color); font-size: 1.1rem;">
+                {% trans "تحذير: الميزانية غير متوازنة!" %}
+            </span>
+        </div>
+        {% endif %}
+    </div>
+
+    {% else %}
+    <div class="section-card">
+        <div class="empty-state">
+            <i class="fas fa-inbox d-block"></i>
+            <h5>{% trans "لا توجد بيانات" %}</h5>
+            <p>{% trans "لم يتم العثور على حسابات نشطة أو لا توجد قيود بعد." %}</p>
+            <a href="{% url 'accounting:chart_of_accounts' %}" class="btn btn-primary mt-2">
+                <i class="fas fa-sitemap me-1"></i> {% trans "إدارة شجرة الحسابات" %}
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Print/export handled by href links and window.print() */
+</script>
+{% endblock %}
+

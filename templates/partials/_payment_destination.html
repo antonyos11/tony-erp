@@ -1,0 +1,207 @@
+{# قالب موحد لوجهة الدفع/التحصيل - يستخدم في جميع نماذج الدفع #}
+{% load i18n %}
+
+<style>
+.destination-section {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 15px;
+    border: 1px solid #dee2e6;
+}
+.destination-section .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #0d6efd;
+}
+.destination-section .section-icon {
+    font-size: 1.5rem;
+    color: #0d6efd;
+}
+.destination-section .section-title {
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: #1e3a5f;
+}
+.destination-type-selector {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+.destination-type-option {
+    flex: 1;
+    min-width: 120px;
+    padding: 15px 10px;
+    border: 2px solid #dee2e6;
+    border-radius: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #fff;
+}
+.destination-type-option:hover {
+    border-color: #0d6efd;
+    background: #f0f7ff;
+}
+.destination-type-option.selected {
+    border-color: #0d6efd;
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+    color: #fff;
+}
+.destination-type-option i {
+    font-size: 1.8rem;
+    display: block;
+    margin-bottom: 8px;
+}
+.destination-type-option .label {
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+.destination-select-container {
+    margin-top: 15px;
+}
+.destination-select-container select {
+    font-size: 1rem;
+    padding: 12px 15px;
+    border-radius: 8px;
+    border: 2px solid #dee2e6;
+}
+.destination-select-container select:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+}
+</style>
+
+<div class="destination-section">
+    <div class="section-header">
+        <i class="bi bi-geo-alt-fill section-icon"></i>
+        <div class="section-title">{% trans 'وجهة الدفع/التحصيل' %}</div>
+    </div>
+    
+    <div class="destination-type-selector">
+        <label class="destination-type-option selected" onclick="selectDestinationType('treasury')">
+            <input type="radio" name="destination_type" value="treasury" checked hidden>
+            <i class="bi bi-safe"></i>
+            <div class="label">{% trans 'خزينة' %}</div>
+        </label>
+        <label class="destination-type-option" onclick="selectDestinationType('bank')">
+            <input type="radio" name="destination_type" value="bank" hidden>
+            <i class="bi bi-bank"></i>
+            <div class="label">{% trans 'بنك' %}</div>
+        </label>
+        <label class="destination-type-option" onclick="selectDestinationType('electronic')">
+            <input type="radio" name="destination_type" value="electronic" hidden>
+            <i class="bi bi-wallet2"></i>
+            <div class="label">{% trans 'حساب إلكتروني' %}</div>
+        </label>
+        <label class="destination-type-option" onclick="selectDestinationType('fawry')">
+            <input type="radio" name="destination_type" value="fawry" hidden>
+            <i class="bi bi-phone-fill"></i>
+            <div class="label">{% trans 'ماكينة فوري' %}</div>
+        </label>
+        <label class="destination-type-option" onclick="selectDestinationType('visa')">
+            <input type="radio" name="destination_type" value="visa" hidden>
+            <i class="bi bi-credit-card"></i>
+            <div class="label">{% trans 'ماكينة فيزا' %}</div>
+        </label>
+    </div>
+    
+    <div class="destination-select-container">
+        <!-- قائمة الخزائن -->
+        <select name="treasury" id="treasuryDestinationSelect" class="form-select">
+            <option value="">-- {% trans 'اختر الخزينة' %} --</option>
+            {% for t in payment_treasuries %}
+            <option value="{{ t.id }}">{{ t.name }} {% if t.code %}({{ t.code }}){% endif %}</option>
+            {% endfor %}
+        </select>
+        
+        <!-- قائمة البنوك -->
+        <select name="bank" id="bankDestinationSelect" class="form-select" style="display:none;">
+            <option value="">-- {% trans 'اختر البنك' %} --</option>
+            {% for b in payment_banks %}
+            <option value="{{ b.id }}">{{ b.name }} {% if b.account_number %}({{ b.account_number }}){% endif %}</option>
+            {% endfor %}
+        </select>
+        
+        <!-- قائمة الحسابات الإلكترونية -->
+        <select name="electronic_account" id="electronicDestinationSelect" class="form-select" style="display:none;">
+            <option value="">-- {% trans 'اختر الحساب الإلكتروني' %} --</option>
+            {% for e in payment_electronic_accounts %}
+            <option value="{{ e.id }}">{{ e.name }} ({{ e.get_account_type_display }}) {% if e.phone_number %}- {{ e.phone_number }}{% endif %}</option>
+            {% endfor %}
+        </select>
+        
+        <!-- قائمة ماكينات الفوري -->
+        <select name="fawry_machine" id="fawryDestinationSelect" class="form-select" style="display:none;">
+            <option value="">-- {% trans 'اختر ماكينة الفوري' %} --</option>
+            {% for f in payment_fawry_machines %}
+            <option value="{{ f.id }}">{{ f.name }} {% if f.code %}({{ f.code }}){% endif %} {% if f.machine_id %}- {{ f.machine_id }}{% endif %}</option>
+            {% endfor %}
+        </select>
+        
+        <!-- قائمة ماكينات الفيزا -->
+        <select name="visa_machine" id="visaDestinationSelect" class="form-select" style="display:none;">
+            <option value="">-- {% trans 'اختر ماكينة الفيزا' %} --</option>
+            {% for v in payment_visa_machines %}
+            <option value="{{ v.id }}">{{ v.name }} {% if v.code %}({{ v.code }}){% endif %} {% if v.terminal_id %}- {{ v.terminal_id }}{% endif %}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<script>
+function selectDestinationType(type) {
+    // إزالة التحديد من جميع الخيارات
+    document.querySelectorAll('.destination-type-option').forEach(el => {
+        el.classList.remove('selected');
+    });
+    
+    // تحديد الخيار المختار
+    const selected = document.querySelector(`.destination-type-option input[value="${type}"]`);
+    if (selected) {
+        selected.checked = true;
+        selected.closest('.destination-type-option').classList.add('selected');
+    }
+    
+    // إخفاء جميع القوائم
+    document.getElementById('treasuryDestinationSelect').style.display = 'none';
+    document.getElementById('bankDestinationSelect').style.display = 'none';
+    document.getElementById('electronicDestinationSelect').style.display = 'none';
+    document.getElementById('fawryDestinationSelect').style.display = 'none';
+    document.getElementById('visaDestinationSelect').style.display = 'none';
+    
+    // إزالة name من القوائم المخفية
+    document.getElementById('treasuryDestinationSelect').name = '';
+    document.getElementById('bankDestinationSelect').name = '';
+    document.getElementById('electronicDestinationSelect').name = '';
+    document.getElementById('fawryDestinationSelect').name = '';
+    document.getElementById('visaDestinationSelect').name = '';
+    
+    // إظهار القائمة المناسبة
+    if (type === 'treasury') {
+        document.getElementById('treasuryDestinationSelect').style.display = 'block';
+        document.getElementById('treasuryDestinationSelect').name = 'treasury';
+    } else if (type === 'bank') {
+        document.getElementById('bankDestinationSelect').style.display = 'block';
+        document.getElementById('bankDestinationSelect').name = 'bank';
+    } else if (type === 'electronic') {
+        document.getElementById('electronicDestinationSelect').style.display = 'block';
+        document.getElementById('electronicDestinationSelect').name = 'electronic_account';
+    } else if (type === 'fawry') {
+        document.getElementById('fawryDestinationSelect').style.display = 'block';
+        document.getElementById('fawryDestinationSelect').name = 'fawry_machine';
+    } else if (type === 'visa') {
+        document.getElementById('visaDestinationSelect').style.display = 'block';
+        document.getElementById('visaDestinationSelect').name = 'visa_machine';
+    }
+}
+
+// تفعيل الخيار الأول عند التحميل
+document.addEventListener('DOMContentLoaded', function() {
+    selectDestinationType('treasury');
+});
+</script>

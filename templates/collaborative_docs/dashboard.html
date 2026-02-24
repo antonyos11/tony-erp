@@ -1,0 +1,197 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}المستندات التعاونية - Tony ERP{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="fas fa-file-alt text-primary me-2"></i>المستندات</h2>
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="createDocument('document')">
+                        <i class="fas fa-file-word me-2"></i>مستند جديد
+                    </button>
+                    <button class="btn btn-success" onclick="createDocument('spreadsheet')">
+                        <i class="fas fa-file-excel me-2"></i>جدول بيانات
+                    </button>
+                    <button class="btn btn-warning" onclick="createDocument('presentation')">
+                        <i class="fas fa-file-powerpoint me-2"></i>عرض تقديمي
+                    </button>
+                    <button class="btn btn-info" onclick="createFolder()">
+                        <i class="fas fa-folder-plus me-2"></i>مجلد جديد
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- المستندات الأخيرة -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-clock text-info me-2"></i>المستندات الأخيرة</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent %}
+                    <div class="row">
+                        {% for doc in recent %}
+                        <div class="col-md-3 col-lg-2 mb-3">
+                            <a href="{% url 'collaborative_docs:edit' doc.uuid %}" class="text-decoration-none">
+                                <div class="card h-100 border-hover">
+                                    <div class="card-body text-center">
+                                        {% if doc.doc_type == 'document' %}
+                                        <i class="fas fa-file-word fa-3x text-primary mb-2"></i>
+                                        {% elif doc.doc_type == 'spreadsheet' %}
+                                        <i class="fas fa-file-excel fa-3x text-success mb-2"></i>
+                                        {% elif doc.doc_type == 'presentation' %}
+                                        <i class="fas fa-file-powerpoint fa-3x text-warning mb-2"></i>
+                                        {% else %}
+                                        <i class="fas fa-file fa-3x text-secondary mb-2"></i>
+                                        {% endif %}
+                                        <h6 class="card-title text-truncate">{{ doc.title }}</h6>
+                                        <small class="text-muted">{{ doc.updated_at|date:"m/d H:i" }}</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">لا توجد مستندات حتى الآن</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- المجلدات والمفضلة -->
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-folder text-warning me-2"></i>المجلدات</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for folder in folders %}
+                    <a href="#" class="list-group-item list-group-item-action" onclick="openFolder({{ folder.id }})">
+                        <i class="fas fa-folder text-warning me-2"></i>{{ folder.name }}
+                    </a>
+                    {% empty %}
+                    <div class="list-group-item text-center text-muted">
+                        لا توجد مجلدات
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-star text-warning me-2"></i>المفضلة</h5>
+                </div>
+                <div class="card-body">
+                    {% if starred %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>المستند</th>
+                                    <th>النوع</th>
+                                    <th>آخر تحديث</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for doc in starred %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'collaborative_docs:edit' doc.uuid %}">
+                                            {{ doc.title }}
+                                        </a>
+                                    </td>
+                                    <td>{{ doc.get_doc_type_display }}</td>
+                                    <td>{{ doc.updated_at|date:"Y/m/d" }}</td>
+                                    <td>
+                                        <a href="{% url 'collaborative_docs:edit' doc.uuid %}" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <p class="text-muted mb-0">لا توجد مستندات مفضلة</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.border-hover:hover {
+    border-color: #007bff !important;
+    box-shadow: 0 0 10px rgba(0,123,255,0.2);
+}
+</style>
+
+<script>
+function createDocument(type) {
+    fetch('{% url "collaborative_docs:create" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ doc_type: type })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = data.edit_url;
+        }
+    });
+}
+
+function createFolder() {
+    const name = prompt('اسم المجلد:');
+    if (name) {
+        fetch('{% url "collaborative_docs:create_folder" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ name })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+}
+
+function openFolder(id) {
+    // تحميل محتويات المجلد
+    fetch(`/docs/folder/${id}/`)
+    .then(response => response.json())
+    .then(data => {
+        console.log(data);
+        // يمكن عرض المحتويات في modal أو صفحة جديدة
+    });
+}
+</script>
+{% endblock %}

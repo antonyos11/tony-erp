@@ -1,0 +1,346 @@
+{
+  "name": "Unified Social AI - WhatsApp + Facebook + Instagram",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "social-ai-webhook",
+        "responseMode": "lastNode"
+      },
+      "id": "webhook_receiver",
+      "name": "Receive Message",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "social-ai-webhook"
+    },
+    {
+      "parameters": {
+        "functionCode": "// استخراج البيانات من الـ webhook\nconst data = items[0].json;\n\nconst platform = data.platform || 'whatsapp';\nconst conversationId = data.conversation_id;\nconst senderId = data.sender_id;\nconst senderName = data.sender_name || 'عميل';\nconst messageContent = data.content;\nconst messageType = data.message_type || 'text';\nconst timestamp = data.timestamp;\n\n// إعداد البيانات للمعالجة\nreturn [{\n  json: {\n    platform,\n    conversationId,\n    senderId,\n    senderName,\n    messageContent,\n    messageType,\n    timestamp,\n    rawData: data\n  }\n}];"
+      },
+      "id": "parse_message",
+      "name": "Parse Message",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.ERP_BASE_URL}}/api/whatsapp-ai/ai/context/{{$json.platform}}/",
+        "options": {}
+      },
+      "id": "get_products",
+      "name": "Get Products & AI Context",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.ERP_BASE_URL}}/api/crm/customers/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "options": {
+          "qs": {
+            "search": "={{$json.senderId}}"
+          }
+        }
+      },
+      "id": "check_customer",
+      "name": "Check Existing Customer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "// تحضير السياق للـ AI\nconst message = items[0].json;\nconst products = items[1]?.json?.products || [];\nconst systemPrompt = items[1]?.json?.system_prompt || 'أنت مساعد مبيعات ذكي';\nconst existingCustomer = items[2]?.json?.results?.[0] || null;\n\n// بناء قائمة المنتجات للـ AI\nlet productsContext = products.slice(0, 20).map(p => \n  `- ${p.product_name}: ${p.description || ''} - السعر: ${p.price || 'اتصل للسعر'}`\n).join('\\n');\n\nlet customerContext = '';\nif (existingCustomer) {\n  customerContext = `\\n\\nمعلومات العميل:\\n- الاسم: ${existingCustomer.name}\\n- عميل سابق: نعم`;\n} else {\n  customerContext = '\\n\\nهذا عميل جديد.';\n}\n\nconst fullContext = `${systemPrompt}\\n\\nالمنتجات المتاحة:\\n${productsContext}${customerContext}\\n\\nمنصة التواصل: ${message.platform}`;\n\nreturn [{\n  json: {\n    ...message,\n    systemPrompt: fullContext,\n    products,\n    existingCustomer,\n    productsCount: products.length\n  }\n}];"
+      },
+      "id": "prepare_context",
+      "name": "Prepare AI Context",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "gpt-4",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "={{$json.systemPrompt}}"
+            },
+            {
+              "role": "user", 
+              "content": "={{$json.messageContent}}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 500
+        }
+      },
+      "id": "openai_chat",
+      "name": "OpenAI Chat",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [1050, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai_credentials",
+          "name": "OpenAI Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "gpt-4",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "أنت محلل ذكي. حلل الرسالة التالية واستخرج:\n1. intent: نية العميل (inquiry, purchase, complaint, greeting, other)\n2. products: قائمة المنتجات المذكورة\n3. sentiment: المشاعر (positive, neutral, negative)\n4. conversion_score: احتمالية الشراء من 0 إلى 1\n\nأجب بـ JSON فقط."
+            },
+            {
+              "role": "user",
+              "content": "={{$json.messageContent}}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.3,
+          "responseFormat": "json_object"
+        }
+      },
+      "id": "analyze_intent",
+      "name": "Analyze Intent",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [1050, 500],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai_credentials",
+          "name": "OpenAI Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// جمع كل النتائج\nconst context = items[0].json;\nconst aiResponse = items[1]?.json?.message?.content || items[1]?.json?.text || 'عذراً، حدث خطأ. سأحاول مرة أخرى.';\nlet analysis = {};\n\ntry {\n  const analysisText = items[2]?.json?.message?.content || items[2]?.json?.text || '{}';\n  analysis = JSON.parse(analysisText);\n} catch (e) {\n  analysis = {\n    intent: 'other',\n    products: [],\n    sentiment: 'neutral',\n    conversion_score: 0.3\n  };\n}\n\nreturn [{\n  json: {\n    conversation_id: context.conversationId,\n    platform: context.platform,\n    sender_id: context.senderId,\n    sender_name: context.senderName,\n    original_message: context.messageContent,\n    ai_response: aiResponse,\n    intent: analysis.intent || 'other',\n    products: analysis.products || [],\n    sentiment: analysis.sentiment || 'neutral',\n    conversion_score: analysis.conversion_score || 0.3,\n    send_reply: true\n  }\n}];"
+      },
+      "id": "combine_results",
+      "name": "Combine Results",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1250, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ERP_BASE_URL}}/api/whatsapp-ai/callback/social/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "conversation_id",
+              "value": "={{$json.conversation_id}}"
+            },
+            {
+              "name": "platform",
+              "value": "={{$json.platform}}"
+            },
+            {
+              "name": "ai_response",
+              "value": "={{$json.ai_response}}"
+            },
+            {
+              "name": "intent",
+              "value": "={{$json.intent}}"
+            },
+            {
+              "name": "products",
+              "value": "={{$json.products}}"
+            },
+            {
+              "name": "sentiment",
+              "value": "={{$json.sentiment}}"
+            },
+            {
+              "name": "conversion_score",
+              "value": "={{$json.conversion_score}}"
+            },
+            {
+              "name": "send_reply",
+              "value": "={{$json.send_reply}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "callback_erp",
+      "name": "Callback to ERP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1450, 400],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "erp_credentials",
+          "name": "ERP API Credentials"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// إعداد الرد النهائي\nconst result = items[0].json;\n\nreturn [{\n  json: {\n    success: true,\n    platform: result.platform,\n    message: 'تم معالجة الرسالة بنجاح',\n    ai_response: result.ai_response,\n    intent: result.intent,\n    sentiment: result.sentiment\n  }\n}];"
+      },
+      "id": "final_response",
+      "name": "Prepare Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1650, 400]
+    }
+  ],
+  "connections": {
+    "Receive Message": {
+      "main": [
+        [
+          {
+            "node": "Parse Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Message": {
+      "main": [
+        [
+          {
+            "node": "Get Products & AI Context",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check Existing Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Products & AI Context": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Existing Customer": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Context": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Chat",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Analyze Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat": {
+      "main": [
+        [
+          {
+            "node": "Combine Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Intent": {
+      "main": [
+        [
+          {
+            "node": "Combine Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Results": {
+      "main": [
+        [
+          {
+            "node": "Callback to ERP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback to ERP": {
+      "main": [
+        [
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "Social Media",
+      "createdAt": "2026-01-15T00:00:00.000Z"
+    },
+    {
+      "name": "AI",
+      "createdAt": "2026-01-15T00:00:00.000Z"
+    },
+    {
+      "name": "WhatsApp",
+      "createdAt": "2026-01-15T00:00:00.000Z"
+    },
+    {
+      "name": "Facebook",
+      "createdAt": "2026-01-15T00:00:00.000Z"
+    },
+    {
+      "name": "Instagram",
+      "createdAt": "2026-01-15T00:00:00.000Z"
+    }
+  ]
+}

@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "موافقة على السلفة" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h3 mb-0">
+                <i class="bi bi-check-circle me-2"></i>{% trans "موافقة على السلفة" %}
+            </h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8 offset-lg-2">
+            <!-- Loan Summary -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">{% trans "ملخص السلفة" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive"><table class="table table-borderless mb-0">
+                        <tr>
+                            <td class="text-muted">{% trans "رقم السلفة" %}:</td>
+                            <td><strong>{{ loan.loan_number }}</strong></td>
+                            <td class="text-muted">{% trans "الموظف" %}:</td>
+                            <td><strong>{{ loan.employee.arabic_name }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">{% trans "المبلغ" %}:</td>
+                            <td><strong>{{ loan.amount|floatformat:2 }} ر.ع</strong></td>
+                            <td class="text-muted">{% trans "الأقساط" %}:</td>
+                            <td>{{ loan.installments_count }} شهر</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">{% trans "القسط الشهري" %}:</td>
+                            <td><strong>{{ loan.monthly_installment|floatformat:2 }} ر.ع</strong></td>
+                            <td class="text-muted">{% trans "السبب" %}:</td>
+                            <td>{{ loan.reason }}</td>
+                        </tr>
+                        {% if loan.is_emergency %}
+                        <tr>
+                            <td class="text-muted">{% trans "نوع السلفة" %}:</td>
+                            <td colspan="3">
+                                <span class="badge bg-danger">
+                                    <i class="bi bi-exclamation-triangle me-1"></i>{% trans "سلفة طارئة" %}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </table></div>
+                </div>
+            </div>
+
+            <!-- Approval Form -->
+            <form method="post" class="card border-0 shadow-sm">
+                {% csrf_token %}
+                
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">{% trans "القرار" %}</h5>
+                </div>
+                
+                <div class="card-body">
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                            <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-4">
+                        <label class="form-group-label mb-3">{{ form.decision.label }}</label>
+                        <div class="form-check">
+                            {% for value, label in form.decision.field.choices %}
+                            <div class="mb-3 p-3 border rounded-2" style="cursor: pointer;">
+                                <input type="radio" name="decision" value="{{ value }}" 
+                                       id="decision_{{ value }}" class="form-check-input"
+                                       {% if form.decision.value == value|stringformat:"s" %}checked{% endif %}>
+                                <label for="decision_{{ value }}" class="form-check-label" style="cursor: pointer;">
+                                    {% if value == "approve" %}
+                                        <strong class="text-success">
+                                            <i class="bi bi-check-circle me-2"></i>{% trans "الموافقة" %}
+                                        </strong>
+                                        <small class="d-block text-muted mt-1">
+                                            {% trans "الموافقة على السلفة وبدء معالجة الأقساط" %}
+                                        </small>
+                                    {% else %}
+                                        <strong class="text-danger">
+                                            <i class="bi bi-x-circle me-2"></i>{% trans "الرفض" %}
+                                        </strong>
+                                        <small class="d-block text-muted mt-1">
+                                            {% trans "رفض طلب السلفة" %}
+                                        </small>
+                                    {% endif %}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% if form.decision.errors %}
+                            <div class="alert alert-danger mt-2">{{ form.decision.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div id="rejection_reason_field" style="display: none;" class="mb-4">
+                        <label class="form-group-label">{{ form.rejection_reason.label }}</label>
+                        {% if form.rejection_reason.errors %}
+                            <div class="alert alert-danger">{{ form.rejection_reason.errors }}</div>
+                        {% endif %}
+                        {{ form.rejection_reason }}
+                        <small class="form-text text-muted d-block mt-2">
+                            {% trans "يرجى توضيح سبب الرفض" %}
+                        </small>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-group-label">{{ form.notes.label }}</label>
+                        {% if form.notes.errors %}
+                            <div class="alert alert-danger">{{ form.notes.errors }}</div>
+                        {% endif %}
+                        {{ form.notes }}
+                        <small class="form-text text-muted d-block mt-2">
+                            {% trans "ملاحظات إضافية (اختياري)" %}
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Buttons -->
+                <div class="card-body border-top">
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-2"></i>{% trans "حفظ القرار" %}
+                        </button>
+                        <a href="{% url 'hr:loan_detail' loan.pk %}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle me-2"></i>{% trans "إلغاء" %}
+                        </a>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Info Box -->
+            <div class="card border-0 shadow-sm mt-4 bg-light">
+                <div class="card-body">
+                    <h6 class="mb-3">
+                        <i class="bi bi-info-circle me-2"></i>{% trans "ملاحظات مهمة" %}
+                    </h6>
+                    <ul class="list-unstyled small">
+                        <li class="mb-2">
+                            <i class="bi bi-arrow-right me-2 text-primary"></i>
+                            {% trans "عند الموافقة، سيبدأ خصم الأقساط من راتب الموظف" %}
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-arrow-right me-2 text-primary"></i>
+                            {% trans "سيتم إنشاء أقساط شهرية تلقائياً" %}
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-arrow-right me-2 text-primary"></i>
+                            {% trans "يمكن للموظف تأجيل الأقساط عند الحاجة" %}
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-arrow-right me-2 text-primary"></i>
+                            {% trans "سيظهر الخصم في كشف الراتب الشهري" %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const decisionRadios = document.querySelectorAll('input[name="decision"]');
+    const rejectionReasonField = document.getElementById('rejection_reason_field');
+
+    function updateDisplay() {
+        const selectedDecision = document.querySelector('input[name="decision"]:checked')?.value;
+        if (selectedDecision === 'reject') {
+            rejectionReasonField.style.display = 'block';
+        } else {
+            rejectionReasonField.style.display = 'none';
+        }
+    }
+
+    decisionRadios.forEach(radio => {
+        radio.addEventListener('change', updateDisplay);
+    });
+
+    updateDisplay();
+});
+</script>
+{% endblock %}

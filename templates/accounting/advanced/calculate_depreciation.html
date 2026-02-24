@@ -1,0 +1,319 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}حساب الإهلاك - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .calculation-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+    }
+    .step-indicator {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 2rem;
+        position: relative;
+    }
+    .step {
+        flex: 1;
+        text-align: center;
+        position: relative;
+        z-index: 1;
+    }
+    .step-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #e9ecef;
+        color: #6c757d;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+    .step.active .step-circle {
+        background: #007bff;
+        color: white;
+    }
+    .step.completed .step-circle {
+        background: #28a745;
+        color: white;
+    }
+    .preview-card {
+        border: 2px solid #007bff;
+        border-radius: 10px;
+    }
+    .result-row {
+        padding: 1rem;
+        border-bottom: 1px solid #dee2e6;
+        transition: background 0.3s;
+    }
+    .result-row:hover {
+        background: #f8f9fa;
+    }
+    .success-animation {
+        animation: fadeInUp 0.5s;
+    }
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="calculation-header text-center">
+        <h1 class="mb-2">
+            <i class="fas fa-calculator fa-2x"></i>
+        </h1>
+        <h2>حساب إهلاك الأصول الثابتة</h2>
+        <p class="mb-0 opacity-75">حساب وإنشاء قيود الإهلاك الدورية للأصول</p>
+    </div>
+
+    <!-- Step Indicator -->
+    <div class="step-indicator">
+        <div class="step active">
+            <div class="step-circle">1</div>
+            <p class="small mb-0">اختيار الفترة</p>
+        </div>
+        <div class="step">
+            <div class="step-circle">2</div>
+            <p class="small mb-0">معاينة الأصول</p>
+        </div>
+        <div class="step">
+            <div class="step-circle">3</div>
+            <p class="small mb-0">تأكيد وإنشاء</p>
+        </div>
+    </div>
+
+    <!-- Main Form -->
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-lg">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar"></i>
+                        تحديد فترة الإهلاك
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post" id="depreciationForm">
+                        {% csrf_token %}
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label">
+                                    <i class="fas fa-calendar-day"></i>
+                                    من تاريخ
+                                </label>
+                                <input type="date" name="start_date" class="form-control form-control-lg" 
+                                       value="{{ request.POST.start_date|default:'' }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">
+                                    <i class="fas fa-calendar-check"></i>
+                                    إلى تاريخ
+                                </label>
+                                <input type="date" name="end_date" class="form-control form-control-lg" 
+                                       value="{{ request.POST.end_date|default:'' }}" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class="fas fa-filter"></i>
+                                تصفية الأصول
+                            </label>
+                            <select name="asset_filter" class="form-select form-select-lg">
+                                <option value="all">جميع الأصول النشطة</option>
+                                <option value="active_only">النشطة فقط</option>
+                                <option value="not_fully_depreciated">غير المهلكة بالكامل</option>
+                            </select>
+                        </div>
+
+                        <div class="form-check mb-4">
+                            <input class="form-check-input" type="checkbox" name="create_journal_entries" 
+                                   id="createEntries" checked>
+                            <label class="form-check-label" for="createEntries">
+                                <strong>إنشاء قيود محاسبية تلقائياً</strong>
+                                <br>
+                                <small class="text-muted">سيتم إنشاء قيود يومية لكل عملية إهلاك</small>
+                            </label>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>ملاحظة:</strong>
+                            سيتم حساب الإهلاك لجميع الأصول في الفترة المحددة حسب طريقة الإهلاك المعينة لكل أصل
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" name="preview" class="btn btn-primary btn-lg">
+                                <i class="fas fa-eye"></i>
+                                معاينة الحسابات
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Results -->
+    {% if preview_data %}
+    <div class="row justify-content-center mt-4 success-animation">
+        <div class="col-lg-10">
+            <div class="card preview-card border-0 shadow-lg">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-check-circle"></i>
+                        معاينة نتائج الحساب
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Summary -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <h4 class="text-primary mb-0">{{ preview_data.total_assets }}</h4>
+                                <small class="text-muted">عدد الأصول</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <h4 class="text-warning mb-0">{{ preview_data.total_depreciation|floatformat:0 }}</h4>
+                                <small class="text-muted">إجمالي الإهلاك</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <h4 class="text-info mb-0">{{ preview_data.period_days }}</h4>
+                                <small class="text-muted">عدد الأيام</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <h4 class="text-success mb-0">{{ preview_data.entries_count }}</h4>
+                                <small class="text-muted">عدد القيود</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Assets List -->
+                    <h6 class="mb-3">تفاصيل الأصول:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>الأصل</th>
+                                    <th>القيمة الدفترية</th>
+                                    <th>الإهلاك المحسوب</th>
+                                    <th>القيمة بعد الإهلاك</th>
+                                    <th>الطريقة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in preview_data.assets %}
+                                <tr class="result-row">
+                                    <td>
+                                        <strong>{{ item.name }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ item.code }}</small>
+                                    </td>
+                                    <td>{{ item.book_value|floatformat:2 }}</td>
+                                    <td class="text-warning">
+                                        <strong>{{ item.depreciation_amount|floatformat:2 }}</strong>
+                                    </td>
+                                    <td class="text-success">{{ item.new_book_value|floatformat:2 }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ item.method }}</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Confirm Form -->
+                    <form method="post" class="mt-4">
+                        {% csrf_token %}
+                        <input type="hidden" name="start_date" value="{{ request.POST.start_date }}">
+                        <input type="hidden" name="end_date" value="{{ request.POST.end_date }}">
+                        <input type="hidden" name="asset_filter" value="{{ request.POST.asset_filter }}">
+                        <input type="hidden" name="create_journal_entries" 
+                               value="{{ request.POST.create_journal_entries }}">
+                        
+                        <div class="d-flex gap-2 justify-content-center">
+                            <button type="submit" name="confirm" class="btn btn-success btn-lg px-5">
+                                <i class="fas fa-check"></i>
+                                تأكيد وإنشاء القيود
+                            </button>
+                            <a href="{% url 'accounting:calculate_depreciation' %}" 
+                               class="btn btn-secondary btn-lg px-5">
+                                <i class="fas fa-times"></i>
+                                إلغاء
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Success Message -->
+    {% if success %}
+    <div class="row justify-content-center mt-4 success-animation">
+        <div class="col-lg-8">
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <h5 class="alert-heading">
+                    <i class="fas fa-check-circle"></i>
+                    تمت العملية بنجاح!
+                </h5>
+                <p class="mb-0">تم إنشاء {{ created_count }} قيد إهلاك بنجاح</p>
+                <hr>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'accounting:assets_list' %}" class="btn btn-sm btn-success">
+                        <i class="fas fa-building"></i> عرض الأصول
+                    </a>
+                    <a href="{% url 'accounting:calculate_depreciation' %}" class="btn btn-sm btn-outline-success">
+                        <i class="fas fa-redo"></i> حساب جديد
+                    </a>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Update step indicator based on form state
+    {% if preview_data %}
+    $('.step').eq(0).addClass('completed');
+    $('.step').eq(1).addClass('active');
+    {% endif %}
+    
+    {% if success %}
+    $('.step').addClass('completed');
+    {% endif %}
+});
+</script>
+{% endblock %}

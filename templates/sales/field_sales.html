@@ -1,0 +1,317 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'المبيعات الخارجية' %}{% endblock %}
+
+{% block content %}
+<style>
+  .field-hero {
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+    margin-bottom: 2rem;
+  }
+  .field-hero h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  .map-container {
+    height: 400px;
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    margin-bottom: 2rem;
+    position: relative;
+  }
+  .map-overlay {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(255,255,255,0.95);
+    padding: 1rem;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    z-index: 1000;
+  }
+  .rep-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    transition: var(--transition);
+    border-right: 4px solid var(--success);
+  }
+  .rep-card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+  .rep-card .rep-avatar {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+  .rep-card .status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    position: absolute;
+    bottom: 2px;
+    left: 2px;
+    border: 2px solid white;
+  }
+  .rep-card .status-dot.online { background: #10b981; }
+  .rep-card .status-dot.offline { background: #6b7280; }
+  .rep-card .status-dot.busy { background: #f59e0b; }
+  .rep-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+  }
+  .rep-stats .stat {
+    text-align: center;
+  }
+  .rep-stats .stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .rep-stats .stat-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+  .visit-timeline {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+  }
+  .visit-item {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .visit-item:last-child {
+    border-bottom: none;
+  }
+  .visit-time {
+    min-width: 60px;
+    text-align: center;
+    font-weight: 600;
+    color: var(--primary);
+  }
+  .visit-dot {
+    width: 12px;
+    height: 12px;
+    background: var(--success);
+    border-radius: 50%;
+    margin-top: 0.25rem;
+    flex-shrink: 0;
+  }
+  .visit-dot.pending { background: var(--warning); }
+  .visit-dot.missed { background: var(--danger); }
+  .quick-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .quick-action {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: var(--transition);
+    border: 2px solid transparent;
+  }
+  .quick-action:hover {
+    border-color: var(--success);
+    transform: translateY(-3px);
+  }
+  .quick-action i {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    color: var(--success);
+  }
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .kpi-box {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    text-align: center;
+    border-top: 3px solid var(--success);
+  }
+  .kpi-box .value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .kpi-box .label {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+  }
+</style>
+
+<!-- Hero -->
+<div class="field-hero">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div>
+      <h1><i class="bi bi-geo-alt me-2"></i>{% trans 'المبيعات الخارجية' %}</h1>
+      <p class="mb-0 opacity-75">{% trans 'متابعة مندوبي المبيعات والزيارات الميدانية' %}</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'sales:field_visit_create' %}" class="btn btn-light">
+        <i class="bi bi-plus-circle me-1"></i>{% trans 'زيارة جديدة' %}
+      </a>
+      <a href="{% url 'sales:location_tracking' %}" class="btn btn-outline-light">
+        <i class="bi bi-broadcast me-1"></i>{% trans 'التتبع المباشر' %}
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-row">
+  <div class="kpi-box">
+    <div class="value">{{ stats.active_reps }}</div>
+    <div class="label">{% trans 'مندوب نشط' %}</div>
+  </div>
+  <div class="kpi-box">
+    <div class="value">{{ stats.visits_today }}</div>
+    <div class="label">{% trans 'زيارة اليوم' %}</div>
+  </div>
+  <div class="kpi-box">
+    <div class="value">{{ stats.orders_today }}</div>
+    <div class="label">{% trans 'طلب اليوم' %}</div>
+  </div>
+  <div class="kpi-box">
+    <div class="value">{{ stats.total_sales|floatformat:0 }}</div>
+    <div class="label">{% trans 'مبيعات اليوم' %}</div>
+  </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="quick-actions">
+  <a href="{% url 'sales:field_visit_create' %}" class="quick-action text-decoration-none">
+    <i class="bi bi-geo-alt-fill"></i>
+    <div class="fw-medium">{% trans 'تسجيل زيارة' %}</div>
+  </a>
+  <a href="{% url 'sales:invoice_create' %}" class="quick-action text-decoration-none">
+    <i class="bi bi-receipt"></i>
+    <div class="fw-medium">{% trans 'فاتورة سريعة' %}</div>
+  </a>
+  <a href="{% url 'sales:receipt_create' %}" class="quick-action text-decoration-none">
+    <i class="bi bi-cash-coin"></i>
+    <div class="fw-medium">{% trans 'تحصيل' %}</div>
+  </a>
+  <a href="{% url 'sales:reporting_analytics' %}" class="quick-action text-decoration-none">
+    <i class="bi bi-graph-up"></i>
+    <div class="fw-medium">{% trans 'تقارير' %}</div>
+  </a>
+</div>
+
+<div class="row g-4">
+  <!-- Map -->
+  <div class="col-lg-8">
+    <div class="map-container">
+      <div class="map-overlay">
+        <h6 class="mb-2">{% trans 'المندوبين النشطين' %}</h6>
+        <div class="d-flex gap-3">
+          <span class="badge bg-success">{{ stats.online_count }} {% trans 'متصل' %}</span>
+          <span class="badge bg-warning">{{ stats.busy_count }} {% trans 'في زيارة' %}</span>
+        </div>
+      </div>
+      <div id="map" style="height: 100%; background: #e5e7eb; display: flex; align-items: center; justify-content: center;">
+        <div class="text-muted text-center">
+          <i class="bi bi-map fs-1 d-block mb-2"></i>
+          {% trans 'خريطة التتبع المباشر' %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Today's Visits Timeline -->
+    <div class="visit-timeline">
+      <h5 class="mb-3"><i class="bi bi-clock-history me-2"></i>{% trans 'زيارات اليوم' %}</h5>
+      {% for visit in today_visits %}
+      <div class="visit-item">
+        <div class="visit-time">{{ visit.time|time:"H:i" }}</div>
+        <div class="visit-dot {% if visit.status == 'pending' %}pending{% elif visit.status == 'missed' %}missed{% endif %}"></div>
+        <div class="flex-grow-1">
+          <div class="fw-medium">{{ visit.customer.name }}</div>
+          <div class="small text-muted">{{ visit.rep.get_full_name }} - {{ visit.address }}</div>
+        </div>
+        <span class="badge {% if visit.status == 'completed' %}bg-success{% elif visit.status == 'pending' %}bg-warning{% else %}bg-danger{% endif %}">
+          {{ visit.get_status_display }}
+        </span>
+      </div>
+      {% empty %}
+      <div class="text-center text-muted py-4">{% trans 'لا توجد زيارات مجدولة لليوم' %}</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Representatives -->
+  <div class="col-lg-4">
+    <h5 class="mb-3"><i class="bi bi-people me-2"></i>{% trans 'المندوبين' %}</h5>
+    {% for rep in representatives %}
+    <div class="rep-card">
+      <div class="d-flex gap-3 align-items-center">
+        <div class="position-relative">
+          <div class="rep-avatar">{{ rep.initials }}</div>
+          <span class="status-dot { rep.status }"></span>
+        </div>
+        <div class="flex-grow-1">
+          <div class="fw-bold">{{ rep.get_full_name }}</div>
+          <div class="small text-muted">
+            <i class="bi bi-geo-alt me-1"></i>{{ rep.current_location|default:'غير متصل' }}
+          </div>
+        </div>
+        <a href="{% url 'sales:rep_details' rep.pk %}" class="btn btn-sm btn-outline-primary">
+          <i class="bi bi-eye"></i>
+        </a>
+      </div>
+      <div class="rep-stats">
+        <div class="stat">
+          <div class="stat-value">{{ rep.visits_today }}</div>
+          <div class="stat-label">{% trans 'زيارات' %}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">{{ rep.orders_today }}</div>
+          <div class="stat-label">{% trans 'طلبات' %}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">{{ rep.sales_today|floatformat:0 }}</div>
+          <div class="stat-label">{% trans 'مبيعات' %}</div>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="text-center text-muted py-4">{% trans 'لا يوجد مندوبين مسجلين' %}</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+

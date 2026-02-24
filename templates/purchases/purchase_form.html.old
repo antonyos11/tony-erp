@@ -1,0 +1,278 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load currency_tags %}
+{% block title %}إنشاء فاتورة مشتريات جديدة - المحاسب الشامل{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+          <h4 class="mb-0">إنشاء فاتورة مشتريات جديدة</h4>
+          <a href="{% url 'purchases:purchase_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> العودة للقائمة
+          </a>
+        </div>
+      </div>
+      <div class="card-body">
+        <form method="POST">
+          {% csrf_token %}
+          
+          <!-- Purchase Bill Header -->
+          <div class="row mb-4">
+            <div class="col-md-8">
+              <div class="mb-3">
+                <label for="supplier" class="form-label">المورد *</label>
+                <select class="form-select" id="supplier" name="supplier" required>
+                  <option value="">اختر المورد...</option>
+                  {% for supplier in suppliers %}
+                  <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                  {% endfor %}
+                </select>
+                <div class="form-text">
+                  <a href="{% url 'partners:supplier_create' %}?next={% url 'purchases:purchase_create' %}" class="text-primary" target="_blank" rel="noopener">إضافة مورد جديد</a>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="mb-3">
+                <label for="discount" class="form-label">الخصم ({% currency_symbol %})</label>
+                <input type="number" step="0.01" class="form-control" id="discount" name="discount" value="0">
+              </div>
+            </div>
+          </div>
+          
+          <!-- Action Buttons -->
+          <div class="d-flex justify-content-between">
+            <button type="submit" class="btn btn-success">
+              <i class="bi bi-check-lg"></i> إنشاء فاتورة الشراء
+            </button>
+            <a href="{% url 'purchases:purchase_list' %}" class="btn btn-outline-secondary">إلغاء</a>
+          </div>
+        </form>
+      </div>
+    </div>
+    
+    <!-- Instructions Card -->
+    <div class="card mt-3">
+      <div class="card-body">
+        <h6 class="card-title">تعليمات:</h6>
+        <ul class="mb-0">
+          <li>سيتم إنشاء رقم فاتورة تلقائياً</li>
+          <li>بعد إنشاء الفاتورة، يمكنك إضافة المنتجات إليها</li>
+          <li>سيتم تحديث المخزون تلقائياً عند إضافة المنتجات</li>
+          <li>تأكد من اختيار المورد الصحيح قبل الحفظ</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if messages %}
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1050">
+  {% for message in messages %}
+  <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // إن عاد المستخدم من تبويب "إضافة مورد جديد"، نحدث الصفحة إن لم يُحدد مورد
+  (function(){
+    var sel = document.getElementById('supplier');
+    window.addEventListener('focus', function(){
+      if (sel && !sel.value) {
+        // جرب إعادة التحميل مرة واحدة لتحديث القائمة (المورد الجديد سيظهر)
+        if (!window.__supplierRefreshed) {
+          window.__supplierRefreshed = true;
+          location.reload();
+        }
+      }
+    });
+  })();
+  // إنشاء مورد جديد مباشرة داخل الصفحة عبر AJAX
+  (function(){
+    // نبقي الرابط الحالي كما هو، ونوفر أيضاً مودال سريع
+    const supplierSelect = document.getElementById('supplier');
+    // أنشئ عناصر المودال ديناميكياً إن لم تكن موجودة
+    if (!document.getElementById('addSupplierModal')) {
+      const modalHtml = `
+<div class="modal fade" id="addSupplierModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title"><i class="bi bi-person-plus text-primary"></i> إضافة مورد جديد</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="quickSupplierForm" onsubmit="return false;">
+          <div class="mb-2">
+            <label class="form-label small">الاسم *</label>
+            <input type="text" name="name" class="form-control form-control-sm" required>
+          </div>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label small">الهاتف</label>
+              <input type="text" name="phone" class="form-control form-control-sm">
+            </div>
+            <div class="col-6">
+              <label class="form-label small">البريد</label>
+              <input type="email" name="email" class="form-control form-control-sm">
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">العنوان</label>
+            <input type="text" name="address" class="form-control form-control-sm">
+          </div>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label small">نوع التوريد</label>
+              <select name="supply_type" class="form-select form-select-sm">
+                <option value="">-- اختر --</option>
+                <option value="raw_materials">خامات</option>
+                <option value="packaging">مواد تعبئة</option>
+                <option value="services">خدمات</option>
+                <option value="spare_parts">قطع غيار</option>
+                <option value="other">أخرى</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label small">المادة الخام / الصنف</label>
+              <input type="text" name="raw_material" class="form-control form-control-sm">
+            </div>
+          </div>
+          <div id="quickSupplierResult" class="small mt-2" hidden></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">إغلاق</button>
+        <button type="button" id="quickSupplierSave" class="btn btn-primary btn-sm"><i class="bi bi-save"></i> حفظ</button>
+      </div>
+    </div>
+  </div>
+</div>`;
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = modalHtml;
+      document.body.appendChild(wrapper.firstElementChild);
+    }
+
+    // زر فتح المودال: أضفه بجانب الرابط الحالي
+    const linkContainer = document.querySelector('#supplier').closest('.mb-3').querySelector('.form-text');
+    if (linkContainer && !document.getElementById('openSupplierModalBtn')) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.id = 'openSupplierModalBtn';
+      btn.className = 'btn btn-link p-0 ms-2';
+      btn.textContent = 'إضافة مورد جديد (سريع)';
+      btn.addEventListener('click', function(){
+        const el = document.getElementById('addSupplierModal');
+        const modal = new bootstrap.Modal(el);
+        modal.show();
+      });
+      // فاصل بسيط
+      const sep = document.createElement('span');
+      sep.className = 'text-muted ms-1';
+      sep.textContent = '|';
+      linkContainer.appendChild(sep);
+      linkContainer.appendChild(btn);
+    }
+
+    function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          if (cookie.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    }
+    function getCsrf() {
+      const el = document.querySelector('input[name="csrfmiddlewaretoken"]');
+      if (el && el.value) return el.value;
+      return getCookie('csrftoken');
+    }
+
+    function setStatus(msg, cls) {
+      const box = document.getElementById('quickSupplierResult');
+      if (!box) return;
+      box.className = 'small mt-2 alert ' + (cls||'alert-info');
+      box.textContent = msg;
+      box.hidden = false;
+    }
+    function clearStatus(){ const b = document.getElementById('quickSupplierResult'); if (b){ b.hidden = true; b.textContent=''; b.className='small mt-2'; } }
+
+    document.addEventListener('click', function(e){
+      if (e.target && e.target.id === 'quickSupplierSave') {
+        const form = document.getElementById('quickSupplierForm');
+        if (!form) return;
+        clearStatus();
+        const name = form.querySelector('[name="name"]').value.trim();
+        const phone = form.querySelector('[name="phone"]').value.trim();
+        const email = form.querySelector('[name="email"]').value.trim();
+        const address = form.querySelector('[name="address"]').value.trim();
+        const supply_type = form.querySelector('[name="supply_type"]').value;
+        const raw_material = form.querySelector('[name="raw_material"]').value.trim();
+        if (!name) { setStatus('الاسم مطلوب', 'alert-warning'); return; }
+        const btn = e.target; btn.disabled = true;
+        fetch('{% url "partners:supplier_create" %}', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': getCsrf()
+          },
+          body: new URLSearchParams({
+            'partner_type':'supplier',
+            'name': name,
+            'phone': phone,
+            'email': email,
+            'address': address,
+            'supply_type': supply_type,
+            'raw_material': raw_material
+          })
+        }).then(r => r.json().catch(()=>({success:false,message:'تعذّر قراءة الخادم'})))
+          .then(data => {
+            if (data && data.success) {
+              if (supplierSelect) {
+                const opt = document.createElement('option');
+                opt.value = data.id;
+                opt.textContent = data.name;
+                supplierSelect.appendChild(opt);
+                supplierSelect.value = String(data.id);
+              }
+              setStatus('تم إنشاء المورد بنجاح', 'alert-success');
+              setTimeout(()=>{
+                const el = document.getElementById('addSupplierModal');
+                const modal = bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el);
+                modal.hide();
+                clearStatus();
+                form.reset();
+              }, 500);
+            } else {
+              const msg = (data && data.message) ? data.message : 'فشل إنشاء المورد';
+              const dup = (data && data.duplicate);
+              setStatus(dup ? 'اسم أو هاتف مكرر' : msg, 'alert-danger');
+            }
+          }).catch(()=>{
+            setStatus('حدث خطأ في الاتصال بالخادم', 'alert-danger');
+          }).finally(()=>{ btn.disabled = false; });
+      }
+    });
+  })();
+</script>
+{% endblock %}

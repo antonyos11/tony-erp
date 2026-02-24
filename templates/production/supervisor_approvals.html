@@ -1,0 +1,239 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "اعتمادات المشرف" %} - {{ SYSTEM_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="bi bi-check2-square me-2"></i>{% trans "اعتمادات المشرف" %}</h2>
+            <p class="text-muted mb-0">{% trans "مراجعة واعتماد سجلات الإنتاج" %}</p>
+        </div>
+        <a href="{% url 'production:dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i>{% trans "العودة" %}
+        </a>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-warning text-dark">
+                <div class="card-body text-center">
+                    <h4 class="mb-1">{{ pending_count|default:0 }}</h4>
+                    <small>{% trans "قيد الانتظار" %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-success text-white">
+                <div class="card-body text-center">
+                    <h4 class="mb-1">{{ approved_today|default:0 }}</h4>
+                    <small>{% trans "تم اعتمادها اليوم" %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-danger text-white">
+                <div class="card-body text-center">
+                    <h4 class="mb-1">{{ rejected_today|default:0 }}</h4>
+                    <small>{% trans "تم رفضها اليوم" %}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pending Approvals -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">{% trans "سجلات تنتظر الاعتماد" %}</h5>
+            <div class="d-flex gap-2">
+                <form method="get" class="d-flex gap-2">
+                    <select name="worker" class="form-select form-select-sm" style="width: auto;">
+                        <option value="">{% trans "كل العمال" %}</option>
+                        {% for worker in workers %}
+                        <option value="{{ worker.id }}" {% if request.GET.worker == worker.id|stringformat:"s" %}selected{% endif %}>{{ worker.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="date" name="date" class="form-control form-control-sm" value="{{ request.GET.date }}">
+                    <button type="submit" class="btn btn-sm btn-primary">{% trans "فلترة" %}</button>
+                </form>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <form method="post" id="approvalForm">
+                {% csrf_token %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th width="40">
+                                    <input type="checkbox" class="form-check-input" id="selectAll">
+                                </th>
+                                <th>{% trans "التاريخ" %}</th>
+                                <th>{% trans "العامل" %}</th>
+                                <th>{% trans "أمر الإنتاج" %}</th>
+                                <th>{% trans "المنتج" %}</th>
+                                <th>{% trans "الكمية" %}</th>
+                                <th>{% trans "الساعات" %}</th>
+                                <th>{% trans "المستحق" %}</th>
+                                <th>{% trans "الإجراءات" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in pending_records %}
+                            <tr>
+                                <td>
+                                    <input type="checkbox" name="records" value="{{ record.id }}" class="form-check-input record-checkbox">
+                                </td>
+                                <td>{{ record.date }}</td>
+                                <td>
+                                    <a href="{% url 'production:worker_production_history' record.worker.id %}">
+                                        {{ record.worker.name }}
+                                    </a>
+                                </td>
+                                <td>{{ record.production_order.number }}</td>
+                                <td>{{ record.product.name }}</td>
+                                <td>{{ record.quantity|intcomma }}</td>
+                                <td>{{ record.hours_worked|floatformat:1 }}</td>
+                                <td>{{ record.earnings|floatformat:2|intcomma }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-success" onclick="approveRecord({{ record.id }})">
+                                            <i class="bi bi-check-lg"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-danger" onclick="rejectRecord({{ record.id }})">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#detailModal{{ record.id }}">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center py-5 text-muted">
+                                    <i class="bi bi-check-circle display-4 d-block mb-3"></i>
+                                    {% trans "لا توجد سجلات تنتظر الاعتماد" %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                {% if pending_records %}
+                <div class="card-footer bg-transparent d-flex justify-content-between">
+                    <div>
+                        <span class="text-muted">{% trans "المحدد:" %} <span id="selectedCount">0</span></span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" name="action" value="approve_all" class="btn btn-success">
+                            <i class="bi bi-check-all me-1"></i>{% trans "اعتماد المحدد" %}
+                        </button>
+                        <button type="submit" name="action" value="reject_all" class="btn btn-danger">
+                            <i class="bi bi-x-circle me-1"></i>{% trans "رفض المحدد" %}
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+    
+    <!-- Recently Processed -->
+    <div class="card border-0 shadow-sm mt-4">
+        <div class="card-header bg-transparent">
+            <h5 class="mb-0">{% trans "تم معالجتها مؤخراً" %}</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>{% trans "التاريخ" %}</th>
+                            <th>{% trans "العامل" %}</th>
+                            <th>{% trans "الكمية" %}</th>
+                            <th>{% trans "الحالة" %}</th>
+                            <th>{% trans "تاريخ المعالجة" %}</th>
+                            <th>{% trans "المعالج بواسطة" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in recent_processed %}
+                        <tr>
+                            <td>{{ record.date }}</td>
+                            <td>{{ record.worker.name }}</td>
+                            <td>{{ record.quantity|intcomma }}</td>
+                            <td>
+                                {% if record.is_approved %}
+                                <span class="badge bg-success">{% trans "معتمد" %}</span>
+                                {% else %}
+                                <span class="badge bg-danger">{% trans "مرفوض" %}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ record.processed_at }}</td>
+                            <td>{{ record.processed_by.username }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                {% trans "لا توجد سجلات" %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.record-checkbox');
+    const selectedCount = document.getElementById('selectedCount');
+    
+    selectAll?.addEventListener('change', function() {
+        checkboxes.forEach(cb => cb.checked = this.checked);
+        updateSelectedCount();
+    });
+    
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', updateSelectedCount);
+    });
+    
+    function updateSelectedCount() {
+        const count = document.querySelectorAll('.record-checkbox:checked').length;
+        if (selectedCount) selectedCount.textContent = count;
+    }
+});
+
+function approveRecord(id) {
+    if (confirm('{% trans "هل تريد اعتماد هذا السجل؟" %}')) {
+        // Submit approval
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `{% csrf_token %}<input name="record_id" value="${id}"><input name="action" value="approve">`;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function rejectRecord(id) {
+    if (confirm('{% trans "هل تريد رفض هذا السجل؟" %}')) {
+        // Submit rejection
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `{% csrf_token %}<input name="record_id" value="${id}"><input name="action" value="reject">`;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

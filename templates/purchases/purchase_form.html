@@ -1,0 +1,273 @@
+﻿{% extends 'base_templates/modern_form.html' %}
+{% load static i18n currency_tags %}
+
+{% block page_module %}purchases{% endblock %}
+{% block page_icon %}bi-bag-plus-fill{% endblock %}
+{% block page_title %}{% trans 'فاتورة مشتريات جديدة' %}{% endblock %}
+{% block page_subtitle %}{% trans 'إنشاء فاتورة شراء وإضافة المنتجات والأصناف' %}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/modern_pages.css' %}">
+<style>
+    .supplier-card {
+        background: var(--mp-glass-bg);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 16px;
+        padding: 1.5rem;
+        transition: all 0.3s ease;
+    }
+    .supplier-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    }
+    .instruction-card {
+        background: linear-gradient(135deg, rgba(99, 179, 237, 0.1) 0%, rgba(129, 140, 248, 0.1) 100%);
+        border: 1px solid rgba(99, 179, 237, 0.2);
+        border-radius: 12px;
+        padding: 1.25rem;
+    }
+    .instruction-card h6 {
+        color: #63B3ED;
+        font-weight: 600;
+    }
+    .instruction-card li {
+        color: rgba(255,255,255,0.8);
+        padding: 0.25rem 0;
+    }
+    .instruction-card li::marker {
+        color: #63B3ED;
+    }
+</style>
+{% endblock %}
+
+{% block form_content %}
+<form method="POST" id="purchaseForm">
+    {% csrf_token %}
+    
+    <!-- بطاقة معلومات المورد -->
+    <div class="mp-card mb-4">
+        <div class="mp-card-header">
+            <h5 class="mb-0">
+                <i class="bi bi-person-badge me-2"></i>
+                {% trans 'معلومات المورد' %}
+            </h5>
+        </div>
+        <div class="mp-card-body">
+            <div class="row g-4">
+                <div class="col-lg-8">
+                    <div class="mp-form-group">
+                        <label class="mp-form-label" for="supplier">
+                            <i class="bi bi-truck me-1"></i>
+                            {% trans 'المورد' %} <span class="text-danger">*</span>
+                        </label>
+                        <div class="mp-input-icon">
+                            <i class="bi bi-search"></i>
+                            <select class="mp-form-control mp-select" id="supplier" name="supplier" required>
+                                <option value="">{% trans 'اختر المورد...' %}</option>
+                                {% for supplier in suppliers %}
+                                <option value="{{ supplier.id }}" {% if selected_supplier == supplier.id %}selected{% endif %}>
+                                    {{ supplier.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-text mt-2">
+                            <a href="{% url 'partners:supplier_create' %}?next={% url 'purchases:purchase_create' %}" 
+                               class="text-primary text-decoration-none" target="_blank">
+                                <i class="bi bi-plus-circle me-1"></i>
+                                {% trans 'إضافة مورد جديد' %}
+                            </a>
+                            <span class="text-muted mx-2">|</span>
+                            <button type="button" class="btn btn-link p-0" id="quickSupplierBtn">
+                                <i class="bi bi-lightning me-1"></i>
+                                {% trans 'إضافة سريعة' %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="mp-form-group">
+                        <label class="mp-form-label" for="discount">
+                            <i class="bi bi-percent me-1"></i>
+                            {% trans 'الخصم' %} ({% currency_symbol %})
+                        </label>
+                        <div class="mp-input-icon">
+                            <i class="bi bi-cash-coin"></i>
+                            <input type="number" step="0.01" min="0" 
+                                   class="mp-form-control" id="discount" name="discount" 
+                                   value="0" placeholder="0.00">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- بطاقة التعليمات -->
+    <div class="instruction-card mb-4">
+        <h6 class="mb-3">
+            <i class="bi bi-info-circle me-2"></i>
+            {% trans 'تعليمات مهمة' %}
+        </h6>
+        <ul class="mb-0 ps-3">
+            <li>{% trans 'سيتم إنشاء رقم فاتورة تلقائياً' %}</li>
+            <li>{% trans 'بعد إنشاء الفاتورة، يمكنك إضافة المنتجات إليها' %}</li>
+            <li>{% trans 'سيتم تحديث المخزون تلقائياً عند إضافة المنتجات' %}</li>
+            <li>{% trans 'تأكد من اختيار المورد الصحيح قبل الحفظ' %}</li>
+        </ul>
+    </div>
+    
+    <!-- أزرار الإجراءات -->
+    <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center">
+        <button type="submit" class="mp-btn-gradient">
+            <i class="bi bi-check-lg me-2"></i>
+            {% trans 'إنشاء فاتورة الشراء' %}
+        </button>
+        <a href="{% url 'purchases:purchase_list' %}" class="mp-btn-outline">
+            <i class="bi bi-arrow-left me-2"></i>
+            {% trans 'العودة للقائمة' %}
+        </a>
+    </div>
+</form>
+
+<!-- Modal إضافة مورد سريعة -->
+<div class="modal fade" id="quickSupplierModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid rgba(255,255,255,0.1);">
+            <div class="modal-header border-bottom border-secondary">
+                <h6 class="modal-title text-white">
+                    <i class="bi bi-person-plus text-primary me-2"></i>
+                    {% trans 'إضافة مورد جديد' %}
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="quickSupplierForm">
+                    <div class="mb-3">
+                        <label class="form-label text-white-50 small">{% trans 'الاسم' %} *</label>
+                        <input type="text" name="name" class="mp-form-control" required>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label text-white-50 small">{% trans 'الهاتف' %}</label>
+                            <input type="text" name="phone" class="mp-form-control">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label text-white-50 small">{% trans 'البريد' %}</label>
+                            <input type="email" name="email" class="mp-form-control">
+                        </div>
+                    </div>
+                    <div class="mb-3 mt-3">
+                        <label class="form-label text-white-50 small">{% trans 'العنوان' %}</label>
+                        <input type="text" name="address" class="mp-form-control">
+                    </div>
+                    <div id="quickSupplierResult" class="alert d-none"></div>
+                </form>
+            </div>
+            <div class="modal-footer border-top border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans 'إغلاق' %}</button>
+                <button type="button" id="saveQuickSupplier" class="mp-btn-gradient">
+                    <i class="bi bi-save me-1"></i>
+                    {% trans 'حفظ' %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // فتح modal الإضافة السريعة
+    const quickBtn = document.getElementById('quickSupplierBtn');
+    const modal = new bootstrap.Modal(document.getElementById('quickSupplierModal'));
+    
+    if (quickBtn) {
+        quickBtn.addEventListener('click', () => modal.show());
+    }
+    
+    // حفظ المورد
+    const saveBtn = document.getElementById('saveQuickSupplier');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', function() {
+            const form = document.getElementById('quickSupplierForm');
+            const name = form.querySelector('[name="name"]').value.trim();
+            const phone = form.querySelector('[name="phone"]').value.trim();
+            const email = form.querySelector('[name="email"]').value.trim();
+            const address = form.querySelector('[name="address"]').value.trim();
+            const resultBox = document.getElementById('quickSupplierResult');
+            
+            if (!name) {
+                resultBox.className = 'alert alert-warning';
+                resultBox.textContent = '{% trans "الاسم مطلوب" %}';
+                resultBox.classList.remove('d-none');
+                return;
+            }
+            
+            saveBtn.disabled = true;
+            
+            fetch('{% url "partners:supplier_create" %}', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': document.querySelector('[name="csrfmiddlewaretoken"]').value
+                },
+                body: new URLSearchParams({
+                    'partner_type': 'supplier',
+                    'name': name,
+                    'phone': phone,
+                    'email': email,
+                    'address': address
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const select = document.getElementById('supplier');
+                    const opt = document.createElement('option');
+                    opt.value = data.id;
+                    opt.textContent = data.name;
+                    select.appendChild(opt);
+                    select.value = data.id;
+                    
+                    resultBox.className = 'alert alert-success';
+                    resultBox.textContent = '{% trans "تم إنشاء المورد بنجاح" %}';
+                    resultBox.classList.remove('d-none');
+                    
+                    setTimeout(() => {
+                        modal.hide();
+                        form.reset();
+                        resultBox.classList.add('d-none');
+                    }, 800);
+                } else {
+                    resultBox.className = 'alert alert-danger';
+                    resultBox.textContent = data.message || '{% trans "فشل إنشاء المورد" %}';
+                    resultBox.classList.remove('d-none');
+                }
+            })
+            .catch(() => {
+                resultBox.className = 'alert alert-danger';
+                resultBox.textContent = '{% trans "حدث خطأ في الاتصال" %}';
+                resultBox.classList.remove('d-none');
+            })
+            .finally(() => {
+                saveBtn.disabled = false;
+            });
+        });
+    }
+    
+    // تحديث الصفحة عند العودة من تبويب إضافة مورد
+    window.addEventListener('focus', function() {
+        const sel = document.getElementById('supplier');
+        if (sel && !sel.value && !window.__refreshed) {
+            window.__refreshed = true;
+            location.reload();
+        }
+    });
+});
+</script>
+{% endblock %}

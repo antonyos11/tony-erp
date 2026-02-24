@@ -1,0 +1,107 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}الرؤى الذكية - Tony ERP{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="bi bi-lightbulb text-warning me-2"></i>الرؤى الذكية</h2>
+                <button class="btn btn-primary" onclick="generateInsights()">
+                    <i class="bi bi-magic me-2"></i>إنشاء رؤى جديدة
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- الفلترة -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="btn-group">
+                <a href="?" class="btn btn-outline-secondary {% if not request.GET.type %}active{% endif %}">الكل</a>
+                <a href="?type=opportunity" class="btn btn-outline-success {% if request.GET.type == 'opportunity' %}active{% endif %}">فرص</a>
+                <a href="?type=warning" class="btn btn-outline-warning {% if request.GET.type == 'warning' %}active{% endif %}">تحذيرات</a>
+                <a href="?type=alert" class="btn btn-outline-danger {% if request.GET.type == 'alert' %}active{% endif %}">تنبيهات</a>
+                <a href="?type=info" class="btn btn-outline-info {% if request.GET.type == 'info' %}active{% endif %}">معلومات</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        {% for insight in insights %}
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 border-{{ insight.type_color }}">
+                <div class="card-header bg-{{ insight.type_color }} text-white d-flex justify-content-between">
+                    <span>
+                        {% if insight.insight_type == 'opportunity' %}
+                        <i class="bi bi-star-fill me-2"></i>فرصة
+                        {% elif insight.insight_type == 'warning' %}
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>تحذير
+                        {% elif insight.insight_type == 'alert' %}
+                        <i class="bi bi-bell-fill me-2"></i>تنبيه
+                        {% else %}
+                        <i class="bi bi-info-circle-fill me-2"></i>معلومة
+                        {% endif %}
+                    </span>
+                    <small>{{ insight.created_at|timesince }} مضت</small>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ insight.title }}</h5>
+                    <p class="card-text">{{ insight.description }}</p>
+                    
+                    {% if insight.recommended_action %}
+                    <div class="alert alert-light">
+                        <strong>الإجراء الموصى به:</strong><br>
+                        {{ insight.recommended_action }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer d-flex justify-content-between">
+                    <span class="badge bg-{{ insight.priority_color }}">{{ insight.get_priority_display }}</span>
+                    <div>
+                        {% if not insight.is_read %}
+                        <button class="btn btn-sm btn-outline-primary" onclick="markAsRead({{ insight.id }})">
+                            <i class="bi bi-check me-1"></i>قرأت
+                        </button>
+                        {% endif %}
+                        {% if insight.action_url %}
+                        <a href="{{ insight.action_url }}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-arrow-left me-1"></i>اتخاذ إجراء
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-lightbulb fa-4x text-muted mb-3"></i>
+                    <h4 class="text-muted">لا توجد رؤى</h4>
+                    <p class="text-muted">اضغط على "إنشاء رؤى جديدة" لتحليل البيانات</p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function generateInsights() {
+    fetch('{% url "ai_analytics:generate_insights" %}', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    }).then(() => location.reload());
+}
+
+function markAsRead(id) {
+    fetch(`/ai-analytics/insights/${id}/read/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    }).then(() => location.reload());
+}
+</script>
+{% endblock %}

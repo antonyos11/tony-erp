@@ -1,14 +1,13 @@
-﻿{% extends 'base_templates/_form_professional.html' %}
+{% extends 'base_templates/_form_professional.html' %}
 {% load static %}
 {% load i18n %}
 
-{% block page_title %}{% if form.instance.pk %}{% trans 'تعديل الفئة' %}{% else %}{% trans 'فئة جديدة' %}{% endif %}{% endblock %}
-{% block page_hero_icon %}bi-folder-plus{% endblock %}
-{% block page_hero_title %}{% if form.instance.pk %}{% trans 'تعديل الفئة' %}: {{ form.instance.name }}{% else %}{% trans 'إنشاء فئة جديدة' %}{% endif %}{% endblock %}
-{% block page_hero_subtitle %}{% trans 'تنظيم المنتجات في فئات وتصنيفات' %}{% endblock %}
+{% block page_title %}{% if category %}{% trans 'تعديل الفئة' %}{% else %}{% trans 'فئة جديدة' %}{% endif %}{% endblock %}
+{% block hero_icon %}bi-folder-plus{% endblock %}
+{% block hero_title %}{% if category %}{% trans 'تعديل الفئة' %}: {{ category.name }}{% else %}{% trans 'إنشاء فئة جديدة' %}{% endif %}{% endblock %}
+{% block hero_subtitle %}{% trans 'تنظيم المنتجات في فئات وتصنيفات' %}{% endblock %}
 
 {% block form_id %}categoryForm{% endblock %}
-{% block form_action %}{% if form.instance.pk %}{% url 'inventory:category_edit' form.instance.pk %}{% else %}{% url 'inventory:category_add' %}{% endif %}{% endblock %}
 
 {% block extra_styles %}
 <style>
@@ -138,120 +137,59 @@
 </style>
 {% endblock %}
 
-{% block form_sections %}
+{% block form_content %}
 <div class="row">
   <div class="col-lg-8">
     <!-- Basic Info -->
-    <div class="form-section">
-      <div class="section-header">
-        <h4><i class="bi bi-info-circle me-2"></i>{% trans 'المعلومات الأساسية' %}</h4>
+    <div class="form-card">
+      <div class="card-header">
+        <div class="section-icon primary">
+          <i class="bi bi-info-circle"></i>
+        </div>
+        <h5>{% trans 'المعلومات الأساسية' %}</h5>
       </div>
-      <div class="section-body">
+      <div class="card-body">
         <div class="row g-3">
           <div class="col-md-8">
             <label class="form-label">{% trans 'اسم الفئة' %} <span class="text-danger">*</span></label>
             <input type="text" class="form-control form-control-lg" name="name" 
-                   value="{ form.instance.name }}" required
+                   value="{{ category.name|default:'' }}" required
                    placeholder="{% trans 'أدخل اسم الفئة' %}"
                    oninput="updatePreview()">
           </div>
           <div class="col-md-4">
-            <label class="form-label">{% trans 'الرمز' %}</label>
-            <input type="text" class="form-control form-control-lg" name="code" 
-                   value="{ form.instance.code }"
-                   placeholder="{% trans 'CAT-001' %}">
+            <label class="form-label">{% trans 'ترتيب العرض' %}</label>
+            <input type="number" class="form-control form-control-lg" name="sort_order" 
+                   value="{{ category.sort_order|default:'0' }}"
+                   placeholder="0" min="0">
           </div>
           <div class="col-12">
             <label class="form-label">{% trans 'الوصف' %}</label>
             <textarea class="form-control" name="description" rows="3"
-                      placeholder="{% trans 'وصف مختصر للفئة...' %}">{{ form.instance.description }}</textarea>
+                      placeholder="{% trans 'وصف مختصر للفئة...' %}">{{ category.description|default:'' }}</textarea>
           </div>
         </div>
       </div>
     </div>
     
     <!-- Parent Category -->
-    <div class="form-section">
-      <div class="section-header">
-        <h4><i class="bi bi-diagram-2 me-2"></i>{% trans 'الفئة الأب' %}</h4>
-      </div>
-      <div class="section-body">
-        <div class="mb-3">
-          <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="parent_type" id="noParent" value="none" checked>
-            <label class="form-check-label" for="noParent">{% trans 'فئة رئيسية (بدون أب)' %}</label>
-          </div>
-          <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="parent_type" id="hasParent" value="parent">
-            <label class="form-check-label" for="hasParent">{% trans 'فئة فرعية' %}</label>
-          </div>
+    <div class="form-card">
+      <div class="card-header">
+        <div class="section-icon info">
+          <i class="bi bi-diagram-2"></i>
         </div>
-        <div id="parentSelector" style="display: none;">
-          <label class="form-label">{% trans 'اختر الفئة الأب' %}</label>
+        <h5>{% trans 'الفئة الأب' %}</h5>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label">{% trans 'اختر الفئة الأب (اختياري)' %}</label>
           <select class="form-select" name="parent" onchange="updatePreview()">
-            <option value="">{% trans 'اختر الفئة الأب' %}</option>
+            <option value="">{% trans 'بدون - فئة رئيسية' %}</option>
             {% for cat in parent_categories %}
-            <option value="{ cat.pk }">{{ cat.name }}</option>
-            {% empty %}
-            <option value="electronics">{% trans 'إلكترونيات' %}</option>
-            <option value="clothing">{% trans 'ملابس' %}</option>
-            <option value="food">{% trans 'أغذية' %}</option>
+            <option value="{{ cat.pk }}" {% if category and category.parent_id == cat.pk %}selected{% endif %}>{{ cat.name }}</option>
             {% endfor %}
           </select>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Icon Selection -->
-    <div class="form-section">
-      <div class="section-header">
-        <h4><i class="bi bi-emoji-smile me-2"></i>{% trans 'أيقونة الفئة' %}</h4>
-      </div>
-      <div class="section-body">
-        <input type="hidden" name="icon" id="selectedIcon" value="bi-folder">
-        <div class="icon-selector">
-          <div class="icon-option selected" data-icon="bi-folder" onclick="selectIcon(this)"><i class="bi bi-folder"></i></div>
-          <div class="icon-option" data-icon="bi-box" onclick="selectIcon(this)"><i class="bi bi-box"></i></div>
-          <div class="icon-option" data-icon="bi-laptop" onclick="selectIcon(this)"><i class="bi bi-laptop"></i></div>
-          <div class="icon-option" data-icon="bi-phone" onclick="selectIcon(this)"><i class="bi bi-phone"></i></div>
-          <div class="icon-option" data-icon="bi-tv" onclick="selectIcon(this)"><i class="bi bi-tv"></i></div>
-          <div class="icon-option" data-icon="bi-camera" onclick="selectIcon(this)"><i class="bi bi-camera"></i></div>
-          <div class="icon-option" data-icon="bi-headphones" onclick="selectIcon(this)"><i class="bi bi-headphones"></i></div>
-          <div class="icon-option" data-icon="bi-watch" onclick="selectIcon(this)"><i class="bi bi-watch"></i></div>
-          <div class="icon-option" data-icon="bi-bag" onclick="selectIcon(this)"><i class="bi bi-bag"></i></div>
-          <div class="icon-option" data-icon="bi-cart" onclick="selectIcon(this)"><i class="bi bi-cart"></i></div>
-          <div class="icon-option" data-icon="bi-cup-hot" onclick="selectIcon(this)"><i class="bi bi-cup-hot"></i></div>
-          <div class="icon-option" data-icon="bi-egg-fried" onclick="selectIcon(this)"><i class="bi bi-egg-fried"></i></div>
-          <div class="icon-option" data-icon="bi-truck" onclick="selectIcon(this)"><i class="bi bi-truck"></i></div>
-          <div class="icon-option" data-icon="bi-tools" onclick="selectIcon(this)"><i class="bi bi-tools"></i></div>
-          <div class="icon-option" data-icon="bi-gift" onclick="selectIcon(this)"><i class="bi bi-gift"></i></div>
-          <div class="icon-option" data-icon="bi-house" onclick="selectIcon(this)"><i class="bi bi-house"></i></div>
-          <div class="icon-option" data-icon="bi-book" onclick="selectIcon(this)"><i class="bi bi-book"></i></div>
-          <div class="icon-option" data-icon="bi-palette" onclick="selectIcon(this)"><i class="bi bi-palette"></i></div>
-          <div class="icon-option" data-icon="bi-heart" onclick="selectIcon(this)"><i class="bi bi-heart"></i></div>
-          <div class="icon-option" data-icon="bi-star" onclick="selectIcon(this)"><i class="bi bi-star"></i></div>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Color Selection -->
-    <div class="form-section">
-      <div class="section-header">
-        <h4><i class="bi bi-palette me-2"></i>{% trans 'لون الفئة' %}</h4>
-      </div>
-      <div class="section-body">
-        <input type="hidden" name="color" id="selectedColor" value="#1e3a5f">
-        <div class="color-selector">
-          <div class="color-option selected" style="background: #1e3a5f;" data-color="#1e3a5f" onclick="selectColor(this)"></div>
-          <div class="color-option" style="background: #10b981;" data-color="#10b981" onclick="selectColor(this)"></div>
-          <div class="color-option" style="background: #3b82f6;" data-color="#3b82f6" onclick="selectColor(this)"></div>
-          <div class="color-option" style="background: #8b5cf6;" data-color="#8b5cf6" onclick="selectColor(this)"></div>
-          <div class="color-option" style="background: #ec4899;" data-color="#ec4899" onclick="selectColor(this)"></div>
-          <div class="color-option" style="background: #ef4444;" data-color="#ef4444" onclick="selectColor(this)"></div>
-          <div class="color-option" style="background: #f59e0b;" data-color="#f59e0b" onclick="selectColor(this)"></div>
-          <div class="color-option" style="background: #84cc16;" data-color="#84cc16" onclick="selectColor(this)"></div>
-          <div class="color-option" style="background: #06b6d4;" data-color="#06b6d4" onclick="selectColor(this)"></div>
-          <div class="color-option" style="background: #6366f1;" data-color="#6366f1" onclick="selectColor(this)"></div>
+          <div class="form-text">{% trans 'اترك فارغاً لإنشاء فئة رئيسية' %}</div>
         </div>
       </div>
     </div>
@@ -260,27 +198,33 @@
   <!-- Sidebar - Preview & Image -->
   <div class="col-lg-4">
     <!-- Preview -->
-    <div class="form-section">
-      <div class="section-header">
-        <h4><i class="bi bi-eye me-2"></i>{% trans 'معاينة' %}</h4>
+    <div class="form-card">
+      <div class="card-header">
+        <div class="section-icon success">
+          <i class="bi bi-eye"></i>
+        </div>
+        <h5>{% trans 'معاينة' %}</h5>
       </div>
-      <div class="section-body p-0">
+      <div class="card-body p-0">
         <div class="category-preview">
           <div class="preview-icon" id="previewIcon">
             <i class="bi bi-folder"></i>
           </div>
-          <div class="preview-name" id="previewName">{% trans 'اسم الفئة' %}</div>
+          <div class="preview-name" id="previewName">{{ category.name|default:'اسم الفئة' }}</div>
           <div class="preview-parent" id="previewParent">{% trans 'فئة رئيسية' %}</div>
         </div>
       </div>
     </div>
     
     <!-- Image Upload -->
-    <div class="form-section">
-      <div class="section-header">
-        <h4><i class="bi bi-image me-2"></i>{% trans 'صورة الفئة' %}</h4>
+    <div class="form-card">
+      <div class="card-header">
+        <div class="section-icon warning">
+          <i class="bi bi-image"></i>
+        </div>
+        <h5>{% trans 'صورة الفئة' %}</h5>
       </div>
-      <div class="section-body">
+      <div class="card-body">
         <label class="image-upload-zone" for="categoryImage">
           <input type="file" id="categoryImage" name="image" accept="image/*" hidden onchange="previewImage(this)">
           <div id="uploadPlaceholder">
@@ -297,22 +241,17 @@
     </div>
     
     <!-- Settings -->
-    <div class="form-section">
-      <div class="section-header">
-        <h4><i class="bi bi-gear me-2"></i>{% trans 'إعدادات' %}</h4>
+    <div class="form-card">
+      <div class="card-header">
+        <div class="section-icon primary">
+          <i class="bi bi-gear"></i>
+        </div>
+        <h5>{% trans 'إعدادات' %}</h5>
       </div>
-      <div class="section-body">
+      <div class="card-body">
         <div class="form-check form-switch mb-3">
-          <input class="form-check-input" type="checkbox" id="isActive" name="is_active" checked>
+          <input class="form-check-input" type="checkbox" id="isActive" name="is_active" {% if not category or category.is_active %}checked{% endif %}>
           <label class="form-check-label" for="isActive">{% trans 'فئة نشطة' %}</label>
-        </div>
-        <div class="form-check form-switch mb-3">
-          <input class="form-check-input" type="checkbox" id="showInMenu" name="show_in_menu" checked>
-          <label class="form-check-label" for="showInMenu">{% trans 'إظهار في القائمة' %}</label>
-        </div>
-        <div class="form-check form-switch">
-          <input class="form-check-input" type="checkbox" id="allowProducts" name="allow_products" checked>
-          <label class="form-check-label" for="allowProducts">{% trans 'السماح بإضافة منتجات' %}</label>
         </div>
       </div>
     </div>
@@ -320,14 +259,7 @@
 </div>
 {% endblock %}
 
-{% block form_actions %}
-<button type="button" class="btn btn-outline-secondary" onclick="window.history.back()">
-  <i class="bi bi-x-lg me-1"></i>{% trans 'إلغاء' %}
-</button>
-<button type="submit" class="btn btn-primary">
-  <i class="bi bi-check-lg me-1"></i>{% if form.instance.pk %}{% trans 'حفظ التغييرات' %}{% else %}{% trans 'إنشاء الفئة' %}{% endif %}
-</button>
-{% endblock %}
+{% block submit_text %}{% if category %}{% trans 'حفظ التغييرات' %}{% else %}{% trans 'إنشاء الفئة' %}{% endif %}{% endblock %}
 
 {% block extra_scripts %}
 <script>

@@ -1,0 +1,352 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تصنيفات تذاكر الدعم - CRM{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-0"><i class="fas fa-folder text-primary me-2"></i>تصنيفات تذاكر الدعم</h3>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'crm:dashboard' %}">CRM</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'crm:settings' %}">الإعدادات</a></li>
+                    <li class="breadcrumb-item active">تصنيفات الدعم</li>
+                </ol>
+            </nav>
+        </div>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+            <i class="fas fa-plus me-1"></i> تصنيف جديد
+        </button>
+    </div>
+
+    <!-- Categories Table -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>اسم التصنيف</th>
+                            <th>الوصف</th>
+                            <th class="text-center">عدد التذاكر</th>
+                            <th>الفريق الافتراضي</th>
+                            <th class="text-center">الأولوية الافتراضية</th>
+                            <th class="text-center">SLA (ساعات)</th>
+                            <th class="text-center">الحالة</th>
+                            <th class="text-center">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for category in ticket_categories %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <i class="fas {{ category.icon|default:'fa-folder' }} text-primary me-2"></i>
+                                <strong>{{ category.name }}</strong>
+                            </td>
+                            <td>{{ category.description|default:"-"|truncatewords:8 }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary">{{ category.tickets_count|default:0 }}</span>
+                            </td>
+                            <td>{{ category.default_team.name|default:"-" }}</td>
+                            <td class="text-center">
+                                {% if category.default_priority == 'urgent' %}
+                                <span class="badge bg-danger">عاجلة</span>
+                                {% elif category.default_priority == 'high' %}
+                                <span class="badge bg-warning text-dark">عالية</span>
+                                {% elif category.default_priority == 'medium' %}
+                                <span class="badge bg-info">متوسطة</span>
+                                {% else %}
+                                <span class="badge bg-secondary">منخفضة</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">{{ category.sla_hours|default:"-" }}</td>
+                            <td class="text-center">
+                                {% if category.is_active %}
+                                <span class="badge bg-success">نشط</span>
+                                {% else %}
+                                <span class="badge bg-danger">غير نشط</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-info"
+                                            onclick="editCategory({{ category.pk }}, '{{ category.name }}', '{{ category.description|default:'' }}', '{{ category.icon|default:'fa-folder' }}', '{{ category.default_priority|default:'medium' }}', '{{ category.default_team.pk|default:'' }}', {{ category.sla_hours|default:24 }}, {{ category.is_active|yesno:'true,false' }})"
+                                            data-bs-toggle="modal" data-bs-target="#editCategoryModal">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger" onclick="confirmDelete({{ category.pk }}, '{{ category.name }}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-5">
+                                <i class="fas fa-folder fa-4x text-muted mb-3"></i>
+                                <h5>لا توجد تصنيفات</h5>
+                                <p class="text-muted">أضف تصنيفات لتنظيم تذاكر الدعم</p>
+                                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                                    <i class="fas fa-plus me-1"></i> إضافة تصنيف
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Add Suggestions -->
+    {% if not ticket_categories %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">تصنيفات مقترحة</h5>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <button type="submit" name="quick_add" value="technical" class="btn btn-outline-primary w-100 py-3">
+                            <i class="fas fa-cogs fa-2x d-block mb-2"></i>
+                            مشاكل تقنية
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" name="quick_add" value="billing" class="btn btn-outline-success w-100 py-3">
+                            <i class="fas fa-file-invoice-dollar fa-2x d-block mb-2"></i>
+                            الفواتير والمدفوعات
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" name="quick_add" value="inquiry" class="btn btn-outline-info w-100 py-3">
+                            <i class="fas fa-question-circle fa-2x d-block mb-2"></i>
+                            استفسارات عامة
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" name="quick_add" value="complaint" class="btn btn-outline-warning w-100 py-3">
+                            <i class="fas fa-exclamation-triangle fa-2x d-block mb-2"></i>
+                            شكاوى
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" name="quick_add" value="feature" class="btn btn-outline-secondary w-100 py-3">
+                            <i class="fas fa-lightbulb fa-2x d-block mb-2"></i>
+                            طلب ميزة
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" name="quick_add" value="training" class="btn btn-outline-dark w-100 py-3">
+                            <i class="fas fa-graduation-cap fa-2x d-block mb-2"></i>
+                            تدريب ودعم
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add Category Modal -->
+<div class="modal fade" id="addCategoryModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-plus me-2"></i>إضافة تصنيف</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">اسم التصنيف <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الوصف</label>
+                        <textarea name="description" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">الأيقونة</label>
+                                <select name="icon" class="form-select">
+                                    <option value="fa-folder">📁 مجلد</option>
+                                    <option value="fa-cogs">⚙️ تقني</option>
+                                    <option value="fa-file-invoice-dollar">💵 مالي</option>
+                                    <option value="fa-question-circle">❓ استفسار</option>
+                                    <option value="fa-exclamation-triangle">⚠️ شكوى</option>
+                                    <option value="fa-lightbulb">💡 اقتراح</option>
+                                    <option value="fa-graduation-cap">🎓 تدريب</option>
+                                    <option value="fa-bug">🐛 خطأ برمجي</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">الأولوية الافتراضية</label>
+                                <select name="default_priority" class="form-select">
+                                    <option value="low">منخفضة</option>
+                                    <option value="medium" selected>متوسطة</option>
+                                    <option value="high">عالية</option>
+                                    <option value="urgent">عاجلة</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">الفريق الافتراضي</label>
+                                <select name="default_team" class="form-select">
+                                    <option value="">-- اختياري --</option>
+                                    {% for team in teams %}
+                                    <option value="{{ team.pk }}">{{ team.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">SLA (ساعات الاستجابة)</label>
+                                <input type="number" name="sla_hours" class="form-control" min="1" value="24">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_active" id="addIsActive" checked>
+                        <label class="form-check-label" for="addIsActive">نشط</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" name="action" value="add" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> حفظ
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Category Modal -->
+<div class="modal fade" id="editCategoryModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="category_id" id="editCategoryId">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-edit me-2"></i>تعديل تصنيف</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">اسم التصنيف <span class="text-danger">*</span></label>
+                        <input type="text" name="name" id="editCategoryName" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الوصف</label>
+                        <textarea name="description" id="editCategoryDesc" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">الأيقونة</label>
+                                <select name="icon" id="editCategoryIcon" class="form-select">
+                                    <option value="fa-folder">📁 مجلد</option>
+                                    <option value="fa-cogs">⚙️ تقني</option>
+                                    <option value="fa-file-invoice-dollar">💵 مالي</option>
+                                    <option value="fa-question-circle">❓ استفسار</option>
+                                    <option value="fa-exclamation-triangle">⚠️ شكوى</option>
+                                    <option value="fa-lightbulb">💡 اقتراح</option>
+                                    <option value="fa-graduation-cap">🎓 تدريب</option>
+                                    <option value="fa-bug">🐛 خطأ برمجي</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">الأولوية الافتراضية</label>
+                                <select name="default_priority" id="editCategoryPriority" class="form-select">
+                                    <option value="low">منخفضة</option>
+                                    <option value="medium">متوسطة</option>
+                                    <option value="high">عالية</option>
+                                    <option value="urgent">عاجلة</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">الفريق الافتراضي</label>
+                                <select name="default_team" id="editCategoryTeam" class="form-select">
+                                    <option value="">-- اختياري --</option>
+                                    {% for team in teams %}
+                                    <option value="{{ team.pk }}">{{ team.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">SLA (ساعات)</label>
+                                <input type="number" name="sla_hours" id="editCategorySLA" class="form-control" min="1">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_active" id="editIsActive">
+                        <label class="form-check-label" for="editIsActive">نشط</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" name="action" value="edit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> حفظ التعديلات
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Form -->
+<form id="deleteForm" method="post" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="delete">
+    <input type="hidden" name="category_id" id="deleteCategoryId">
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function editCategory(id, name, desc, icon, priority, team, sla, isActive) {
+    document.getElementById('editCategoryId').value = id;
+    document.getElementById('editCategoryName').value = name;
+    document.getElementById('editCategoryDesc').value = desc;
+    document.getElementById('editCategoryIcon').value = icon;
+    document.getElementById('editCategoryPriority').value = priority;
+    document.getElementById('editCategoryTeam').value = team;
+    document.getElementById('editCategorySLA').value = sla;
+    document.getElementById('editIsActive').checked = isActive;
+}
+
+function confirmDelete(id, name) {
+    if (confirm('هل أنت متأكد من حذف التصنيف "' + name + '"؟')) {
+        document.getElementById('deleteCategoryId').value = id;
+        document.getElementById('deleteForm').submit();
+    }
+}
+</script>
+{% endblock %}

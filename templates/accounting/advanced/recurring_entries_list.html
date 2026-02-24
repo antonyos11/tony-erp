@@ -1,0 +1,274 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}القيود المتكررة - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .recurring-card {
+        border-left: 4px solid;
+        transition: all 0.3s;
+    }
+    .recurring-card.active { border-color: #28a745; }
+    .recurring-card.inactive { border-color: #6c757d; }
+    .recurring-card:hover {
+        transform: translateX(-5px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .frequency-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+    .freq-daily { background: #e3f2fd; color: #1976d2; }
+    .freq-weekly { background: #f3e5f5; color: #7b1fa2; }
+    .freq-monthly { background: #e8f5e9; color: #388e3c; }
+    .freq-quarterly { background: #fff3e0; color: #f57c00; }
+    .freq-yearly { background: #fce4ec; color: #c2185b; }
+    .due-soon {
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-sync-alt text-primary"></i>
+                        القيود المتكررة
+                    </h2>
+                    <p class="text-muted mt-2">إدارة القيود المحاسبية التلقائية المتكررة</p>
+                </div>
+                <a href="{% url 'accounting:journal_entries_list' %}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-plus"></i> قيد متكرر جديد
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Due Entries Alert -->
+    {% if due_entries %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <h5 class="alert-heading">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    قيود مستحقة التنفيذ!
+                </h5>
+                <p class="mb-0">
+                    يوجد <strong>{{ due_entries|length }}</strong> قيد متكرر مستحق التنفيذ اليوم.
+                    <a href="#dueEntries" class="alert-link">عرض القيود</a>
+                </p>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-play-circle fa-2x text-success mb-2"></i>
+                    <h3 class="mb-0">{{ active_entries_count|default:0 }}</h3>
+                    <p class="text-muted mb-0">نشط</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-pause-circle fa-2x text-secondary mb-2"></i>
+                    <h3 class="mb-0">{{ inactive_entries_count|default:0 }}</h3>
+                    <p class="text-muted mb-0">موقف</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-clock fa-2x text-warning mb-2"></i>
+                    <h3 class="mb-0">{{ due_entries|length }}</h3>
+                    <p class="text-muted mb-0">مستحق اليوم</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-check-double fa-2x text-info mb-2"></i>
+                    <h3 class="mb-0">{{ total_executions|default:0 }}</h3>
+                    <p class="text-muted mb-0">إجمالي التنفيذات</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Due Entries Section -->
+    {% if due_entries %}
+    <div class="row mb-4" id="dueEntries">
+        <div class="col-12">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-check"></i>
+                        قيود مستحقة التنفيذ
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>اسم القيد</th>
+                                    <th>التكرار</th>
+                                    <th>التنفيذ التالي</th>
+                                    <th>ترحيل تلقائي</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in due_entries %}
+                                <tr class="due-soon">
+                                    <td><strong>{{ entry.name }}</strong></td>
+                                    <td>
+                                        <span class="frequency-badge freq-{{ entry.frequency }}">
+                                            {{ entry.get_frequency_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ entry.next_execution|date:"Y-m-d" }}</td>
+                                    <td>
+                                        {% if entry.auto_post %}
+                                            <span class="badge bg-success">نعم</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">لا</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <form method="post" action="{% url 'accounting:execute_recurring_entry' entry.pk %}" 
+                                              style="display:inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-success" 
+                                                    title="تنفيذ الآن">
+                                                <i class="fas fa-play"></i> تنفيذ
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- All Recurring Entries -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list"></i>
+                        جميع القيود المتكررة
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recurring_entries %}
+                        <div class="row">
+                            {% for entry in recurring_entries %}
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="card recurring-card {% if entry.is_active %}active{% else %}inactive{% endif %} h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start mb-3">
+                                            <h6 class="mb-0">{{ entry.name }}</h6>
+                                            {% if entry.is_active %}
+                                                <span class="badge bg-success">نشط</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">موقف</span>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <span class="frequency-badge freq-{{ entry.frequency }}">
+                                                {{ entry.get_frequency_display }}
+                                            </span>
+                                        </div>
+
+                                        <div class="small text-muted mb-2">
+                                            <i class="fas fa-calendar-alt"></i>
+                                            <strong>التنفيذ التالي:</strong> {{ entry.next_execution|date:"Y-m-d" }}
+                                        </div>
+
+                                        <div class="small text-muted mb-2">
+                                            <i class="fas fa-history"></i>
+                                            <strong>عدد التنفيذات:</strong> {{ entry.execution_count }}
+                                        </div>
+
+                                        {% if entry.last_execution %}
+                                        <div class="small text-muted mb-3">
+                                            <i class="fas fa-clock"></i>
+                                            <strong>آخر تنفيذ:</strong> {{ entry.last_execution|date:"Y-m-d H:i" }}
+                                        </div>
+                                        {% endif %}
+
+                                        <div class="d-flex gap-2">
+                                            <form method="post" action="{% url 'accounting:execute_recurring_entry' entry.pk %}" 
+                                                  class="flex-fill">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-sm btn-primary w-100">
+                                                    <i class="fas fa-play"></i> تنفيذ
+                                                </button>
+                                            </form>
+                                            <a href="#" class="btn btn-sm btn-outline-secondary">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">لا توجد قيود متكررة حتى الآن</p>
+                            <a href="{% url 'accounting:journal_entries_list' %}" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> إنشاء قيد متكرر
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Confirm before executing
+    $('form').on('submit', function(e) {
+        const entryName = $(this).closest('tr, .card').find('h6, strong').first().text();
+        if (!confirm('هل تريد تنفيذ القيد المتكرر: ' + entryName + '?')) {
+            e.preventDefault();
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %}

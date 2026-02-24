@@ -1,0 +1,195 @@
+﻿{% extends "base_v2.html" %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "حذف فاتورة ضريبية" %}{% endblock %}
+
+{% block extra_head %}
+<style>
+:root { --danger-gradient: linear-gradient(135deg, #7f1d1d, #ef4444); }
+.hero {
+  background: var(--danger-gradient);
+  border-radius: 18px;
+  color: #fff;
+  padding: 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+.hero::after { content:""; position:absolute; inset:0; background: radial-gradient(circle at 30% 20%, rgba(255,255,255,.1), transparent 45%); opacity:.7; }
+.hero .content { position: relative; z-index: 2; }
+
+.stat { border-radius: 14px; padding: .9rem 1rem; background: var(--card-bg,#fff); box-shadow: 0 8px 26px rgba(15,23,42,0.07); display:flex; gap:.8rem; align-items:center; }
+.stat-icon { width: 44px; height: 44px; border-radius: 12px; display:inline-flex; align-items:center; justify-content:center; font-size:1.2rem; }
+
+.risk-card { border: 1px dashed rgba(239,68,68,.4); background: rgba(239,68,68,.06); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <section class="hero shadow-sm mb-3">
+    <div class="content d-flex justify-content-between flex-wrap gap-3 align-items-start">
+      <div>
+        <p class="small mb-1 text-white-75 d-flex gap-2 align-items-center"><i class="bi bi-exclamation-octagon"></i>{% trans "الضرائب / الفواتير / حذف" %}</p>
+        <h1 class="h3 mb-1">{% trans "تأكيد حذف الفاتورة" %} {{ invoice.number|default:"#" }}</h1>
+        <p class="mb-0 text-white-75">{% trans "سيتم إزالة الفاتورة وكافة سجلاتها من الإقرار الضريبي والدفاتر." %}</p>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <a href="{{ back_url|default:'/taxes/invoices/' }}" class="btn btn-outline-light"><i class="bi bi-arrow-right"></i> {% trans "رجوع" %}</a>
+        <button class="btn btn-light text-danger" data-bs-toggle="modal" data-bs-target="#deleteModal"><i class="bi bi-trash"></i> {% trans "حذف نهائي" %}</button>
+      </div>
+    </div>
+  </section>
+
+  <nav aria-label="{% trans 'مسار التنقل' %}" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/">{% trans "الرئيسية" %}</a></li>
+      <li class="breadcrumb-item"><a href="/taxes/invoices/">{% trans "الفواتير الضريبية" %}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{% trans "حذف" %}</li>
+    </ol>
+  </nav>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-4">
+      <div class="stat">
+        <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-receipt"></i></div>
+        <div>
+          <div class="fw-bold">{{ invoice.total|default:0|floatformat:2|intcomma }}</div>
+          <div class="text-muted small">{% trans "إجمالي الفاتورة" %}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="stat">
+        <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-percent"></i></div>
+        <div>
+          <div class="fw-bold">{{ invoice.tax_amount|default:0|floatformat:2|intcomma }}</div>
+          <div class="text-muted small">{% trans "ضريبة القيمة المضافة" %}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="stat">
+        <div class="stat-icon bg-secondary bg-opacity-10 text-secondary"><i class="bi bi-archive"></i></div>
+        <div>
+          <div class="fw-bold">{{ attachments_count|default:0 }}</div>
+          <div class="text-muted small">{% trans "المرفقات المرتبطة" %}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-7">
+      <div class="card shadow-sm h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="fw-semibold d-flex gap-2 align-items-center"><i class="bi bi-info-circle text-primary"></i>{% trans "بيانات الفاتورة" %}</span>
+          <span class="badge bg-light text-dark">{{ invoice.status_display|default:_("مسودة") }}</span>
+        </div>
+        <div class="card-body">
+          <dl class="row small mb-0 gy-3">
+            <dt class="col-sm-4">{% trans "رقم الفاتورة" %}</dt><dd class="col-sm-8">{{ invoice.number|default:"—" }}</dd>
+            <dt class="col-sm-4">{% trans "التاريخ" %}</dt><dd class="col-sm-8">{{ invoice.date|date:"Y-m-d"|default:"—" }}</dd>
+            <dt class="col-sm-4">{% trans "العميل" %}</dt><dd class="col-sm-8">{{ invoice.customer_name|default:_("غير محدد") }}</dd>
+            <dt class="col-sm-4">{% trans "الفترة الضريبية" %}</dt><dd class="col-sm-8">{{ invoice.period_name|default:_("غير مربوط") }}</dd>
+            <dt class="col-sm-4">{% trans "طريقة الدفع" %}</dt><dd class="col-sm-8">{{ invoice.payment_method|default:_("غير مسجل") }}</dd>
+          </dl>
+          <hr>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>{% trans "الصنف" %}</th>
+                  <th>{% trans "الكمية" %}</th>
+                  <th>{% trans "السعر" %}</th>
+                  <th>{% trans "الضريبة" %}</th>
+                  <th>{% trans "الإجمالي" %}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for line in invoice.lines %}
+                  <tr>
+                    <td>{{ line.name }}</td>
+                    <td>{{ line.qty }}</td>
+                    <td>{{ line.price|default:0|floatformat:2 }}</td>
+                    <td>{{ line.tax|default:0|floatformat:2 }}</td>
+                    <td>{{ line.total|default:0|floatformat:2 }}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="5" class="text-center text-muted py-3">{% trans "لا توجد بنود" %}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="card shadow-sm mb-3 risk-card">
+        <div class="card-body">
+          <div class="d-flex align-items-center gap-2 mb-2 text-danger"><i class="bi bi-shield-exclamation"></i><h6 class="mb-0">{% trans "مخاطر الحذف" %}</h6></div>
+          <ul class="small text-muted ps-3 mb-0">
+            <li>{% trans "سيتم تحديث إقرارات VAT المرتبطة." %}</li>
+            <li>{% trans "قد يلزم إعادة ترحيل الفترة لإعادة التوازن." %}</li>
+            <li>{% trans "سيتم حذف القيود المحاسبية المرتبطة." %}</li>
+          </ul>
+        </div>
+      </div>
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="mb-3 d-flex gap-2 align-items-center"><i class="bi bi-lock text-primary"></i>{% trans "تأكيد نهائي" %}</h6>
+          <p class="text-muted small">{% trans "أدخل رقم الفاتورة للتأكيد ثم اضغط حذف." %}</p>
+          <form id="deleteInvoiceForm" method="post" action="{{ delete_url|default:request.path }}" class="vstack gap-3">
+            {% csrf_token %}
+            <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+            <div class="form-floating">
+              <input type="text" id="confirmInput" name="confirm" class="form-control" placeholder="{{ invoice.number }}">
+              <label for="confirmInput">{% trans "اكتب رقم الفاتورة" %}: {{ invoice.number }}</label>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              <a href="{{ back_url|default:'/taxes/invoices/' }}" class="btn btn-outline-secondary flex-fill">{% trans "إلغاء" %}</a>
+              <button type="button" class="btn btn-danger flex-fill" data-bs-toggle="modal" data-bs-target="#deleteModal" id="openModalBtn" disabled>{% trans "متابعة الحذف" %}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteModalLabel"><i class="bi bi-trash text-danger"></i> {% trans "تأكيد حذف الفاتورة" %}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-2">{% trans "سيتم حذف الفاتورة بشكل نهائي، ولا يمكن التراجع." %}</p>
+        <p class="text-muted small mb-0">{% trans "تأكد من الاحتفاظ بنسخة احتياطية إذا لزم الأمر." %}</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{% trans "إلغاء" %}</button>
+        <button type="submit" form="deleteInvoiceForm" class="btn btn-danger">{% trans "تأكيد الحذف" %}</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  const input = document.getElementById('confirmInput');
+  const trigger = document.getElementById('openModalBtn');
+  if(input && trigger){
+    input.addEventListener('input', function(){
+      const target = '{{ invoice.number|escapejs }}';
+      trigger.disabled = this.value.trim() !== target;
+    });
+  }
+})();
+</script>
+{% endblock %}

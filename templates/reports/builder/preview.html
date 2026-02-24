@@ -1,0 +1,225 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{{ page_title|default:'تفاصيل' }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-hero {
+        background: linear-gradient(135deg, var(--primary-color) 0%, #2a4a73 100%);
+        color: white;
+        padding: 2rem 0;
+        margin: -1.5rem -1.5rem 2rem;
+        border-radius: 0 0 20px 20px;
+    }
+    
+    .detail-card {
+        background: var(--card-bg, white);
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+    
+    .detail-card .card-header {
+        background: var(--light-bg, #f8fafc);
+        padding: 1.25rem;
+        border-bottom: 1px solid var(--border-color, #e5e7eb);
+        font-weight: 600;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .detail-card .card-body {
+        padding: 1.5rem;
+    }
+    
+    .detail-row {
+        display: flex;
+        padding: 1rem 0;
+        border-bottom: 1px solid var(--border-color, #e5e7eb);
+    }
+    
+    .detail-row:last-child {
+        border-bottom: none;
+    }
+    
+    .detail-label {
+        width: 200px;
+        font-weight: 600;
+        color: var(--text-muted);
+        flex-shrink: 0;
+    }
+    
+    .detail-value {
+        flex: 1;
+        color: var(--text-primary);
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 0.75rem;
+    }
+    
+    .btn-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+    }
+    
+    .btn-edit {
+        background: rgba(0, 212, 170, 0.1);
+        color: #00d4aa;
+    }
+    
+    .btn-edit:hover {
+        background: #00d4aa;
+        color: white;
+    }
+    
+    .btn-delete {
+        background: rgba(231, 76, 60, 0.1);
+        color: #e74c3c;
+    }
+    
+    .btn-delete:hover {
+        background: #e74c3c;
+        color: white;
+    }
+    
+    .btn-back {
+        background: var(--light-bg, #f8fafc);
+        color: var(--text-primary);
+    }
+    
+    .btn-back:hover {
+        background: var(--border-color, #e5e7eb);
+    }
+    
+    .status-badge {
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    
+    .status-active { background: rgba(0, 212, 170, 0.1); color: #00b894; }
+    .status-pending { background: rgba(255, 193, 7, 0.1); color: #f39c12; }
+    .status-inactive { background: rgba(231, 76, 60, 0.1); color: #e74c3c; }
+    
+    @media (max-width: 768px) {
+        .detail-row {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .detail-label {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Hero -->
+    <div class="page-hero">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-2" style="opacity: 0.8;">
+                        <li class="breadcrumb-item"><a href="{% url 'home' %}" class="text-white">{% trans 'الرئيسية' %}</a></li>
+                        <li class="breadcrumb-item active text-white-50">{{ page_title|default:'تفاصيل' }}</li>
+                    </ol>
+                </nav>
+                <h1>{{ page_title|default:'تفاصيل' }}</h1>
+                <p class="mb-0 opacity-75">{{ page_subtitle|default:'عرض التفاصيل الكاملة' }}</p>
+            </div>
+            <div class="action-buttons">
+                <a href="javascript:history.back()" class="btn-action btn-back">
+                    <i class="bi bi-arrow-right"></i> {% trans 'رجوع' %}
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Detail Card -->
+    <div class="detail-card">
+        <div class="card-header">
+            <span><i class="bi bi-info-circle me-2"></i>{% trans 'معلومات أساسية' %}</span>
+            <div class="action-buttons">
+                {% if edit_url %}
+                <a href="{{ edit_url }}" class="btn-action btn-edit">
+                    <i class="bi bi-pencil"></i> {% trans 'تعديل' %}
+                </a>
+                {% endif %}
+                {% if delete_url %}
+                <button class="btn-action btn-delete" onclick="confirmDelete()">
+                    <i class="bi bi-trash"></i> {% trans 'حذف' %}
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            {% if object %}
+            <div class="detail-row">
+                <div class="detail-label">{% trans 'المعرف' %}</div>
+                <div class="detail-value">#{{ object.id|default:object.pk }}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">{% trans 'الاسم' %}</div>
+                <div class="detail-value"><strong>{{ object }}</strong></div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">{% trans 'الحالة' %}</div>
+                <div class="detail-value">
+                    {% if object.is_active|default:True %}
+                    <span class="status-badge status-active">{% trans 'نشط' %}</span>
+                    {% else %}
+                    <span class="status-badge status-inactive">{% trans 'غير نشط' %}</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% if object.created_at %}
+            <div class="detail-row">
+                <div class="detail-label">{% trans 'تاريخ الإنشاء' %}</div>
+                <div class="detail-value">{{ object.created_at }}</div>
+            </div>
+            {% endif %}
+            {% if object.updated_at %}
+            <div class="detail-row">
+                <div class="detail-label">{% trans 'آخر تحديث' %}</div>
+                <div class="detail-value">{{ object.updated_at }}</div>
+            </div>
+            {% endif %}
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-question-circle text-muted" style="font-size: 3rem;"></i>
+                <p class="text-muted mt-3">{% trans 'لا توجد بيانات للعرض' %}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmDelete() {{
+    if (confirm('{% trans "هل أنت متأكد من حذف هذا العنصر؟" %}')) {{
+        // Handle delete
+    }}
+}
+</script>
+{% endblock %}
+

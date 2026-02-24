@@ -1,0 +1,129 @@
+{% extends BASE_TEMPLATE %}
+{% load i18n static %}
+
+{% block title %}تقييم الموردين{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-gradient-success text-white">
+                    <h3 class="mb-0">
+                        <i class="bi bi-star-fill me-2"></i>
+                        تقييم الموردين التلقائي
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">تقييم أداء الموردين بناءً على معايير متعددة</p>
+                    
+                    <form id="supplierEvalForm" class="mt-4">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">المورد</label>
+                                <select name="supplier_id" class="form-select" required>
+                                    <option value="">اختر المورد...</option>
+                                    <!-- سيتم تحميل الموردين ديناميكياً -->
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3 d-flex align-items-end">
+                                <button type="submit" class="btn btn-success w-100">
+                                    <i class="bi bi-clipboard-check me-2"></i>
+                                    تقييم المورد
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <div id="supplierResult" class="mt-4" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center">
+                                        <h5 class="text-muted">التقييم الإجمالي</h5>
+                                        <h1 id="overallScore" class="display-3 text-success">-</h1>
+                                        <div id="ratingStars" class="mt-2"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="card">
+                                    <div class="card-body text-center">
+                                        <h6 class="text-muted">الجودة</h6>
+                                        <h4 id="qualityScore" class="text-primary">-</h4>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card">
+                                    <div class="card-body text-center">
+                                        <h6 class="text-muted">التسليم</h6>
+                                        <h4 id="deliveryScore" class="text-info">-</h4>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card">
+                                    <div class="card-body text-center">
+                                        <h6 class="text-muted">السعر</h6>
+                                        <h4 id="priceScore" class="text-warning">-</h4>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card">
+                                    <div class="card-body text-center">
+                                        <h6 class="text-muted">الخدمة</h6>
+                                        <h4 id="serviceScore" class="text-success">-</h4>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('supplierEvalForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch('/purchases/supplier-evaluation/evaluate/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('overallScore').textContent = data.overall_score + '/100';
+            document.getElementById('qualityScore').textContent = data.quality_score;
+            document.getElementById('deliveryScore').textContent = data.delivery_score;
+            document.getElementById('priceScore').textContent = data.price_score;
+            document.getElementById('serviceScore').textContent = data.service_score;
+            
+            // عرض النجوم
+            const stars = Math.round(data.overall_score / 20);
+            document.getElementById('ratingStars').innerHTML = '⭐'.repeat(stars);
+            
+            document.getElementById('supplierResult').style.display = 'block';
+        } else {
+            alert('حدث خطأ في التقييم');
+        }
+    } catch (error) {
+        alert('حدث خطأ في الاتصال');
+    }
+});
+</script>
+{% endblock %}
