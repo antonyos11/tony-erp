@@ -4,7 +4,7 @@ from decimal import Decimal
 
 class CustomerProfitabilityAnalysis(models.Model):
     """تحليل ربحية العميل"""
-    customer = models.ForeignKey('crm.Customer', on_delete=models.CASCADE, related_name='profitability_analyses')
+    customer = models.ForeignKey('partners.Customer', on_delete=models.CASCADE, related_name='profitability_analyses')
     analysis_period_start = models.DateField('بداية فترة التحليل')
     analysis_period_end = models.DateField('نهاية فترة التحليل')
     
@@ -74,7 +74,7 @@ class CustomerProfitabilityAnalysis(models.Model):
 
 class CustomerValueScore(models.Model):
     """نقاط قيمة العميل"""
-    customer = models.OneToOneField('crm.Customer', on_delete=models.CASCADE, related_name='value_score')
+    customer = models.OneToOneField('partners.Customer', on_delete=models.CASCADE, related_name='value_score')
     
     # المقاييس
     recency_score = models.IntegerField('نقاط الحداثة', default=0, help_text='آخر عملية شراء')

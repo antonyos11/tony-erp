@@ -96,7 +96,7 @@ class SmartQuote(models.Model):
     ]
     
     quote_number = models.CharField('رقم العرض', max_length=50, unique=True)
-    customer = models.ForeignKey('crm.Customer', on_delete=models.PROTECT, verbose_name='العميل')
+    customer = models.ForeignKey('partners.Customer', on_delete=models.PROTECT, verbose_name='العميل')
     
     # مواصفات المنتج
     product_name = models.CharField('اسم المنتج', max_length=200)

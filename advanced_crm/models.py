@@ -51,7 +51,7 @@ class Opportunity(models.Model):
     description = models.TextField(_('الوصف'))
     
     # العميل والتواصل
-    customer = models.ForeignKey('crm.Customer', on_delete=models.SET_NULL, null=True, blank=True, related_name='advanced_opportunities')
+    customer = models.ForeignKey('partners.Customer', on_delete=models.SET_NULL, null=True, blank=True, related_name='advanced_opportunities')
     contact = models.ForeignKey('crm.ContactPerson', on_delete=models.SET_NULL, null=True, blank=True, related_name='advanced_opportunities')
     
     # التفاصيل المالية
