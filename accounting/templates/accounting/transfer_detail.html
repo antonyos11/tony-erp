@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}تفاصيل التحويل - {{ transfer.transfer_number }}{% endblock %}
+
+{% block content %}
+<style>
+.transfer-card {
+    border-radius: 15px;
+    overflow: hidden;
+}
+.transfer-header {
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+    color: white;
+    padding: 25px;
+}
+.transfer-number {
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+.account-box {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 20px;
+    height: 100%;
+    border: 2px solid #dee2e6;
+    transition: all 0.3s ease;
+}
+.account-box.from-box {
+    border-color: #dc3545;
+}
+.account-box.to-box {
+    border-color: #198754;
+}
+.account-box-header {
+    font-weight: 600;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.from-box .account-box-header {
+    color: #dc3545;
+    border-color: #dc3545;
+}
+.to-box .account-box-header {
+    color: #198754;
+    border-color: #198754;
+}
+.account-type-icon {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+}
+.account-name {
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+.transfer-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    color: #0d6efd;
+}
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+}
+.info-row:last-child {
+    border-bottom: none;
+}
+.info-label {
+    color: #6c757d;
+    font-weight: 500;
+}
+.info-value {
+    font-weight: 600;
+}
+.status-badge {
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-weight: 600;
+}
+.status-pending {
+    background: #ffc107;
+    color: #212529;
+}
+.status-completed {
+    background: #198754;
+    color: white;
+}
+.status-cancelled {
+    background: #dc3545;
+    color: white;
+}
+.amount-display {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #0d6efd;
+}
+</style>
+
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow-sm transfer-card">
+                <div class="transfer-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="transfer-number">{{ transfer.transfer_number }}</div>
+                            <div class="mt-2">
+                                <i class="bi bi-calendar3 me-1"></i> {{ transfer.date|date:"Y/m/d" }}
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <span class="status-badge status-{{ transfer.status }}">
+                                {% if transfer.status == 'pending' %}
+                                    <i class="bi bi-clock me-1"></i> قيد الانتظار
+                                {% elif transfer.status == 'completed' %}
+                                    <i class="bi bi-check-circle me-1"></i> مكتمل
+                                {% else %}
+                                    <i class="bi bi-x-circle me-1"></i> ملغي
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body p-4">
+                    <!-- حسابات التحويل -->
+                    <div class="row align-items-stretch mb-4">
+                        <div class="col-md-5">
+                            <div class="account-box from-box text-center">
+                                <div class="account-box-header justify-content-center">
+                                    <i class="bi bi-box-arrow-up-left"></i>
+                                    <span>من (المصدر)</span>
+                                </div>
+                                <div class="account-type-icon">
+                                    {% if transfer.from_type == 'treasury' %}
+                                        <i class="bi bi-safe text-danger"></i>
+                                    {% elif transfer.from_type == 'bank' %}
+                                        <i class="bi bi-bank text-danger"></i>
+                                    {% elif transfer.from_type == 'electronic' %}
+                                        <i class="bi bi-wallet2 text-danger"></i>
+                                    {% elif transfer.from_type == 'fawry' %}
+                                        <i class="bi bi-phone-fill text-danger"></i>
+                                    {% elif transfer.from_type == 'visa' %}
+                                        <i class="bi bi-credit-card text-danger"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="text-muted mb-1">{{ transfer.get_from_type_display }}</div>
+                                <div class="account-name">{{ transfer.from_account_name }}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-2 d-flex align-items-center justify-content-center py-3">
+                            <div class="transfer-arrow">
+                                <i class="bi bi-arrow-left-circle-fill"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-5">
+                            <div class="account-box to-box text-center">
+                                <div class="account-box-header justify-content-center">
+                                    <i class="bi bi-box-arrow-in-down-left"></i>
+                                    <span>إلى (الوجهة)</span>
+                                </div>
+                                <div class="account-type-icon">
+                                    {% if transfer.to_type == 'treasury' %}
+                                        <i class="bi bi-safe text-success"></i>
+                                    {% elif transfer.to_type == 'bank' %}
+                                        <i class="bi bi-bank text-success"></i>
+                                    {% elif transfer.to_type == 'electronic' %}
+                                        <i class="bi bi-wallet2 text-success"></i>
+                                    {% elif transfer.to_type == 'fawry' %}
+                                        <i class="bi bi-phone-fill text-success"></i>
+                                    {% elif transfer.to_type == 'visa' %}
+                                        <i class="bi bi-credit-card text-success"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="text-muted mb-1">{{ transfer.get_to_type_display }}</div>
+                                <div class="account-name">{{ transfer.to_account_name }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- المبلغ -->
+                    <div class="text-center py-4 mb-4" style="background: #f0f7ff; border-radius: 12px;">
+                        <div class="text-muted mb-2">مبلغ التحويل</div>
+                        <div class="amount-display">{{ transfer.amount|floatformat:2 }} ج.م</div>
+                        {% if transfer.fees > 0 %}
+                        <div class="mt-2">
+                            <span class="text-muted">رسوم التحويل:</span>
+                            <span class="text-danger fw-bold">{{ transfer.fees|floatformat:2 }} ج.م</span>
+                        </div>
+                        <div class="mt-1">
+                            <span class="text-muted">صافي المبلغ:</span>
+                            <span class="text-success fw-bold">{{ transfer.net_amount|floatformat:2 }} ج.م</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- تفاصيل إضافية -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        معلومات التحويل
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="info-row">
+                                        <span class="info-label">رقم المرجع</span>
+                                        <span class="info-value">{{ transfer.reference_number|default:"-" }}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">البيان</span>
+                                        <span class="info-value">{{ transfer.description|default:"-" }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-person-circle me-2"></i>
+                                        معلومات المستخدم
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="info-row">
+                                        <span class="info-label">أنشئ بواسطة</span>
+                                        <span class="info-value">{{ transfer.created_by.username|default:"-" }}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">تاريخ الإنشاء</span>
+                                        <span class="info-value">{{ transfer.created_at|date:"Y/m/d H:i" }}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">آخر تحديث</span>
+                                        <span class="info-value">{{ transfer.updated_at|date:"Y/m/d H:i" }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <!-- الأزرار -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'accounting:transfers_list' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-right me-1"></i> العودة للقائمة
+                        </a>
+                        <div>
+                            {% if transfer.status == 'completed' %}
+                            <a href="{% url 'accounting:transfer_cancel' transfer.pk %}" class="btn btn-danger">
+                                <i class="bi bi-x-circle me-1"></i> إلغاء التحويل
+                            </a>
+                            {% endif %}
+                            <button type="button" class="btn btn-info" onclick="window.print()">
+                                <i class="bi bi-printer me-1"></i> طباعة
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

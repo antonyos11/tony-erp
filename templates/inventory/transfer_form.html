@@ -1,0 +1,197 @@
+{% extends BASE_TEMPLATE %}
+{% load static i18n %}
+
+{% block title %}{% trans 'تحويل مخزون جديد' %} - {{ title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .form-card {
+        background: var(--bg-card, #fff);
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .form-card .card-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--primary, #1e3a5f);
+        margin-bottom: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .form-label-required::after {
+        content: " *";
+        color: #dc3545;
+    }
+    .info-box {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    .info-box .value {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    .info-box .label {
+        font-size: 0.85rem;
+        opacity: 0.9;
+    }
+    .transfer-arrow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .transfer-arrow i {
+        font-size: 2rem;
+        color: var(--primary, #1e3a5f);
+    }
+    .warehouse-select-box {
+        background: var(--bg-light, #f8f9fa);
+        border-radius: 12px;
+        padding: 1.25rem;
+        text-align: center;
+    }
+    .warehouse-select-box label {
+        font-weight: 600;
+        display: block;
+        margin-bottom: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h4 mb-1">
+                <i class="bi bi-arrow-left-right text-primary me-2"></i>
+                {{ title }}
+            </h1>
+            <p class="text-muted mb-0">{% trans 'نقل الأصناف بين المستودعات' %}</p>
+        </div>
+        <a href="{% url 'inventory:transfer_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i> {% trans 'العودة للقائمة' %}
+        </a>
+    </div>
+
+    <form method="post" id="transferForm">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-lg-8">
+                <!-- اختيار المستودعات -->
+                <div class="form-card">
+                    <h5 class="card-title">
+                        <i class="bi bi-arrow-left-right"></i>
+                        {% trans 'اختيار المستودعات' %}
+                    </h5>
+                    <div class="row align-items-center">
+                        <div class="col-md-5">
+                            <div class="warehouse-select-box">
+                                <label class="text-danger">
+                                    <i class="bi bi-box-arrow-right me-1"></i>
+                                    {% trans 'من المستودع (المصدر)' %}
+                                </label>
+                                <select class="form-select form-select-lg" name="source" required>
+                                    <option value="">{% trans '-- اختر المستودع المصدر --' %}</option>
+                                    {% for loc in locations %}
+                                    <option value="{{ loc.id }}">{{ loc.name }}{% if loc.code %} ({{ loc.code }}){% endif %}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-2 transfer-arrow">
+                            <i class="bi bi-arrow-left-right"></i>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="warehouse-select-box">
+                                <label class="text-success">
+                                    <i class="bi bi-box-arrow-in-left me-1"></i>
+                                    {% trans 'إلى المستودع (الوجهة)' %}
+                                </label>
+                                <select class="form-select form-select-lg" name="destination" required>
+                                    <option value="">{% trans '-- اختر المستودع الوجهة --' %}</option>
+                                    {% for loc in locations %}
+                                    <option value="{{ loc.id }}">{{ loc.name }}{% if loc.code %} ({{ loc.code }}){% endif %}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="alert alert-info mt-3 mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        {% trans 'تأكد من اختيار مستودعين مختلفين للمصدر والوجهة' %}
+                    </div>
+                </div>
+
+                <!-- ملاحظات -->
+                <div class="form-card">
+                    <h5 class="card-title">
+                        <i class="bi bi-sticky"></i>
+                        {% trans 'ملاحظات' %}
+                    </h5>
+                    <textarea class="form-control" name="notes" rows="3" 
+                              placeholder="{% trans 'أي ملاحظات على التحويل...' %}"></textarea>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <div class="info-box">
+                    <div class="value"><i class="bi bi-arrow-left-right"></i></div>
+                    <div class="label">{% trans 'تحويل مخزون جديد' %}</div>
+                </div>
+
+                <!-- تعليمات -->
+                <div class="form-card">
+                    <h5 class="card-title">
+                        <i class="bi bi-lightbulb"></i>
+                        {% trans 'خطوات التحويل' %}
+                    </h5>
+                    <ol class="small text-muted mb-0">
+                        <li class="mb-2">{% trans 'اختر المستودع المصدر والوجهة' %}</li>
+                        <li class="mb-2">{% trans 'بعد الحفظ، أضف الأصناف المراد تحويلها' %}</li>
+                        <li class="mb-2">{% trans 'حدد الكميات لكل صنف' %}</li>
+                        <li>{% trans 'أكد التحويل لتحديث الأرصدة' %}</li>
+                    </ol>
+                </div>
+
+                <!-- أزرار الإجراءات -->
+                <div class="form-card">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-check-lg me-1"></i> {% trans 'حفظ ومتابعة' %}
+                        </button>
+                        <a href="{% url 'inventory:transfer_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-lg me-1"></i> {% trans 'إلغاء' %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('transferForm');
+    const sourceSelect = document.querySelector('select[name="source"]');
+    const destSelect = document.querySelector('select[name="destination"]');
+    
+    form.addEventListener('submit', function(e) {
+        if (sourceSelect.value && destSelect.value && sourceSelect.value === destSelect.value) {
+            e.preventDefault();
+            alert('{% trans "لا يمكن اختيار نفس المستودع كمصدر ووجهة" %}');
+        }
+    });
+});
+</script>
+{% endblock %}

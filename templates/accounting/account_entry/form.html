@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Tony ERP{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-edit me-2"></i>{{ title }}</h6>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="entryForm">
+                        {% csrf_token %}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="{{ form.entry_date.id_for_label }}" class="form-label">تاريخ القيد <span class="text-danger">*</span></label>
+                                {{ form.entry_date }}
+                                {% if form.entry_date.errors %}
+                                    <div class="text-danger small">{{ form.entry_date.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.entry_type.id_for_label }}" class="form-label">نوع القيد <span class="text-danger">*</span></label>
+                                {{ form.entry_type }}
+                                {% if form.entry_type.errors %}
+                                    <div class="text-danger small">{{ form.entry_type.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.amount.id_for_label }}" class="form-label">المبلغ <span class="text-danger">*</span></label>
+                                {{ form.amount }}
+                                {% if form.amount.errors %}
+                                    <div class="text-danger small">{{ form.amount.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label for="{{ form.general_ledger_account.id_for_label }}" class="form-label">حساب الأستاذ <span class="text-danger">*</span></label>
+                                {{ form.general_ledger_account }}
+                                {% if form.general_ledger_account.errors %}
+                                    <div class="text-danger small">{{ form.general_ledger_account.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.financial_analysis1.id_for_label }}" class="form-label">التحليل المالي 1</label>
+                                {{ form.financial_analysis1 }}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.financial_analysis2.id_for_label }}" class="form-label">التحليل المالي 2</label>
+                                {{ form.financial_analysis2 }}
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.item_name.id_for_label }}" class="form-label">اسم الصنف/البند</label>
+                                {{ form.item_name }}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.reference_number.id_for_label }}" class="form-label">رقم المرجع</label>
+                                {{ form.reference_number }}
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">الوصف/البيان</label>
+                            {{ form.description }}
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>حفظ القيد
+                            </button>
+                            <a href="{% url 'accounting:account_entry_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>إلغاء
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>ملاحظات</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>إيراد = مبيعات أو دخل</li>
+                        <li class="mb-2"><i class="fas fa-check text-danger me-2"></i>منصرف = مصروفات أو تكاليف</li>
+                        <li class="mb-2"><i class="fas fa-check text-primary me-2"></i>اختر حساب الأستاذ المناسب</li>
+                        <li class="mb-2"><i class="fas fa-check text-warning me-2"></i>التحليل المالي اختياري للتصنيف</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// تحديث التحليل المالي 2 بناءً على التحليل المالي 1
+document.getElementById('{{ form.financial_analysis1.id_for_label }}')?.addEventListener('change', function() {
+    const analysis1Id = this.value;
+    const analysis2Select = document.getElementById('{{ form.financial_analysis2.id_for_label }}');
+    
+    if (analysis1Id) {
+        fetch(`{% url 'accounting:api_analysis2_by_analysis1' %}?analysis1_id=${analysis1Id}`)
+            .then(response => response.json())
+            .then(data => {
+                analysis2Select.innerHTML = '<option value="">---------</option>';
+                data.forEach(item => {
+                    analysis2Select.innerHTML += `<option value="${item.id}">${item.code} - ${item.name}</option>`;
+                });
+            });
+    }
+});
+</script>
+{% endblock %}

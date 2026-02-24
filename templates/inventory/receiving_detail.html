@@ -1,0 +1,200 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load i18n %}
+
+{% block title %}{% trans 'تفاصيل الاستلام' %} - {{ receiving.number }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    .page-header h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 0;
+    }
+    .info-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .info-row {
+        display: flex;
+        gap: 2rem;
+        flex-wrap: wrap;
+    }
+    .info-item {
+        display: flex;
+        flex-direction: column;
+    }
+    .info-item .label {
+        font-size: 0.85rem;
+        color: #6b7280;
+        margin-bottom: 0.25rem;
+    }
+    .info-item .value {
+        font-weight: 600;
+    }
+    .status-badge {
+        padding: 0.35rem 1rem;
+        border-radius: 50px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    .status-draft { background: #f3f4f6; color: #6b7280; }
+    .status-confirmed { background: #d1fae5; color: #065f46; }
+    .data-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+    .data-card-header {
+        background: #f8fafc;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-box-arrow-in-down text-success me-2"></i>{{ title }}</h1>
+        </div>
+        <a href="{% url 'inventory:receiving_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i> {% trans 'العودة للقائمة' %}
+        </a>
+    </div>
+
+    <!-- معلومات المستند -->
+    <div class="info-card">
+        <div class="info-row">
+            <div class="info-item">
+                <span class="label">{% trans 'المورد' %}</span>
+                <span class="value">{{ receiving.supplier_name|default:"-" }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">{% trans 'الموقع' %}</span>
+                <span class="value">{{ receiving.location }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">{% trans 'التاريخ' %}</span>
+                <span class="value">{{ receiving.receive_date|date:"Y/m/d" }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">{% trans 'الحالة' %}</span>
+                <span class="status-badge {% if receiving.status == 'confirmed' %}status-confirmed{% else %}status-draft{% endif %}">
+                    {{ receiving.get_status_display }}
+                </span>
+            </div>
+            {% if po %}
+            <div class="info-item">
+                <span class="label">{% trans 'أمر الشراء' %}</span>
+                <span class="value"><a href="{% url 'purchases:po_detail' po.id %}">{{ po.number }}</a></span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if receiving.is_editable %}
+    <!-- نموذج إضافة بند -->
+    <div class="data-card">
+        <div class="data-card-header">
+            <i class="bi bi-plus-circle me-2"></i>{% trans 'إضافة صنف' %}
+        </div>
+        <div class="p-3">
+            <form method="post" class="row g-3 align-items-end">
+                {% csrf_token %}
+                {% if po %}
+                <div class="col-12">
+                    <button class="btn btn-outline-secondary" name="import_po" value="1" type="submit">
+                        <i class="bi bi-download me-1"></i> {% trans 'استيراد البنود من أمر الشراء' %}
+                    </button>
+                </div>
+                {% endif %}
+                <div class="col-md-4">
+                    <label class="form-label">{% trans 'المنتج' %}</label>
+                    <select class="form-select" name="product" required>
+                        <option value="">{% trans '-- اختر المنتج --' %}</option>
+                        {% for p in products %}
+                        <option value="{{ p.id }}">{{ p.sku }} - {{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">{% trans 'الكمية' %}</label>
+                    <input class="form-control" type="number" name="quantity" value="1" min="1" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">{% trans 'تكلفة الوحدة' %}</label>
+                    <input class="form-control" type="number" step="0.0001" name="unit_cost" value="0">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">{% trans 'الدفعة' %}</label>
+                    <input class="form-control" name="lot_number" placeholder="{% trans 'رقم الدفعة' %}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">{% trans 'الصلاحية' %}</label>
+                    <input class="form-control" type="date" name="expiry_date">
+                </div>
+                <div class="col-12 d-flex gap-2">
+                    <button class="btn btn-primary" type="submit">
+                        <i class="bi bi-plus-lg me-1"></i> {% trans 'إضافة' %}
+                    </button>
+                    <a class="btn btn-success" href="{% url 'inventory:receiving_confirm' receiving.id %}">
+                        <i class="bi bi-check-lg me-1"></i> {% trans 'تأكيد الاستلام' %}
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- البنود -->
+    <div class="data-card">
+        <div class="data-card-header">
+            <i class="bi bi-list-check me-2"></i>{% trans 'الأصناف المستلمة' %}
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>{% trans 'المنتج' %}</th>
+                        <th class="text-center">{% trans 'الكمية' %}</th>
+                        <th class="text-center">{% trans 'التكلفة' %}</th>
+                        <th class="text-center">{% trans 'الدفعة' %}</th>
+                        <th class="text-center">{% trans 'الصلاحية' %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for i in receiving.items.all %}
+                    <tr>
+                        <td>{{ i.product }}</td>
+                        <td class="text-center">{{ i.quantity }}</td>
+                        <td class="text-center">{{ i.unit_cost }}</td>
+                        <td class="text-center">{{ i.lot_number|default:"-" }}</td>
+                        <td class="text-center">{{ i.expiry_date|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                            {% trans 'لا توجد بنود بعد' %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

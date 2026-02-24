@@ -1,0 +1,423 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تحليلات المواقع والمستودعات - Tony ERP{% endblock %}
+
+{% block extra_head %}
+<style>
+.location-card {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.location-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.location-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1.5rem;
+    position: relative;
+}
+
+.location-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 20px;
+    background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.1) 100%);
+}
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+    transition: all 0.3s ease;
+}
+
+.stat-item:hover {
+    background: #e9ecef;
+    transform: scale(1.02);
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #495057;
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin: 0;
+}
+
+.utilization-bar {
+    height: 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+}
+
+.utilization-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #28a745 0%, #20c997 50%, #ffc107 75%, #dc3545 100%);
+    transition: width 0.5s ease;
+}
+
+.location-type-badge {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 15px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.filter-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    color: white;
+}
+
+.summary-card {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.low-stock-indicator {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: #dc3545;
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="h3 mb-1">
+                <i class="bi bi-building text-primary"></i>
+                تحليلات المواقع والمستودعات
+            </h2>
+            <small class="text-muted">إحصائيات شاملة لجميع مواقع التخزين</small>
+        </div>
+        <div class="btn-group">
+            <a href="?export=excel" class="btn btn-success">
+                <i class="bi bi-file-excel"></i> تصدير Excel
+            </a>
+            <a href="{% url 'inventory:location_list' %}" class="btn btn-outline-primary">
+                <i class="bi bi-list"></i> إدارة المواقع
+            </a>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="summary-card">
+                <h3 class="mb-1">{{ location_stats|length }}</h3>
+                <p class="mb-0">إجمالي المواقع النشطة</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="summary-card" style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);">
+                <h3 class="mb-1">
+                    {% with total_products=0 %}
+                        {% for stat in location_stats %}
+                            {% with total_products=total_products|add:stat.total_products %}
+                            {% endwith %}
+                        {% endfor %}
+                        {{ total_products }}
+                    {% endwith %}
+                </h3>
+                <p class="mb-0">إجمالي المنتجات المخزنة</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="summary-card" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);">
+                <h3 class="mb-1">
+                    {% with total_value=0 %}
+                        {% for stat in location_stats %}
+                            {% with total_value=total_value|add:stat.total_value %}
+                            {% endwith %}
+                        {% endfor %}
+                        {{ total_value|floatformat:0 }}
+                    {% endwith %}
+                </h3>
+                <p class="mb-0">إجمالي قيمة المخزون</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="summary-card" style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);">
+                <h3 class="mb-1">
+                    {% with low_stock_total=0 %}
+                        {% for stat in location_stats %}
+                            {% with low_stock_total=low_stock_total|add:stat.low_stock_count %}
+                            {% endwith %}
+                        {% endfor %}
+                        {{ low_stock_total }}
+                    {% endwith %}
+                </h3>
+                <p class="mb-0">منتجات منخفضة المخزون</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-card">
+        <h5 class="mb-3">
+            <i class="bi bi-funnel"></i> مرشحات المواقع
+        </h5>
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                {{ filter.name }}
+            </div>
+            <div class="col-md-2">
+                {{ filter.type }}
+            </div>
+            <div class="col-md-2">
+                {{ filter.is_active }}
+            </div>
+            <div class="col-md-2">
+                {{ filter.is_default }}
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-light">
+                    <i class="bi bi-search"></i> تطبيق
+                </button>
+                <a href="?" class="btn btn-outline-light">
+                    <i class="bi bi-x"></i> إزالة
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Locations Grid -->
+    <div class="row">
+        {% for stat in location_stats %}
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="location-card">
+                <div class="location-header">
+                    <div class="location-type-badge">
+                        {{ stat.location.get_type_display }}
+                    </div>
+                    
+                    {% if stat.low_stock_count > 0 %}
+                        <div class="low-stock-indicator" title="منتجات منخفضة المخزون">
+                            {{ stat.low_stock_count }}
+                        </div>
+                    {% endif %}
+                    
+                    <h5 class="mb-1">{{ stat.location.name }}</h5>
+                    <p class="mb-1 opacity-75">{{ stat.location.code }}</p>
+                    {% if stat.location.address %}
+                        <small class="opacity-75">
+                            <i class="bi bi-geo-alt"></i> {{ stat.location.address }}
+                        </small>
+                    {% endif %}
+                    
+                    <!-- Utilization Bar -->
+                    <div class="utilization-bar">
+                        <div class="utilization-fill" data-width="{ stat.utilization|default:0 }"></div>
+                    </div>
+                    <small class="mt-1 d-block opacity-75">
+                        الاستغلال: {{ stat.utilization|floatformat:1 }}%
+                    </small>
+                </div>
+                
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <div class="stat-value">{{ stat.total_products }}</div>
+                        <p class="stat-label">المنتجات</p>
+                    </div>
+                    
+                    <div class="stat-item" style="border-left-color: #28a745;">
+                        <div class="stat-value">{{ stat.total_quantity }}</div>
+                        <p class="stat-label">إجمالي الكمية</p>
+                    </div>
+                    
+                    <div class="stat-item" style="border-left-color: #17a2b8;">
+                        <div class="stat-value">{{ stat.total_value|floatformat:0 }}</div>
+                        <p class="stat-label">القيمة الإجمالية</p>
+                    </div>
+                    
+                    <div class="stat-item" data-border-color="{% if stat.low_stock_count > 0 %}#dc3545{% else %}#6c757d{% endif %}">
+                        <div class="stat-value" data-color="{% if stat.low_stock_count > 0 %}#dc3545{% else %}#6c757d{% endif %}">
+                            {{ stat.low_stock_count }}
+                        </div>
+                        <p class="stat-label">مخزون منخفض</p>
+                    </div>
+                </div>
+                
+                <div class="card-footer bg-light border-0 p-3">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'inventory:location_list' %}?location={{ stat.location.id }}" 
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i> عرض المخزون
+                        </a>
+                        
+                        {% if stat.location.is_default %}
+                            <span class="badge bg-success">موقع افتراضي</span>
+                        {% endif %}
+                        
+                        {% if not stat.location.is_active %}
+                            <span class="badge bg-secondary">غير نشط</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-building fs-1 text-muted mb-3"></i>
+                    <h4 class="text-muted">لا توجد مواقع متاحة</h4>
+                    <p class="text-muted">لم يتم العثور على مواقع تخزين نشطة</p>
+                    <a href="{% url 'inventory:location_add' %}" class="btn btn-primary">
+                        <i class="bi bi-plus"></i> إضافة موقع جديد
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Additional Analysis -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-graph-up"></i> تحليل توزيع المخزون
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-3">توزيع القيمة حسب الموقع</h6>
+                            <div class="mb-3">
+                                {% for stat in location_stats|slice:":5" %}
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>{{ stat.location.name }}</span>
+                                        <span class="fw-bold">{{ stat.total_value|floatformat:0 }}</span>
+                                    </div>
+                                    <div class="progress mb-2" style="height: 6px;">
+                                        <div class="progress-bar" data-width="{ stat.utilization|default:0 }"></div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-3">إنذارات المخزون المنخفض</h6>
+                            {% for stat in location_stats %}
+                                {% if stat.low_stock_count > 0 %}
+                                    <div class="alert alert-warning py-2">
+                                        <strong>{{ stat.location.name }}</strong>: 
+                                        {{ stat.low_stock_count }} منتج منخفض المخزون
+                                        <a href="{% url 'inventory:low_stock_dashboard' %}?location={{ stat.location.id }}" 
+                                           class="btn btn-sm btn-outline-warning float-end">
+                                            عرض التفاصيل
+                                        </a>
+                                    </div>
+                                {% endif %}
+                            {% empty %}
+                                <div class="text-success">
+                                    <i class="bi bi-check-circle"></i>
+                                    جميع المواقع لديها مخزون طبيعي
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animate utilization bars
+    const utilizationBars = document.querySelectorAll('.utilization-fill');
+    utilizationBars.forEach(bar => {
+        const width = bar.style.width;
+        bar.style.width = '0%';
+        setTimeout(() => {
+            bar.style.width = width;
+        }, 100);
+    });
+    
+    // Add hover effects to location cards
+    const locationCards = document.querySelectorAll('.location-card');
+    locationCards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px) scale(1.02)';
+        });
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(-3px) scale(1)';
+        });
+    });
+
+    // Apply dynamic widths from data attributes
+    document.querySelectorAll('.utilization-fill[data-width]').forEach(el => {
+        const w = el.getAttribute('data-width') || '0';
+        el.style.width = `${w}%`;
+    });
+    document.querySelectorAll('.progress-bar[data-width]').forEach(el => {
+        const w = el.getAttribute('data-width') || '0';
+        el.style.width = `${w}%`;
+    });
+    document.querySelectorAll('[data-border-color]').forEach(el => {
+        const c = el.getAttribute('data-border-color');
+        if (c) el.style.borderLeftColor = c;
+    });
+    document.querySelectorAll('[data-color]').forEach(el => {
+        const c = el.getAttribute('data-color');
+        if (c) el.style.color = c;
+    });
+});
+</script>
+{% endblock %}

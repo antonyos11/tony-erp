@@ -1,0 +1,282 @@
+{% extends 'base_templates/_list_professional.html' %}
+{% load i18n %}
+
+{% block page_title %}{{ title }}{% endblock %}
+{% block hero_icon %}bi-box-seam{% endblock %}
+{% block hero_title %}{{ title }}{% endblock %}
+{% block hero_subtitle %}إدارة المواد الخام للإنتاج{% endblock %}
+
+{% block add_button_url %}{% url 'inventory:raw_material_create' %}{% endblock %}
+{% block add_button_text %}إضافة مادة خام{% endblock %}
+
+{% block stats_cards %}
+<div class="col-md-4">
+  <div class="stat-card">
+    <div class="stat-icon bg-primary text-white">
+      <i class="bi bi-box-seam"></i>
+    </div>
+    <div class="stat-info">
+      <h3>{{ total_count }}</h3>
+      <p>إجمالي المواد الخام</p>
+    </div>
+  </div>
+</div>
+<div class="col-md-4">
+  <div class="stat-card">
+    <div class="stat-icon bg-success text-white">
+      <i class="bi bi-folder"></i>
+    </div>
+    <div class="stat-info">
+      <h3>{{ categories.count }}</h3>
+      <p>الفئات</p>
+    </div>
+  </div>
+</div>
+<div class="col-md-4">
+  <div class="stat-card">
+    <div class="stat-icon bg-info text-white">
+      <i class="bi bi-truck"></i>
+    </div>
+    <div class="stat-info">
+      <h3>{{ suppliers.count }}</h3>
+      <p>الموردين</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block filter_fields %}
+<div class="col-md-4">
+  <label class="form-label">بحث</label>
+  <div class="input-group">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input type="text" class="form-control" name="q" value="{{ search_query }}" placeholder="اسم المادة أو الكود...">
+  </div>
+</div>
+<div class="col-md-3">
+  <label class="form-label">الفئة</label>
+  <select class="form-select" name="category">
+    <option value="">جميع الفئات</option>
+    {% for cat in categories %}
+    <option value="{{ cat.id }}" {% if current_category == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+    {% endfor %}
+  </select>
+</div>
+<div class="col-md-3">
+  <label class="form-label">المورد</label>
+  <select class="form-select" name="supplier">
+    <option value="">جميع الموردين</option>
+    {% for sup in suppliers %}
+    <option value="{{ sup.id }}" {% if current_supplier == sup.id|stringformat:"s" %}selected{% endif %}>{{ sup.name }}</option>
+    {% endfor %}
+  </select>
+</div>
+{% endblock %}
+
+{% block table_icon %}bi-box-seam{% endblock %}
+{% block table_title %}قائمة المواد الخام{% endblock %}
+{% block table_count %}<span class="badge bg-primary">{{ total_count }} مادة</span>{% endblock %}
+
+{% block table_content %}
+{% if products %}
+<div class="table-responsive">
+  <table class="table table-hover table-striped mb-0 align-middle">
+    <thead class="table-dark">
+      <tr>
+        <th style="width: 60px">#</th>
+        <th>
+          <a href="?sort={% if sort == 'sku' %}-{% endif %}sku&q={{ search_query }}&category={{ current_category }}&supplier={{ current_supplier }}" class="text-white text-decoration-none">
+            الكود <i class="bi bi-arrow-down-up small"></i>
+          </a>
+        </th>
+        <th>
+          <a href="?sort={% if sort == 'name' %}-{% endif %}name&q={{ search_query }}&category={{ current_category }}&supplier={{ current_supplier }}" class="text-white text-decoration-none">
+            اسم المادة <i class="bi bi-arrow-down-up small"></i>
+          </a>
+        </th>
+        <th>الفئة</th>
+        <th>الوحدة</th>
+        <th>المورد</th>
+        <th>
+          <a href="?sort={% if sort == 'cost' %}-{% endif %}cost&q={{ search_query }}&category={{ current_category }}&supplier={{ current_supplier }}" class="text-white text-decoration-none">
+            التكلفة <i class="bi bi-arrow-down-up small"></i>
+          </a>
+        </th>
+        <th>المخزون</th>
+        <th style="width: 120px">إجراءات</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for product in products %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td><code class="text-primary">{{ product.sku }}</code></td>
+        <td>
+          <strong>{{ product.name }}</strong>
+          {% if product.barcode %}
+          <br><small class="text-muted"><i class="bi bi-upc"></i> {{ product.barcode }}</small>
+          {% endif %}
+        </td>
+        <td>
+          {% if product.category %}
+          <span class="badge bg-secondary">{{ product.category.name }}</span>
+          {% else %}
+          <span class="text-muted">-</span>
+          {% endif %}
+        </td>
+        <td>
+          <span class="badge bg-info">{{ product.get_purchase_uom_display }}</span>
+        </td>
+        <td>
+          {% if product.preferred_supplier %}
+          {{ product.preferred_supplier.name }}
+          {% else %}
+          <span class="text-muted">-</span>
+          {% endif %}
+        </td>
+        <td>
+          <strong class="text-success">{{ product.cost|floatformat:2 }}</strong>
+          <small class="text-muted">ج.م/{{ product.get_purchase_uom_display }}</small>
+        </td>
+        <td>
+          {% with stock=product.current_stock %}
+          {% if stock > product.min_stock %}
+          <span class="badge bg-success">{{ stock|floatformat:0 }}</span>
+          {% elif stock > 0 %}
+          <span class="badge bg-warning text-dark">{{ stock|floatformat:0 }}</span>
+          {% else %}
+          <span class="badge bg-danger">0</span>
+          {% endif %}
+          {% endwith %}
+        </td>
+        <td>
+          <div class="btn-group btn-group-sm">
+            <button type="button" class="btn btn-outline-success" onclick="quickEditPrice({{ product.pk }}, '{{ product.name }}', {{ product.cost }}, '{{ product.get_purchase_uom_display }}')" title="تعديل السعر سريعاً">
+              <i class="bi bi-currency-dollar"></i>
+            </button>
+            <a href="{% url 'inventory:supplier_prices' product.pk %}" class="btn btn-outline-warning" title="أسعار الموردين">
+              <i class="bi bi-people-fill"></i>
+            </a>
+            <a href="{% url 'inventory:raw_material_edit' product.pk %}" class="btn btn-outline-primary" title="تعديل كامل">
+              <i class="bi bi-pencil"></i>
+            </a>
+            <a href="{% url 'inventory:print_product_barcode' product.pk %}" class="btn btn-outline-secondary" title="طباعة باركود">
+              <i class="bi bi-printer"></i>
+            </a>
+            <button type="button" class="btn btn-outline-danger" onclick="confirmDelete({{ product.pk }}, '{{ product.name }}')" title="حذف">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="text-center py-5">
+  <i class="bi bi-inbox display-1 text-muted"></i>
+  <h4 class="mt-3 text-muted">لا توجد مواد خام</h4>
+  <p class="text-muted">ابدأ بإضافة المواد الخام للمصنع</p>
+  <a href="{% url 'inventory:raw_material_create' %}" class="btn btn-primary btn-lg">
+    <i class="bi bi-plus-lg me-2"></i>إضافة مادة خام جديدة
+  </a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>تأكيد الحذف</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>هل أنت متأكد من حذف المادة الخام:</p>
+        <h5 class="text-danger" id="deleteItemName"></h5>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+        <form id="deleteForm" method="post" style="display: inline;">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-trash me-1"></i>حذف
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- نافذة التعديل السريع للسعر -->
+<div class="modal fade" id="quickPriceModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">
+          <i class="bi bi-currency-dollar me-2"></i>تعديل السعر سريعاً
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="quickPriceForm" method="POST">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-bold">المادة الخام:</label>
+            <p class="text-muted" id="quickPriceProductName"></p>
+          </div>
+          <div class="mb-3">
+            <label for="quickPriceCost" class="form-label">التكلفة الجديدة <span class="text-danger">*</span></label>
+            <div class="input-group input-group-lg">
+              <span class="input-group-text">ج.م</span>
+              <input type="number" class="form-control" id="quickPriceCost" name="cost"
+                     step="0.01" min="0" required autofocus>
+              <span class="input-group-text" id="quickPriceUom">/ كجم</span>
+            </div>
+            <small class="text-muted">تكلفة وحدة الشراء الواحدة</small>
+          </div>
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            سيتم تحديث السعر فوراً في النظام
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="bi bi-x-circle me-1"></i>إلغاء
+          </button>
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-check-circle me-1"></i>حفظ السعر الجديد
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function confirmDelete(id, name) {
+  document.getElementById('deleteItemName').textContent = name;
+  document.getElementById('deleteForm').action = '/inventory/products/' + id + '/delete/';
+  new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+function quickEditPrice(productId, productName, currentCost, uom) {
+  // تحديث النموذج
+  document.getElementById('quickPriceProductName').textContent = productName;
+  document.getElementById('quickPriceCost').value = currentCost;
+  document.getElementById('quickPriceUom').textContent = '/ ' + uom;
+  document.getElementById('quickPriceForm').action = '/inventory/products/raw-material/' + productId + '/quick-price/';
+
+  // إظهار النافذة
+  new bootstrap.Modal(document.getElementById('quickPriceModal')).show();
+
+  // تركيز على حقل السعر
+  setTimeout(() => {
+    document.getElementById('quickPriceCost').select();
+  }, 500);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% load i18n humanize %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" dir="rtl">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fas fa-robot me-2 text-primary"></i>
+                {{ page_title }}
+            </h1>
+            <a href="{% url 'accounting:bank_reconciliation_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-right me-1"></i> {% trans "العودة للتسويات" %}
+            </a>
+        </div>
+    </div>
+
+    <!-- Match Type Info -->
+    <div class="alert alert-info shadow-sm mb-4">
+        <div class="d-flex align-items-center">
+            {% if match_type == 'amount' %}
+            <i class="fas fa-dollar-sign fa-2x me-3"></i>
+            <div>
+                <h5 class="alert-heading mb-1">{% trans "المطابقة حسب المبلغ" %}</h5>
+                <p class="mb-0">{% trans "يتم مطابقة المعاملات تلقائياً بناءً على تطابق المبالغ بين كشف البنك والقيود المحاسبية." %}</p>
+            </div>
+            {% elif match_type == 'date' %}
+            <i class="fas fa-calendar-alt fa-2x me-3"></i>
+            <div>
+                <h5 class="alert-heading mb-1">{% trans "المطابقة حسب التاريخ" %}</h5>
+                <p class="mb-0">{% trans "يتم مطابقة المعاملات تلقائياً بناءً على تطابق التواريخ والمبالغ." %}</p>
+            </div>
+            {% elif match_type == 'reference' %}
+            <i class="fas fa-hashtag fa-2x me-3"></i>
+            <div>
+                <h5 class="alert-heading mb-1">{% trans "المطابقة حسب المرجع" %}</h5>
+                <p class="mb-0">{% trans "يتم مطابقة المعاملات تلقائياً بناءً على تطابق أرقام المراجع أو الشيكات." %}</p>
+            </div>
+            {% elif match_type == 'ai' %}
+            <i class="fas fa-brain fa-2x me-3"></i>
+            <div>
+                <h5 class="alert-heading mb-1">{% trans "المطابقة الذكية بالـ AI" %}</h5>
+                <p class="mb-0">{% trans "يستخدم الذكاء الاصطناعي لتحليل الأنماط والمطابقة الذكية للمعاملات المعقدة." %}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Select Reconciliation -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 bg-white">
+            <h6 class="m-0 font-weight-bold text-primary">{% trans "اختر التسوية البنكية" %}</h6>
+        </div>
+        <div class="card-body">
+            {% if reconciliations %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="bg-light">
+                        <tr>
+                            <th>{% trans "البنك" %}</th>
+                            <th>{% trans "الفترة" %}</th>
+                            <th>{% trans "الرصيد الختامي" %}</th>
+                            <th>{% trans "الفرق الحالي" %}</th>
+                            <th>{% trans "إجراء" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rec in reconciliations %}
+                        <tr>
+                            <td class="font-weight-bold">{{ rec.bank.name }}</td>
+                            <td>{{ rec.period_start }} — {{ rec.period_end }}</td>
+                            <td>{{ rec.closing_balance|floatformat:2|intcomma }}</td>
+                            <td>
+                                <span class="{% if rec.difference_amount == 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ rec.difference_amount|floatformat:2|intcomma }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{% url 'accounting:auto_match' rec.pk %}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-play me-1"></i> {% trans "تشغيل المطابقة" %}
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-inbox fa-3x mb-3 opacity-25"></i>
+                <p>{% trans "لا توجد تسويات بنكية قيد المعالجة حالياً" %}</p>
+                <a href="{% url 'accounting:bank_reconciliation_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i> {% trans "إنشاء تسوية جديدة" %}
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- How it works -->
+    <div class="card shadow">
+        <div class="card-header py-3 bg-white">
+            <h6 class="m-0 font-weight-bold text-primary">{% trans "كيف تعمل هذه الميزة؟" %}</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 text-center mb-3">
+                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 50px; height: 50px;">
+                        <span class="h5 mb-0">1</span>
+                    </div>
+                    <h6>{% trans "رفع كشف البنك" %}</h6>
+                    <p class="text-muted small">{% trans "قم برفع كشف الحساب البنكي بصيغة CSV أو Excel" %}</p>
+                </div>
+                <div class="col-md-4 text-center mb-3">
+                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 50px; height: 50px;">
+                        <span class="h5 mb-0">2</span>
+                    </div>
+                    <h6>{% trans "المطابقة التلقائية" %}</h6>
+                    <p class="text-muted small">{% trans "النظام يقوم بمطابقة المعاملات تلقائياً" %}</p>
+                </div>
+                <div class="col-md-4 text-center mb-3">
+                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 50px; height: 50px;">
+                        <span class="h5 mb-0">3</span>
+                    </div>
+                    <h6>{% trans "المراجعة والاعتماد" %}</h6>
+                    <p class="text-muted small">{% trans "راجع النتائج واعتمد التسوية" %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

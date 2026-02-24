@@ -1,0 +1,111 @@
+{% extends 'base_templates/_form_professional.html' %}
+{% load static %}
+
+{% block page_title %}{% if cf %}تعديل معامل تحويل{% else %}إضافة معامل تحويل{% endif %}{% endblock %}
+{% block hero_icon %}bi-arrow-left-right-circle{% endblock %}
+{% block hero_title %}{% if cf %}تعديل: {{ cf }}{% else %}معامل تحويل جديد{% endif %}{% endblock %}
+{% block hero_subtitle %}تحديد معامل التحويل بين وحدتين{% endblock %}
+
+{% block form_id %}conversionFactorForm{% endblock %}
+{% block form_action %}{% if cf %}{% url 'inventory:conversion_factor_edit' cf.pk %}{% else %}{% url 'inventory:conversion_factor_create' %}{% endif %}{% endblock %}
+
+{% block form_fields %}
+<div class="row g-4">
+    <!-- من وحدة -->
+    <div class="col-md-4">
+        <label class="form-label fw-bold">من وحدة <span class="text-danger">*</span></label>
+        <input type="text" name="from_unit" class="form-control form-control-lg"
+               value="{{ cf.from_unit|default:'' }}" required
+               placeholder="مثال: m3, kg, liter">
+        <div class="form-text">الوحدة المصدر</div>
+    </div>
+
+    <!-- إلى وحدة -->
+    <div class="col-md-4">
+        <label class="form-label fw-bold">إلى وحدة <span class="text-danger">*</span></label>
+        <input type="text" name="to_unit" class="form-control form-control-lg"
+               value="{{ cf.to_unit|default:'' }}" required
+               placeholder="مثال: kg, g, piece">
+        <div class="form-text">الوحدة الهدف</div>
+    </div>
+
+    <!-- المعامل -->
+    <div class="col-md-4">
+        <label class="form-label fw-bold">معامل التحويل <span class="text-danger">*</span></label>
+        <input type="number" name="factor" class="form-control form-control-lg"
+               value="{{ cf.factor|default:'1' }}" required step="0.000001" min="0">
+        <div class="form-text">1 من_وحدة = ؟ إلى_وحدة</div>
+    </div>
+
+    <!-- نوع المادة -->
+    <div class="col-md-6">
+        <label class="form-label fw-bold">نوع المادة</label>
+        <select name="material_type" class="form-select form-select-lg">
+            {% for value, label in material_types %}
+            <option value="{{ value }}" {% if cf and cf.material_type == value %}selected{% elif value == 'general' %}selected{% endif %}>
+                {{ label }}
+            </option>
+            {% endfor %}
+        </select>
+        <div class="form-text">عام للجميع أو خاص بنوع مادة معين</div>
+    </div>
+
+    <!-- الحالة -->
+    {% if cf %}
+    <div class="col-md-6">
+        <label class="form-label fw-bold">الحالة</label>
+        <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" name="is_active" id="isActive"
+                   {% if cf.is_active %}checked{% endif %}>
+            <label class="form-check-label" for="isActive">نشط</label>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- الوصف -->
+    <div class="col-12">
+        <label class="form-label fw-bold">الوصف</label>
+        <textarea name="description" class="form-control" rows="3"
+                  placeholder="مثال: 1 متر مكعب خشب زان = 650 كيلوجرام">{{ cf.description|default:'' }}</textarea>
+        <div class="form-text">شرح توضيحي للمعامل (اختياري)</div>
+    </div>
+</div>
+
+<!-- مثال توضيحي -->
+<div class="alert alert-info mt-4">
+    <h6><i class="bi bi-calculator"></i> مثال حسابي:</h6>
+    <p class="mb-0" id="exampleCalculation">
+        سيتم عرض مثال عند إدخال القيم
+    </p>
+</div>
+{% endblock %}
+
+{% block form_extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fromUnit = document.querySelector('input[name="from_unit"]');
+    const toUnit = document.querySelector('input[name="to_unit"]');
+    const factor = document.querySelector('input[name="factor"]');
+    const exampleCalc = document.getElementById('exampleCalculation');
+
+    function updateExample() {
+        const from = fromUnit.value || 'وحدة1';
+        const to = toUnit.value || 'وحدة2';
+        const f = factor.value || '1';
+
+        exampleCalc.innerHTML = `
+            <strong>1 ${from} = ${f} ${to}</strong><br>
+            <small class="text-muted">
+                مثال: 5 ${from} = ${(parseFloat(f) * 5).toFixed(2)} ${to}
+            </small>
+        `;
+    }
+
+    fromUnit.addEventListener('input', updateExample);
+    toUnit.addEventListener('input', updateExample);
+    factor.addEventListener('input', updateExample);
+
+    updateExample();
+});
+</script>
+{% endblock %}

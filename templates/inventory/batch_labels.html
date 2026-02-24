@@ -1,0 +1,442 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'طباعة ملصقات الباركود' %}{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root {
+    --primary: #1e3a5f;
+    --primary-dark: #152a45;
+    --accent: #00d4aa;
+    --bg-light: #f8fafc;
+    --border-color: #e2e8f0;
+    --text-secondary: #64748b;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+  
+  .page-hero {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+    margin-bottom: 2rem;
+  }
+  .page-hero h1 { margin: 0; font-weight: 700; }
+  
+  .print-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 2rem;
+  }
+  
+  .labels-preview {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .labels-preview .header {
+    background: var(--bg-light);
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .labels-grid {
+    display: grid;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: #f0f0f0;
+    min-height: 500px;
+  }
+  .labels-grid.small { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  .labels-grid.medium { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+  .labels-grid.large { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  
+  .label-item {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 0.75rem;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+  }
+  .label-item.small { padding: 0.5rem; }
+  .label-item.large { padding: 1rem; }
+  
+  .barcode-image {
+    background: white;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .barcode-image svg, .barcode-image img {
+    max-width: 100%;
+    height: auto;
+  }
+  .barcode-placeholder {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: repeating-linear-gradient(
+      90deg,
+      #000 0px,
+      #000 2px,
+      #fff 2px,
+      #fff 4px,
+      #000 4px,
+      #000 5px,
+      #fff 5px,
+      #fff 8px
+    );
+    margin-bottom: 0.5rem;
+  }
+  
+  .label-item .product-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .label-item .product-sku {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-family: monospace;
+  }
+  .label-item .product-price {
+    font-weight: 700;
+    color: var(--primary);
+    font-size: 0.9rem;
+    margin-top: 0.25rem;
+  }
+  
+  .settings-panel {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    position: sticky;
+    top: 1rem;
+  }
+  .settings-panel .header {
+    background: var(--bg-light);
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .settings-panel .body {
+    padding: 1rem;
+  }
+  
+  .setting-group {
+    margin-bottom: 1.25rem;
+  }
+  .setting-group label {
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+    display: block;
+  }
+  
+  .size-options {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .size-option {
+    flex: 1;
+    padding: 0.75rem 0.5rem;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .size-option:hover { border-color: var(--primary); }
+  .size-option.active { border-color: var(--primary); background: #f0f7ff; }
+  .size-option input { display: none; }
+  .size-option .label { font-size: 0.75rem; font-weight: 600; }
+  .size-option .dims { font-size: 0.65rem; color: var(--text-secondary); }
+  
+  .products-summary {
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    margin-bottom: 1rem;
+  }
+  .product-row {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+  }
+  .product-row:last-child { border-bottom: none; }
+  
+  .action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+  }
+  
+  @media print {
+    .page-hero, .settings-panel, .labels-preview .header { display: none !important; }
+    .print-layout { grid-template-columns: 1fr; }
+    .labels-preview { border: none; }
+    .labels-grid { background: white; padding: 0; }
+    .label-item { break-inside: avoid; page-break-inside: avoid; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Page Header -->
+  <div class="page-hero">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1><i class="bi bi-upc me-2"></i>{% trans 'طباعة ملصقات الباركود' %}</h1>
+        <p class="mb-0 opacity-75">{% trans 'معاينة وطباعة ملصقات المنتجات' %}</p>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{% url 'inventory:select_products_for_labels' %}" class="btn btn-light">
+          <i class="bi bi-plus-lg me-1"></i>{% trans 'إضافة منتجات' %}
+        </a>
+        <button class="btn btn-light" onclick="window.print()">
+          <i class="bi bi-printer me-1"></i>{% trans 'طباعة' %}
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <div class="print-layout">
+    <!-- Labels Preview -->
+    <div class="labels-preview">
+      <div class="header">
+        <h5 class="mb-0"><i class="bi bi-eye me-2"></i>{% trans 'معاينة الملصقات' %}</h5>
+        <span class="badge bg-primary" id="labelCount">0 {% trans 'ملصق' %}</span>
+      </div>
+      
+      <div class="labels-grid medium" id="labelsGrid">
+        {% for item in selected_products %}
+        {% for i in item.qty|make_list %}
+        <div class="label-item medium">
+          <div class="barcode-placeholder"></div>
+          <div class="product-name">{{ item.name }}</div>
+          <div class="product-sku">{{ item.sku }}</div>
+          <div class="product-price">{{ item.price }} {% trans 'ج.م' %}</div>
+        </div>
+        {% endfor %}
+        {% empty %}
+        <!-- Sample Labels -->
+        <div class="label-item medium">
+          <div class="barcode-placeholder"></div>
+          <div class="product-name">{% trans 'منتج A' %}</div>
+          <div class="product-sku">PRD-001</div>
+          <div class="product-price">150.00 {% trans 'ج.م' %}</div>
+        </div>
+        <div class="label-item medium">
+          <div class="barcode-placeholder"></div>
+          <div class="product-name">{% trans 'منتج A' %}</div>
+          <div class="product-sku">PRD-001</div>
+          <div class="product-price">150.00 {% trans 'ج.م' %}</div>
+        </div>
+        <div class="label-item medium">
+          <div class="barcode-placeholder"></div>
+          <div class="product-name">{% trans 'منتج B' %}</div>
+          <div class="product-sku">PRD-002</div>
+          <div class="product-price">85.50 {% trans 'ج.م' %}</div>
+        </div>
+        <div class="label-item medium">
+          <div class="barcode-placeholder"></div>
+          <div class="product-name">{% trans 'منتج C' %}</div>
+          <div class="product-sku">PRD-003</div>
+          <div class="product-price">220.00 {% trans 'ج.م' %}</div>
+        </div>
+        <div class="label-item medium">
+          <div class="barcode-placeholder"></div>
+          <div class="product-name">{% trans 'منتج C' %}</div>
+          <div class="product-sku">PRD-003</div>
+          <div class="product-price">220.00 {% trans 'ج.م' %}</div>
+        </div>
+        <div class="label-item medium">
+          <div class="barcode-placeholder"></div>
+          <div class="product-name">{% trans 'منتج C' %}</div>
+          <div class="product-sku">PRD-003</div>
+          <div class="product-price">220.00 {% trans 'ج.م' %}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    
+    <!-- Settings Panel -->
+    <div class="settings-panel">
+      <div class="header">
+        <h5 class="mb-0"><i class="bi bi-sliders me-2"></i>{% trans 'إعدادات الطباعة' %}</h5>
+      </div>
+      <div class="body">
+        <!-- Label Size -->
+        <div class="setting-group">
+          <label>{% trans 'حجم الملصق' %}</label>
+          <div class="size-options">
+            <label class="size-option" onclick="setSize('small')">
+              <input type="radio" name="size" value="small">
+              <div class="label">{% trans 'صغير' %}</div>
+              <div class="dims">40×30mm</div>
+            </label>
+            <label class="size-option active" onclick="setSize('medium')">
+              <input type="radio" name="size" value="medium" checked>
+              <div class="label">{% trans 'متوسط' %}</div>
+              <div class="dims">60×40mm</div>
+            </label>
+            <label class="size-option" onclick="setSize('large')">
+              <input type="radio" name="size" value="large">
+              <div class="label">{% trans 'كبير' %}</div>
+              <div class="dims">100×50mm</div>
+            </label>
+          </div>
+        </div>
+        
+        <!-- Barcode Type -->
+        <div class="setting-group">
+          <label>{% trans 'نوع الباركود' %}</label>
+          <select class="form-select" id="barcodeType">
+            <option value="code128">Code 128</option>
+            <option value="code39">Code 39</option>
+            <option value="ean13">EAN-13</option>
+            <option value="qr">QR Code</option>
+          </select>
+        </div>
+        
+        <!-- Content Options -->
+        <div class="setting-group">
+          <label>{% trans 'محتوى الملصق' %}</label>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="showName" checked onchange="updateLabels()">
+            <label class="form-check-label small" for="showName">{% trans 'اسم المنتج' %}</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="showSku" checked onchange="updateLabels()">
+            <label class="form-check-label small" for="showSku">{% trans 'الكود' %}</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="showPrice" checked onchange="updateLabels()">
+            <label class="form-check-label small" for="showPrice">{% trans 'السعر' %}</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="showLogo" onchange="updateLabels()">
+            <label class="form-check-label small" for="showLogo">{% trans 'شعار الشركة' %}</label>
+          </div>
+        </div>
+        
+        <!-- Paper Settings -->
+        <div class="setting-group">
+          <label>{% trans 'إعدادات الورق' %}</label>
+          <div class="row g-2">
+            <div class="col-6">
+              <select class="form-select form-select-sm" id="paperSize">
+                <option value="a4">A4</option>
+                <option value="letter">Letter</option>
+                <option value="thermal">{% trans 'حراري' %}</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <select class="form-select form-select-sm" id="orientation">
+                <option value="portrait">{% trans 'عمودي' %}</option>
+                <option value="landscape">{% trans 'أفقي' %}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Products Summary -->
+        <div class="setting-group">
+          <label>{% trans 'المنتجات المختارة' %}</label>
+          <div class="products-summary">
+            {% for item in selected_products %}
+            <div class="product-row">
+              <span>{{ item.name }}</span>
+              <span class="badge bg-secondary">×{{ item.qty }}</span>
+            </div>
+            {% empty %}
+            <div class="product-row"><span>{% trans 'منتج A' %}</span><span class="badge bg-secondary">×2</span></div>
+            <div class="product-row"><span>{% trans 'منتج B' %}</span><span class="badge bg-secondary">×1</span></div>
+            <div class="product-row"><span>{% trans 'منتج C' %}</span><span class="badge bg-secondary">×3</span></div>
+            {% endfor %}
+          </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="action-buttons">
+          <button class="btn btn-primary" onclick="window.print()">
+            <i class="bi bi-printer me-1"></i>{% trans 'طباعة الملصقات' %}
+          </button>
+          <button class="btn btn-outline-primary" onclick="downloadPDF()">
+            <i class="bi bi-file-earmark-pdf me-1"></i>{% trans 'تحميل PDF' %}
+          </button>
+          <a href="{% url 'inventory:select_products_for_labels' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i>{% trans 'تعديل الاختيار' %}
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function setSize(size) {
+    document.querySelectorAll('.size-option').forEach(opt => opt.classList.remove('active'));
+    document.querySelector(`.size-option input[value="${size}"]`).parentElement.classList.add('active');
+    
+    const grid = document.getElementById('labelsGrid');
+    grid.classList.remove('small', 'medium', 'large');
+    grid.classList.add(size);
+    
+    document.querySelectorAll('.label-item').forEach(item => {
+      item.classList.remove('small', 'medium', 'large');
+      item.classList.add(size);
+    });
+  }
+  
+  function updateLabels() {
+    const showName = document.getElementById('showName').checked;
+    const showSku = document.getElementById('showSku').checked;
+    const showPrice = document.getElementById('showPrice').checked;
+    
+    document.querySelectorAll('.label-item').forEach(item => {
+      const name = item.querySelector('.product-name');
+      const sku = item.querySelector('.product-sku');
+      const price = item.querySelector('.product-price');
+      
+      if (name) name.style.display = showName ? '' : 'none';
+      if (sku) sku.style.display = showSku ? '' : 'none';
+      if (price) price.style.display = showPrice ? '' : 'none';
+    });
+  }
+  
+  function downloadPDF() {
+    alert('{% trans "جاري إنشاء ملف PDF..." %}');
+  }
+  
+  // Update label count
+  document.addEventListener('DOMContentLoaded', function() {
+    const count = document.querySelectorAll('.label-item').length;
+    document.getElementById('labelCount').textContent = count + ' {% trans "ملصق" %}';
+  });
+</script>
+{% endblock %}
+

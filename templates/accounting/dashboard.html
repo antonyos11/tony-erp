@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+
+{% block title %}لوحة المحاسبة - Tony ERP{% endblock %}
+{% block page_title %}لوحة المحاسبة{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- إحصائيات الشهر الحالي -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stat-card success h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-muted small text-uppercase mb-1">إجمالي الإيرادات</div>
+                            <div class="h4 mb-0 fw-bold text-success">{{ total_revenue|floatformat:2 }}</div>
+                            <small class="text-muted">{{ current_month }}</small>
+                        </div>
+                        <i class="fas fa-arrow-up stat-icon text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stat-card danger h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-muted small text-uppercase mb-1">إجمالي المنصرفات</div>
+                            <div class="h4 mb-0 fw-bold text-danger">{{ total_expense|floatformat:2 }}</div>
+                            <small class="text-muted">{{ current_month }}</small>
+                        </div>
+                        <i class="fas fa-arrow-down stat-icon text-danger"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stat-card primary h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-muted small text-uppercase mb-1">صافي الدخل</div>
+                            <div class="h4 mb-0 fw-bold {% if net_income >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                {{ net_income|floatformat:2 }}
+                            </div>
+                            <small class="text-muted">{{ current_month }}</small>
+                        </div>
+                        <i class="fas fa-balance-scale stat-icon text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stat-card warning h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-muted small text-uppercase mb-1">قيود غير مُرحّلة</div>
+                            <div class="h4 mb-0 fw-bold text-warning">{{ pending_entries }}</div>
+                            <small class="text-muted">بانتظار الترحيل</small>
+                        </div>
+                        <i class="fas fa-clock stat-icon text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- روابط سريعة -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-plus-circle me-2"></i>إجراءات سريعة</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <a href="{% url 'accounting:account_entry_create' %}" class="btn btn-success w-100">
+                                <i class="fas fa-plus me-2"></i>تسجيل إيراد/منصرف
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'accounting:general_ledger_create' %}" class="btn btn-primary w-100">
+                                <i class="fas fa-book me-2"></i>إضافة حساب أستاذ
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'accounting:financial_analysis1_create' %}" class="btn btn-info w-100">
+                                <i class="fas fa-chart-pie me-2"></i>تحليل مالي 1
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'accounting:sales_volume_report' %}" class="btn btn-warning w-100">
+                                <i class="fas fa-file-alt me-2"></i>تقرير المبيعات
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- آخر القيود -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="fas fa-list me-2"></i>آخر القيود المسجلة</h6>
+                    <a href="{% url 'accounting:account_entry_list' %}" class="btn btn-sm btn-outline-primary">عرض الكل</a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>رقم القيد</th>
+                                    <th>التاريخ</th>
+                                    <th>النوع</th>
+                                    <th>المبلغ</th>
+                                    <th>حساب الأستاذ</th>
+                                    <th>الحالة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in recent_entries %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'accounting:account_entry_detail' entry.pk %}">{{ entry.entry_number }}</a>
+                                    </td>
+                                    <td>{{ entry.entry_date }}</td>
+                                    <td>
+                                        {% if entry.entry_type == 'revenue' %}
+                                            <span class="badge bg-success">إيراد</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">منصرف</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="{% if entry.entry_type == 'revenue' %}text-success{% else %}text-danger{% endif %}">
+                                        {{ entry.amount|floatformat:2 }}
+                                    </td>
+                                    <td>{{ entry.general_ledger_account.name }}</td>
+                                    <td>
+                                        {% if entry.is_posted %}
+                                            <span class="badge bg-primary">مُرحّل</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">غير مُرحّل</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">لا توجد قيود مسجلة</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

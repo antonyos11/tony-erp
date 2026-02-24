@@ -1,0 +1,433 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}لوحة المخزون - Tony ERP{% endblock %}
+
+{% block extra_head %}
+<style>
+.dashboard-card {
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    border: none;
+    overflow: hidden;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 35px rgba(0,0,0,0.15);
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px;
+}
+
+.stat-card.primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.stat-card.info { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+.stat-card.warning { background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); }
+.stat-card.success { background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); }
+
+.quick-actions {
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 1.5rem;
+}
+
+.action-btn {
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+    color: white;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    display: block;
+    height: 100%;
+}
+
+.action-btn:hover {
+    transform: translateY(-3px);
+    color: white;
+}
+
+.low-stock-item {
+    background: rgba(220,53,69,0.1);
+    border-left: 4px solid #dc3545;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: 0 8px 8px 0;
+}
+</style>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="h3 mb-1">
+                <i class="bi bi-speedometer2 text-primary"></i>
+                لوحة تحكم المخزون
+            </h2>
+            <small class="text-muted">إدارة شاملة ومراقبة مباشرة للمخزون</small>
+        </div>
+        <div class="btn-group">
+            <a href="{% url 'inventory:product_add' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> منتج جديد
+            </a>
+            <a href="{% url 'inventory:location_add' %}" class="btn btn-outline-primary">
+                <i class="bi bi-geo-alt-fill"></i> موقع جديد
+            </a>
+            <a href="{% url 'inventory:advanced_analytics' %}" class="btn btn-outline-info">
+                <i class="bi bi-graph-up"></i> التحليلات
+            </a>
+        </div>
+    </div>
+
+    <!-- Enhanced Stats Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card stat-card primary dashboard-card">
+                <div class="card-body text-center p-4">
+                    <i class="bi bi-box-seam display-4 mb-3"></i>
+                    <h3 class="mb-1">{{ total_products }}</h3>
+                    <p class="mb-0 opacity-75">إجمالي المنتجات</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card stat-card info dashboard-card">
+                <div class="card-body text-center p-4">
+                    <i class="bi bi-geo-alt display-4 mb-3"></i>
+                    <h3 class="mb-1">{{ total_locations }}</h3>
+                    <p class="mb-0 opacity-75">المواقع النشطة</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
+            <a href="{% url 'inventory:low_stock_dashboard' %}" class="text-decoration-none">
+                <div class="card stat-card warning dashboard-card">
+                    <div class="card-body text-center p-4">
+                        <i class="bi bi-exclamation-triangle display-4 mb-3"></i>
+                        <h3 class="mb-1">{{ low_stock_count }}</h3>
+                        <p class="mb-0 opacity-75">تنبيهات المخزون</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card stat-card success dashboard-card">
+                <div class="card-body text-center p-4">
+                    <i class="bi bi-currency-dollar display-4 mb-3"></i>
+                    <h3 class="mb-1">{{ stock_value|floatformat:0 }}</h3>
+                    <p class="mb-0 opacity-75">قيمة المخزون</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<!-- Low Stock Alert -->
+{% if low_stock_products %}
+<div class="card mb-4">
+  <div class="card-header bg-warning">
+    <h5 class="mb-0 text-dark">
+      <i class="bi bi-exclamation-triangle"></i> تنبيهات المخزون المنخفض
+    </h5>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead>
+          <tr>
+            <th>المنتج</th>
+            <th>المخزون الحالي</th>
+            <th>الحد الأدنى</th>
+            <th>إجراء</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for product in low_stock_products %}
+          <tr>
+            <td>
+              <strong>{{ product.name }}</strong><br>
+              <small class="text-muted">{{ product.sku }}</small>
+            </td>
+            <td>
+              <span class="badge bg-danger">{{ product.total_qty }}</span>
+            </td>
+            <td>{{ product.min_stock }}</td>
+            <td>
+              <a href="{% url 'inventory:stock_management' %}" class="btn btn-sm btn-outline-primary">
+                إدارة المخزون
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if low_stock_products|length > 10 %}
+    <div class="mt-2">
+      <a href="{% url 'inventory:stock_management' %}?low_stock=1" class="btn btn-sm btn-outline-warning">
+        عرض جميع التنبيهات
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Widget: المخازن حسب النوع -->
+<div class="card mb-4 dashboard-card">
+  <div class="card-header bg-gradient" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+    <div class="d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">
+        <i class="bi bi-building"></i> المخازن حسب النوع
+      </h5>
+      <a href="{% url 'inventory:warehouse_types' %}" class="btn btn-sm btn-light">
+        <i class="bi bi-arrow-left"></i> عرض التفاصيل
+      </a>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-4 col-lg-2">
+        <a href="{% url 'inventory:warehouse_types' %}" class="text-decoration-none">
+          <div class="text-center p-3 rounded" style="background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);">
+            <i class="bi bi-box-seam-fill" style="font-size: 2rem; color: #667eea;"></i>
+            <h4 class="mt-2 mb-0" style="color: #667eea;">{{ warehouse_stats.finished }}</h4>
+            <small class="text-muted">منتج تام</small>
+          </div>
+        </a>
+      </div>
+      <div class="col-md-4 col-lg-2">
+        <a href="{% url 'inventory:warehouse_types' %}" class="text-decoration-none">
+          <div class="text-center p-3 rounded" style="background: linear-gradient(135deg, #f093fb20 0%, #f5576c20 100%);">
+            <i class="bi bi-gear-fill" style="font-size: 2rem; color: #f5576c;"></i>
+            <h4 class="mt-2 mb-0" style="color: #f5576c;">{{ warehouse_stats.wip }}</h4>
+            <small class="text-muted">نصف مصنع</small>
+          </div>
+        </a>
+      </div>
+      <div class="col-md-4 col-lg-2">
+        <a href="{% url 'inventory:warehouse_types' %}" class="text-decoration-none">
+          <div class="text-center p-3 rounded" style="background: linear-gradient(135deg, #4facfe20 0%, #00f2fe20 100%);">
+            <i class="bi bi-droplet-fill" style="font-size: 2rem; color: #4facfe;"></i>
+            <h4 class="mt-2 mb-0" style="color: #4facfe;">{{ warehouse_stats.raw }}</h4>
+            <small class="text-muted">خامات</small>
+          </div>
+        </a>
+      </div>
+      <div class="col-md-4 col-lg-2">
+        <a href="{% url 'inventory:warehouse_types' %}" class="text-decoration-none">
+          <div class="text-center p-3 rounded" style="background: linear-gradient(135deg, #43e97b20 0%, #38f9d720 100%);">
+            <i class="bi bi-wrench" style="font-size: 2rem; color: #43e97b;"></i>
+            <h4 class="mt-2 mb-0" style="color: #43e97b;">{{ warehouse_stats.spare }}</h4>
+            <small class="text-muted">قطع غيار</small>
+          </div>
+        </a>
+      </div>
+      <div class="col-md-4 col-lg-2">
+        <a href="{% url 'inventory:warehouse_types' %}" class="text-decoration-none">
+          <div class="text-center p-3 rounded" style="background: linear-gradient(135deg, #fa709a20 0%, #fee14020 100%);">
+            <i class="bi bi-shop" style="font-size: 2rem; color: #fa709a;"></i>
+            <h4 class="mt-2 mb-0" style="color: #fa709a;">{{ warehouse_stats.store }}</h4>
+            <small class="text-muted">معرض</small>
+          </div>
+        </a>
+      </div>
+      <div class="col-md-4 col-lg-2">
+        <a href="{% url 'inventory:warehouse_types' %}" class="text-decoration-none">
+          <div class="text-center p-3 rounded" style="background: linear-gradient(135deg, #a8edea20 0%, #fed6e320 100%);">
+            <i class="bi bi-archive" style="font-size: 2rem; color: #999;"></i>
+            <h4 class="mt-2 mb-0" style="color: #999;">{{ warehouse_stats.other }}</h4>
+            <small class="text-muted">أخرى</small>
+          </div>
+        </a>
+      </div>
+    </div>
+    <div class="text-center mt-3">
+      <a href="{% url 'inventory:location_add' %}" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-plus-circle"></i> إضافة مخزن جديد
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row">
+  <div class="col-md-4 col-lg-3 mb-3">
+    <div class="card h-100">
+      <div class="card-body text-center">
+        <i class="bi bi-plus-circle display-1 text-primary"></i>
+        <h5 class="mt-3">إضافة منتج</h5>
+        <p class="text-muted">أضف منتجاً جديداً إلى المخزون</p>
+        <a href="{% url 'inventory:product_add' %}" class="btn btn-primary">إضافة منتج</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4 col-lg-3 mb-3">
+    <div class="card h-100">
+      <div class="card-body text-center">
+        <i class="bi bi-list-check display-1 text-info"></i>
+        <h5 class="mt-3">إدارة المخزون</h5>
+        <p class="text-muted">عرض وتعديل كميات المخزون</p>
+        <a href="{% url 'inventory:stock_management' %}" class="btn btn-info">إدارة المخزون</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4 col-lg-3 mb-3">
+    <div class="card h-100">
+      <div class="card-body text-center">
+        <i class="bi bi-building display-1 text-success"></i>
+        <h5 class="mt-3">المخازن حسب النوع</h5>
+        <p class="text-muted">إدارة مخازن المصنع المتعددة</p>
+        <a href="{% url 'inventory:warehouse_types' %}" class="btn btn-success">المخازن المتعددة</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4 col-lg-3 mb-3">
+    <div class="card h-100">
+      <div class="card-body text-center">
+        <i class="bi bi-upc-scan display-1 text-warning"></i>
+        <h5 class="mt-3">إدارة الباركود</h5>
+        <p class="text-muted">توليد ومسح وطباعة الباركود</p>
+        <a href="{% url 'inventory:barcode_management' %}" class="btn btn-warning">إدارة الباركود</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Barcode Quick Actions -->
+<div class="row">
+  <div class="col-md-4 mb-3">
+    <div class="card h-100">
+      <div class="card-body text-center">
+        <i class="bi bi-qr-code-scan display-1 text-success"></i>
+        <h5 class="mt-3">مسح الباركود</h5>
+        <p class="text-muted">امسح الباركود بالكاميرا أو يدوياً</p>
+        <a href="{% url 'inventory:barcode_scanner' %}" class="btn btn-success">
+          <i class="bi bi-camera"></i> بدء المسح
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4 mb-3">
+    <div class="card h-100">
+      <div class="card-body text-center">
+        <i class="bi bi-printer-fill display-1 text-info"></i>
+        <h5 class="mt-3">طباعة ملصقات</h5>
+        <p class="text-muted">اطبع ملصقات احترافية للمنتجات</p>
+        <a href="{% url 'inventory:batch_labels' %}" class="btn btn-info">
+          <i class="bi bi-printer"></i> طباعة ملصقات
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4 mb-3">
+    <div class="card h-100">
+      <div class="card-body text-center">
+        <i class="bi bi-magic display-1 text-primary"></i>
+        <h5 class="mt-3">توليد الباركود</h5>
+        <p class="text-muted">ولد باركود للمنتجات المفقودة</p>
+        <a href="{% url 'inventory:generate_missing_barcodes' %}" class="btn btn-primary">
+          <i class="bi bi-magic"></i> توليد باركود
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Reports Quick Links -->
+<div class="row mt-2">
+  <div class="col-md-6 col-lg-4 mb-3">
+    <div class="card h-100">
+      <div class="card-body text-center">
+        <i class="bi bi-bar-chart-line display-1 text-secondary"></i>
+        <h5 class="mt-3">تقرير تقييم المخزون</h5>
+        <p class="text-muted">قيمة المخزون حسب التكلفة القياسية لكل منتج/موقع</p>
+        <div class="d-flex gap-2 justify-content-center">
+          <a href="{% url 'inventory:valuation_report' %}" class="btn btn-outline-secondary">
+            عرض التقرير
+          </a>
+          <a href="{% url 'inventory:valuation_report' %}?export=csv" class="btn btn-secondary">
+            CSV
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6 col-lg-4 mb-3">
+    <div class="card h-100">
+      <div class="card-body text-center">
+        <i class="bi bi-hourglass-split display-1 text-dark"></i>
+        <h5 class="mt-3">تقرير أقدمية المخزون</h5>
+        <p class="text-muted">تحليل الكميات والقيم حسب سلال العمر</p>
+        <div class="d-flex gap-2 justify-content-center">
+          <a href="{% url 'inventory:aging_report' %}" class="btn btn-outline-dark">
+            عرض التقرير
+          </a>
+          <a href="{% url 'inventory:aging_report' %}?as_of={% now 'Y-m-d' %}&export=csv" class="btn btn-dark">
+            CSV
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Advanced Analytics & Monitoring Section -->
+<div class="quick-actions mb-4">
+    <h4 class="mb-4 text-center">
+        <i class="bi bi-graph-up text-primary"></i>
+        التحليلات والمراقبة المتقدمة
+    </h4>
+    <div class="row">
+        <div class="col-md-3 mb-3">
+            <a href="{% url 'inventory:low_stock_dashboard' %}" 
+               class="action-btn" 
+               style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);">
+                <i class="bi bi-exclamation-triangle display-4 mb-3"></i>
+                <h6 class="mb-2">مراقبة المخزون المنخفض</h6>
+                <small>إشعارات وتحديث مباشر</small>
+            </a>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <a href="{% url 'inventory:advanced_analytics' %}" 
+               class="action-btn" 
+               style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <i class="bi bi-graph-up display-4 mb-3"></i>
+                <h6 class="mb-2">التحليلات المتقدمة</h6>
+                <small>رسوم بيانية تفاعلية</small>
+            </a>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <a href="{% url 'inventory:location_analytics' %}" 
+               class="action-btn" 
+               style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+                <i class="bi bi-building display-4 mb-3"></i>
+                <h6 class="mb-2">تحليلات المواقع</h6>
+                <small>إحصائيات المستودعات</small>
+            </a>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <a href="{% url 'inventory:product_list' %}?export=excel" 
+               class="action-btn" 
+               style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);">
+                <i class="bi bi-file-excel display-4 mb-3"></i>
+                <h6 class="mb-2">تصدير شامل</h6>
+                <small>Excel/PDF متقدم</small>
+            </a>
+        </div>
+    </div>
+</div>
+  
+</div>
+
+{% endblock %}
+
+

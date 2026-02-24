@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+
+{% block title %}قيود الحسابات - Tony ERP{% endblock %}
+{% block page_title %}قيود الحسابات (إيراد/منصرف){% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- فلاتر -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">نوع القيد</label>
+                    <select name="type" class="form-select">
+                        <option value="">الكل</option>
+                        <option value="revenue" {% if request.GET.type == 'revenue' %}selected{% endif %}>إيراد</option>
+                        <option value="expense" {% if request.GET.type == 'expense' %}selected{% endif %}>منصرف</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">الحالة</label>
+                    <select name="status" class="form-select">
+                        <option value="">الكل</option>
+                        <option value="posted" {% if request.GET.status == 'posted' %}selected{% endif %}>مُرحّل</option>
+                        <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>غير مُرحّل</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter me-2"></i>تصفية
+                    </button>
+                    <a href="{% url 'accounting:account_entry_list' %}" class="btn btn-secondary">إعادة تعيين</a>
+                </div>
+                <div class="col-md-3 text-end">
+                    <a href="{% url 'accounting:account_entry_create' %}" class="btn btn-success">
+                        <i class="fas fa-plus me-2"></i>تسجيل قيد جديد
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- جدول القيود -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>رقم القيد</th>
+                            <th>التاريخ</th>
+                            <th>النوع</th>
+                            <th>المبلغ</th>
+                            <th>حساب الأستاذ</th>
+                            <th>التحليل المالي 1</th>
+                            <th>التحليل المالي 2</th>
+                            <th>الحالة</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in entries %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'accounting:account_entry_detail' entry.pk %}">{{ entry.entry_number }}</a>
+                            </td>
+                            <td>{{ entry.entry_date }}</td>
+                            <td>
+                                {% if entry.entry_type == 'revenue' %}
+                                    <span class="badge bg-success">إيراد</span>
+                                {% else %}
+                                    <span class="badge bg-danger">منصرف</span>
+                                {% endif %}
+                            </td>
+                            <td class="{% if entry.entry_type == 'revenue' %}text-success{% else %}text-danger{% endif %} fw-bold">
+                                {{ entry.amount|floatformat:2 }}
+                            </td>
+                            <td>{{ entry.general_ledger_account.code }} - {{ entry.general_ledger_account.name|truncatechars:20 }}</td>
+                            <td>{{ entry.financial_analysis1.name|default:"-" }}</td>
+                            <td>{{ entry.financial_analysis2.name|default:"-" }}</td>
+                            <td>
+                                {% if entry.is_posted %}
+                                    <span class="badge bg-primary">مُرحّل</span>
+                                {% else %}
+                                    <span class="badge bg-warning">غير مُرحّل</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'accounting:account_entry_detail' entry.pk %}" class="btn btn-outline-info" title="عرض">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% if not entry.is_posted %}
+                                        <a href="{% url 'accounting:account_entry_edit' entry.pk %}" class="btn btn-outline-primary" title="تعديل">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{% url 'accounting:account_entry_post' entry.pk %}" class="btn btn-outline-success" title="ترحيل" onclick="return confirm('هل تريد ترحيل هذا القيد؟')">
+                                            <i class="fas fa-check"></i>
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">
+                                <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                                لا توجد قيود مسجلة
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

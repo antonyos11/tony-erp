@@ -1,0 +1,401 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'الكتالوج حسب الفئات' %}{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root {
+    --primary: #1e3a5f;
+    --primary-dark: #152a45;
+    --accent: #00d4aa;
+    --bg-light: #f8fafc;
+    --border-color: #e2e8f0;
+    --text-secondary: #64748b;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+    --radius: 8px;
+    --radius-lg: 12px;
+    --transition: all 0.2s ease;
+  }
+  
+  .page-hero {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+    margin-bottom: 2rem;
+  }
+  .page-hero h1 { margin: 0; font-weight: 700; }
+  
+  .categories-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+  }
+  
+  .category-card {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: var(--transition);
+    cursor: pointer;
+  }
+  .category-card:hover { box-shadow: var(--shadow-md); transform: translateY(-3px); }
+  .category-card .header {
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .category-card .icon {
+    width: 60px;
+    height: 60px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    flex-shrink: 0;
+  }
+  .category-card .info h5 { margin: 0 0 0.25rem; font-weight: 600; }
+  .category-card .info .count { font-size: 0.85rem; color: var(--text-secondary); }
+  .category-card .products-preview {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+    padding: 1rem;
+    background: var(--bg-light);
+  }
+  .category-card .preview-item {
+    aspect-ratio: 1;
+    background: white;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    color: var(--border-color);
+  }
+  .category-card .preview-more {
+    background: var(--primary);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  
+  .category-section {
+    margin-bottom: 3rem;
+  }
+  .category-section .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--border-color);
+  }
+  .category-section .section-header h3 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .category-section .section-header h3 .icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .products-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+  .product-item {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 1rem;
+    text-align: center;
+    transition: var(--transition);
+  }
+  .product-item:hover { box-shadow: var(--shadow-md); border-color: var(--primary); }
+  .product-item .image {
+    width: 80px;
+    height: 80px;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    margin: 0 auto 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: var(--border-color);
+  }
+  .product-item .name { font-weight: 600; margin-bottom: 0.25rem; font-size: 0.9rem; }
+  .product-item .price { color: var(--primary); font-weight: 700; }
+  
+  .tree-view {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .tree-item {
+    padding: 0.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .tree-item.parent { font-weight: 600; }
+  .tree-item .toggle {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .tree-children { padding-right: 1.5rem; border-right: 2px solid var(--border-color); margin-right: 0.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Page Header -->
+  <div class="page-hero">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1><i class="bi bi-diagram-3 me-2"></i>{% trans 'الكتالوج حسب الفئات' %}</h1>
+        <p class="mb-0 opacity-75">{% trans 'تصفح المنتجات مرتبة حسب الفئات' %}</p>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{% url 'inventory:catalog_list' %}" class="btn btn-light">
+          <i class="bi bi-grid me-1"></i>{% trans 'عرض الشبكة' %}
+        </a>
+        <a href="{% url 'inventory:catalog_print' %}" class="btn btn-light">
+          <i class="bi bi-printer me-1"></i>{% trans 'طباعة' %}
+        </a>
+      </div>
+    </div>
+  </div>
+  
+  <!-- View Toggle -->
+  <div class="d-flex justify-content-end mb-3">
+    <div class="btn-group">
+      <button class="btn btn-outline-primary active" onclick="setView('cards')">
+        <i class="bi bi-grid-3x3 me-1"></i>{% trans 'بطاقات' %}
+      </button>
+      <button class="btn btn-outline-primary" onclick="setView('tree')">
+        <i class="bi bi-diagram-3 me-1"></i>{% trans 'شجرة' %}
+      </button>
+      <button class="btn btn-outline-primary" onclick="setView('detailed')">
+        <i class="bi bi-list-ul me-1"></i>{% trans 'تفصيلي' %}
+      </button>
+    </div>
+  </div>
+  
+  <!-- Cards View -->
+  <div id="cardsView">
+    <div class="categories-grid">
+      {% for category in categories %}
+      <a href="{% url 'inventory:catalog_list' %}?category={{ category.pk }}" class="category-card text-decoration-none text-dark">
+        <div class="header">
+          <div class="icon" style="background: { category.color|default:'#e0f2fe' }}; color: { category.text_color|default:'#0369a1' };">
+            <i class="bi { category.icon|default:'bi-folder' }"></i>
+          </div>
+          <div class="info">
+            <h5>{{ category.name }}</h5>
+            <div class="count">{{ category.product_count }} {% trans 'منتج' %}</div>
+          </div>
+        </div>
+        <div class="products-preview">
+          <div class="preview-item"><i class="bi bi-box"></i></div>
+          <div class="preview-item"><i class="bi bi-box"></i></div>
+          <div class="preview-item"><i class="bi bi-box"></i></div>
+          <div class="preview-item preview-more">+{{ category.product_count|default:'12' }}</div>
+        </div>
+      </a>
+      {% empty %}
+      <!-- Sample Categories -->
+      <a href="#" class="category-card text-decoration-none text-dark">
+        <div class="header">
+          <div class="icon" style="background: #dcfce7; color: #16a34a;"><i class="bi bi-boxes"></i></div>
+          <div class="info">
+            <h5>{% trans 'مواد خام' %}</h5>
+            <div class="count">45 {% trans 'منتج' %}</div>
+          </div>
+        </div>
+        <div class="products-preview">
+          <div class="preview-item"><i class="bi bi-box"></i></div>
+          <div class="preview-item"><i class="bi bi-box"></i></div>
+          <div class="preview-item"><i class="bi bi-box"></i></div>
+          <div class="preview-item preview-more">+42</div>
+        </div>
+      </a>
+      <a href="#" class="category-card text-decoration-none text-dark">
+        <div class="header">
+          <div class="icon" style="background: #e0f2fe; color: #0369a1;"><i class="bi bi-box-seam"></i></div>
+          <div class="info">
+            <h5>{% trans 'منتجات تامة' %}</h5>
+            <div class="count">120 {% trans 'منتج' %}</div>
+          </div>
+        </div>
+        <div class="products-preview">
+          <div class="preview-item"><i class="bi bi-box"></i></div>
+          <div class="preview-item"><i class="bi bi-box"></i></div>
+          <div class="preview-item"><i class="bi bi-box"></i></div>
+          <div class="preview-item preview-more">+117</div>
+        </div>
+      </a>
+      <a href="#" class="category-card text-decoration-none text-dark">
+        <div class="header">
+          <div class="icon" style="background: #fef3c7; color: #d97706;"><i class="bi bi-gear"></i></div>
+          <div class="info">
+            <h5>{% trans 'قطع غيار' %}</h5>
+            <div class="count">35 {% trans 'منتج' %}</div>
+          </div>
+        </div>
+        <div class="products-preview">
+          <div class="preview-item"><i class="bi bi-box"></i></div>
+          <div class="preview-item"><i class="bi bi-box"></i></div>
+          <div class="preview-item"><i class="bi bi-box"></i></div>
+          <div class="preview-item preview-more">+32</div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  
+  <!-- Tree View -->
+  <div id="treeView" style="display: none;">
+    <div class="tree-view">
+      <div class="tree-item parent">
+        <span class="toggle"><i class="bi bi-chevron-down"></i></span>
+        <i class="bi bi-folder-fill text-primary"></i>
+        <span>{% trans 'جميع الفئات' %}</span>
+        <span class="badge bg-primary ms-auto">200</span>
+      </div>
+      <div class="tree-children">
+        <div class="tree-item parent">
+          <span class="toggle"><i class="bi bi-chevron-down"></i></span>
+          <i class="bi bi-folder-fill text-success"></i>
+          <span>{% trans 'مواد خام' %}</span>
+          <span class="badge bg-success ms-auto">45</span>
+        </div>
+        <div class="tree-children">
+          <div class="tree-item">
+            <span class="toggle"></span>
+            <i class="bi bi-folder text-success"></i>
+            <span>{% trans 'معادن' %}</span>
+            <span class="badge bg-secondary ms-auto">15</span>
+          </div>
+          <div class="tree-item">
+            <span class="toggle"></span>
+            <i class="bi bi-folder text-success"></i>
+            <span>{% trans 'كيماويات' %}</span>
+            <span class="badge bg-secondary ms-auto">20</span>
+          </div>
+        </div>
+        <div class="tree-item parent">
+          <span class="toggle"><i class="bi bi-chevron-left"></i></span>
+          <i class="bi bi-folder-fill text-info"></i>
+          <span>{% trans 'منتجات تامة' %}</span>
+          <span class="badge bg-info ms-auto">120</span>
+        </div>
+        <div class="tree-item parent">
+          <span class="toggle"><i class="bi bi-chevron-left"></i></span>
+          <i class="bi bi-folder-fill text-warning"></i>
+          <span>{% trans 'قطع غيار' %}</span>
+          <span class="badge bg-warning ms-auto">35</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Detailed View -->
+  <div id="detailedView" style="display: none;">
+    {% for category in categories %}
+    <div class="category-section">
+      <div class="section-header">
+        <h3>
+          <span class="icon" style="background: { category.color|default:'#e0f2fe' }}; color: { category.text_color|default:'#0369a1' };">
+            <i class="bi { category.icon|default:'bi-folder' }"></i>
+          </span>
+          {{ category.name }}
+          <span class="badge bg-primary">{{ category.products.count }}</span>
+        </h3>
+        <a href="{% url 'inventory:catalog_list' %}?category={{ category.pk }}" class="btn btn-outline-primary btn-sm">
+          {% trans 'عرض الكل' %} <i class="bi bi-arrow-left ms-1"></i>
+        </a>
+      </div>
+      <div class="products-row">
+        {% for product in category.products.all|slice:":6" %}
+        <div class="product-item">
+          <div class="image"><i class="bi bi-box"></i></div>
+          <div class="name">{{ product.name }}</div>
+          <div class="price">{{ product.price }} {% trans 'ج.م' %}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% empty %}
+    <!-- Sample Sections -->
+    <div class="category-section">
+      <div class="section-header">
+        <h3>
+          <span class="icon" style="background: #dcfce7; color: #16a34a;"><i class="bi bi-boxes"></i></span>
+          {% trans 'مواد خام' %}
+          <span class="badge bg-primary">45</span>
+        </h3>
+        <a href="#" class="btn btn-outline-primary btn-sm">{% trans 'عرض الكل' %} <i class="bi bi-arrow-left ms-1"></i></a>
+      </div>
+      <div class="products-row">
+        <div class="product-item"><div class="image"><i class="bi bi-box"></i></div><div class="name">{% trans 'مادة A' %}</div><div class="price">150 {% trans 'ج.م' %}</div></div>
+        <div class="product-item"><div class="image"><i class="bi bi-box"></i></div><div class="name">{% trans 'مادة B' %}</div><div class="price">85 {% trans 'ج.م' %}</div></div>
+        <div class="product-item"><div class="image"><i class="bi bi-box"></i></div><div class="name">{% trans 'مادة C' %}</div><div class="price">220 {% trans 'ج.م' %}</div></div>
+        <div class="product-item"><div class="image"><i class="bi bi-box"></i></div><div class="name">{% trans 'مادة D' %}</div><div class="price">95 {% trans 'ج.م' %}</div></div>
+      </div>
+    </div>
+    <div class="category-section">
+      <div class="section-header">
+        <h3>
+          <span class="icon" style="background: #e0f2fe; color: #0369a1;"><i class="bi bi-box-seam"></i></span>
+          {% trans 'منتجات تامة' %}
+          <span class="badge bg-primary">120</span>
+        </h3>
+        <a href="#" class="btn btn-outline-primary btn-sm">{% trans 'عرض الكل' %} <i class="bi bi-arrow-left ms-1"></i></a>
+      </div>
+      <div class="products-row">
+        <div class="product-item"><div class="image"><i class="bi bi-box"></i></div><div class="name">{% trans 'منتج X' %}</div><div class="price">350 {% trans 'ج.م' %}</div></div>
+        <div class="product-item"><div class="image"><i class="bi bi-box"></i></div><div class="name">{% trans 'منتج Y' %}</div><div class="price">480 {% trans 'ج.م' %}</div></div>
+        <div class="product-item"><div class="image"><i class="bi bi-box"></i></div><div class="name">{% trans 'منتج Z' %}</div><div class="price">275 {% trans 'ج.م' %}</div></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function setView(view) {
+    document.querySelectorAll('.btn-group .btn').forEach(btn => btn.classList.remove('active'));
+    event.target.closest('.btn').classList.add('active');
+    
+    document.getElementById('cardsView').style.display = view === 'cards' ? '' : 'none';
+    document.getElementById('treeView').style.display = view === 'tree' ? '' : 'none';
+    document.getElementById('detailedView').style.display = view === 'detailed' ? '' : 'none';
+  }
+</script>
+{% endblock %}
+

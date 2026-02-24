@@ -1,0 +1,321 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'inventory:product_list' %}">المنتجات</a></li>
+                    <li class="breadcrumb-item active">{{ product.name }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="mb-1">
+                                <i class="fas fa-calculator text-primary me-2"></i>
+                                {{ title }}
+                            </h4>
+                            <p class="text-muted mb-0">
+                                <span class="badge bg-secondary">{{ product.sku }}</span>
+                                {% if bom %}
+                                <span class="badge bg-info ms-1">BOM: {{ bom.version }}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            {% if cost_result.success %}
+                            <div class="display-6 text-primary">{{ cost_result.unit_cost|floatformat:2 }} ج.م</div>
+                            <small class="text-muted">تكلفة الوحدة</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if cost_result.success %}
+    <!-- ملخص التكاليف -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 border-start border-primary border-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">تكلفة المواد</h6>
+                            <h4 class="mb-0">{{ cost_result.material_cost|floatformat:2 }} ج.م</h4>
+                        </div>
+                        <div class="bg-primary bg-opacity-10 rounded-circle p-3">
+                            <i class="fas fa-boxes text-primary fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 border-start border-success border-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">تكلفة العمالة</h6>
+                            <h4 class="mb-0">{{ cost_result.labor_cost|floatformat:2 }} ج.م</h4>
+                        </div>
+                        <div class="bg-success bg-opacity-10 rounded-circle p-3">
+                            <i class="fas fa-users text-success fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 border-start border-warning border-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">تكاليف إضافية</h6>
+                            <h4 class="mb-0">{{ cost_result.overhead_cost|floatformat:2 }} ج.م</h4>
+                        </div>
+                        <div class="bg-warning bg-opacity-10 rounded-circle p-3">
+                            <i class="fas fa-cogs text-warning fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- تفاصيل المواد -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0">
+                        <i class="fas fa-list-ul text-info me-2"></i>
+                        تفاصيل المواد الخام
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="border-0">#</th>
+                                    <th class="border-0">المادة</th>
+                                    <th class="border-0 text-center">الكمية</th>
+                                    <th class="border-0 text-center">نسبة الهدر</th>
+                                    <th class="border-0 text-center">الكمية مع الهدر</th>
+                                    <th class="border-0 text-center">تكلفة الوحدة</th>
+                                    <th class="border-0 text-center">الإجمالي</th>
+                                    <th class="border-0 text-center">النسبة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in cost_result.material_details %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>
+                                        <a href="{% url 'inventory:price_history_list' %}?product={{ item.material_id }}" 
+                                           class="text-decoration-none">
+                                            {{ item.material_name }}
+                                        </a>
+                                    </td>
+                                    <td class="text-center">{{ item.quantity|floatformat:3 }}</td>
+                                    <td class="text-center">
+                                        {% if item.wastage_percentage > 0 %}
+                                        <span class="text-warning">{{ item.wastage_percentage|floatformat:1 }}%</span>
+                                        {% else %}
+                                        <span class="text-muted">0%</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">{{ item.quantity_with_wastage|floatformat:3 }}</td>
+                                    <td class="text-center">{{ item.unit_cost|floatformat:2 }} ج.م</td>
+                                    <td class="text-center">
+                                        <strong>{{ item.total_cost|floatformat:2 }} ج.م</strong>
+                                    </td>
+                                    <td class="text-center">
+                                        {% widthratio item.total_cost cost_result.material_cost 100 as pct %}
+                                        <div class="progress" style="height: 20px; min-width: 60px;">
+                                            <div class="progress-bar bg-primary" style="width: {{ pct }}%">
+                                                {{ pct }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">لا توجد مواد</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <th colspan="6" class="text-end">إجمالي تكلفة المواد:</th>
+                                    <th class="text-center">{{ cost_result.material_cost|floatformat:2 }} ج.م</th>
+                                    <th class="text-center">100%</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- هامش الربح -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0">
+                        <i class="fas fa-percentage text-success me-2"></i>
+                        تحليل هامش الربح
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% with selling_price=product.price cost=cost_result.unit_cost %}
+                    {% if selling_price and selling_price > 0 %}
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="text-muted small">سعر البيع</div>
+                            <div class="h5">{{ selling_price|floatformat:2 }} ج.م</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-muted small">التكلفة</div>
+                            <div class="h5">{{ cost|floatformat:2 }} ج.م</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-muted small">الربح</div>
+                            <div class="h5 text-success">
+                                {% if profit is not None %}{{ profit|floatformat:2 }}{% else %}0{% endif %} ج.م
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-muted small">هامش الربح</div>
+                            <div class="h5 text-primary">
+                                {% if margin_pct is not None %}{{ margin_pct|floatformat:1 }}%{% else %}N/A{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center mb-0">سعر البيع غير محدد</p>
+                    {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle text-info me-2"></i>
+                        معلومات BOM
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if bom %}
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="text-muted small">الإصدار</div>
+                            <div class="h6">{{ bom.version }}</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-muted small">الكمية الأساسية</div>
+                            <div class="h6">{{ cost_result.base_quantity|floatformat:0 }} وحدة</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-muted small">تاريخ السريان</div>
+                            <div class="h6">{{ bom.effective_date|date:"Y/m/d" }}</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-muted small">آخر تحديث</div>
+                            <div class="h6">{{ bom.updated_at|date:"Y/m/d H:i" }}</div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center mb-0">لا توجد قائمة مواد</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- رسالة خطأ -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-exclamation-triangle text-warning fa-4x mb-3"></i>
+                    <h5>لا يمكن حساب التكلفة</h5>
+                    <p class="text-muted">{{ cost_result.error }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- تاريخ التكاليف -->
+    {% if cost_history %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0">
+                        <i class="fas fa-history text-secondary me-2"></i>
+                        تاريخ تغييرات التكلفة
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="border-0">التاريخ</th>
+                                    <th class="border-0 text-center">التكلفة القديمة</th>
+                                    <th class="border-0 text-center">التكلفة الجديدة</th>
+                                    <th class="border-0 text-center">التغيير</th>
+                                    <th class="border-0">السبب</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in cost_history %}
+                                <tr>
+                                    <td>{{ record.changed_at|date:"Y/m/d H:i" }}</td>
+                                    <td class="text-center">{{ record.old_total_cost|floatformat:2 }}</td>
+                                    <td class="text-center"><strong>{{ record.new_total_cost|floatformat:2 }}</strong></td>
+                                    <td class="text-center">
+                                        <span class="badge {% if record.cost_change > 0 %}bg-danger{% else %}bg-success{% endif %}">
+                                            {% if record.cost_change > 0 %}+{% endif %}{{ record.change_percentage|floatformat:1 }}%
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if record.triggered_by %}
+                                        تغيير سعر: {{ record.triggered_by.product.name }}
+                                        {% else %}
+                                        {{ record.notes|default:"تحديث يدوي" }}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

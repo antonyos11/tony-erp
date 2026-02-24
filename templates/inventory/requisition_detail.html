@@ -1,0 +1,218 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load i18n %}
+
+{% block title %}{% trans 'طلب خامات' %} - {{ requisition.number }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    .page-header h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 0;
+    }
+    .info-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .status-badge {
+        padding: 0.35rem 1rem;
+        border-radius: 50px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    .status-draft { background: #f3f4f6; color: #6b7280; }
+    .status-submitted { background: #fef3c7; color: #d97706; }
+    .status-approved { background: #d1fae5; color: #065f46; }
+    .status-rejected { background: #fee2e2; color: #991b1b; }
+    .status-fulfilled { background: #dbeafe; color: #1d4ed8; }
+    .data-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+    .data-card-header {
+        background: #f8fafc;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        font-weight: 600;
+    }
+    .action-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-file-earmark-text text-warning me-2"></i>{% trans 'طلب' %} {{ requisition.number }}</h1>
+            {% if is_production_request %}
+            <span class="badge bg-warning text-dark mt-2">{% trans 'مطلوب من المخزن (طلب صادر من الإنتاج)' %}</span>
+            {% endif %}
+        </div>
+        <a href="{% url 'inventory:requisition_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i> {% trans 'العودة للقائمة' %}
+        </a>
+    </div>
+
+    <!-- معلومات المستند -->
+    <div class="info-card">
+        <div class="row">
+            <div class="col-md-2">
+                <small class="text-muted d-block">{% trans 'التاريخ' %}</small>
+                <strong>{{ requisition.request_date|date:"Y/m/d" }}</strong>
+            </div>
+            <div class="col-md-2">
+                <small class="text-muted d-block">{% trans 'القسم' %}</small>
+                <strong>{{ requisition.from_department }}</strong>
+            </div>
+            <div class="col-md-2">
+                <small class="text-muted d-block">{% trans 'المرجع' %}</small>
+                <strong>{{ requisition.reference|default:"-" }}</strong>
+            </div>
+            <div class="col-md-2">
+                <small class="text-muted d-block">{% trans 'الحالة' %}</small>
+                <span class="status-badge status-{{ requisition.status }}">
+                    {{ requisition.get_status_display }}
+                </span>
+            </div>
+            {% if requisition.status == 'approved' and requisition.linked_issue_id %}
+            <div class="col-md-4">
+                <small class="text-muted d-block">{% trans 'إذن الصرف' %}</small>
+                <a href="{% url 'inventory:issue_detail' requisition.linked_issue_id %}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-box-arrow-up-right me-1"></i> {% trans 'عرض إذن الصرف' %}
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if not can_edit_items %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>
+        {% trans 'إضافة وتعديل البنود تتم من شاشة الإنتاج فقط. يمكن للمخزن اعتماد الطلب ثم تحويله إلى إذن صرف.' %}
+        {% if requisition.status != 'approved' %}
+        {% trans 'استخدم زر "تقديم" ثم "موافقة" قبل التحويل إلى إذن صرف.' %}
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if can_edit_items %}
+    <!-- نموذج إضافة بند -->
+    <div class="data-card">
+        <div class="data-card-header">
+            <i class="bi bi-plus-circle me-2"></i>{% trans 'إضافة صنف' %}
+        </div>
+        <div class="p-3">
+            <form method="post" class="row g-3 align-items-end">
+                {% csrf_token %}
+                <div class="col-md-6">
+                    <label class="form-label">{% trans 'المنتج' %}</label>
+                    <select class="form-select" name="product" required>
+                        <option value="">{% trans '-- اختر المنتج --' %}</option>
+                        {% for p in products %}
+                        <option value="{{ p.id }}">{{ p.sku }} - {{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">{% trans 'الكمية' %}</label>
+                    <input class="form-control" type="number" name="quantity" value="1" min="1" required>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-primary w-100" type="submit">
+                        <i class="bi bi-plus-lg me-1"></i> {% trans 'إضافة' %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- البنود -->
+    <div class="data-card">
+        <div class="data-card-header d-flex justify-content-between">
+            <span><i class="bi bi-list-check me-2"></i>{% trans 'الأصناف المطلوبة' %}</span>
+            <span class="badge bg-warning text-dark">{{ requisition.items.count }} {% trans 'صنف' %}</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>{% trans 'المنتج' %}</th>
+                        <th class="text-center">{% trans 'الكمية' %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for i in requisition.items.all %}
+                    <tr>
+                        <td>
+                            <strong>{{ i.product.name }}</strong>
+                            <small class="d-block text-muted">{{ i.product.sku }}</small>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-light text-dark fs-6">{{ i.quantity }}</span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="2" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                            {% trans 'لا توجد بنود' %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- أزرار الإجراءات -->
+    <div class="info-card">
+        <h6 class="mb-3"><i class="bi bi-lightning me-2"></i>{% trans 'الإجراءات المتاحة' %}</h6>
+        <div class="action-buttons">
+            {% if can_submit_approve and requisition.status == 'draft' or can_submit_approve and requisition.status == 'submitted' %}
+            <a class="btn btn-outline-primary" href="{% url 'inventory:requisition_submit' requisition.id %}">
+                <i class="bi bi-send me-1"></i> {% trans 'تقديم' %}
+            </a>
+            <a class="btn btn-outline-success" href="{% url 'inventory:requisition_approve' requisition.id %}">
+                <i class="bi bi-check-circle me-1"></i> {% trans 'موافقة' %}
+            </a>
+            {% endif %}
+            {% if can_convert_issue and requisition.status == 'approved' %}
+            <a class="btn btn-warning" href="{% url 'inventory:requisition_convert_to_issue' requisition.id %}">
+                <i class="bi bi-arrow-right-circle me-1"></i> {% trans 'تحويل إلى إذن صرف' %}
+            </a>
+            {% endif %}
+            {% if can_convert_po and requisition.status == 'approved' %}
+            <a class="btn btn-success" href="{% url 'inventory:requisition_convert_to_po' requisition.id %}">
+                <i class="bi bi-cart-plus me-1"></i> {% trans 'تحويل إلى أمر شراء' %}
+            </a>
+            {% endif %}
+            <a class="btn btn-secondary" target="_blank" href="{% url 'inventory:requisition_print' requisition.id %}">
+                <i class="bi bi-printer me-1"></i> {% trans 'طباعة' %}
+            </a>
+            {% if requisition.is_editable and not requisition.linked_issue_id %}
+            <a class="btn btn-outline-danger" href="{% url 'inventory:requisition_delete' requisition.id %}"
+               onclick="return confirm('{% trans "هل أنت متأكد من حذف هذا الطلب؟" %}')">
+                <i class="bi bi-trash me-1"></i> {% trans 'حذف' %}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

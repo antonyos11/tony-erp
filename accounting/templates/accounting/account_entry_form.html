@@ -1,0 +1,406 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'accounting/css/entry_features.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 entry-form-enhanced" data-entry-type="{{ entry_type }}">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            
+            <!-- تذكيرات ذكية -->
+            <div class="reminders-container"></div>
+            
+            <!-- قسم القوالب المحفوظة -->
+            <div class="templates-section">
+                <div class="templates-header">
+                    <h6><i class="bi bi-bookmark-star"></i> القوالب السريعة</h6>
+                </div>
+                <div class="templates-list">
+                    <!-- سيتم ملؤها بواسطة JavaScript -->
+                    <button type="button" class="template-btn save-template-btn">
+                        <i class="bi bi-plus-circle"></i> حفظ كقالب
+                    </button>
+                </div>
+            </div>
+            
+            <!-- النسخ من فاتورة -->
+            <div class="copy-from-section">
+                <div class="copy-from-header">
+                    <i class="bi bi-files"></i>
+                    <span>نسخ من فاتورة سابقة</span>
+                </div>
+                <div class="copy-input-group">
+                    <input type="text" placeholder="أدخل رقم الفاتورة..." class="form-control">
+                    <button type="button">جلب البيانات</button>
+                </div>
+            </div>
+            
+            <div class="card shadow-sm">
+                <div class="card-header bg-{{ entry_type }}-gradient text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-{% if entry_type == 'revenue' %}arrow-down-circle{% else %}arrow-up-circle{% endif %} me-2"></i>
+                        {{ title }}
+                    </h4>
+                    <div class="export-options">
+                        <!-- أزرار التصدير والطباعة -->
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="entryForm" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="row g-3">
+                            <!-- التاريخ -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">التاريخ <span class="text-danger">*</span></label>
+                                <input type="date" name="date" class="form-control" required 
+                                       value="{% now 'Y-m-d' %}">
+                            </div>
+                            
+                            <!-- المبلغ مع حساب الضريبة -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">
+                                    المبلغ <span class="text-danger">*</span>
+                                    <button type="button" class="btn btn-sm btn-outline-primary ms-2" onclick="EntryFeatures.toggleCalculator()" title="الآلة الحاسبة (Ctrl+K)">
+                                        <i class="bi bi-calculator"></i>
+                                    </button>
+                                </label>
+                                <input type="number" name="amount" step="0.01" min="0.01" 
+                                       class="form-control" required placeholder="0.00" id="amountInput">
+                                <!-- حساب الضريبة التلقائي -->
+                                <div class="tax-calculator" style="display: none;">
+                                    <div class="tax-row">
+                                        <span class="tax-label">المبلغ الأساسي:</span>
+                                        <span class="tax-value" id="baseAmount">0.00</span>
+                                    </div>
+                                    <div class="tax-row">
+                                        <span class="tax-label">ضريبة القيمة المضافة (15%):</span>
+                                        <span class="tax-value" id="taxAmount">0.00</span>
+                                    </div>
+                                    <div class="tax-row tax-total-row">
+                                        <span class="tax-label">الإجمالي شامل الضريبة:</span>
+                                        <span class="tax-value" id="totalWithTax">0.00</span>
+                                    </div>
+                                </div>
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" id="showTaxCalc" onchange="document.querySelector('.tax-calculator').style.display = this.checked ? 'block' : 'none'">
+                                    <label class="form-check-label small text-muted" for="showTaxCalc">
+                                        إظهار حساب الضريبة
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- حساب الأستاذ مع بحث ذكي -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">حساب الأستاذ <span class="text-danger">*</span></label>
+                                <select name="ledger_account" class="form-select" required>
+                                    <option value="">-- اختر الحساب --</option>
+                                    {% for account in accounts %}
+                                    <option value="{{ account.id }}">{{ account.code }} - {{ account.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <!-- تحليل مالي 1 -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">تحليل مالي 1</label>
+                                <select name="financial_analysis_1" class="form-select">
+                                    <option value="">-- اختياري --</option>
+                                    {% for item in analysis_1_list %}
+                                    <option value="{{ item.id }}">{{ item.code }} - {{ item.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <!-- تحليل مالي 2 -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">تحليل مالي 2</label>
+                                <select name="financial_analysis_2" class="form-select">
+                                    <option value="">-- اختياري --</option>
+                                    {% for item in analysis_2_list %}
+                                    <option value="{{ item.id }}">{{ item.code }} - {{ item.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <!-- مركز التكلفة -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">مركز التكلفة</label>
+                                <select name="cost_center" class="form-select">
+                                    <option value="">-- اختياري --</option>
+                                    {% for cc in cost_centers %}
+                                    <option value="{{ cc.id }}">{{ cc.code }} - {{ cc.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <!-- صاحب العملية -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">صاحب العملية</label>
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <select id="ownerTypeSelect" class="form-select" onchange="changeOwnerType(this.value)">
+                                            <option value="">-- اختر النوع --</option>
+                                            <option value="supplier">مورد</option>
+                                            <option value="customer">عميل</option>
+                                            <option value="driver">سائق</option>
+                                            <option value="employee">موظف</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <input type="hidden" name="owner_type" id="ownerTypeHidden" value="">
+                                        
+                                        <select id="ownerDefaultSelect" class="form-select" disabled>
+                                            <option>-- اختر النوع أولاً --</option>
+                                        </select>
+                                        
+                                        <select name="owner_id" id="supplierSelect" class="form-select" style="display:none;">
+                                            <option value="">اختر مورد</option>
+                                            {% for s in suppliers %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+                                        </select>
+                                        
+                                        <select name="owner_id" id="customerSelect" class="form-select" style="display:none;">
+                                            <option value="">اختر عميل</option>
+                                            {% for c in customers %}<option value="{{ c.id }}">{{ c.display_name }}</option>{% endfor %}
+                                        </select>
+                                        
+                                        <select name="owner_id" id="driverSelect" class="form-select" style="display:none;">
+                                            <option value="">اختر سائق</option>
+                                            {% for d in drivers %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}
+                                        </select>
+                                        
+                                        <select name="owner_id" id="employeeSelect" class="form-select" style="display:none;">
+                                            <option value="">اختر موظف</option>
+                                            {% for e in employees %}<option value="{{ e.id }}">{{ e.full_name }}</option>{% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <script>
+                            function changeOwnerType(type) {
+                                document.getElementById('ownerTypeHidden').value = type;
+                                document.getElementById('ownerDefaultSelect').style.display = 'none';
+                                document.getElementById('supplierSelect').style.display = 'none';
+                                document.getElementById('customerSelect').style.display = 'none';
+                                document.getElementById('driverSelect').style.display = 'none';
+                                document.getElementById('employeeSelect').style.display = 'none';
+                                
+                                document.getElementById('supplierSelect').name = '';
+                                document.getElementById('customerSelect').name = '';
+                                document.getElementById('driverSelect').name = '';
+                                document.getElementById('employeeSelect').name = '';
+                                
+                                if (type === 'supplier') {
+                                    document.getElementById('supplierSelect').style.display = 'block';
+                                    document.getElementById('supplierSelect').name = 'owner_id';
+                                } else if (type === 'customer') {
+                                    document.getElementById('customerSelect').style.display = 'block';
+                                    document.getElementById('customerSelect').name = 'owner_id';
+                                } else if (type === 'driver') {
+                                    document.getElementById('driverSelect').style.display = 'block';
+                                    document.getElementById('driverSelect').name = 'owner_id';
+                                } else if (type === 'employee') {
+                                    document.getElementById('employeeSelect').style.display = 'block';
+                                    document.getElementById('employeeSelect').name = 'owner_id';
+                                } else {
+                                    document.getElementById('ownerDefaultSelect').style.display = 'block';
+                                }
+                            }
+                            </script>
+                            
+                            <!-- وجهة الدخول/الخروج -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">
+                                    {% if entry_type == 'revenue' %}
+                                        وجهة دخول المبلغ
+                                    {% else %}
+                                        وجهة خروج المبلغ
+                                    {% endif %}
+                                    <small class="text-muted">(أين دخل/خرج المبلغ)</small>
+                                </label>
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <select id="destinationTypeSelect" class="form-select" name="destination_type" onchange="changeDestinationType(this.value)">
+                                            <option value="">-- اختر النوع --</option>
+                                            <option value="treasury">خزينة</option>
+                                            <option value="bank">بنك</option>
+                                            <option value="electronic">حساب إلكتروني</option>
+                                            <option value="fawry">ماكينة فوري</option>
+                                            <option value="visa">ماكينة فيزا</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <select id="destinationDefaultSelect" class="form-select" disabled>
+                                            <option>-- اختر النوع أولاً --</option>
+                                        </select>
+                                        
+                                        <select name="treasury" id="treasurySelect" class="form-select" style="display:none;">
+                                            <option value="">-- اختر الخزينة --</option>
+                                            {% for t in treasuries %}
+                                            <option value="{{ t.id }}">{{ t.code }} - {{ t.name }} {% if t.showroom %}({{ t.showroom.name }}){% endif %}</option>
+                                            {% endfor %}
+                                        </select>
+                                        
+                                        <select name="bank" id="bankSelect" class="form-select" style="display:none;">
+                                            <option value="">-- اختر البنك --</option>
+                                            {% for b in banks %}
+                                            <option value="{{ b.id }}">{{ b.code }} - {{ b.name }}{% if b.account_number %} - {{ b.account_number }}{% endif %}</option>
+                                            {% endfor %}
+                                        </select>
+                                        
+                                        <select name="electronic_account" id="electronicSelect" class="form-select" style="display:none;">
+                                            <option value="">-- اختر الحساب الإلكتروني --</option>
+                                            {% for e in electronic_accounts %}
+                                            <option value="{{ e.id }}">{{ e.code }} - {{ e.name }} ({{ e.get_account_type_display }}){% if e.phone_number %} - {{ e.phone_number }}{% endif %}</option>
+                                            {% endfor %}
+                                        </select>
+                                        
+                                        <select name="fawry_machine" id="fawrySelect" class="form-select" style="display:none;">
+                                            <option value="">-- اختر ماكينة الفوري --</option>
+                                            {% for f in fawry_machines %}
+                                            <option value="{{ f.id }}">{{ f.code }} - {{ f.name }}{% if f.machine_id %} - {{ f.machine_id }}{% endif %}</option>
+                                            {% endfor %}
+                                        </select>
+                                        
+                                        <select name="visa_machine" id="visaSelect" class="form-select" style="display:none;">
+                                            <option value="">-- اختر ماكينة الفيزا --</option>
+                                            {% for v in visa_machines %}
+                                            <option value="{{ v.id }}">{{ v.code }} - {{ v.name }}{% if v.terminal_id %} - {{ v.terminal_id }}{% endif %}{% if v.bank %} ({{ v.bank.name }}){% endif %}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <script>
+                            function changeDestinationType(type) {
+                                document.getElementById('destinationDefaultSelect').style.display = 'none';
+                                document.getElementById('treasurySelect').style.display = 'none';
+                                document.getElementById('bankSelect').style.display = 'none';
+                                document.getElementById('electronicSelect').style.display = 'none';
+                                document.getElementById('fawrySelect').style.display = 'none';
+                                document.getElementById('visaSelect').style.display = 'none';
+                                
+                                document.getElementById('treasurySelect').name = '';
+                                document.getElementById('bankSelect').name = '';
+                                document.getElementById('electronicSelect').name = '';
+                                document.getElementById('fawrySelect').name = '';
+                                document.getElementById('visaSelect').name = '';
+                                
+                                if (type === 'treasury') {
+                                    document.getElementById('treasurySelect').style.display = 'block';
+                                    document.getElementById('treasurySelect').name = 'treasury';
+                                } else if (type === 'bank') {
+                                    document.getElementById('bankSelect').style.display = 'block';
+                                    document.getElementById('bankSelect').name = 'bank';
+                                } else if (type === 'electronic') {
+                                    document.getElementById('electronicSelect').style.display = 'block';
+                                    document.getElementById('electronicSelect').name = 'electronic_account';
+                                } else if (type === 'fawry') {
+                                    document.getElementById('fawrySelect').style.display = 'block';
+                                    document.getElementById('fawrySelect').name = 'fawry_machine';
+                                } else if (type === 'visa') {
+                                    document.getElementById('visaSelect').style.display = 'block';
+                                    document.getElementById('visaSelect').name = 'visa_machine';
+                                } else {
+                                    document.getElementById('destinationDefaultSelect').style.display = 'block';
+                                }
+                            }
+                            </script>
+                            
+                            <!-- البيان -->
+                            <div class="col-12">
+                                <label class="form-label fw-bold">البيان <span class="text-danger">*</span></label>
+                                <textarea name="description" class="form-control" rows="3" required 
+                                          placeholder="أدخل وصف القيد..."></textarea>
+                            </div>
+                            
+                            <!-- منطقة المرفقات -->
+                            <div class="col-12">
+                                <label class="form-label fw-bold">المرفقات</label>
+                                <div class="attachments-drop-zone" id="attachmentsDropZone">
+                                    <input type="file" name="attachments" id="attachmentFileInput" multiple 
+                                           accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
+                                    <i class="bi bi-cloud-upload"></i>
+                                    <p>اسحب الملفات هنا أو انقر للاختيار</p>
+                                    <small class="text-muted">PDF, صور, Word, Excel (حد أقصى 10MB)</small>
+                                </div>
+                                <div class="attachments-list" id="attachmentsList"></div>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <!-- تلميحات اختصارات لوحة المفاتيح -->
+                        <div class="keyboard-shortcuts-hint">
+                            <small class="text-muted">
+                                <i class="bi bi-keyboard"></i> 
+                                <strong>اختصارات:</strong> 
+                                <kbd>Ctrl+S</kbd> حفظ مسودة | 
+                                <kbd>Ctrl+Enter</kbd> حفظ القيد | 
+                                <kbd>Enter</kbd> الانتقال للحقل التالي | 
+                                <kbd>Esc</kbd> إلغاء
+                            </small>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'accounting:account_entries_list' %}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-arrow-right me-2"></i> إلغاء
+                                </a>
+                                <button type="button" class="btn btn-outline-info" onclick="window.print()">
+                                    <i class="bi bi-printer me-1"></i> طباعة
+                                </button>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-primary" onclick="EntryFeatures.performAutosave()">
+                                    <i class="bi bi-save me-1"></i> حفظ كمسودة
+                                </button>
+                                <button type="submit" name="continue_new" value="true" class="btn btn-save-continue btn-lg">
+                                    <i class="bi bi-plus-circle me-2"></i> 
+                                    حفظ + جديد
+                                </button>
+                                <button type="submit" class="btn btn-{% if entry_type == 'revenue' %}success{% else %}danger{% endif %} btn-lg">
+                                    <i class="bi bi-check-circle me-2"></i> 
+                                    حفظ {{ entry_type_label }}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- سجل التغييرات (اختياري) -->
+            {% if entry.id %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i> سجل التغييرات</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="history-panel">
+                        <!-- سيتم ملؤها بواسطة JavaScript -->
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-revenue-gradient { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+.bg-expense-gradient { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'accounting/js/entry_features.js' %}"></script>
+{% endblock %}

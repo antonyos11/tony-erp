@@ -1,0 +1,315 @@
+﻿{% extends BASE_TEMPLATE %}
+{% block title %}إعادة توليد الباركود - المحاسب الشامل{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-header bg-warning text-dark">
+          <div class="d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">
+              <i class="bi bi-arrow-clockwise"></i>
+              إعادة توليد الباركود
+            </h4>
+            <div class="btn-group">
+              <a href="{% url 'inventory:product_edit' product.pk %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> العودة للمنتج
+              </a>
+              <a href="{% url 'inventory:barcode_management' %}" class="btn btn-outline-info">
+                <i class="bi bi-upc"></i> إدارة الباركود
+              </a>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <!-- معلومات المنتج الحالي -->
+          <div class="alert alert-info">
+            <h5 class="alert-heading">
+              <i class="bi bi-info-circle"></i>
+              معلومات المنتج
+            </h5>
+            <hr>
+            <div class="row">
+              <div class="col-md-6">
+                <p><strong>اسم المنتج:</strong> {{ product.name }}</p>
+                <p><strong>الكود:</strong> <code>{{ product.sku }}</code></p>
+                <p><strong>الباركود الحالي:</strong> <code class="text-primary">{{ product.barcode }}</code></p>
+              </div>
+              <div class="col-md-6 text-center">
+                {% if product.barcode %}
+                <div class="border rounded p-3 bg-light">
+                  <h6>الباركود الحالي</h6>
+                  <img src="{% url 'inventory:generate_barcode_image' product.id %}" 
+                       alt="باركود حالي" class="img-fluid" style="max-width: 200px;">
+                  <p class="mt-2"><small class="text-muted">{{ product.barcode }}</small></p>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <!-- تحذير -->
+          <div class="alert alert-warning">
+            <h6 class="alert-heading">
+              <i class="bi bi-exclamation-triangle"></i>
+              تحذير هام
+            </h6>
+            <ul class="mb-0">
+              <li>سيتم <strong>استبدال الباركود الحالي</strong> برقم جديد</li>
+              <li>الملصقات المطبوعة سابقاً <strong>لن تعمل</strong> بعد التغيير</li>
+              <li>يجب <strong>طباعة ملصقات جديدة</strong> بعد التحديث</li>
+              <li>تأكد من <strong>عدم وجود مخزون بالملصقات القديمة</strong></li>
+            </ul>
+          </div>
+
+          <!-- أسباب إعادة التوليد -->
+          <div class="row mb-4">
+            <div class="col-md-6">
+              <h6>متى تحتاج إعادة التوليد؟</h6>
+              <ul class="list-unstyled">
+                <li><i class="bi bi-check text-success"></i> الباركود تالف أو غير واضح</li>
+                <li><i class="bi bi-check text-success"></i> مشاكل في القراءة بالأجهزة</li>
+                <li><i class="bi bi-check text-success"></i> تكرار في النظام</li>
+                <li><i class="bi bi-check text-success"></i> تحديث معايير الباركود</li>
+              </ul>
+            </div>
+            <div class="col-md-6">
+              <h6>ما الذي سيحدث؟</h6>
+              <ul class="list-unstyled">
+                <li><i class="bi bi-arrow-right text-primary"></i> توليد رقم باركود جديد فريد</li>
+                <li><i class="bi bi-arrow-right text-primary"></i> استبدال الرقم في قاعدة البيانات</li>
+                <li><i class="bi bi-arrow-right text-primary"></i> إمكانية طباعة ملصق جديد فوراً</li>
+                <li><i class="bi bi-arrow-right text-primary"></i> الاحتفاظ بجميع بيانات المنتج الأخرى</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- نموذج التأكيد -->
+          {% if not confirmed %}
+          <div class="text-center">
+            <form method="POST">
+              {% csrf_token %}
+              <div class="mb-3">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="confirm-regenerate" required>
+                  <label class="form-check-label" for="confirm-regenerate">
+                    <strong>أفهم المخاطر وأريد المتابعة</strong>
+                  </label>
+                </div>
+              </div>
+              
+              <div class="d-flex justify-content-center gap-3">
+                <button type="submit" class="btn btn-warning btn-lg">
+                  <i class="bi bi-arrow-clockwise"></i>
+                  إعادة توليد الباركود
+                </button>
+                <a href="{% url 'inventory:product_edit' product.pk %}" class="btn btn-outline-secondary btn-lg">
+                  <i class="bi bi-x-circle"></i>
+                  إلغاء
+                </a>
+              </div>
+            </form>
+          </div>
+          {% endif %}
+
+          <!-- عرض النتيجة بعد التأكيد -->
+          {% if confirmed and new_barcode %}
+          <div class="alert alert-success">
+            <h5 class="alert-heading">
+              <i class="bi bi-check-circle"></i>
+              تم إعادة توليد الباركود بنجاح!
+            </h5>
+            <hr>
+            <div class="row">
+              <div class="col-md-6">
+                <h6>الباركود الجديد:</h6>
+                <p><code class="text-success fs-4">{{ new_barcode }}</code></p>
+                
+                <div class="d-grid gap-2">
+                  <a href="{% url 'inventory:generate_barcode_image' product.id %}" 
+                     class="btn btn-success" target="_blank">
+                    <i class="bi bi-eye"></i> عرض الباركود الجديد
+                  </a>
+                  <a href="{% url 'inventory:product_label' product.id %}" 
+                     class="btn btn-warning" target="_blank">
+                    <i class="bi bi-printer"></i> طباعة ملصق جديد
+                  </a>
+                </div>
+              </div>
+              <div class="col-md-6 text-center">
+                <div class="border rounded p-3 bg-light">
+                  <h6>الباركود الجديد</h6>
+                  <img src="{% url 'inventory:generate_barcode_image' product.id %}" 
+                       alt="باركود جديد" class="img-fluid" style="max-width: 200px;">
+                  <p class="mt-2"><small class="text-muted">{{ new_barcode }}</small></p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- الخطوات التالية -->
+          <div class="card mt-4">
+            <div class="card-header">
+              <h6 class="mb-0">
+                <i class="bi bi-list-check"></i>
+                الخطوات التالية المطلوبة
+              </h6>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-6">
+                  <h6>خطوات فورية:</h6>
+                  <ul class="list-unstyled">
+                    <li>
+                      <i class="bi bi-1-circle text-primary"></i>
+                      طباعة ملصقات جديدة للمنتج
+                    </li>
+                    <li>
+                      <i class="bi bi-2-circle text-primary"></i>
+                      إزالة الملصقات القديمة من المخزن
+                    </li>
+                    <li>
+                      <i class="bi bi-3-circle text-primary"></i>
+                      لصق الملصقات الجديدة على المنتجات
+                    </li>
+                  </ul>
+                </div>
+                <div class="col-md-6">
+                  <h6>اختبار النظام:</h6>
+                  <ul class="list-unstyled">
+                    <li>
+                      <i class="bi bi-4-circle text-success"></i>
+                      اختبار مسح الباركود الجديد
+                    </li>
+                    <li>
+                      <i class="bi bi-5-circle text-success"></i>
+                      التأكد من ظهور بيانات صحيحة
+                    </li>
+                    <li>
+                      <i class="bi bi-6-circle text-success"></i>
+                      إشعار الموظفين بالتحديث
+                    </li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div class="text-center mt-3">
+                <div class="btn-group">
+                  <a href="{% url 'inventory:barcode_scanner' %}" class="btn btn-outline-success">
+                    <i class="bi bi-qr-code-scan"></i> اختبار المسح
+                  </a>
+                  <a href="{% url 'inventory:product_list' %}" class="btn btn-outline-primary">
+                    <i class="bi bi-list-ul"></i> العودة للقائمة
+                  </a>
+                  <a href="{% url 'inventory:product_edit' product.pk %}" class="btn btn-outline-info">
+                    <i class="bi bi-pencil"></i> تعديل المنتج
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- نصائح إضافية -->
+      {% if not confirmed %}
+      <div class="card mt-4">
+        <div class="card-header bg-light">
+          <h6 class="mb-0">
+            <i class="bi bi-lightbulb"></i>
+            نصائح قبل إعادة التوليد
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+              <h6 class="text-success">✅ افعل:</h6>
+              <ul class="text-success">
+                <li>تأكد من طباعة ملصق جديد فوراً</li>
+                <li>أشعر فريق العمل بالتحديث</li>
+                <li>اختبر الباركود الجديد قبل الاستخدام</li>
+                <li>احتفظ بنسخة من الباركود القديم للمرجع</li>
+              </ul>
+            </div>
+            <div class="col-md-6">
+              <h6 class="text-danger">❌ تجنب:</h6>
+              <ul class="text-danger">
+                <li>إعادة التوليد بدون ضرورة</li>
+                <li>ترك ملصقات قديمة في المخزن</li>
+                <li>عدم اختبار الباركود الجديد</li>
+                <li>نسيان إشعار الموظفين</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// التحقق من صحة النموذج
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const submitBtn = form?.querySelector('button[type="submit"]');
+    const confirmCheck = document.getElementById('confirm-regenerate');
+    
+    if (confirmCheck && submitBtn) {
+        // تعطيل الزر في البداية
+        submitBtn.disabled = true;
+        
+        // مراقبة تغيير حالة checkbox
+        confirmCheck.addEventListener('change', function() {
+            submitBtn.disabled = !this.checked;
+        });
+        
+        // تأكيد إضافي قبل الإرسال
+        form.addEventListener('submit', function(e) {
+            if (!confirmCheck.checked) {
+                e.preventDefault();
+                alert('يجب الموافقة على الشروط قبل المتابعة');
+                return;
+            }
+            
+            const confirmed = confirm(
+                'هل أنت متأكد من إعادة توليد الباركود؟\n\n' +
+                '⚠️ تحذير: سيصبح الباركود الحالي غير صالح\n' +
+                '📄 ستحتاج لطباعة ملصقات جديدة\n\n' +
+                'اضغط "موافق" للمتابعة أو "إلغاء" للتراجع'
+            );
+            
+            if (!confirmed) {
+                e.preventDefault();
+            } else {
+                // تعطيل الزر لتجنب الضغط المتكرر
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> جاري المعالجة...';
+            }
+        });
+    }
+});
+
+// تأثير دوران للأيقونة
+const style = document.createElement('style');
+style.textContent = `
+    .spin {
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

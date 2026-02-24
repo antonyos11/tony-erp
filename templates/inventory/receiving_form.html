@@ -1,0 +1,197 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static i18n %}
+
+{% block title %}{% trans 'إذن استلام جديد' %} - {{ title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .form-card {
+        background: var(--bg-card, #fff);
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .form-card .card-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--primary, #1e3a5f);
+        margin-bottom: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .form-label-required::after {
+        content: " *";
+        color: #dc3545;
+    }
+    .supplier-option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .info-box {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    .info-box .value {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    .info-box .label {
+        font-size: 0.85rem;
+        opacity: 0.9;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h4 mb-1">
+                <i class="bi bi-box-arrow-in-down text-success me-2"></i>
+                {{ title }}
+            </h1>
+            <p class="text-muted mb-0">{% trans 'استلام مواد وأصناف للمستودع' %}</p>
+        </div>
+        <a href="{% url 'inventory:receiving_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i> {% trans 'العودة للقائمة' %}
+        </a>
+    </div>
+
+    <form method="post" id="receivingForm">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-lg-8">
+                <!-- معلومات أساسية -->
+                <div class="form-card">
+                    <h5 class="card-title">
+                        <i class="bi bi-info-circle"></i>
+                        {% trans 'البيانات الأساسية' %}
+                    </h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label form-label-required">{% trans 'المستودع / الموقع' %}</label>
+                            <select class="form-select" name="location" required>
+                                <option value="">{% trans '-- اختر المستودع --' %}</option>
+                                {% for loc in locations %}
+                                <option value="{{ loc.id }}">{{ loc.name }}{% if loc.code %} ({{ loc.code }}){% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans 'المورد' %}</label>
+                            <select class="form-select" name="supplier_id" id="supplierSelect">
+                                <option value="">{% trans '-- اختر المورد أو أدخل اسماً يدوياً --' %}</option>
+                                {% for s in suppliers %}
+                                <option value="{{ s.id }}">{{ s.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans 'أو أدخل اسم المورد يدوياً' %}</label>
+                            <input type="text" class="form-control" name="supplier_name" placeholder="{% trans 'اسم المورد' %}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans 'رقم مرجعي / فاتورة المورد' %}</label>
+                            <input type="text" class="form-control" name="po_reference" placeholder="{% trans 'رقم الفاتورة أو المرجع' %}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ربط بأمر شراء -->
+                {% if purchase_orders %}
+                <div class="form-card">
+                    <h5 class="card-title">
+                        <i class="bi bi-link-45deg"></i>
+                        {% trans 'ربط بأمر شراء (اختياري)' %}
+                    </h5>
+                    <select class="form-select" name="purchase_order">
+                        <option value="">{% trans '-- بدون أمر شراء --' %}</option>
+                        {% for po in purchase_orders %}
+                        <option value="{{ po.id }}">{{ po.number }} - {{ po.supplier }}</option>
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted d-block mt-2">
+                        <i class="bi bi-info-circle me-1"></i>
+                        {% trans 'عند الربط بأمر شراء، يمكنك استيراد البنود تلقائياً في صفحة التفاصيل' %}
+                    </small>
+                </div>
+                {% endif %}
+
+                <!-- ملاحظات -->
+                <div class="form-card">
+                    <h5 class="card-title">
+                        <i class="bi bi-sticky"></i>
+                        {% trans 'ملاحظات' %}
+                    </h5>
+                    <textarea class="form-control" name="notes" rows="3" 
+                              placeholder="{% trans 'أي ملاحظات على الشحنة المستلمة...' %}"></textarea>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <div class="info-box">
+                    <div class="value"><i class="bi bi-box-arrow-in-down"></i></div>
+                    <div class="label">{% trans 'إذن استلام جديد' %}</div>
+                </div>
+
+                <!-- فحص الجودة -->
+                <div class="form-card">
+                    <h5 class="card-title">
+                        <i class="bi bi-shield-check"></i>
+                        {% trans 'فحص الجودة' %}
+                    </h5>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="qualityCheck" name="quality_checked">
+                        <label class="form-check-label" for="qualityCheck">{% trans 'تم فحص الجودة' %}</label>
+                    </div>
+                </div>
+
+                <!-- أزرار الإجراءات -->
+                <div class="form-card">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="bi bi-check-lg me-1"></i> {% trans 'حفظ' %}
+                        </button>
+                        <a href="{% url 'inventory:receiving_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-lg me-1"></i> {% trans 'إلغاء' %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // إذا تم اختيار مورد من القائمة، امسح حقل الإدخال اليدوي
+    const supplierSelect = document.getElementById('supplierSelect');
+    const supplierName = document.querySelector('input[name="supplier_name"]');
+    
+    if (supplierSelect && supplierName) {
+        supplierSelect.addEventListener('change', function() {
+            if (this.value) {
+                supplierName.value = '';
+            }
+        });
+        supplierName.addEventListener('input', function() {
+            if (this.value) {
+                supplierSelect.value = '';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+

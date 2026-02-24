@@ -1,0 +1,212 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load tony_erb_tags currency_tags %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="fas fa-archive text-danger me-2"></i>تقرير المخزون الراكد</h3>
+        <a href="{% url 'inventory:inventory_analytics_dashboard' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-right me-1"></i> العودة للتحليلات
+        </a>
+    </div>
+    
+    <!-- فلترة -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">فترة عدم البيع (أيام)</label>
+                    <select name="days" class="form-select">
+                        <option value="90" {% if no_sales_days == 90 %}selected{% endif %}>90 يوم</option>
+                        <option value="180" {% if no_sales_days == 180 %}selected{% endif %}>180 يوم</option>
+                        <option value="365" {% if no_sales_days == 365 %}selected{% endif %}>سنة كاملة</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">الموقع</label>
+                    <select name="location" class="form-select">
+                        <option value="">كل المواقع</option>
+                        {% for loc in locations %}
+                        <option value="{{ loc.id }}" {% if selected_location and selected_location.id == loc.id %}selected{% endif %}>
+                            {{ loc.code }} - {{ loc.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-filter me-1"></i> تصفية
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- ملخص الإحصائيات -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-danger h-100">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">إجمالي الكمية الراكدة</h6>
+                    <h3 class="text-danger">{{ summary.total_items|default:0|numfmt }}</h3>
+                    <small class="text-muted">وحدة</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning h-100">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">إجمالي القيمة الراكدة</h6>
+                    <h3 class="text-warning">{{ summary.total_value|default:0|currency_format }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card bg-warning bg-opacity-10 h-100">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">بطيء الحركة</h6>
+                    <h4>{{ summary.categories.slow.count|default:0|numfmt }}</h4>
+                    <small>{{ summary.categories.slow.value|default:0|currency_format }}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card bg-danger bg-opacity-10 h-100">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">راكد</h6>
+                    <h4>{{ summary.categories.dead.count|default:0|numfmt }}</h4>
+                    <small>{{ summary.categories.dead.value|default:0|currency_format }}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card bg-dark bg-opacity-10 h-100">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">متقادم</h6>
+                    <h4>{{ summary.categories.obsolete.count|default:0|numfmt }}</h4>
+                    <small>{{ summary.categories.obsolete.value|default:0|currency_format }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- جدول المخزون الراكد -->
+    <div class="card mb-4">
+        <div class="card-header bg-danger bg-opacity-10">
+            <h5 class="mb-0"><i class="fas fa-boxes me-2"></i>المنتجات الراكدة (بدون بيع لأكثر من {{ no_sales_days }} يوم)</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>#</th>
+                            <th>SKU</th>
+                            <th>المنتج</th>
+                            <th>الموقع</th>
+                            <th class="text-center">الكمية</th>
+                            <th class="text-end">القيمة</th>
+                            <th class="text-center">آخر بيع</th>
+                            <th class="text-center">أيام التوقف</th>
+                            <th class="text-center">التصنيف</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in dead_stock %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td><code>{{ item.product.sku }}</code></td>
+                            <td>
+                                <a href="{% url 'inventory:product_list' %}?search={{ item.product.sku }}" target="_blank">
+                                    {{ item.product.name }}
+                                </a>
+                            </td>
+                            <td>
+                                {% if item.location %}
+                                    {{ item.location.code }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="text-center">{{ item.quantity|numfmt }}</td>
+                            <td class="text-end">{{ item.value|currency_format }}</td>
+                            <td class="text-center">
+                                {% if item.last_sale_date %}
+                                    {{ item.last_sale_date|date:"Y-m-d" }}
+                                {% else %}
+                                    <span class="text-muted">لم يُباع أبداً</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if item.days_since_last_sale >= 999 %}
+                                    <span class="badge bg-dark">∞</span>
+                                {% else %}
+                                    {{ item.days_since_last_sale }}
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if item.age_category == 'slow' %}
+                                    <span class="badge bg-warning">بطيء</span>
+                                {% elif item.age_category == 'dead' %}
+                                    <span class="badge bg-danger">راكد</span>
+                                {% else %}
+                                    <span class="badge bg-dark">متقادم</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">
+                                <i class="fas fa-check-circle fa-2x mb-2 text-success"></i>
+                                <br>لا يوجد مخزون راكد بناءً على المعايير المحددة
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- المنتجات بطيئة الحركة -->
+    {% if slow_movers %}
+    <div class="card">
+        <div class="card-header bg-warning bg-opacity-10">
+            <h5 class="mb-0"><i class="fas fa-turtle me-2"></i>المنتجات بطيئة الحركة (معدل دوران أقل من 2)</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>SKU</th>
+                            <th>المنتج</th>
+                            <th class="text-center">معدل الدوران</th>
+                            <th class="text-center">أيام التغطية</th>
+                            <th class="text-end">القيمة المخزنة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in slow_movers %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td><code>{{ item.product.sku }}</code></td>
+                            <td>{{ item.product.name }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-{% if item.turnover_ratio < 1 %}danger{% else %}warning{% endif %}">
+                                    {{ item.turnover_ratio|floatformat:2 }}
+                                </span>
+                            </td>
+                            <td class="text-center">{{ item.days_of_inventory|default:"-"|floatformat:0 }}</td>
+                            <td class="text-end">{{ item.stock_value|currency_format }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

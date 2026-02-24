@@ -1,0 +1,528 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'تقرير تقييم المخزون' %}{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root {
+    --primary: #1e3a5f;
+    --primary-dark: #152a45;
+    --accent: #00d4aa;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #3b82f6;
+    --bg-light: #f8fafc;
+    --border-color: #e2e8f0;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+    --radius: 8px;
+    --radius-lg: 12px;
+    --transition: all 0.2s ease;
+  }
+  
+  .page-hero {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+    margin-bottom: 2rem;
+  }
+  .page-hero h1 { margin: 0; font-weight: 700; }
+  .page-hero p { margin: 0.5rem 0 0; opacity: 0.9; }
+  
+  .filter-bar {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .summary-card {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+  }
+  .summary-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+  .summary-card.primary { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; border: none; }
+  .summary-card .icon { font-size: 2rem; margin-bottom: 0.5rem; }
+  .summary-card .value { font-size: 1.75rem; font-weight: 700; }
+  .summary-card .label { font-size: 0.85rem; opacity: 0.8; }
+  .summary-card .change { font-size: 0.8rem; margin-top: 0.5rem; }
+  .summary-card .change.up { color: var(--success); }
+  .summary-card .change.down { color: var(--danger); }
+  .summary-card.primary .change.up { color: #a7f3d0; }
+  
+  .method-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 0.5rem;
+  }
+  .method-tab {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    background: transparent;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: var(--radius) var(--radius) 0 0;
+    transition: var(--transition);
+    position: relative;
+  }
+  .method-tab:hover { background: var(--bg-light); color: var(--primary); }
+  .method-tab.active {
+    color: var(--primary);
+    background: var(--bg-light);
+  }
+  .method-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--primary);
+  }
+  
+  .report-card {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 2rem;
+  }
+  .report-card .header {
+    background: var(--bg-light);
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .report-card .header h4 { margin: 0; font-weight: 600; }
+  
+  .report-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .report-table th {
+    background: var(--bg-light);
+    padding: 0.875rem 1rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    text-align: right;
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+  }
+  .report-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+  }
+  .report-table tbody tr:hover { background: #f8fafc; }
+  .report-table tfoot td {
+    background: var(--bg-light);
+    font-weight: 600;
+  }
+  
+  .stock-bar {
+    height: 8px;
+    background: var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .stock-bar .fill { height: 100%; border-radius: 4px; }
+  .stock-bar .fill.good { background: var(--success); }
+  .stock-bar .fill.warning { background: var(--warning); }
+  .stock-bar .fill.danger { background: var(--danger); }
+  
+  .chart-container {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .chart-placeholder {
+    height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    color: var(--text-muted);
+  }
+  
+  .comparison-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .comparison-card {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    text-align: center;
+  }
+  .comparison-card .method { font-weight: 600; color: var(--primary); margin-bottom: 0.5rem; }
+  .comparison-card .value { font-size: 1.5rem; font-weight: 700; }
+  .comparison-card .diff { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem; }
+  
+  @media print {
+    .filter-bar, .page-hero { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    .btn { display: none !important; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Page Header -->
+  <div class="page-hero">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1><i class="bi bi-graph-up me-2"></i>{% trans 'تقرير تقييم المخزون' %}</h1>
+        <p>{% trans 'تحليل شامل لقيمة المخزون بطرق التقييم المختلفة' %}</p>
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-light" onclick="window.print()">
+          <i class="bi bi-printer me-1"></i>{% trans 'طباعة' %}
+        </button>
+        <button class="btn btn-light">
+          <i class="bi bi-file-earmark-excel me-1"></i>{% trans 'تصدير Excel' %}
+        </button>
+        <button class="btn btn-light">
+          <i class="bi bi-file-earmark-pdf me-1"></i>{% trans 'تصدير PDF' %}
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Filters -->
+  <div class="filter-bar">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-2">
+        <label class="form-label small">{% trans 'تاريخ التقييم' %}</label>
+        <input type="date" class="form-control" name="valuation_date" value="{ today }">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small">{% trans 'المستودع' %}</label>
+        <select class="form-select" name="warehouse">
+          <option value="">{% trans 'جميع المستودعات' %}</option>
+          <option value="1">{% trans 'المستودع الرئيسي' %}</option>
+          <option value="2">{% trans 'مستودع الفرع' %}</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small">{% trans 'الفئة' %}</label>
+        <select class="form-select" name="category">
+          <option value="">{% trans 'جميع الفئات' %}</option>
+          <option value="1">{% trans 'مواد خام' %}</option>
+          <option value="2">{% trans 'منتجات تامة' %}</option>
+          <option value="3">{% trans 'قطع غيار' %}</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small">{% trans 'طريقة التقييم' %}</label>
+        <select class="form-select" name="method">
+          <option value="all">{% trans 'مقارنة الطرق' %}</option>
+          <option value="fifo">FIFO</option>
+          <option value="lifo">LIFO</option>
+          <option value="weighted_avg">{% trans 'المتوسط المرجح' %}</option>
+          <option value="standard">{% trans 'التكلفة المعيارية' %}</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-primary w-100">
+          <i class="bi bi-funnel me-1"></i>{% trans 'تطبيق' %}
+        </button>
+      </div>
+      <div class="col-md-2">
+        <a href="{% url 'inventory:valuation_report' %}" class="btn btn-outline-secondary w-100">
+          <i class="bi bi-arrow-counterclockwise me-1"></i>{% trans 'إعادة تعيين' %}
+        </a>
+      </div>
+    </form>
+  </div>
+  
+  <!-- Summary Cards -->
+  <div class="summary-grid">
+    <div class="summary-card primary">
+      <div class="icon"><i class="bi bi-currency-dollar"></i></div>
+      <div class="value">1,245,680</div>
+      <div class="label">{% trans 'إجمالي قيمة المخزون' %}</div>
+      <div class="change up"><i class="bi bi-arrow-up me-1"></i>+12.5% {% trans 'من الشهر الماضي' %}</div>
+    </div>
+    <div class="summary-card">
+      <div class="icon text-primary"><i class="bi bi-box-seam"></i></div>
+      <div class="value">3,456</div>
+      <div class="label">{% trans 'إجمالي الأصناف' %}</div>
+    </div>
+    <div class="summary-card">
+      <div class="icon text-success"><i class="bi bi-boxes"></i></div>
+      <div class="value">45,230</div>
+      <div class="label">{% trans 'إجمالي الوحدات' %}</div>
+    </div>
+    <div class="summary-card">
+      <div class="icon text-warning"><i class="bi bi-calculator"></i></div>
+      <div class="value">27.53</div>
+      <div class="label">{% trans 'متوسط تكلفة الوحدة' %}</div>
+    </div>
+    <div class="summary-card">
+      <div class="icon text-danger"><i class="bi bi-exclamation-triangle"></i></div>
+      <div class="value">23</div>
+      <div class="label">{% trans 'أصناف تحت الحد الأدنى' %}</div>
+    </div>
+  </div>
+  
+  <!-- Valuation Methods Comparison -->
+  <div class="comparison-grid">
+    <div class="comparison-card">
+      <div class="method">FIFO ({% trans 'الوارد أولاً صادر أولاً' %})</div>
+      <div class="value">1,245,680</div>
+      <div class="diff">{% trans 'الأساس' %}</div>
+    </div>
+    <div class="comparison-card">
+      <div class="method">LIFO ({% trans 'الوارد أخيراً صادر أولاً' %})</div>
+      <div class="value">1,198,420</div>
+      <div class="diff text-danger">-47,260 (-3.8%)</div>
+    </div>
+    <div class="comparison-card">
+      <div class="method">{% trans 'المتوسط المرجح' %}</div>
+      <div class="value">1,223,150</div>
+      <div class="diff text-danger">-22,530 (-1.8%)</div>
+    </div>
+  </div>
+  
+  <!-- Method Tabs -->
+  <div class="method-tabs">
+    <button class="method-tab active" onclick="switchMethod('fifo')">FIFO</button>
+    <button class="method-tab" onclick="switchMethod('lifo')">LIFO</button>
+    <button class="method-tab" onclick="switchMethod('weighted')">{% trans 'المتوسط المرجح' %}</button>
+    <button class="method-tab" onclick="switchMethod('standard')">{% trans 'التكلفة المعيارية' %}</button>
+  </div>
+  
+  <!-- Valuation Details Table -->
+  <div class="report-card">
+    <div class="header">
+      <h4><i class="bi bi-table me-2"></i>{% trans 'تفاصيل التقييم' %}</h4>
+      <div class="d-flex gap-2">
+        <input type="search" class="form-control form-control-sm" placeholder="{% trans 'بحث...' %}" style="width: 200px;">
+        <select class="form-select form-select-sm" style="width: 150px;">
+          <option>{% trans 'جميع الفئات' %}</option>
+        </select>
+      </div>
+    </div>
+    <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th style="width: 40px;">#</th>
+            <th>{% trans 'الكود' %}</th>
+            <th>{% trans 'المنتج' %}</th>
+            <th>{% trans 'الفئة' %}</th>
+            <th class="text-center">{% trans 'الكمية' %}</th>
+            <th class="text-center">{% trans 'الوحدة' %}</th>
+            <th class="text-end">{% trans 'تكلفة الوحدة' %}</th>
+            <th class="text-end">{% trans 'القيمة الإجمالية' %}</th>
+            <th style="width: 120px;">{% trans 'المخزون' %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td><code>PRD-001</code></td>
+            <td><strong>{% trans 'مادة خام A' %}</strong></td>
+            <td>{% trans 'مواد خام' %}</td>
+            <td class="text-center">1,500</td>
+            <td class="text-center">{% trans 'كجم' %}</td>
+            <td class="text-end">25.50</td>
+            <td class="text-end"><strong>38,250.00</strong></td>
+            <td>
+              <div class="stock-bar"><div class="fill good" style="width: 85%;"></div></div>
+              <small class="text-muted">85%</small>
+            </td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td><code>PRD-002</code></td>
+            <td><strong>{% trans 'منتج تام B' %}</strong></td>
+            <td>{% trans 'منتجات تامة' %}</td>
+            <td class="text-center">320</td>
+            <td class="text-center">{% trans 'قطعة' %}</td>
+            <td class="text-end">150.00</td>
+            <td class="text-end"><strong>48,000.00</strong></td>
+            <td>
+              <div class="stock-bar"><div class="fill good" style="width: 70%;"></div></div>
+              <small class="text-muted">70%</small>
+            </td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td><code>PRD-003</code></td>
+            <td><strong>{% trans 'قطعة غيار C' %}</strong></td>
+            <td>{% trans 'قطع غيار' %}</td>
+            <td class="text-center">50</td>
+            <td class="text-center">{% trans 'قطعة' %}</td>
+            <td class="text-end">85.00</td>
+            <td class="text-end"><strong>4,250.00</strong></td>
+            <td>
+              <div class="stock-bar"><div class="fill warning" style="width: 35%;"></div></div>
+              <small class="text-muted">35%</small>
+            </td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td><code>PRD-004</code></td>
+            <td><strong>{% trans 'مادة خام D' %}</strong></td>
+            <td>{% trans 'مواد خام' %}</td>
+            <td class="text-center">2,800</td>
+            <td class="text-center">{% trans 'لتر' %}</td>
+            <td class="text-end">12.75</td>
+            <td class="text-end"><strong>35,700.00</strong></td>
+            <td>
+              <div class="stock-bar"><div class="fill good" style="width: 90%;"></div></div>
+              <small class="text-muted">90%</small>
+            </td>
+          </tr>
+          <tr>
+            <td>5</td>
+            <td><code>PRD-005</code></td>
+            <td><strong>{% trans 'مكون E' %}</strong></td>
+            <td>{% trans 'مكونات' %}</td>
+            <td class="text-center">15</td>
+            <td class="text-center">{% trans 'قطعة' %}</td>
+            <td class="text-end">450.00</td>
+            <td class="text-end"><strong>6,750.00</strong></td>
+            <td>
+              <div class="stock-bar"><div class="fill danger" style="width: 15%;"></div></div>
+              <small class="text-muted">15%</small>
+            </td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" class="text-end">{% trans 'الإجمالي' %}</td>
+            <td class="text-center"><strong>4,685</strong></td>
+            <td></td>
+            <td></td>
+            <td class="text-end"><strong style="color: var(--primary); font-size: 1.1rem;">132,950.00</strong></td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+  
+  <div class="row">
+    <!-- Chart - Value by Category -->
+    <div class="col-lg-6">
+      <div class="chart-container">
+        <h5 class="mb-3"><i class="bi bi-pie-chart me-2"></i>{% trans 'توزيع القيمة حسب الفئة' %}</h5>
+        <div class="chart-placeholder">
+          <div class="text-center">
+            <i class="bi bi-pie-chart" style="font-size: 4rem; opacity: 0.3;"></i>
+            <p class="mt-2">{% trans 'مخطط توزيع القيمة' %}</p>
+          </div>
+        </div>
+        <div class="d-flex justify-content-center gap-4 mt-3">
+          <div class="d-flex align-items-center gap-2">
+            <div style="width: 12px; height: 12px; background: var(--primary); border-radius: 50%;"></div>
+            <span class="small">{% trans 'مواد خام' %} (45%)</span>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <div style="width: 12px; height: 12px; background: var(--accent); border-radius: 50%;"></div>
+            <span class="small">{% trans 'منتجات تامة' %} (35%)</span>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <div style="width: 12px; height: 12px; background: var(--warning); border-radius: 50%;"></div>
+            <span class="small">{% trans 'قطع غيار' %} (20%)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Chart - Value Trend -->
+    <div class="col-lg-6">
+      <div class="chart-container">
+        <h5 class="mb-3"><i class="bi bi-graph-up me-2"></i>{% trans 'تطور قيمة المخزون' %}</h5>
+        <div class="chart-placeholder">
+          <div class="text-center">
+            <i class="bi bi-graph-up" style="font-size: 4rem; opacity: 0.3;"></i>
+            <p class="mt-2">{% trans 'مخطط الاتجاه' %}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- ABC Analysis Summary -->
+  <div class="report-card">
+    <div class="header">
+      <h4><i class="bi bi-bar-chart-steps me-2"></i>{% trans 'تحليل ABC للقيمة' %}</h4>
+    </div>
+    <div class="p-4">
+      <div class="row text-center">
+        <div class="col-md-4">
+          <div class="p-3 rounded" style="background: #dcfce7;">
+            <h2 class="text-success mb-1">A</h2>
+            <h4 class="mb-0">623,840</h4>
+            <small class="text-muted">50% {% trans 'من القيمة' %} | 125 {% trans 'صنف' %} (10%)</small>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="p-3 rounded" style="background: #fef3c7;">
+            <h2 class="text-warning mb-1">B</h2>
+            <h4 class="mb-0">373,704</h4>
+            <small class="text-muted">30% {% trans 'من القيمة' %} | 375 {% trans 'صنف' %} (30%)</small>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="p-3 rounded" style="background: #fee2e2;">
+            <h2 class="text-danger mb-1">C</h2>
+            <h4 class="mb-0">248,136</h4>
+            <small class="text-muted">20% {% trans 'من القيمة' %} | 750 {% trans 'صنف' %} (60%)</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function switchMethod(method) {
+    document.querySelectorAll('.method-tab').forEach(tab => tab.classList.remove('active'));
+    event.target.classList.add('active');
+    // Load data for selected method
+    console.log('Switching to method:', method);
+  }
+</script>
+{% endblock %}
+

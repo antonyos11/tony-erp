@@ -1,0 +1,290 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "إنشاء فرع/معرض جديد" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'branches:unified_dashboard' %}">{% trans "الفروع والمعارض" %}</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'branches:unified_list' %}">{% trans "القائمة" %}</a></li>
+            <li class="breadcrumb-item active">{% trans "إنشاء جديد" %}</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-10 col-xl-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-plus-circle me-2"></i>
+                        {% trans "إنشاء فرع/معرض جديد" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="locationForm">
+                        {% csrf_token %}
+                        
+                        <!-- اختيار النوع -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">{% trans "نوع الموقع" %} <span class="text-danger">*</span></label>
+                            <div class="row g-3">
+                                {% for value, label in branch_types %}
+                                <div class="col-6 col-md-3">
+                                    <input type="radio" class="btn-check" name="branch_type" 
+                                           id="type_{{ value }}" value="{{ value }}" 
+                                           {% if value == 'branch' %}checked{% endif %}>
+                                    <label class="btn btn-outline-{% if value == 'branch' %}primary{% elif value == 'showroom' %}success{% elif value == 'warehouse' %}warning{% else %}info{% endif %} w-100 py-3" 
+                                           for="type_{{ value }}">
+                                        <i class="bi {% if value == 'branch' %}bi-building{% elif value == 'showroom' %}bi-shop{% elif value == 'warehouse' %}bi-box-seam{% else %}bi-shop-window{% endif %} d-block fs-3 mb-1"></i>
+                                        {{ label }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <!-- البيانات الأساسية -->
+                        <h6 class="text-muted mb-3">
+                            <i class="bi bi-info-circle me-1"></i>
+                            {% trans "البيانات الأساسية" %}
+                        </h6>
+                        
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label for="name" class="form-label">{% trans "الاسم" %} <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="name" name="name" required
+                                       placeholder="{% trans 'مثال: فرع القاهرة - المعادي' %}">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="code" class="form-label">{% trans "الكود" %} <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="code" name="code" required
+                                       placeholder="{% trans 'مثال: BR-CAI-001' %}" style="text-transform: uppercase;">
+                            </div>
+                            <div class="col-md-6" id="parentBranchField">
+                                <label for="parent_branch" class="form-label">{% trans "تابع لفرع" %}</label>
+                                <select class="form-select" id="parent_branch" name="parent_branch">
+                                    <option value="">{% trans "-- مستقل --" %}</option>
+                                    {% for branch in parent_branches %}
+                                    <option value="{{ branch.id }}">{{ branch.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">{% trans "اختياري: للمعارض أو المنافذ التابعة لفرع رئيسي" %}</div>
+                            </div>
+                        </div>
+
+                        <!-- بيانات الموقع -->
+                        <h6 class="text-muted mb-3">
+                            <i class="bi bi-geo-alt me-1"></i>
+                            {% trans "بيانات الموقع" %}
+                        </h6>
+                        
+                        <div class="row g-3 mb-4">
+                            <div class="col-12">
+                                <label for="address" class="form-label">{% trans "العنوان" %}</label>
+                                <textarea class="form-control" id="address" name="address" rows="2"
+                                          placeholder="{% trans 'العنوان التفصيلي...' %}"></textarea>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="city" class="form-label">{% trans "المدينة" %}</label>
+                                <input type="text" class="form-control" id="city" name="city"
+                                       placeholder="{% trans 'مثال: القاهرة' %}">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="region" class="form-label">{% trans "المنطقة" %}</label>
+                                <input type="text" class="form-control" id="region" name="region"
+                                       placeholder="{% trans 'مثال: المعادي' %}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">{% trans "الإحداثيات" %}</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" name="latitude" 
+                                           placeholder="{% trans 'خط العرض' %}">
+                                    <input type="text" class="form-control" name="longitude"
+                                           placeholder="{% trans 'خط الطول' %}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- بيانات التواصل -->
+                        <h6 class="text-muted mb-3">
+                            <i class="bi bi-telephone me-1"></i>
+                            {% trans "بيانات التواصل" %}
+                        </h6>
+                        
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <label for="phone" class="form-label">{% trans "الهاتف" %}</label>
+                                <input type="tel" class="form-control" id="phone" name="phone"
+                                       placeholder="{% trans 'هاتف أرضي' %}">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="mobile" class="form-label">{% trans "الجوال" %}</label>
+                                <input type="tel" class="form-control" id="mobile" name="mobile"
+                                       placeholder="{% trans 'رقم الجوال' %}">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="email" class="form-label">{% trans "البريد الإلكتروني" %}</label>
+                                <input type="email" class="form-control" id="email" name="email"
+                                       placeholder="{% trans 'email@example.com' %}">
+                            </div>
+                        </div>
+
+                        <!-- الإعدادات -->
+                        <h6 class="text-muted mb-3">
+                            <i class="bi bi-gear me-1"></i>
+                            {% trans "الإعدادات والصلاحيات" %}
+                        </h6>
+                        
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input" type="checkbox" id="is_active" 
+                                                   name="is_active" checked>
+                                            <label class="form-check-label" for="is_active">
+                                                <i class="bi bi-check-circle text-success me-1"></i>
+                                                {% trans "نشط" %}
+                                            </label>
+                                        </div>
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input" type="checkbox" id="is_main" 
+                                                   name="is_main">
+                                            <label class="form-check-label" for="is_main">
+                                                <i class="bi bi-star text-warning me-1"></i>
+                                                {% trans "الموقع الرئيسي" %}
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input" type="checkbox" id="can_sell" 
+                                                   name="can_sell" checked>
+                                            <label class="form-check-label" for="can_sell">
+                                                <i class="bi bi-cart-check text-primary me-1"></i>
+                                                {% trans "يمكنه البيع" %}
+                                            </label>
+                                        </div>
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input" type="checkbox" id="can_purchase" 
+                                                   name="can_purchase">
+                                            <label class="form-check-label" for="can_purchase">
+                                                <i class="bi bi-bag-plus text-info me-1"></i>
+                                                {% trans "يمكنه الشراء" %}
+                                            </label>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="has_inventory" 
+                                                   name="has_inventory" checked>
+                                            <label class="form-check-label" for="has_inventory">
+                                                <i class="bi bi-box-seam text-secondary me-1"></i>
+                                                {% trans "له مخزون خاص" %}
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ملاحظات -->
+                        <div class="mb-4">
+                            <label for="notes" class="form-label">{% trans "ملاحظات" %}</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3"
+                                      placeholder="{% trans 'ملاحظات إضافية...' %}"></textarea>
+                        </div>
+
+                        <!-- الأزرار -->
+                        <div class="d-flex gap-2 justify-content-end pt-3 border-top">
+                            <a href="{% url 'branches:unified_list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-lg me-1"></i>
+                                {% trans "إلغاء" %}
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>
+                                {% trans "حفظ" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const typeInputs = document.querySelectorAll('input[name="branch_type"]');
+    const parentField = document.getElementById('parentBranchField');
+    const nameInput = document.getElementById('name');
+    const codeInput = document.getElementById('code');
+    
+    // تحديث الحقول حسب النوع
+    typeInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            const type = this.value;
+            
+            // إظهار/إخفاء حقل الفرع الأب
+            if (type === 'branch') {
+                parentField.style.display = 'none';
+            } else {
+                parentField.style.display = 'block';
+            }
+            
+            // تحديث placeholder للاسم
+            const placeholders = {
+                'branch': '{% trans "مثال: فرع القاهرة - المعادي" %}',
+                'showroom': '{% trans "مثال: معرض المعادي" %}',
+                'warehouse': '{% trans "مثال: مخزن القطامية" %}',
+                'outlet': '{% trans "مثال: منفذ بيع سيتي ستارز" %}'
+            };
+            nameInput.placeholder = placeholders[type] || '';
+            
+            // تحديث الكود تلقائياً
+            const prefixes = {
+                'branch': 'BR',
+                'showroom': 'SR',
+                'warehouse': 'WH',
+                'outlet': 'OT'
+            };
+            if (!codeInput.value || codeInput.value.match(/^(BR|SR|WH|OT)-/)) {
+                codeInput.value = prefixes[type] + '-';
+            }
+        });
+    });
+    
+    // التحقق من الكود
+    codeInput.addEventListener('input', function() {
+        this.value = this.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+    });
+    
+    // التحقق من النموذج
+    document.getElementById('locationForm').addEventListener('submit', function(e) {
+        const name = nameInput.value.trim();
+        const code = codeInput.value.trim();
+        
+        if (!name) {
+            e.preventDefault();
+            nameInput.focus();
+            alert('{% trans "يرجى إدخال اسم الموقع" %}');
+            return;
+        }
+        
+        if (!code || code.length < 3) {
+            e.preventDefault();
+            codeInput.focus();
+            alert('{% trans "يرجى إدخال كود صحيح (3 أحرف على الأقل)" %}');
+            return;
+        }
+    });
+});
+</script>
+{% endblock %}

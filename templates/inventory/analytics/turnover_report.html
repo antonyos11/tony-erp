@@ -1,0 +1,274 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load tony_erb_tags currency_tags %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="fas fa-sync-alt text-primary me-2"></i>تقرير معدل دوران المخزون</h3>
+        <a href="{% url 'inventory:inventory_analytics_dashboard' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-right me-1"></i> العودة للتحليلات
+        </a>
+    </div>
+    
+    <!-- فلترة -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">الفترة الزمنية</label>
+                    <select name="period" class="form-select">
+                        <option value="90" {% if period_days == 90 %}selected{% endif %}>3 أشهر</option>
+                        <option value="180" {% if period_days == 180 %}selected{% endif %}>6 أشهر</option>
+                        <option value="365" {% if period_days == 365 %}selected{% endif %}>سنة كاملة</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">الموقع</label>
+                    <select name="location" class="form-select">
+                        <option value="">كل المواقع</option>
+                        {% for loc in locations %}
+                        <option value="{{ loc.id }}" {% if selected_location and selected_location.id == loc.id %}selected{% endif %}>
+                            {{ loc.code }} - {{ loc.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-filter me-1"></i> تصفية
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- إحصائيات عامة -->
+    {% if overall_turnover %}
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary h-100">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">معدل الدوران الإجمالي</h6>
+                    <h2 class="text-primary">{{ overall_turnover.turnover_ratio|floatformat:2 }}</h2>
+                    <small class="text-muted">مرة / سنة</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-info h-100">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">أيام التغطية</h6>
+                    <h2 class="text-info">{{ overall_turnover.days_of_inventory|floatformat:0 }}</h2>
+                    <small class="text-muted">يوم</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success h-100">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">تكلفة البضاعة المباعة</h6>
+                    <h3 class="text-success">{{ overall_turnover.cogs|default:0|currency_format }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning h-100">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">متوسط قيمة المخزون</h6>
+                    <h3 class="text-warning">{{ overall_turnover.average_inventory|default:0|currency_format }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <div class="row">
+        <!-- المنتجات الممتازة -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-success bg-opacity-10">
+                    <h5 class="mb-0 text-success"><i class="fas fa-star me-2"></i>ممتاز (دوران عالي)</h5>
+                </div>
+                <div class="card-body">
+                    {% if excellent_products %}
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>المنتج</th>
+                                    <th class="text-center">معدل الدوران</th>
+                                    <th class="text-center">أيام التغطية</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in excellent_products %}
+                                <tr>
+                                    <td>{{ item.product.name }}</td>
+                                    <td class="text-center">
+                                        <span class="badge bg-success">{{ item.turnover_ratio|floatformat:2 }}</span>
+                                    </td>
+                                    <td class="text-center">{{ item.days_of_inventory|floatformat:0 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">لا توجد منتجات في هذه الفئة</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- المنتجات الجيدة -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary bg-opacity-10">
+                    <h5 class="mb-0 text-primary"><i class="fas fa-thumbs-up me-2"></i>جيد</h5>
+                </div>
+                <div class="card-body">
+                    {% if good_products %}
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>المنتج</th>
+                                    <th class="text-center">معدل الدوران</th>
+                                    <th class="text-center">أيام التغطية</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in good_products %}
+                                <tr>
+                                    <td>{{ item.product.name }}</td>
+                                    <td class="text-center">
+                                        <span class="badge bg-primary">{{ item.turnover_ratio|floatformat:2 }}</span>
+                                    </td>
+                                    <td class="text-center">{{ item.days_of_inventory|floatformat:0 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">لا توجد منتجات في هذه الفئة</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- المنتجات المقبولة -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-warning bg-opacity-10">
+                    <h5 class="mb-0 text-warning"><i class="fas fa-exclamation-triangle me-2"></i>مقبول</h5>
+                </div>
+                <div class="card-body">
+                    {% if fair_products %}
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>المنتج</th>
+                                    <th class="text-center">معدل الدوران</th>
+                                    <th class="text-center">أيام التغطية</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in fair_products %}
+                                <tr>
+                                    <td>{{ item.product.name }}</td>
+                                    <td class="text-center">
+                                        <span class="badge bg-warning">{{ item.turnover_ratio|floatformat:2 }}</span>
+                                    </td>
+                                    <td class="text-center">{{ item.days_of_inventory|floatformat:0 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">لا توجد منتجات في هذه الفئة</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- المنتجات الضعيفة -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-danger bg-opacity-10">
+                    <h5 class="mb-0 text-danger"><i class="fas fa-arrow-down me-2"></i>ضعيف (يحتاج متابعة)</h5>
+                </div>
+                <div class="card-body">
+                    {% if poor_products %}
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>المنتج</th>
+                                    <th class="text-center">معدل الدوران</th>
+                                    <th class="text-center">أيام التغطية</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in poor_products %}
+                                <tr>
+                                    <td>{{ item.product.name }}</td>
+                                    <td class="text-center">
+                                        <span class="badge bg-danger">{{ item.turnover_ratio|floatformat:2 }}</span>
+                                    </td>
+                                    <td class="text-center">{{ item.days_of_inventory|default:"-"|floatformat:0 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">لا توجد منتجات في هذه الفئة</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ملاحظات وتفسيرات -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>تفسير معدل الدوران</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge bg-success me-2">ممتاز</span>
+                        <span>أكثر من 6 مرات/سنة</span>
+                    </div>
+                    <small class="text-muted">المخزون يتحرك بسرعة ممتازة</small>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge bg-primary me-2">جيد</span>
+                        <span>4-6 مرات/سنة</span>
+                    </div>
+                    <small class="text-muted">معدل دوران صحي</small>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge bg-warning me-2">مقبول</span>
+                        <span>2-4 مرات/سنة</span>
+                    </div>
+                    <small class="text-muted">يحتاج مراجعة</small>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge bg-danger me-2">ضعيف</span>
+                        <span>أقل من 2 مرة/سنة</span>
+                    </div>
+                    <small class="text-muted">مخزون راكد، يحتاج إجراء</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
