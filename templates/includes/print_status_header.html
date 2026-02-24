@@ -1,0 +1,131 @@
+{% load i18n %}
+<!-- Print Agent Status Indicator - Enhanced with Heartbeat & Printer List -->
+<div id="print-agent-status" class="d-inline-flex align-items-center position-relative" title="{% trans 'حالة وكيل الطباعة' %}">
+    <a href="{% url 'printing:dashboard' %}" id="print-status-icon" class="qa-btn position-relative" data-bs-toggle="tooltip" data-bs-placement="bottom" title="{% trans 'حالة الطابعة' %}">
+        <i class="bi bi-printer"></i>
+        <span id="print-status-dot" class="position-absolute translate-middle badge rounded-pill bg-secondary" style="top: 6px; right: -2px; width: 10px; height: 10px; padding: 0; font-size: 0;"></span>
+        <span id="print-pending-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark d-none" style="font-size: 0.55em;">0</span>
+    </a>
+    <!-- Printer list tooltip on hover -->
+    <div id="pah-tooltip" class="position-absolute shadow-sm" style="display:none;top:100%;right:0;min-width:280px;background:#fff;border:1px solid #dee2e6;border-radius:8px;padding:12px;z-index:9999;font-size:0.8rem;color:#333;">
+        <div id="pah-tooltip-content"><em>Loading...</em></div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const statusDot = document.getElementById('print-status-dot');
+    const pendingBadge = document.getElementById('print-pending-badge');
+    const tooltip = document.getElementById('pah-tooltip');
+    const tooltipContent = document.getElementById('pah-tooltip-content');
+    const container = document.getElementById('print-agent-status');
+    let ws = null;
+    let pollTimer = null;
+    let lastPrinters = [];
+
+    // Show/hide tooltip on hover
+    if (container && tooltip) {
+        container.addEventListener('mouseenter', function() { tooltip.style.display = 'block'; });
+        container.addEventListener('mouseleave', function() { tooltip.style.display = 'none'; });
+    }
+
+    function connectStatusWS() {
+        try {
+            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            ws = new WebSocket(`${protocol}://${window.location.host}/ws/print-status/`);
+            ws.onopen = function() { updateStatus(true); };
+            ws.onmessage = function(e) {
+                try { JSON.parse(e.data); } catch(x) {}
+                pollAgentStatus();
+            };
+            ws.onclose = function() {
+                if (!pollTimer) pollTimer = setInterval(pollAgentStatus, 15000);
+            };
+        } catch(e) {
+            if (!pollTimer) pollTimer = setInterval(pollAgentStatus, 15000);
+        }
+    }
+
+    function pollAgentStatus() {
+        fetch('{% url "printing:api_agent_status" %}')
+            .then(r => r.json())
+            .then(data => {
+                updateStatus(data.online);
+
+                // Update pending badge
+                if (data.pending_jobs > 0) {
+                    pendingBadge.textContent = data.pending_jobs;
+                    pendingBadge.classList.remove('d-none');
+                    if (data.failed_jobs > 0) {
+                        pendingBadge.classList.remove('bg-warning');
+                        pendingBadge.classList.add('bg-danger');
+                    } else {
+                        pendingBadge.classList.remove('bg-danger');
+                        pendingBadge.classList.add('bg-warning');
+                    }
+                } else {
+                    pendingBadge.classList.add('d-none');
+                }
+
+                // Update printer list in tooltip
+                if (data.printers && data.printers.length) {
+                    lastPrinters = data.printers;
+                    renderPrinterList(data.printers, data.online);
+                } else {
+                    tooltipContent.innerHTML = data.online
+                        ? '<strong>Agent Online</strong><br><em>No printers configured</em>'
+                        : '<strong style="color:#dc3545">Agent Offline</strong><br><small>Run agent_windows.py on the print server</small>';
+                }
+            })
+            .catch(() => {
+                updateStatus(false);
+                tooltipContent.innerHTML = '<em style="color:#dc3545">Cannot reach server</em>';
+            });
+    }
+
+    function renderPrinterList(printers, online) {
+        let html = '<strong>' + (online ? '🟢 Agent Online' : '🔴 Agent Offline') + '</strong><hr style="margin:6px 0">';
+        const typeLabels = {zebra: '🏷️ Zebra', thermal: '🧾 Thermal', a4: '📄 A4', card: '💳 Card'};
+        printers.forEach(function(p) {
+            const icon = p.is_online ? '🟢' : '🔴';
+            const def = p.is_default ? ' ⭐' : '';
+            const tLabel = typeLabels[p.printer_type] || p.printer_type;
+            html += icon + ' <strong>' + p.name + '</strong> <small>(' + tLabel + ')</small>' + def + '<br>';
+        });
+        html += '<hr style="margin:6px 0"><a href="/printing/settings/" style="font-size:0.75rem;">⚙️ Printer Settings</a>';
+        tooltipContent.innerHTML = html;
+    }
+
+    function updateStatus(online) {
+        if (statusDot) {
+            statusDot.classList.remove('bg-secondary', 'bg-success', 'bg-danger');
+            statusDot.classList.add(online ? 'bg-success' : 'bg-danger');
+        }
+    }
+
+    connectStatusWS();
+    pollAgentStatus();
+    pollTimer = setInterval(pollAgentStatus, 15000);
+
+    // Also reflect local agent status from PrintStatus (print_status.js)
+    document.addEventListener('printStatusChanged', function(e) {
+        var detail = e.detail || {};
+        if (detail.connected) {
+            updateStatus(true);
+            // Update tooltip with local printers
+            var printers = detail.printers || {};
+            var allP = printers.all || [];
+            if (allP.length) {
+                var html = '<strong>🟢 Local Agent Connected</strong><hr style="margin:6px 0">';
+                allP.forEach(function(p) {
+                    var icon = {zebra: '🏷️', thermal: '🧾', a4: '📄'}[p.type] || '🖨️';
+                    var def = p.is_default ? ' ⭐' : '';
+                    html += icon + ' <strong>' + p.name + '</strong> <small>(' + (p.type||'').toUpperCase() + ')</small>' + def + '<br>';
+                });
+                html += '<hr style="margin:6px 0"><a href="/printing/settings/" style="font-size:0.75rem;">⚙️ إعدادات الطابعات</a>';
+                tooltipContent.innerHTML = html;
+            }
+        }
+    });
+})();
+</script>

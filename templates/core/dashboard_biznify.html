@@ -1,0 +1,2075 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans 'لوحة التحكم' %} - {{ SYSTEM_NAME|default:'الشامل ERP' }}{% endblock %}
+
+{% block extra_head %}
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ===== Tony ERP Dashboard - Modern Style ===== */
+:root {
+  --dashboard-bg: #f0f5f9;
+  --card-bg: #ffffff;
+  --primary: #5a67d8;
+  --primary-dark: #4c51bf;
+  --secondary: #1e3a5f;
+  --success: #48bb78;
+  --warning: #ed8936;
+  --danger: #f56565;
+  --info: #4299e1;
+  --purple: #9f7aea;
+  --pink: #ed64a6;
+  --teal: #38b2ac;
+  --orange: #ed8936;
+  --text-dark: #2d3748;
+  --text-muted: #718096;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  --radius: 16px;
+}
+
+* {
+  font-family: 'Cairo', sans-serif !important;
+  box-sizing: border-box;
+}
+
+/* === إصلاحات أساسية للموبايل === */
+html, body {
+  overflow-x: hidden !important;
+  width: 100% !important;
+  max-width: 100vw !important;
+}
+
+.dashboard-wrapper {
+  background: var(--dashboard-bg);
+  min-height: calc(100vh - 60px);
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* === إصلاح شامل للموبايل === */
+@media (max-width: 991.98px) {
+  .dashboard-wrapper {
+    padding: 0.5rem !important;
+    margin: 0 !important;
+  }
+  
+  /* تحسين البطاقات */
+  .stat-card,
+  .section-card {
+    padding: 0.75rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+  
+  /* تحسين العناوين */
+  .stat-title,
+  .section-title {
+    font-size: 0.95rem !important;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .dashboard-wrapper {
+    padding: 0.5rem !important;
+  }
+  
+  /* تصغير كل البطاقات */
+  .stat-card,
+  .section-card {
+    padding: 0.75rem !important;
+    margin-bottom: 0.75rem !important;
+    border-radius: 12px !important;
+  }
+  
+  /* تحسين الأيقونات والخطوط */
+  .stat-title {
+    font-size: 0.9rem !important;
+  }
+  
+  .stat-value {
+    font-size: 1.15rem !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .dashboard-wrapper {
+    padding: 0.25rem !important;
+  }
+  
+  .stat-card,
+  .section-card {
+    padding: 0.5rem !important;
+    margin-bottom: 0.4rem !important;
+    border-radius: 10px !important;
+  }
+}
+
+/* === Quick Action Cards === */
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 1200px) {
+  .quick-actions-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .quick-actions-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .quick-actions-grid {
+    gap: 0.4rem !important;
+  }
+  
+  .quick-action-btn {
+    padding: 0.75rem 0.5rem !important;
+    min-height: 80px !important;
+    font-size: 0.75rem !important;
+  }
+  
+  .quick-action-btn i {
+    font-size: 1.5rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+}
+
+.quick-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem;
+  border-radius: var(--radius);
+  text-decoration: none !important;
+  color: white !important;
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-align: center;
+  min-height: 120px;
+  box-shadow: var(--shadow);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.quick-action-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.quick-action-btn:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.quick-action-btn i {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Button Colors */
+.btn-pos { background: linear-gradient(135deg, #5a67d8, #4c51bf); }
+.btn-customer { background: linear-gradient(135deg, #38b2ac, #319795); }
+.btn-add-item { background: linear-gradient(135deg, #48bb78, #38a169); }
+.btn-quote { background: linear-gradient(135deg, #4fd1c5, #38b2ac); }
+.btn-purchase { background: linear-gradient(135deg, #ed8936, #dd6b20); }
+.btn-order { background: linear-gradient(135deg, #667eea, #5a67d8); }
+.btn-store { background: linear-gradient(135deg, #9f7aea, #805ad5); }
+.btn-employees { background: linear-gradient(135deg, #f56565, #e53e3e); }
+
+/* === Stats Cards === */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .stats-row {
+    grid-template-columns: 1fr;
+    gap: 0.75rem !important;
+  }
+  
+  .stat-card {
+    padding: 0.75rem !important;
+  }
+  
+  .stat-card-header {
+    margin-bottom: 0.75rem !important;
+  }
+  
+  .stat-title {
+    font-size: 0.9rem !important;
+  }
+  
+  .stat-badge {
+    padding: 0.3rem 0.75rem !important;
+    font-size: 0.7rem !important;
+  }
+  
+  .stat-row-item {
+    padding: 0.4rem 0 !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .stats-row {
+    gap: 0.5rem !important;
+  }
+  
+  .stat-card {
+    padding: 0.6rem !important;
+    border-radius: 12px !important;
+  }
+  
+  .stat-title {
+    font-size: 0.85rem !important;
+  }
+}
+
+.stat-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.stat-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.stat-badge {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.stat-badge.green {
+  background: linear-gradient(135deg, var(--success), #2f855a);
+}
+
+.stat-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin: 0;
+}
+
+.stat-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.stat-row-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.stat-row-item:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.stat-value {
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: var(--text-dark);
+}
+
+.stat-value.danger { color: var(--danger); }
+.stat-value.success { color: var(--success); }
+
+/* === Content Grid === */
+.content-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 992px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.section-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.section-title i {
+  color: var(--primary);
+}
+
+.section-filter {
+  background: #edf2f7;
+  color: var(--primary);
+  padding: 0.4rem 0.85rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: none;
+}
+
+/* === Top Selling Grid === */
+.top-items-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 576px) {
+  .top-items-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.top-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 1rem;
+  background: #f7fafc;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.top-item:hover {
+  background: #edf2f7;
+  transform: translateY(-4px);
+}
+
+.top-item-icon {
+  width: 55px;
+  height: 55px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #e2e8f0, #cbd5e0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+  font-size: 1.5rem;
+  color: #4a5568;
+}
+
+.top-item-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 0.25rem;
+}
+
+.top-item-qty {
+  font-size: 0.8rem;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* === Item Details Section === */
+.item-details-row {
+  display: grid;
+  grid-template-columns: 60% 40%;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.item-stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.item-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0.75rem;
+  background: #f7fafc;
+  border-radius: 8px;
+}
+
+.item-stat-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.item-stat-label.danger { color: var(--danger); }
+.item-stat-label.success { color: var(--success); }
+.item-stat-label.primary { color: var(--primary); }
+.item-stat-label.muted { color: var(--text-muted); }
+
+.item-stat-value {
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--text-dark);
+}
+
+.donut-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.donut-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.donut-pct {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--teal);
+}
+
+.donut-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* === HRM Section === */
+.hrm-section {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.5rem;
+}
+
+.hrm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #e2e8f0;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.hrm-filters {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.hrm-filter-select {
+  font-size: 0.75rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  color: var(--text-dark);
+}
+
+.hrm-charts-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .hrm-charts-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hrm-chart-box {
+  background: #f7fafc;
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.hrm-chart-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.hrm-chart-container {
+  height: 220px;
+}
+
+/* === Bottom Section === */
+.bottom-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .bottom-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* === Alerts List === */
+.alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.alert-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #fef2f2;
+  border-radius: 10px;
+  border-right: 3px solid var(--danger);
+}
+
+.alert-item i {
+  color: var(--danger);
+  font-size: 1.1rem;
+}
+
+.alert-item span {
+  font-size: 0.9rem;
+  color: var(--text-dark);
+}
+
+.alert-item.success {
+  background: #f0fff4;
+  border-color: var(--success);
+}
+
+.alert-item.success i {
+  color: var(--success);
+}
+
+/* === Activity List === */
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: #f7fafc;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.activity-item:hover {
+  background: #edf2f7;
+}
+
+.activity-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: white;
+  flex-shrink: 0;
+}
+
+.activity-icon.sale { background: var(--success); }
+.activity-icon.purchase { background: var(--warning); }
+.activity-icon.inventory { background: var(--info); }
+.activity-icon.user { background: var(--purple); }
+
+.activity-content {
+  flex: 1;
+}
+
+.activity-text {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.activity-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* === Animations === */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.quick-action-btn, .stat-card, .section-card, .hrm-section {
+  animation: fadeInUp 0.5s ease forwards;
+}
+
+.section-card .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+.section-card .section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--biznify-text);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.section-card .section-filter {
+  font-size: 0.75rem;
+  color: var(--biznify-muted);
+  background: #f3f4f6;
+  padding: 0.3rem 0.75rem;
+  border-radius: 6px;
+  border: none;
+}
+
+/* === Item Details Section === */
+.item-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.item-stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.item-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px dashed #e5e7eb;
+}
+.item-stat-row:last-child {
+  border-bottom: none;
+}
+.item-stat-row .stat-name {
+  color: var(--biznify-danger);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.item-stat-row .stat-name.success { color: var(--biznify-success); }
+.item-stat-row .stat-name.primary { color: var(--biznify-primary); }
+.item-stat-row .stat-name.muted { color: var(--biznify-muted); }
+.item-stat-row .stat-value {
+  font-weight: 800;
+  color: var(--biznify-text);
+}
+
+.donut-chart-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.donut-chart-wrap canvas {
+  max-width: 180px;
+  max-height: 180px;
+}
+.donut-center-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+.donut-center-label .pct {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--biznify-teal);
+}
+.donut-center-label .label {
+  font-size: 0.7rem;
+  color: var(--biznify-muted);
+}
+
+/* === Top Selling Items === */
+.top-items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 1rem;
+}
+.top-item-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0.75rem;
+  background: #f9fafb;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+.top-item-card:hover {
+  background: #f3f4f6;
+  transform: translateY(-2px);
+}
+.top-item-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+  font-size: 1.25rem;
+  color: #4f46e5;
+}
+.top-item-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--biznify-text);
+  margin-bottom: 0.25rem;
+}
+.top-item-qty {
+  font-size: 0.75rem;
+  color: var(--biznify-success);
+  font-weight: 700;
+}
+
+/* === HRM Section === */
+.hrm-section {
+  margin-top: 1.5rem;
+}
+.hrm-section .section-header {
+  background: #f8fafc;
+  margin: -1.25rem -1.25rem 1rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--biznify-radius) var(--biznify-radius) 0 0;
+  border-bottom: 2px solid #e2e8f0;
+}
+.hrm-section .section-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--biznify-secondary);
+}
+
+.hrm-charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+@media (max-width: 768px) {
+  .hrm-charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hrm-chart-card {
+  background: #fafbfc;
+  border-radius: 10px;
+  padding: 1rem;
+}
+.hrm-chart-card .chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.hrm-chart-card .chart-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--biznify-text);
+}
+.hrm-chart-card .chart-date {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--biznify-muted);
+}
+.hrm-chart-card .chart-date input {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.75rem;
+}
+.hrm-chart-card .chart-filters {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.hrm-chart-card .chart-filters select {
+  font-size: 0.7rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 5px;
+  background: white;
+}
+.chart-container {
+  height: 180px;
+  position: relative;
+}
+
+/* === Recent Activity === */
+.recent-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: #f9fafb;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+.activity-item:hover {
+  background: #f3f4f6;
+}
+.activity-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  color: white;
+}
+.activity-icon.sale { background: var(--biznify-success); }
+.activity-icon.purchase { background: var(--biznify-warning); }
+.activity-icon.inventory { background: var(--biznify-info); }
+.activity-icon.user { background: var(--biznify-purple); }
+.activity-content {
+  flex: 1;
+}
+.activity-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--biznify-text);
+}
+.activity-time {
+  font-size: 0.7rem;
+  color: var(--biznify-muted);
+}
+
+/* === Low Stock Alert === */
+.low-stock-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.low-stock-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0.75rem;
+  background: #fef2f2;
+  border-radius: 8px;
+  border-right: 3px solid var(--biznify-danger);
+}
+.low-stock-item .item-name {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--biznify-text);
+}
+.low-stock-item .item-qty {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--biznify-danger);
+}
+
+/* === Animation === */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.quick-action-card, .stat-summary-card, .section-card {
+  animation: fadeInUp 0.4s ease forwards;
+}
+.quick-action-card:nth-child(1) { animation-delay: 0.05s; }
+.quick-action-card:nth-child(2) { animation-delay: 0.1s; }
+.quick-action-card:nth-child(3) { animation-delay: 0.15s; }
+.quick-action-card:nth-child(4) { animation-delay: 0.2s; }
+.quick-action-card:nth-child(5) { animation-delay: 0.25s; }
+.quick-action-card:nth-child(6) { animation-delay: 0.3s; }
+.quick-action-card:nth-child(7) { animation-delay: 0.35s; }
+.quick-action-card:nth-child(8) { animation-delay: 0.4s; }
+
+/* === Daily Report Section === */
+.daily-report-section {
+  margin-bottom: 1.5rem;
+  animation: fadeInUp 0.5s ease forwards;
+}
+
+.daily-report-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1rem 1.5rem;
+  border-radius: 16px 16px 0 0;
+  color: white;
+}
+
+.daily-report-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.daily-report-header .report-date {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.daily-report-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+  background: white;
+  padding: 1.5rem;
+  border-radius: 0 0 16px 16px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+}
+
+@media (max-width: 1200px) {
+  .daily-report-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .daily-report-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .daily-report-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.daily-stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
+  text-align: center;
+  transition: all 0.3s ease;
+  border: 1px solid #e8ecf8;
+}
+
+.daily-stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.15);
+}
+
+.daily-stat-card.sales {
+  background: linear-gradient(135deg, #e8fff0 0%, #d4f8e2 100%);
+  border-color: #b8e9c9;
+}
+
+.daily-stat-card.purchases {
+  background: linear-gradient(135deg, #fff3e6 0%, #ffe8cc 100%);
+  border-color: #ffd9a8;
+}
+
+.daily-stat-card.collections {
+  background: linear-gradient(135deg, #e6f4ff 0%, #cce7ff 100%);
+  border-color: #a8d4ff;
+}
+
+.daily-stat-card.expenses {
+  background: linear-gradient(135deg, #ffe6e6 0%, #ffcccc 100%);
+  border-color: #ffa8a8;
+}
+
+.daily-stat-card.profit {
+  background: linear-gradient(135deg, #f0e6ff 0%, #e0ccff 100%);
+  border-color: #c8a8ff;
+}
+
+.daily-stat-icon {
+  width: 45px;
+  height: 45px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  margin-bottom: 0.75rem;
+  color: white;
+}
+
+.daily-stat-card.sales .daily-stat-icon { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+.daily-stat-card.purchases .daily-stat-icon { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+.daily-stat-card.collections .daily-stat-icon { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+.daily-stat-card.expenses .daily-stat-icon { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+.daily-stat-card.profit .daily-stat-icon { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
+
+.daily-stat-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.daily-stat-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #1f2937;
+  direction: ltr;
+}
+
+.daily-stat-sub {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  margin-top: 0.3rem;
+}
+
+.daily-stat-sub span {
+  background: rgba(102, 126, 234, 0.1);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  color: #667eea;
+  font-weight: 600;
+}
+
+
+/* ===== تحسينات شاملة للموبايل والتابليت ===== */
+
+/* إصلاح عام للـ viewport */
+html, body {
+  overflow-x: hidden !important;
+  max-width: 100vw !important;
+}
+
+.dashboard-wrapper {
+  overflow-x: hidden !important;
+  padding: 0.75rem;
+  max-width: 100%;
+}
+
+/* ===== تحسينات للموبايل (أقل من 768px) ===== */
+@media (max-width: 767.98px) {
+  .dashboard-wrapper {
+    padding: 0.5rem !important;
+    margin: 0 !important;
+  }
+  
+  /* Quick Actions */
+  .quick-actions-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  .quick-action-btn {
+    padding: 0.75rem 0.5rem !important;
+    min-height: 80px !important;
+    font-size: 0.75rem !important;
+    border-radius: 10px !important;
+  }
+  
+  .quick-action-btn i {
+    font-size: 1.4rem !important;
+    margin-bottom: 0.4rem !important;
+  }
+  
+  /* Stats Row */
+  .stats-row {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  .stat-card {
+    padding: 1rem !important;
+    border-radius: 12px !important;
+  }
+  
+  .stat-card-header {
+    margin-bottom: 0.75rem !important;
+  }
+  
+  .stat-title {
+    font-size: 0.95rem !important;
+  }
+  
+  .stat-badge {
+    padding: 0.3rem 0.6rem !important;
+    font-size: 0.65rem !important;
+  }
+  
+  .stat-row-item {
+    padding: 0.35rem 0 !important;
+  }
+  
+  .stat-label {
+    font-size: 0.8rem !important;
+  }
+  
+  .stat-value {
+    font-size: 1rem !important;
+  }
+  
+  /* Content Grid */
+  .content-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  .section-card {
+    padding: 1rem !important;
+    border-radius: 12px !important;
+  }
+  
+  .section-header {
+    margin-bottom: 0.75rem !important;
+    padding-bottom: 0.5rem !important;
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+  
+  .section-title {
+    font-size: 0.9rem !important;
+  }
+  
+  .section-filter {
+    padding: 0.3rem 0.6rem !important;
+    font-size: 0.7rem !important;
+  }
+  
+  /* Top Items Grid */
+  .top-items-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+  
+  .top-item {
+    padding: 0.65rem !important;
+    border-radius: 10px !important;
+  }
+  
+  .top-item-icon {
+    width: 40px !important;
+    height: 40px !important;
+    font-size: 1.1rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .top-item-name {
+    font-size: 0.75rem !important;
+  }
+  
+  .top-item-qty {
+    font-size: 0.7rem !important;
+  }
+  
+  /* KPI Cards */
+  .kpi-card {
+    padding: 0.75rem !important;
+    border-radius: 10px !important;
+  }
+  
+  .kpi-value {
+    font-size: 1.1rem !important;
+  }
+  
+  .kpi-label {
+    font-size: 0.7rem !important;
+  }
+  
+  /* Charts */
+  .chart-container canvas {
+    max-height: 200px !important;
+  }
+  
+  /* Tables */
+  .table-responsive {
+    margin: 0 -0.5rem !important;
+    padding: 0 0.5rem !important;
+  }
+  
+  .table {
+    font-size: 0.8rem !important;
+  }
+  
+  .table th, .table td {
+    padding: 0.4rem !important;
+    white-space: nowrap !important;
+  }
+  
+  /* Lists */
+  .list-item, .activity-item {
+    padding: 0.5rem !important;
+    font-size: 0.8rem !important;
+  }
+  
+  /* Daily Stats */
+  .daily-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+  
+  .daily-stat-card {
+    padding: 0.65rem !important;
+    border-radius: 10px !important;
+  }
+  
+  .daily-stat-label {
+    font-size: 0.6rem !important;
+  }
+  
+  .daily-stat-value {
+    font-size: 1rem !important;
+  }
+  
+  /* Hero Section */
+  .hero-section, .summary-header {
+    padding: 0.75rem !important;
+    border-radius: 12px !important;
+    margin-bottom: 0.75rem !important;
+  }
+  
+  .hero-section h1, .hero-section h2 {
+    font-size: 1rem !important;
+  }
+  
+  .hero-section p {
+    font-size: 0.75rem !important;
+  }
+  
+  /* Buttons */
+  .btn {
+    padding: 0.4rem 0.75rem !important;
+    font-size: 0.8rem !important;
+  }
+  
+  .btn-sm {
+    padding: 0.3rem 0.5rem !important;
+    font-size: 0.75rem !important;
+  }
+  
+  /* Modals */
+  .modal-dialog {
+    margin: 0.5rem !important;
+    max-width: calc(100% - 1rem) !important;
+  }
+  
+  .modal-content {
+    border-radius: 12px !important;
+  }
+  
+  .modal-header, .modal-footer {
+    padding: 0.65rem 0.85rem !important;
+  }
+  
+  .modal-body {
+    padding: 0.85rem !important;
+  }
+  
+  /* Hide on mobile */
+  .hide-on-mobile, .desktop-only {
+    display: none !important;
+  }
+}
+
+/* ===== تحسينات للشاشات الصغيرة جداً (أقل من 400px) ===== */
+@media (max-width: 399.98px) {
+  .dashboard-wrapper {
+    padding: 0.35rem !important;
+  }
+  
+  .quick-actions-grid {
+    gap: 0.35rem !important;
+  }
+  
+  .quick-action-btn {
+    padding: 0.5rem 0.35rem !important;
+    min-height: 65px !important;
+    font-size: 0.65rem !important;
+  }
+  
+  .quick-action-btn i {
+    font-size: 1.1rem !important;
+    margin-bottom: 0.25rem !important;
+  }
+  
+  .stat-card, .section-card {
+    padding: 0.65rem !important;
+  }
+  
+  .stat-title, .section-title {
+    font-size: 0.8rem !important;
+  }
+  
+  .daily-stats-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.35rem !important;
+  }
+  
+  .daily-stat-card {
+    padding: 0.5rem !important;
+  }
+  
+  .daily-stat-value {
+    font-size: 0.85rem !important;
+  }
+}
+
+/* ===== تحسينات للتابليت (768px - 992px) ===== */
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .dashboard-wrapper {
+    padding: 1rem !important;
+  }
+  
+  .quick-actions-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 0.75rem !important;
+  }
+  
+  .quick-action-btn {
+    min-height: 100px !important;
+    font-size: 0.8rem !important;
+  }
+  
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  
+  .content-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  
+  .top-items-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+  
+  .daily-stats-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+/* ===== إصلاحات عامة ===== */
+/* منع التمرير الأفقي */
+.container-fluid, .row, .content-grid, .stats-row {
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+/* تحسين الـ touch targets */
+@media (max-width: 991.98px) {
+  a, button, input, select, .btn, .quick-action-btn, .nav-link {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+  
+  input[type="checkbox"], input[type="radio"] {
+    min-height: 20px !important;
+    min-width: 20px !important;
+  }
+}
+
+/* تحسين الـ Safe Area */
+@supports (padding: max(0px)) {
+  @media (max-width: 991.98px) {
+    .dashboard-wrapper {
+      padding-top: max(0.5rem, env(safe-area-inset-top)) !important;
+      padding-bottom: max(0.5rem, env(safe-area-inset-bottom)) !important;
+      padding-left: max(0.5rem, env(safe-area-inset-left)) !important;
+      padding-right: max(0.5rem, env(safe-area-inset-right)) !important;
+    }
+  }
+}
+/* تقليل الهوامش */
+.dashboard-wrapper { padding: 1rem !important; }
+.daily-report-section { margin-bottom: 1rem !important; }
+.daily-report-header { padding: 0.85rem 1.25rem !important; }
+.daily-report-grid { padding: 1rem !important; gap: 0.65rem !important; }
+.quick-actions-grid { gap: 0.65rem !important; margin-bottom: 1rem !important; }
+.quick-action-btn { padding: 1rem 0.65rem !important; min-height: 95px !important; }
+.stats-row { gap: 1rem !important; margin-bottom: 1rem !important; }
+
+/* تحسين البطاقات الجديدة */
+.daily-report-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .daily-report-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 575px) {
+  .daily-report-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.65rem !important;
+  }
+  .quick-actions-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+/* تأثيرات hover للبطاقات */
+.quick-action-btn {
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.quick-action-btn:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+}
+
+/* تحسين الأيقونات */
+.quick-action-btn i {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+  transition: transform 0.3s ease;
+}
+
+.quick-action-btn:hover i {
+  transform: scale(1.2);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+  <!-- Daily Report Section - تقرير اليوم - في أعلى الصفحة -->
+  {% if user.is_superuser or perms.sales.view_invoice or perms.accounting.view_journalentry %}
+  <div class="daily-report-section">
+    <div class="daily-report-header">
+      <h3><i class="bi bi-calendar-check-fill"></i> {% trans 'ملخص اليوم' %}</h3>
+      <div class="report-date">
+        <i class="bi bi-clock"></i>
+        {% now "l d F Y" %}
+      </div>
+    </div>
+    <div class="daily-report-grid">
+      <!-- مبيعات اليوم -->
+      <div class="daily-stat-card sales">
+        <div class="daily-stat-icon">
+          <i class="bi bi-graph-up-arrow"></i>
+        </div>
+        <div class="daily-stat-title">{% trans 'مبيعات اليوم' %}</div>
+        <div class="daily-stat-value">{% if daily_report %}{{ daily_report.sales_total|floatformat:0|intcomma }}{% else %}0{% endif %}</div>
+        <div class="daily-stat-sub"><span>{% if daily_report %}{{ daily_report.sales_count }}{% else %}0{% endif %}</span> {% trans 'فاتورة' %}</div>
+      </div>
+
+      <!-- مشتريات اليوم -->
+      <div class="daily-stat-card purchases">
+        <div class="daily-stat-icon">
+          <i class="bi bi-cart-check-fill"></i>
+        </div>
+        <div class="daily-stat-title">{% trans 'مشتريات اليوم' %}</div>
+        <div class="daily-stat-value">{% if daily_report %}{{ daily_report.purchases_total|floatformat:0|intcomma }}{% else %}0{% endif %}</div>
+        <div class="daily-stat-sub"><span>{% if daily_report %}{{ daily_report.purchases_count }}{% else %}0{% endif %}</span> {% trans 'فاتورة' %}</div>
+      </div>
+
+      <!-- التحصيلات -->
+      <div class="daily-stat-card collections">
+        <div class="daily-stat-icon">
+          <i class="bi bi-cash-coin"></i>
+        </div>
+        <div class="daily-stat-title">{% trans 'التحصيلات' %}</div>
+        <div class="daily-stat-value">{% if daily_report %}{{ daily_report.collections|floatformat:0|intcomma }}{% else %}0{% endif %}</div>
+        <div class="daily-stat-sub"><span>{% trans 'وارد' %}</span></div>
+      </div>
+
+      <!-- المصروفات -->
+      <div class="daily-stat-card expenses">
+        <div class="daily-stat-icon">
+          <i class="bi bi-credit-card-2-back"></i>
+        </div>
+        <div class="daily-stat-title">{% trans 'المصروفات' %}</div>
+        <div class="daily-stat-value">{% if daily_report %}{{ daily_report.expenses|floatformat:0|intcomma }}{% else %}0{% endif %}</div>
+        <div class="daily-stat-sub"><span>{% trans 'صادر' %}</span></div>
+      </div>
+
+      <!-- صافي الربح -->
+      <div class="daily-stat-card profit">
+        <div class="daily-stat-icon">
+          <i class="bi bi-trophy-fill"></i>
+        </div>
+        <div class="daily-stat-title">{% trans 'صافي اليوم' %}</div>
+        <div class="daily-stat-value">{% if daily_report %}{{ daily_report.net_profit|floatformat:0|intcomma }}{% else %}0{% endif %}</div>
+        <div class="daily-stat-sub"><span>{% trans 'ربح' %}</span></div>
+      </div>
+      
+      {% if user.is_superuser %}
+      <!-- تنبيهات الشذوذات -->
+      <div class="daily-stat-card" style="background: linear-gradient(135deg, #fef3c7, #fde68a);">
+        <div class="daily-stat-icon" style="background: #f59e0b; color: white;">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+        </div>
+        <div class="daily-stat-title">{% trans 'تنبيهات الشذوذات' %}</div>
+        <div class="daily-stat-value">0</div>
+        <div class="daily-stat-sub"><span>{% trans 'نشط' %}</span></div>
+      </div>
+      
+      <!-- تحذيرات استباقية -->
+      <div class="daily-stat-card" style="background: linear-gradient(135deg, #ddd6fe, #c4b5fd);">
+        <div class="daily-stat-icon" style="background: #8b5cf6; color: white;">
+          <i class="bi bi-bell-fill"></i>
+        </div>
+        <div class="daily-stat-title">{% trans 'تحذيرات استباقية' %}</div>
+        <div class="daily-stat-value">0</div>
+        <div class="daily-stat-sub"><span>{% trans 'جديد' %}</span></div>
+      </div>
+      
+      <!-- تقييم الموردين -->
+      <div class="daily-stat-card" style="background: linear-gradient(135deg, #ccfbf1, #99f6e4);">
+        <div class="daily-stat-icon" style="background: #14b8a6; color: white;">
+          <i class="bi bi-star-fill"></i>
+        </div>
+        <div class="daily-stat-title">{% trans 'تقييم الموردين' %}</div>
+        <div class="daily-stat-value">A</div>
+        <div class="daily-stat-sub"><span>{% trans 'متوسط' %}</span></div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Quick Actions Grid - أزرار الاختصارات -->
+  <div class="quick-actions-grid">
+    {% if user.is_superuser or perms.pos.view_posorder %}
+    <a href="{% url 'pos:dashboard' %}" class="quick-action-btn btn-pos">
+      <i class="bi bi-shop"></i>
+      <span>{% trans 'نقطة البيع' %}</span>
+    </a>
+    {% endif %}
+    {% if user.is_superuser or perms.partners.add_partner %}
+    <a href="{% url 'partners:customer_create' %}" class="quick-action-btn btn-customer">
+      <i class="bi bi-person-plus-fill"></i>
+      <span>{% trans 'عميل جديد' %}</span>
+    </a>
+    {% endif %}
+    {% if user.is_superuser or perms.inventory.add_product %}
+    <a href="{% url 'inventory:product_add' %}" class="quick-action-btn btn-add-item">
+      <i class="bi bi-plus-circle-fill"></i>
+      <span>{% trans 'إضافة صنف' %}</span>
+    </a>
+    {% endif %}
+    {% if user.is_superuser or perms.crm.add_quotation %}
+    <a href="{% url 'crm:quotation_create' %}" class="quick-action-btn btn-quote">
+      <i class="bi bi-file-earmark-text-fill"></i>
+      <span>{% trans 'عرض سعر' %}</span>
+    </a>
+    {% endif %}
+    {% if user.is_superuser or perms.purchases.add_purchasebill %}
+    <a href="{% url 'purchases:purchase_create' %}" class="quick-action-btn btn-purchase">
+      <i class="bi bi-cart-plus-fill"></i>
+      <span>{% trans 'مشتريات مباشرة' %}</span>
+    </a>
+    <a href="{% url 'purchases:pr_list' %}" class="quick-action-btn btn-order">
+      <i class="bi bi-clipboard-check"></i>
+      <span>{% trans 'طلب شراء' %}</span>
+    </a>
+    {% endif %}
+    {% if user.is_superuser %}
+    <a href="{% url 'ecommerce:store_home' %}" class="quick-action-btn btn-store">
+      <i class="bi bi-shop-window"></i>
+      <span>{% trans 'المتجر الإلكتروني' %}</span>
+    </a>
+    <a href="{% url 'hr:employee_list' %}" class="quick-action-btn btn-employees">
+      <i class="bi bi-people-fill"></i>
+      <span>{% trans 'إدارة الموظفين' %}</span>
+    </a>
+    <a href="/smart-pricing/rules/" class="quick-action-btn" style="background: linear-gradient(135deg, #6366f1, #4f46e5);">
+      <i class="bi bi-calculator-fill"></i>
+      <span>{% trans 'التسعير الذكي' %}</span>
+    </a>
+    <a href="/smart-pricing/price-lists/" class="quick-action-btn" style="background: linear-gradient(135deg, #059669, #047857);">
+      <i class="bi bi-list-check"></i>
+      <span>{% trans 'قوائم الأسعار' %}</span>
+    </a>
+    <a href="/subscriptions/plans/" class="quick-action-btn" style="background: linear-gradient(135deg, #10b981, #059669);">
+      <i class="bi bi-box-seam-fill"></i>
+      <span>{% trans 'باقات الاشتراك' %}</span>
+    </a>
+    <a href="/zatca/" class="quick-action-btn" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
+      <i class="bi bi-file-earmark-text-fill"></i>
+      <span>{% trans 'الفوترة الإلكترونية' %}</span>
+    </a>
+    
+    <!-- الميزات الجديدة - Enterprise Features -->
+    <a href="/production/delivery-promise/" class="quick-action-btn" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
+      <i class="bi bi-truck"></i>
+      <span>{% trans 'وعد التسليم الذكي' %}</span>
+    </a>
+    <a href="/quality-control/traceability/" class="quick-action-btn" style="background: linear-gradient(135deg, #ec4899, #db2777);">
+      <i class="bi bi-upc-scan"></i>
+      <span>{% trans 'تتبع المنتجات' %}</span>
+    </a>
+    <a href="/accounting/break-even/" class="quick-action-btn" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+      <i class="bi bi-graph-up"></i>
+      <span>{% trans 'تحليل التعادل' %}</span>
+    </a>
+    {% endif %}
+    {% if user.is_superuser or perms.purchases.view_purchasebill %}
+    <a href="/purchases/supplier-evaluation/" class="quick-action-btn" style="background: linear-gradient(135deg, #14b8a6, #0d9488);">
+      <i class="bi bi-star-fill"></i>
+      <span>{% trans 'تقييم الموردين' %}</span>
+    </a>
+    {% endif %}
+    {% if user.is_superuser %}
+    <a href="/monitoring/executive-dashboard/" class="quick-action-btn" style="background: linear-gradient(135deg, #ef4444, #dc2626);">
+      <i class="bi bi-speedometer2"></i>
+      <span>{% trans 'لوحة القيادة التنفيذية' %}</span>
+    </a>
+    <a href="/smart-pricing/loss-prevention/" class="quick-action-btn" style="background: linear-gradient(135deg, #f97316, #ea580c);">
+      <i class="bi bi-shield-check"></i>
+      <span>{% trans 'منع الخسائر' %}</span>
+    </a>
+    <a href="/api/mobile/" class="quick-action-btn" style="background: linear-gradient(135deg, #06b6d4, #0891b2);">
+      <i class="bi bi-phone-fill"></i>
+      <span>{% trans 'Mobile API' %}</span>
+    </a>
+    <a href="/white-label/" class="quick-action-btn" style="background: linear-gradient(135deg, #a855f7, #9333ea);">
+      <i class="bi bi-palette-fill"></i>
+      <span>{% trans 'العلامة التجارية' %}</span>
+    </a>
+    <a href="/monitoring/anomaly-detection/" class="quick-action-btn" style="background: linear-gradient(135deg, #64748b, #475569);">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      <span>{% trans 'كشف الشذوذات' %}</span>
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- Stats Row - بطاقات الإحصائيات -->
+  {% if user.is_superuser or perms.sales.view_invoice or perms.accounting.view_journalentry %}
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-card-header">
+        <span class="stat-badge">{% trans 'الشهر الحالي' %}</span>
+        <h5 class="stat-title">{% trans 'المشتريات' %}</h5>
+      </div>
+      <div class="stat-rows">
+        <div class="stat-row-item">
+          <span class="stat-label">{% trans 'السابق: الشهر الماضي' %}</span>
+          <span class="stat-value">{{ prev_purchases|floatformat:2|intcomma|default:"0.00" }}</span>
+        </div>
+        <div class="stat-row-item">
+          <span class="stat-label">{% trans 'الحالي: هذا الشهر' %}</span>
+          <span class="stat-value danger">{{ total_purchases|floatformat:2|intcomma }}</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="stat-card">
+      <div class="stat-card-header">
+        <span class="stat-badge green">{% trans 'الشهر الحالي' %}</span>
+        <h5 class="stat-title">{% trans 'المبيعات' %}</h5>
+      </div>
+      <div class="stat-rows">
+        <div class="stat-row-item">
+          <span class="stat-label">{% trans 'السابق: الشهر الماضي' %}</span>
+          <span class="stat-value">{{ prev_sales|floatformat:2|intcomma|default:"0.00" }}</span>
+        </div>
+        <div class="stat-row-item">
+          <span class="stat-label">{% trans 'الحالي: هذا الشهر' %}</span>
+          <span class="stat-value success">{{ total_sales|floatformat:2|intcomma }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Content Grid - الأكثر مبيعاً وتفاصيل الأصناف -->
+  {% if user.is_superuser or perms.sales.view_invoice or perms.inventory.view_product %}
+  <div class="content-grid">
+    <!-- Top Selling Items -->
+    <div class="section-card">
+      <div class="section-header">
+        <h5 class="section-title"><i class="bi bi-star-fill"></i> {% trans 'الأكثر مبيعاً' %}</h5>
+        <span class="section-filter">{% trans 'هذا الشهر' %}</span>
+      </div>
+      <div class="top-items-grid">
+        {% for product in top_products|slice:":4" %}
+        <div class="top-item">
+          <div class="top-item-icon">
+            <i class="bi bi-box-seam"></i>
+          </div>
+          <div class="top-item-name">{{ product.name|truncatechars:15 }}</div>
+          <div class="top-item-qty">{{ product.total_qty|intcomma }} {% trans 'قطعة' %}</div>
+        </div>
+        {% empty %}
+        <div class="top-item">
+          <div class="top-item-icon">
+            <i class="bi bi-inbox"></i>
+          </div>
+          <div class="top-item-name">{% trans 'لا توجد بيانات' %}</div>
+          <div class="top-item-qty">-</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Item Details -->
+    <div class="section-card">
+      <div class="section-header">
+        <h5 class="section-title"><i class="bi bi-box-seam"></i> {% trans 'تفاصيل الأصناف' %}</h5>
+      </div>
+      <div class="item-details-row">
+        <div class="item-stats-list">
+          <div class="item-stat">
+            <span class="item-stat-label danger">{% trans 'أصناف منخفضة المخزون' %}</span>
+            <span class="item-stat-value">{{ low_stock_count|default:0 }}</span>
+          </div>
+          <div class="item-stat">
+            <span class="item-stat-label success">{% trans 'الأصناف النشطة' %}</span>
+            <span class="item-stat-value">{{ active_products_count|default:product_count|default:0 }}</span>
+          </div>
+          <div class="item-stat">
+            <span class="item-stat-label primary">{% trans 'مجموعات الأصناف' %}</span>
+            <span class="item-stat-value">{{ categories_count|default:0 }}</span>
+          </div>
+          <div class="item-stat">
+            <span class="item-stat-label muted">{% trans 'إجمالي الأصناف' %}</span>
+            <span class="item-stat-value">{{ product_count|default:0 }}</span>
+          </div>
+        </div>
+        <div class="donut-wrapper">
+          <canvas id="itemsDonutChart" width="150" height="150"></canvas>
+          <div class="donut-center">
+            <div class="donut-pct" id="activeItemsPct">0%</div>
+            <div class="donut-label">{% trans 'نشط' %}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% endif %}
+
+  <!-- HRM Section - الموارد البشرية -->
+  {% if user.is_superuser or perms.hr.view_employee %}
+  <div class="hrm-section">
+    <div class="hrm-header">
+      <h5 class="section-title"><i class="bi bi-people-fill"></i> {% trans 'الموارد البشرية (HRM)' %}</h5>
+      <div class="hrm-filters">
+        <input type="date" class="hrm-filter-select" id="hrmDateFilter" value="{% now 'Y-m-d' %}">
+      </div>
+    </div>
+    <div class="hrm-charts-row">
+      <div class="hrm-chart-box">
+        <div class="hrm-chart-title">{% trans 'حضور الموظفين' %}</div>
+        <div class="hrm-chart-container">
+          <canvas id="attendanceChart"></canvas>
+        </div>
+      </div>
+      <div class="hrm-chart-box">
+        <div class="hrm-chart-title">{% trans 'حضور حسب القسم' %}</div>
+        <div class="hrm-chart-container">
+          <canvas id="deptAttendanceChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Bottom Grid - تنبيهات المخزون وآخر الحركات -->
+  <div class="bottom-grid">
+    <!-- Low Stock Alerts -->
+    {% if user.is_superuser or perms.inventory.view_product %}
+    <div class="section-card">
+      <div class="section-header">
+        <h5 class="section-title"><i class="bi bi-exclamation-triangle-fill" style="color: var(--danger);"></i> {% trans 'تنبيهات المخزون' %}</h5>
+        <a href="{% url 'inventory:stock_management' %}" class="section-filter">{% trans 'إدارة المخزون' %}</a>
+      </div>
+      <div class="alerts-list">
+        {% for item in low_stock_items|slice:":5" %}
+        <div class="alert-item">
+          <i class="bi bi-exclamation-circle-fill"></i>
+          <span>{{ item.name|truncatechars:30 }} - {% trans 'الكمية:' %} {{ item.total_qty|intcomma }}</span>
+        </div>
+        {% empty %}
+        <div class="alert-item success">
+          <i class="bi bi-check-circle-fill"></i>
+          <span>{% trans 'المخزون جيد - لا توجد تنبيهات' %}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Activity -->
+    <div class="section-card">
+      <div class="section-header">
+        <h5 class="section-title"><i class="bi bi-clock-history"></i> {% trans 'آخر الحركات' %}</h5>
+        <a href="{% url 'core:audit_logs' %}" class="section-filter">{% trans 'عرض الكل' %}</a>
+      </div>
+      <div class="activity-list">
+        {% for activity in recent_activities|slice:":5" %}
+        <div class="activity-item">
+          <div class="activity-icon {% if 'sale' in activity.action|lower or 'فاتورة' in activity.action %}sale{% elif 'purchase' in activity.action|lower or 'شراء' in activity.action %}purchase{% elif 'stock' in activity.action|lower or 'مخزون' in activity.action %}inventory{% else %}user{% endif %}">
+            <i class="bi {% if 'sale' in activity.action|lower or 'فاتورة' in activity.action %}bi-receipt{% elif 'purchase' in activity.action|lower or 'شراء' in activity.action %}bi-bag{% elif 'stock' in activity.action|lower or 'مخزون' in activity.action %}bi-box{% else %}bi-person{% endif %}"></i>
+          </div>
+          <div class="activity-content">
+            <div class="activity-text">{{ activity.action|truncatechars:40 }}</div>
+            <div class="activity-time">{{ activity.created_at|timesince }} {% trans 'مضت' %}</div>
+          </div>
+        </div>
+        {% empty %}
+        <div class="activity-item">
+          <div class="activity-icon user">
+            <i class="bi bi-info-circle"></i>
+          </div>
+          <div class="activity-content">
+            <div class="activity-text">{% trans 'لا توجد حركات حديثة' %}</div>
+            <div class="activity-time">-</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Calculate active percentage
+  const productCount = {{ product_count|default:0 }};
+  const lowStockCount = {{ low_stock_count|default:0 }};
+  const activeProducts = Math.max(productCount - lowStockCount, 0);
+  const activePercent = productCount > 0 ? Math.round((activeProducts / productCount) * 100) : 100;
+  
+  document.getElementById('activeItemsPct').textContent = activePercent + '%';
+  
+  // Items Donut Chart
+  const donutCtx = document.getElementById('itemsDonutChart');
+  if (donutCtx) {
+    new Chart(donutCtx.getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: ['{% trans "نشط" %}', '{% trans "منخفض" %}'],
+        datasets: [{
+          data: [activeProducts || 1, lowStockCount],
+          backgroundColor: ['#48bb78', '#f56565'],
+          borderWidth: 0,
+          hoverOffset: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        cutout: '75%',
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+  }
+
+  // Attendance Charts - Dynamic with date filter
+  let attendanceChartInstance = null;
+  let deptChartInstance = null;
+
+  function loadHRAttendanceData(targetDate) {
+    const url = '{% url "core:api_hr_attendance" %}?date=' + targetDate;
+    fetch(url, {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.json())
+    .then(data => {
+      // Update Attendance Chart
+      const attendanceCtx = document.getElementById('attendanceChart');
+      if (attendanceCtx) {
+        if (attendanceChartInstance) { attendanceChartInstance.destroy(); attendanceChartInstance = null; }
+        try { const ec = Chart.getChart(attendanceCtx); if (ec) ec.destroy(); } catch(e) {}
+        attendanceChartInstance = new Chart(attendanceCtx.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: ['{% trans "حاضر" %}', '{% trans "غائب" %}', '{% trans "خرج مبكر" %}', '{% trans "متأخر" %}', '{% trans "عطلة" %}', '{% trans "إجازة" %}'],
+            datasets: [{
+              data: [
+                data.attendance_present || 0,
+                data.attendance_absent || 0,
+                data.attendance_early_out || 0,
+                data.attendance_late || 0,
+                data.attendance_holiday || 0,
+                data.attendance_leave || 0
+              ],
+              backgroundColor: ['#48bb78', '#f56565', '#9f7aea', '#ed8936', '#4fd1c5', '#667eea'],
+              borderRadius: 6,
+              maxBarThickness: 40
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { grid: { display: false }, ticks: { font: { family: 'Cairo', size: 11 } } },
+              y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { stepSize: 1, precision: 0 } }
+            }
+          }
+        });
+      }
+
+      // Update Department Attendance Chart
+      const deptCtx = document.getElementById('deptAttendanceChart');
+      if (deptCtx) {
+        if (deptChartInstance) { deptChartInstance.destroy(); deptChartInstance = null; }
+        try { const ec = Chart.getChart(deptCtx); if (ec) ec.destroy(); } catch(e) {}
+        const deptLabels = data.dept_labels || [];
+        const deptValues = data.dept_values || [];
+        deptChartInstance = new Chart(deptCtx.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: deptLabels,
+            datasets: [{
+              data: deptValues,
+              backgroundColor: ['#48bb78', '#f56565', '#ed8936', '#9f7aea', '#4fd1c5', '#667eea', '#fc8181', '#68d391', '#a78bfa', '#fbbf24'],
+              borderRadius: 6,
+              maxBarThickness: 40
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { beginAtZero: true, grid: { display: false }, ticks: { stepSize: 1, precision: 0 } },
+              y: { grid: { display: false }, ticks: { font: { family: 'Cairo', size: 11 } } }
+            }
+          }
+        });
+      }
+    })
+    .catch(err => console.error('HR attendance fetch error:', err));
+  }
+
+  // Load initial data
+  const hrmDateInput = document.getElementById('hrmDateFilter');
+  if (hrmDateInput) {
+    // AJAX will load the charts - no fallback needed
+    loadHRAttendanceData(hrmDateInput.value);
+    hrmDateInput.addEventListener('change', function() {
+      loadHRAttendanceData(this.value);
+    });
+  } else {
+    // Fallback: only if AJAX is not available (no date input)
+    const deptCtx = document.getElementById('deptAttendanceChart');
+    if (deptCtx) {
+      deptChartInstance = new Chart(deptCtx.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: {{ dept_attendance_labels_json|default:"[]"|safe }},
+          datasets: [{
+            data: {{ dept_attendance_values_json|default:"[]"|safe }},
+            backgroundColor: ['#48bb78', '#f56565', '#ed8936', '#9f7aea', '#4fd1c5', '#667eea'],
+            borderRadius: 6,
+            maxBarThickness: 40
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { beginAtZero: true, grid: { display: false } },
+            y: { grid: { display: false }, ticks: { font: { family: 'Cairo', size: 11 } } }
+          }
+        }
+      });
+    }
+  }
+});
+</script>
+{% endblock %}
+

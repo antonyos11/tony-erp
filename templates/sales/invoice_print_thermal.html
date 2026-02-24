@@ -1,0 +1,586 @@
+﻿{% load currency_tags %}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>طباعة فاتورة {{ invoice.number }}</title>
+    <style>
+        /* XPrinter 80mm Thermal Printer Optimized */
+        @page { 
+            size: 72mm auto; /* 80mm paper - 4mm margins each side */
+            margin: 0mm;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            /* Arabic-friendly fonts for thermal printers */
+            font-family: 'Tahoma', 'Arial', 'Courier New', monospace;
+            font-size: 11px;
+            line-height: 1.3;
+            background: #f0f0f0;
+            direction: rtl;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .receipt {
+            width: 72mm;
+            max-width: 72mm;
+            margin: 0 auto;
+            background: white;
+            padding: 3mm;
+        }
+        
+        /* Header Section */
+        .receipt-header {
+            text-align: center;
+            padding-bottom: 2mm;
+        }
+        
+        .company-logo {
+            max-width: 50mm;
+            max-height: 15mm;
+            margin-bottom: 2mm;
+        }
+        
+        .company-name {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 1mm;
+            letter-spacing: -0.5px;
+        }
+        
+        .company-info {
+            font-size: 10px;
+            margin-bottom: 1mm;
+        }
+        
+        .company-phone {
+            font-size: 11px;
+            margin-bottom: 1mm;
+        }
+        
+        .tax-number {
+            font-size: 9px;
+            color: #333;
+        }
+        
+        /* Separator Lines */
+        .line-solid {
+            border: none;
+            border-top: 1px solid #000;
+            margin: 2mm 0;
+        }
+        
+        .line-dashed {
+            border: none;
+            border-top: 1px dashed #000;
+            margin: 2mm 0;
+        }
+        
+        .line-double {
+            border: none;
+            border-top: 3px double #000;
+            margin: 2mm 0;
+        }
+        
+        /* Invoice Title */
+        .invoice-title {
+            text-align: center;
+            font-size: 14px;
+            font-weight: bold;
+            padding: 2mm 0;
+            background: #000;
+            color: #fff;
+            margin: 2mm 0;
+        }
+        
+        /* Info Rows */
+        .info-section {
+            padding: 1mm 0;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1mm;
+            font-size: 10px;
+        }
+        
+        .info-label {
+            font-weight: bold;
+        }
+        
+        .info-value {
+            text-align: left;
+            direction: ltr;
+        }
+        
+        /* Items Table */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2mm 0;
+            font-size: 9px;
+        }
+        
+        .items-table th {
+            border-top: 1px solid #000;
+            border-bottom: 1px solid #000;
+            padding: 2px 1px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 9px;
+            background: #eee;
+        }
+        
+        .items-table td {
+            padding: 2px 1px;
+            text-align: center;
+            border-bottom: 1px dotted #ccc;
+            font-size: 9px;
+        }
+        
+        .items-table .item-name {
+            text-align: right;
+            max-width: 25mm;
+            word-wrap: break-word;
+            overflow: hidden;
+        }
+        
+        .items-table .item-qty {
+            width: 8mm;
+        }
+        
+        .items-table .item-price {
+            width: 12mm;
+            direction: ltr;
+        }
+        
+        .items-table .item-total {
+            width: 15mm;
+            direction: ltr;
+            font-weight: bold;
+        }
+        
+        /* Totals Section */
+        .totals-section {
+            margin: 2mm 0;
+            padding: 1mm 0;
+        }
+        
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1mm;
+            font-size: 10px;
+        }
+        
+        .total-row .value {
+            direction: ltr;
+            font-weight: bold;
+        }
+        
+        .total-row.main-total {
+            font-size: 14px;
+            font-weight: bold;
+            margin: 2mm 0;
+            padding: 2mm;
+            background: #000;
+            color: #fff;
+        }
+        
+        .total-row.paid {
+            color: #080;
+        }
+        
+        .total-row.remaining {
+            color: #800;
+        }
+        
+        /* Customer Balance Box */
+        .balance-box {
+            border: 2px solid #000;
+            padding: 2mm;
+            margin: 2mm 0;
+        }
+        
+        .balance-header {
+            text-align: center;
+            font-weight: bold;
+            font-size: 11px;
+            margin-bottom: 2mm;
+            padding-bottom: 1mm;
+            border-bottom: 1px dashed #000;
+        }
+        
+        .balance-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            margin-bottom: 1mm;
+        }
+        
+        .balance-row .value {
+            direction: ltr;
+            font-weight: bold;
+        }
+        
+        /* Payment Info */
+        .payment-info {
+            background: #f5f5f5;
+            padding: 2mm;
+            margin: 2mm 0;
+            border-radius: 1mm;
+        }
+        
+        /* Footer */
+        .receipt-footer {
+            text-align: center;
+            padding-top: 2mm;
+            font-size: 9px;
+        }
+        
+        .thank-you {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 1mm;
+        }
+        
+        .footer-note {
+            font-size: 8px;
+            color: #666;
+            margin-bottom: 1mm;
+        }
+        
+        .powered-by {
+            font-size: 8px;
+            color: #999;
+            margin-top: 2mm;
+        }
+        
+        /* Print Buttons - Screen Only */
+        .print-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+            padding: 15px;
+        }
+        
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-print {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+        }
+        
+        .btn-back {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        /* Print Styles */
+        @media print {
+            html, body {
+                width: 72mm;
+                margin: 0;
+                padding: 0;
+                background: white;
+            }
+            
+            .receipt {
+                width: 72mm;
+                max-width: 72mm;
+                padding: 0;
+                margin: 0;
+                box-shadow: none;
+            }
+            
+            .print-controls {
+                display: none !important;
+            }
+            
+            .no-print {
+                display: none !important;
+            }
+            
+            /* Force black text for thermal */
+            * {
+                color: #000 !important;
+                -webkit-print-color-adjust: exact;
+            }
+            
+            .total-row.main-total {
+                background: #000 !important;
+                color: #fff !important;
+            }
+            
+            .invoice-title {
+                background: #000 !important;
+                color: #fff !important;
+            }
+        }
+        
+        /* Screen Preview Styles */
+        @media screen {
+            body {
+                padding: 15px;
+            }
+            
+            .receipt {
+                box-shadow: 0 2px 15px rgba(0,0,0,0.15);
+                border-radius: 3px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt">
+        <!-- Company Header -->
+        <div class="receipt-header">
+            {% if company_info.logo_url %}
+            <img src="{{ company_info.logo_url }}" alt="Logo" class="company-logo">
+            {% elif company.logo %}
+            <img src="{{ company.logo.url }}" alt="Logo" class="company-logo">
+            {% endif %}
+            <div class="company-name">{{ company_info.name|default:company.name|default:'اسم الشركة' }}</div>
+            {% if company_info.slogan %}
+            <div class="company-info" style="font-style: italic;">{{ company_info.slogan }}</div>
+            {% endif %}
+            {% if company_info.address|default:company.address %}
+            <div class="company-info">{{ company_info.address|default:company.address }}</div>
+            {% endif %}
+            <div class="company-phone">📞 {{ company_info.phone|default:company.phone|default:'---' }}</div>
+            {% for phone in company_info.print_phones %}
+            <div class="company-info">{{ phone.phone_type_display }}: {{ phone.phone_number }}</div>
+            {% endfor %}
+            {% if company_info.tax_id|default:company.tax_id %}
+            <div class="tax-number">الرقم الضريبي: {{ company_info.tax_id|default:company.tax_id }}</div>
+            {% endif %}
+            {% if company_info.commercial_register %}
+            <div class="tax-number">السجل التجاري: {{ company_info.commercial_register }}</div>
+            {% endif %}
+        </div>
+        
+        <!-- Invoice Title -->
+        <div class="invoice-title">فاتورة مبيعات</div>
+        
+        <!-- Invoice Info -->
+        <div class="info-section">
+            <div class="info-row">
+                <span class="info-label">رقم الفاتورة:</span>
+                <span class="info-value">#{{ invoice.number }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">التاريخ:</span>
+                <span class="info-value">{{ invoice.date|date:'Y/m/d' }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">الوقت:</span>
+                <span class="info-value">{{ now|time:'H:i' }}</span>
+            </div>
+            <hr class="line-dashed">
+            <div class="info-row">
+                <span class="info-label">العميل:</span>
+                <span class="info-value">{{ invoice.customer.name|truncatechars:20 }}</span>
+            </div>
+            {% if invoice.customer.phone %}
+            <div class="info-row">
+                <span class="info-label">الهاتف:</span>
+                <span class="info-value">{{ invoice.customer.phone }}</span>
+            </div>
+            {% endif %}
+        </div>
+        
+        <hr class="line-solid">
+        
+        <!-- Items Table -->
+        <div class="table-responsive"><table class="items-table">
+            <thead>
+                <tr>
+                    <th>الصنف</th>
+                    <th class="item-qty">ك</th>
+                    <th class="item-price">سعر</th>
+                    <th class="item-total">المجموع</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in invoice.items.all %}
+                <tr>
+                    <td class="item-name">{{ item.product.name|truncatechars:25 }}</td>
+                    <td class="item-qty">{{ item.quantity|floatformat:0 }}</td>
+                    <td class="item-price">{{ item.price|floatformat:2 }}</td>
+                    <td class="item-total">{{ item.total|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" style="text-align: center;">لا توجد أصناف</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+        
+        <hr class="line-double">
+        
+        <!-- Totals Section -->
+        <div class="totals-section">
+            {% if invoice.discount and invoice.discount > 0 %}
+            <div class="total-row">
+                <span>المجموع:</span>
+                <span class="value">{{ subtotal|floatformat:2 }}</span>
+            </div>
+            <div class="total-row">
+                <span>الخصم:</span>
+                <span class="value">- {{ invoice.discount|floatformat:2 }}</span>
+            </div>
+            {% endif %}
+            
+            {% if tax_amount and tax_amount > 0 %}
+            <div class="total-row">
+                <span>قبل الضريبة:</span>
+                <span class="value">{{ subtotal|floatformat:2 }}</span>
+            </div>
+            <div class="total-row">
+                <span>الضريبة ({{ invoice.tax_rate|default:15 }}%):</span>
+                <span class="value">{{ tax_amount|floatformat:2 }}</span>
+            </div>
+            {% endif %}
+            
+            <div class="total-row main-total">
+                <span>الإجمالي</span>
+                <span class="value">{{ invoice.total|floatformat:2 }} {{ company.currency|default:'ج.م' }}</span>
+            </div>
+            
+            <hr class="line-dashed">
+            
+            <div class="total-row paid">
+                <span>💵 المدفوع:</span>
+                <span class="value">{{ invoice.paid|floatformat:2 }}</span>
+            </div>
+            
+            {% if invoice.remaining > 0 %}
+            <div class="total-row remaining">
+                <span>⏳ المتبقي:</span>
+                <span class="value">{{ invoice.remaining|floatformat:2 }}</span>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Customer Balance Box -->
+        {% if invoice.customer %}
+        <div class="balance-box">
+            <div class="balance-header">📊 رصيد العميل</div>
+            <div class="balance-row">
+                <span>رصيد سابق:</span>
+                <span class="value">{{ customer_balance_before|default:0|floatformat:2 }}</span>
+            </div>
+            <div class="balance-row">
+                <span>هذه الفاتورة:</span>
+                <span class="value">{{ invoice.total|floatformat:2 }}</span>
+            </div>
+            <div class="balance-row">
+                <span>المدفوع:</span>
+                <span class="value">- {{ invoice.paid|floatformat:2 }}</span>
+            </div>
+            <hr class="line-dashed">
+            <div class="balance-row" style="font-weight: bold; font-size: 11px;">
+                <span>الرصيد الحالي:</span>
+                <span class="value">{{ customer_balance_after|default:0|floatformat:2 }}</span>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Payment Method -->
+        {% if invoice.payment_method %}
+        <div class="payment-info">
+            <div class="info-row">
+                <span class="info-label">طريقة الدفع:</span>
+                <span class="info-value">{{ invoice.get_payment_method_display|default:invoice.payment_method }}</span>
+            </div>
+        </div>
+        {% endif %}
+        
+        <hr class="line-dashed">
+        
+        <!-- Footer -->
+        <div class="receipt-footer">
+            <div class="thank-you">✨ شكراً لتعاملكم معنا ✨</div>
+            {% if company_info.footer_text %}
+            <div class="footer-note">{{ company_info.footer_text }}</div>
+            {% else %}
+            <div class="footer-note">نسعد بخدمتكم دائماً</div>
+            {% endif %}
+            {% if invoice.notes %}
+            <div class="footer-note">{{ invoice.notes }}</div>
+            {% endif %}
+            {% if company_info.print_phones %}
+            <div class="footer-note" style="font-size: 9px;">
+                {% for phone in company_info.print_phones %}
+                {{ phone.phone_type_display }}: {{ phone.phone_number }}{% if not forloop.last %} | {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+            <div class="powered-by">{{ company_info.name|default:company.name|default:'المحاسب الشامل' }}</div>
+        </div>
+    </div>
+    
+    <!-- Print Controls (Hidden on Print) -->
+    <div class="print-controls no-print">
+        <button class="btn btn-back" onclick="window.history.back()">
+            ↩️ رجوع
+        </button>
+        <button class="btn btn-print" onclick="printReceipt()">
+            🖨️ طباعة
+        </button>
+    </div>
+    
+    <script>
+        function printReceipt() {
+            // XPrinter compatible print
+            window.print();
+        }
+        
+        // Keyboard shortcut: Ctrl+P or Enter to print
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || (e.ctrlKey && e.key === 'p')) {
+                e.preventDefault();
+                printReceipt();
+            }
+            // Escape to go back
+            if (e.key === 'Escape') {
+                window.history.back();
+            }
+        });
+        
+        // Optional: Auto-print when page loads
+        // Uncomment the line below to enable auto-print
+        // window.onload = function() { setTimeout(printReceipt, 500); };
+    </script>
+</body>
+</html>
+

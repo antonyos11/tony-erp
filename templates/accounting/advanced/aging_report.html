@@ -1,0 +1,369 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}تقرير أعمار الديون - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .aging-header {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+    }
+    .bucket-card {
+        border-radius: 15px;
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+    .bucket-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+    .customer-row {
+        padding: 1rem;
+        border-bottom: 1px solid #dee2e6;
+        transition: background 0.2s;
+    }
+    .customer-row:hover {
+        background: #f8f9fa;
+    }
+    .aging-amount {
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+    .overdue-critical { color: #dc3545; }
+    .overdue-warning { color: #ffc107; }
+    .current { color: #28a745; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="aging-header text-center">
+        <h1 class="mb-2">
+            <i class="fas fa-clock fa-2x"></i>
+        </h1>
+        <h2>تقرير أعمار الديون (Aging Report)</h2>
+        <p class="mb-0 opacity-75">تحليل الذمم المدينة حسب فترات الاستحقاق</p>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <form method="get" class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label">تاريخ التقرير</label>
+                            <input type="date" name="report_date" class="form-control" 
+                                   value="{{ report_date|date:'Y-m-d' }}" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">نوع العميل</label>
+                            <select name="customer_type" class="form-select">
+                                <option value="">-- جميع العملاء --</option>
+                                <option value="regular">عملاء عاديين</option>
+                                <option value="vip">عملاء VIP</option>
+                                <option value="risky">عملاء معرضون للخطر</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-sync"></i> تحديث
+                            </button>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button type="button" onclick="exportToExcel()" class="btn btn-success">
+                                <i class="fas fa-file-excel"></i> تصدير Excel
+                            </button>
+                            <button type="button" onclick="sendReminders()" class="btn btn-warning">
+                                <i class="fas fa-envelope"></i> إرسال تذكيرات
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Buckets -->
+    <div class="row mb-4">
+        <div class="col-md mb-3">
+            <div class="card bucket-card border-0 shadow-sm bg-success text-white h-100">
+                <div class="card-body text-center">
+                    <h6 class="opacity-75">الحالي (0-30 يوم)</h6>
+                    <h3 class="mb-0">{{ summary.current|floatformat:0 }}</h3>
+                    <small class="opacity-75">{{ summary.current_pct|floatformat:1 }}%</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md mb-3">
+            <div class="card bucket-card border-0 shadow-sm bg-info text-white h-100">
+                <div class="card-body text-center">
+                    <h6 class="opacity-75">31-60 يوم</h6>
+                    <h3 class="mb-0">{{ summary.days_31_60|floatformat:0 }}</h3>
+                    <small class="opacity-75">{{ summary.days_31_60_pct|floatformat:1 }}%</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md mb-3">
+            <div class="card bucket-card border-0 shadow-sm bg-warning text-dark h-100">
+                <div class="card-body text-center">
+                    <h6 class="opacity-75">61-90 يوم</h6>
+                    <h3 class="mb-0">{{ summary.days_61_90|floatformat:0 }}</h3>
+                    <small class="opacity-75">{{ summary.days_61_90_pct|floatformat:1 }}%</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md mb-3">
+            <div class="card bucket-card border-0 shadow-sm bg-danger text-white h-100">
+                <div class="card-body text-center">
+                    <h6 class="opacity-75">أكثر من 90 يوم</h6>
+                    <h3 class="mb-0">{{ summary.over_90|floatformat:0 }}</h3>
+                    <small class="opacity-75">{{ summary.over_90_pct|floatformat:1 }}%</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md mb-3">
+            <div class="card bucket-card border-0 shadow-sm bg-dark text-white h-100">
+                <div class="card-body text-center">
+                    <h6 class="opacity-75">الإجمالي</h6>
+                    <h3 class="mb-0">{{ summary.total|floatformat:0 }}</h3>
+                    <small class="opacity-75">100%</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">توزيع أعمار الديون</h5>
+                </div>
+                <div class="card-body">
+                    <div style="height: 300px;">
+                        <canvas id="agingChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list"></i>
+                        تفاصيل العملاء
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if aging_data %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0" id="agingTable">
+                                <thead class="bg-light sticky-top">
+                                    <tr>
+                                        <th>العميل</th>
+                                        <th>الحالي</th>
+                                        <th>31-60 يوم</th>
+                                        <th>61-90 يوم</th>
+                                        <th>+90 يوم</th>
+                                        <th>الإجمالي</th>
+                                        <th>المخاطر</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in aging_data %}
+                                    <tr class="customer-row">
+                                        <td>
+                                            <strong>{{ item.customer_name }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ item.customer_code }}</small>
+                                        </td>
+                                        <td class="current">{{ item.current|floatformat:2 }}</td>
+                                        <td class="text-info">{{ item.days_31_60|floatformat:2 }}</td>
+                                        <td class="overdue-warning">{{ item.days_61_90|floatformat:2 }}</td>
+                                        <td class="overdue-critical">{{ item.over_90|floatformat:2 }}</td>
+                                        <td>
+                                            <strong class="aging-amount">{{ item.total|floatformat:2 }}</strong>
+                                        </td>
+                                        <td>
+                                            {% if item.risk_level == 'high' %}
+                                                <span class="badge bg-danger">مرتفع</span>
+                                            {% elif item.risk_level == 'medium' %}
+                                                <span class="badge bg-warning">متوسط</span>
+                                            {% else %}
+                                                <span class="badge bg-success">منخفض</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-primary" 
+                                                        onclick="viewCustomerDetails({{ item.customer_id }})">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn btn-outline-warning" 
+                                                        onclick="sendReminder({{ item.customer_id }})">
+                                                    <i class="fas fa-envelope"></i>
+                                                </button>
+                                                <button class="btn btn-outline-info" 
+                                                        onclick="callCustomer({{ item.customer_id }})">
+                                                    <i class="fas fa-phone"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot class="bg-light">
+                                    <tr>
+                                        <th>الإجمالي</th>
+                                        <th class="current">{{ summary.current|floatformat:2 }}</th>
+                                        <th class="text-info">{{ summary.days_31_60|floatformat:2 }}</th>
+                                        <th class="overdue-warning">{{ summary.days_61_90|floatformat:2 }}</th>
+                                        <th class="overdue-critical">{{ summary.over_90|floatformat:2 }}</th>
+                                        <th><strong class="aging-amount">{{ summary.total|floatformat:2 }}</strong></th>
+                                        <th colspan="2"></th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">لا توجد ذمم مدينة في الفترة المحددة</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- High Risk Customers -->
+    {% if high_risk_customers %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        عملاء ذوو مخاطر عالية
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-danger">
+                        <strong>تحذير:</strong> هناك {{ high_risk_customers|length }} عميل لديهم ديون متأخرة بشكل حرج
+                    </div>
+                    <div class="list-group">
+                        {% for customer in high_risk_customers %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">{{ customer.name }}</h6>
+                                <small class="text-muted">إجمالي المتأخر: {{ customer.overdue_amount|floatformat:2 }}</small>
+                            </div>
+                            <div>
+                                <span class="badge bg-danger me-2">{{ customer.overdue_days }} يوم</span>
+                                <button class="btn btn-sm btn-warning" onclick="takeAction({{ customer.id }})">
+                                    <i class="fas fa-bolt"></i> اتخاذ إجراء
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Initialize DataTable
+    if ($.fn.DataTable) {
+        $('#agingTable').DataTable({
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/ar.json'
+            },
+            pageLength: 25,
+            order: [[5, 'desc']] // Sort by total
+        });
+    }
+
+    // Aging Chart
+    const ctx = document.getElementById('agingChart');
+    if (ctx) {
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['الحالي', '31-60', '61-90', '+90'],
+                datasets: [{
+                    label: 'المبلغ',
+                    data: [
+                        {{ summary.current }},
+                        {{ summary.days_31_60 }},
+                        {{ summary.days_61_90 }},
+                        {{ summary.over_90 }}
+                    ],
+                    backgroundColor: ['#28a745', '#17a2b8', '#ffc107', '#dc3545']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+});
+
+function viewCustomerDetails(customerId) {
+    alert('عرض تفاصيل العميل: ' + customerId);
+}
+
+function sendReminder(customerId) {
+    if (confirm('هل تريد إرسال تذكير بالدفع لهذا العميل؟')) {
+        alert('سيتم إرسال التذكير');
+    }
+}
+
+function callCustomer(customerId) {
+    alert('الاتصال بالعميل: ' + customerId);
+}
+
+function sendReminders() {
+    if (confirm('هل تريد إرسال تذكيرات لجميع العملاء المتأخرين؟')) {
+        alert('سيتم إرسال التذكيرات');
+    }
+}
+
+function takeAction(customerId) {
+    alert('اتخاذ إجراء للعميل: ' + customerId);
+}
+
+function exportToExcel() {
+    alert('سيتم تصدير التقرير إلى Excel');
+}
+</script>
+{% endblock %}

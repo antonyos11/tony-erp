@@ -1,0 +1,129 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% block title %}سجلات الصيانة{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h4 class="mb-0">سجلات الصيانة</h4>
+    <form method="get" class="row gy-1 gx-2 align-items-end">
+      <div class="col-auto">
+        <label class="form-label mb-1">الحالة</label>
+        <select name="status" class="form-select form-select-sm">
+          <option value="">الكل</option>
+          <option value="in_progress" {% if current_status == 'in_progress' %}selected{% endif %}>قيد التنفيذ</option>
+          <option value="completed" {% if current_status == 'completed' %}selected{% endif %}>مكتمل</option>
+          <option value="partially_completed" {% if current_status == 'partially_completed' %}selected{% endif %}>مكتمل جزئياً</option>
+          <option value="cancelled" {% if current_status == 'cancelled' %}selected{% endif %}>ملغي</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <label class="form-label mb-1">النتيجة</label>
+        <select name="result" class="form-select form-select-sm">
+          <option value="">الكل</option>
+          <option value="successful" {% if current_result == 'successful' %}selected{% endif %}>ناجح</option>
+          <option value="partially_successful" {% if current_result == 'partially_successful' %}selected{% endif %}>ناجح جزئياً</option>
+          <option value="unsuccessful" {% if current_result == 'unsuccessful' %}selected{% endif %}>غير ناجح</option>
+          <option value="requires_followup" {% if current_result == 'requires_followup' %}selected{% endif %}>يحتاج متابعة</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <label class="form-label mb-1">ماكينة</label>
+        <input type="text" name="machine" value="{{ current_machine|default:'' }}" class="form-control form-control-sm" placeholder="ID" />
+      </div>
+      <div class="col-auto">
+        <label class="form-label mb-1">فني</label>
+        <input type="text" name="technician" value="{{ current_technician|default:'' }}" class="form-control form-control-sm" placeholder="ID" />
+      </div>
+      <div class="col-auto">
+        <label class="form-label mb-1">من تاريخ</label>
+        <input type="date" name="date_from" value="{{ date_from|default:'' }}" class="form-control form-control-sm" />
+      </div>
+      <div class="col-auto">
+        <label class="form-label mb-1">إلى تاريخ</label>
+        <input type="date" name="date_to" value="{{ date_to|default:'' }}" class="form-control form-control-sm" />
+      </div>
+      <div class="col-auto">
+        <button class="btn btn-sm btn-primary">تصفية</button>
+      </div>
+      <div class="col-auto">
+        <a href="?" class="btn btn-sm btn-outline-secondary">إعادة ضبط</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-striped table-hover mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>الرقم</th>
+              <th>الماكينة</th>
+              <th>نوع الصيانة</th>
+              <th>الحالة</th>
+              <th>النتيجة</th>
+              <th>الفني</th>
+              <th class="text-end">البدء</th>
+              <th class="text-end">الانتهاء</th>
+              <th class="text-end">المدة (س)</th>
+              <th class="text-end">التكلفة</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for rec in page_obj %}
+            <tr>
+              <td><a href="{% url 'maintenance:maintenance_record_detail' rec.id %}">{{ rec.record_number }}</a></td>
+              <td>{{ rec.machine.name }}</td>
+              <td>{{ rec.maintenance_type.name }}</td>
+              <td>
+                <span class="badge text-bg-{% if rec.status == 'completed' %}success{% elif rec.status == 'in_progress' %}info{% elif rec.status == 'partially_completed' %}warning{% elif rec.status == 'cancelled' %}secondary{% else %}light{% endif %}">
+                  {{ rec.get_status_display }}
+                </span>
+              </td>
+              <td>
+                {% if rec.result %}
+                  <span class="badge text-bg-{% if rec.result == 'successful' %}success{% elif rec.result == 'partially_successful' %}warning{% elif rec.result == 'unsuccessful' %}danger{% elif rec.result == 'requires_followup' %}info{% else %}light{% endif %}">
+                    {{ rec.get_result_display }}
+                  </span>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td>{{ rec.technician.arabic_name|default:rec.technician.name }}</td>
+              <td class="text-end">{{ rec.start_datetime|date:'Y-m-d H:i' }}</td>
+              <td class="text-end">{% if rec.end_datetime %}{{ rec.end_datetime|date:'Y-m-d H:i' }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+              <td class="text-end">{{ rec.duration_hours|floatformat:1 }}</td>
+              <td class="text-end">{{ rec.total_cost|floatformat:2 }}</td>
+              <td class="text-end">
+                <a class="btn btn-sm btn-outline-secondary" href="{% url 'maintenance:maintenance_record_detail' rec.id %}">تفاصيل</a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="11" class="text-center text-muted py-4">لا توجد سجلات</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer">
+      <nav aria-label="pagination">
+        <ul class="pagination pagination-sm mb-0">
+          {% if page_obj.has_previous %}
+          <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">السابق</a></li>
+          {% else %}
+          <li class="page-item disabled"><span class="page-link">السابق</span></li>
+          {% endif %}
+          <li class="page-item disabled"><span class="page-link">صفحة {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+          {% if page_obj.has_next %}
+          <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">التالي</a></li>
+          {% else %}
+          <li class="page-item disabled"><span class="page-link">التالي</span></li>
+          {% endif %}
+        </ul>
+      </nav>
+    </div>
+  </div>
+</div>
+{% endblock %}

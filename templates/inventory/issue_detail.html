@@ -1,0 +1,236 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load i18n %}
+
+{% block title %}{% trans 'تفاصيل الصرف' %} - {{ issue.number }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    .page-header h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 0;
+    }
+    .info-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .info-row {
+        display: flex;
+        gap: 2rem;
+        flex-wrap: wrap;
+    }
+    .info-item {
+        display: flex;
+        flex-direction: column;
+    }
+    .info-item .label {
+        font-size: 0.85rem;
+        color: #6b7280;
+        margin-bottom: 0.25rem;
+    }
+    .info-item .value {
+        font-weight: 600;
+    }
+    .status-badge {
+        padding: 0.35rem 1rem;
+        border-radius: 50px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    .status-draft { background: #f3f4f6; color: #6b7280; }
+    .status-confirmed { background: #fee2e2; color: #991b1b; }
+    .data-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+    .data-card-header {
+        background: #f8fafc;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        font-weight: 600;
+    }
+    .available-qty {
+        font-size: 0.8rem;
+        color: #059669;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-box-arrow-up text-danger me-2"></i>{{ title }}</h1>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'inventory:issue_print' issue.id %}" class="btn btn-outline-secondary" target="_blank">
+                <i class="bi bi-printer me-1"></i> {% trans 'طباعة' %}
+            </a>
+            <a href="{% url 'inventory:issue_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-right me-1"></i> {% trans 'العودة للقائمة' %}
+            </a>
+        </div>
+    </div>
+
+    <!-- معلومات المستند -->
+    <div class="info-card">
+        <div class="info-row">
+            <div class="info-item">
+                <span class="label">{% trans 'رقم الإذن' %}</span>
+                <span class="value">{{ issue.number }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">{% trans 'الموقع' %}</span>
+                <span class="value">{{ issue.location }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">{% trans 'إلى القسم' %}</span>
+                <span class="value">{{ issue.to_department|default:"-" }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">{% trans 'المستلم' %}</span>
+                <span class="value">{{ issue.received_by_name|default:"-" }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">{% trans 'التاريخ' %}</span>
+                <span class="value">{{ issue.issue_date|date:"Y/m/d" }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">{% trans 'الحالة' %}</span>
+                <span class="status-badge {% if issue.status == 'confirmed' %}status-confirmed{% else %}status-draft{% endif %}">
+                    {{ issue.get_status_display }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    {% if issue.is_editable %}
+    <!-- تعديل اسم المستلم -->
+    <div class="data-card">
+        <div class="data-card-header">
+            <i class="bi bi-person-check me-2"></i>{% trans 'تحديث اسم المستلم' %}
+        </div>
+        <div class="p-3">
+            <form method="post" class="row g-3 align-items-end">
+                {% csrf_token %}
+                <input type="hidden" name="update_receiver" value="1">
+                <div class="col-md-6">
+                    <label class="form-label">{% trans 'اسم المستلم' %}</label>
+                    <input type="text" class="form-control" name="received_by_name" 
+                           value="{{ issue.received_by_name }}" placeholder="{% trans 'أدخل اسم المستلم' %}">
+                </div>
+                <div class="col-md-6">
+                    <button class="btn btn-outline-primary" type="submit">
+                        <i class="bi bi-check me-1"></i> {% trans 'تحديث' %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نموذج إضافة بند -->
+    <div class="data-card">
+        <div class="data-card-header">
+            <i class="bi bi-plus-circle me-2"></i>{% trans 'إضافة صنف' %}
+        </div>
+        <div class="p-3">
+            <form method="post" class="row g-3 align-items-end">
+                {% csrf_token %}
+                <div class="col-md-6">
+                    <label class="form-label">{% trans 'المنتج' %}</label>
+                    <select class="form-select" name="product" required>
+                        <option value="">{% trans '-- اختر المنتج --' %}</option>
+                        {% for p in products %}
+                        <option value="{{ p.id }}">{{ p.sku }} - {{ p.name }} {% if p.available_qty %}({% trans 'متاح' %}: {{ p.available_qty }}){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">{% trans 'الكمية' %}</label>
+                    <input class="form-control" type="number" name="quantity" value="1" min="1" required>
+                </div>
+                <div class="col-md-3 d-flex gap-2">
+                    <button class="btn btn-primary" type="submit">
+                        <i class="bi bi-plus-lg me-1"></i> {% trans 'إضافة' %}
+                    </button>
+                    <a class="btn btn-success" href="{% url 'inventory:issue_confirm' issue.id %}">
+                        <i class="bi bi-check-lg me-1"></i> {% trans 'تأكيد الصرف' %}
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- البنود -->
+    <div class="data-card">
+        <div class="data-card-header d-flex justify-content-between">
+            <span><i class="bi bi-list-check me-2"></i>{% trans 'الأصناف المصروفة' %}</span>
+            <span class="badge bg-danger">{{ issue.items.count }} {% trans 'صنف' %}</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>{% trans 'المنتج' %}</th>
+                        <th class="text-center">{% trans 'الكمية' %}</th>
+                        {% if issue.is_editable %}
+                        <th class="text-center">{% trans 'إجراءات' %}</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for i in issue.items.all %}
+                    <tr>
+                        <td>
+                            <strong>{{ i.product.name }}</strong>
+                            <small class="d-block text-muted">{{ i.product.sku }}</small>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-light text-dark fs-6">{{ i.quantity }}</span>
+                        </td>
+                        {% if issue.is_editable %}
+                        <td class="text-center">
+                            <a href="{% url 'inventory:issue_item_delete' issue.id i.id %}" 
+                               class="btn btn-sm btn-outline-danger"
+                               onclick="return confirm('{% trans "هل أنت متأكد من حذف هذا البند؟" %}')">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{% if issue.is_editable %}3{% else %}2{% endif %}" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                            {% trans 'لا توجد بنود بعد' %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% if issue.notes %}
+    <!-- ملاحظات -->
+    <div class="info-card">
+        <h6><i class="bi bi-sticky me-2"></i>{% trans 'ملاحظات' %}</h6>
+        <p class="mb-0">{{ issue.notes }}</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

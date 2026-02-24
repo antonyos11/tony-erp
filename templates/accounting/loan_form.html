@@ -1,0 +1,676 @@
+﻿{% extends 'base_templates/modern_form.html' %}
+
+{% block page_module %}accounting{% endblock %}
+{% load static i18n humanize %}
+
+{% block title %}{% if form.instance.pk %}{% trans "تعديل قرض" %}{% else %}{% trans "قرض جديد" %}{% endif %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-hero {
+        background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
+        border-radius: 20px;
+        padding: 2rem;
+        color: white;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .form-hero::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 300px;
+        height: 300px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50%;
+    }
+    
+    .form-hero h1 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        position: relative;
+    }
+    
+    .form-card {
+        background: var(--card-bg, white);
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        overflow: hidden;
+        border: 1px solid var(--border-color, #e5e7eb);
+        animation: slideUp 0.4s ease;
+    }
+    
+    @keyframes slideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .form-section {
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid var(--border-color, #e5e7eb);
+    }
+    
+    .form-section:last-child {
+        border-bottom: none;
+    }
+    
+    .section-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--primary-color, #1e3a5f);
+        margin-bottom: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .form-floating > .form-control,
+    .form-floating > .form-select {
+        height: calc(3.5rem + 2px);
+        padding: 1rem 0.75rem;
+        border-radius: 10px;
+        border: 1.5px solid var(--border-color, #dee2e6);
+        transition: all 0.3s ease;
+    }
+    
+    .form-floating > .form-control:focus,
+    .form-floating > .form-select:focus {
+        border-color: var(--primary-color, #1e3a5f);
+        box-shadow: 0 0 0 4px rgba(30, 58, 95, 0.1);
+    }
+    
+    .form-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem 2rem;
+        background: var(--light-bg, #f8fafc);
+        border-top: 1px solid var(--border-color, #e5e7eb);
+    }
+    
+    .btn-save {
+        background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
+        color: white;
+        border: none;
+        padding: 0.875rem 2rem;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(30, 58, 95, 0.35);
+        color: white;
+    }
+    
+    .btn-cancel {
+        background: transparent;
+        color: #6c757d;
+        border: 1.5px solid var(--border-color, #dee2e6);
+        padding: 0.875rem 1.5rem;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+        text-decoration: none;
+    }
+    
+    .btn-cancel:hover {
+        background: var(--light-bg, #f8fafc);
+    }
+    
+    .required-star {
+        color: #e74c3c;
+    }
+    
+    @media (max-width: 768px) {
+        .form-hero { padding: 1.5rem; }
+        .form-section { padding: 1.25rem; }
+        .form-actions {
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .form-actions .btn-save,
+        .form-actions .btn-cancel {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+    }
+    
+    .page-hero {
+        background: linear-gradient(135deg, #0984e3 0%, #6c5ce7 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    
+    /* Form Card */
+    .form-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .form-header {
+        background: #f8f9fa;
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .form-header h5 {
+        margin: 0;
+        color: var(--primary-color);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .form-body { padding: 1.5rem; }
+    
+    /* Type Selector */
+    .type-selector {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .type-option {
+        position: relative;
+        cursor: pointer;
+    }
+    
+    .type-option input {
+        position: absolute;
+        opacity: 0;
+    }
+    
+    .type-card {
+        padding: 1.5rem;
+        border: 3px solid #e9ecef;
+        border-radius: 12px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    
+    .type-option input:checked + .type-card {
+        border-color: #0984e3;
+        background: rgba(9, 132, 227, 0.05);
+    }
+    
+    .type-card i {
+        font-size: 2rem;
+        margin-bottom: 0.75rem;
+        display: block;
+    }
+    
+    .type-card.given i { color: #0984e3; }
+    .type-card.received i { color: #6c5ce7; }
+    
+    .type-card h4 {
+        margin: 0 0 0.25rem;
+        color: var(--primary-color);
+    }
+    
+    .type-card p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    
+    /* Form Groups */
+    .form-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-group {
+        margin-bottom: 1rem;
+    }
+    
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-group label .required {
+        color: var(--danger-color);
+    }
+    
+    .form-control-custom {
+        width: 100%;
+        padding: 0.875rem 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        font-size: 1rem;
+        transition: all 0.2s ease;
+    }
+    
+    .form-control-custom:focus {
+        border-color: #0984e3;
+        box-shadow: 0 0 0 4px rgba(9, 132, 227, 0.15);
+        outline: none;
+    }
+    
+    .form-hint {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-top: 0.5rem;
+    }
+    
+    /* Calculator Section */
+    .calculator-section {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-top: 1rem;
+    }
+    
+    .calculator-title {
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .calculator-title i { color: #0984e3; }
+    
+    .calc-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+    }
+    
+    .calc-item {
+        background: white;
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+    }
+    
+    .calc-item .label {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+    
+    .calc-item .value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .calc-item .value.accent { color: var(--accent-color); }
+    
+    /* Schedule Preview */
+    .schedule-preview {
+        margin-top: 1.5rem;
+        padding: 1.5rem;
+        background: white;
+        border-radius: 12px;
+        border: 2px dashed #dee2e6;
+    }
+    
+    .schedule-title {
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .schedule-timeline {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .timeline-item {
+        padding: 0.5rem 0.75rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        text-align: center;
+        min-width: 80px;
+    }
+    
+    .timeline-item .month {
+        color: #6c757d;
+        font-size: 0.75rem;
+    }
+    
+    .timeline-item .amount {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+    
+    /* Recipient Section */
+    .recipient-section {
+        margin-bottom: 2rem;
+    }
+    
+    .recipient-tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .recipient-tab {
+        padding: 0.75rem 1.25rem;
+        background: #f8f9fa;
+        border: 2px solid transparent;
+        border-radius: 8px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .recipient-tab.active {
+        background: white;
+        border-color: #0984e3;
+        color: #0984e3;
+    }
+    
+    /* Form Actions */
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+        padding: 1.5rem;
+        background: #f8f9fa;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .btn-submit {
+        background: linear-gradient(135deg, #0984e3, #6c5ce7);
+        border: none;
+        color: white;
+        padding: 0.875rem 2rem;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(9, 132, 227, 0.3);
+        color: white;
+    }
+    
+    .btn-cancel {
+        background: white;
+        border: 2px solid #dee2e6;
+        color: #666;
+        padding: 0.875rem 2rem;
+        border-radius: 10px;
+        font-weight: 600;
+        text-decoration: none;
+    }
+    
+    [data-bs-theme="dark"] .form-card {
+        background: #1a1d21;
+    }
+    
+    [data-bs-theme="dark"] .form-header,
+    [data-bs-theme="dark"] .form-actions {
+        background: #2d3238;
+    }
+    
+    [data-bs-theme="dark"] .calculator-section {
+        background: linear-gradient(135deg, #2d3238, #1a1d21);
+    }
+    
+    [data-bs-theme="dark"] .calc-item,
+    [data-bs-theme="dark"] .schedule-preview {
+        background: #1a1d21;
+    }
+</style>
+{% endblock %}
+
+{% block form_content %}
+<div class="container py-4">
+    <!-- Hero Section -->
+    <div class="page-hero">
+        <h1 class="h2 mb-2">
+            <i class="fas fa-hand-holding-usd me-2"></i>
+            {% if form.instance.pk %}{% trans "تعديل قرض" %}{% else %}{% trans "إضافة قرض جديد" %}{% endif %}
+        </h1>
+        <p class="mb-0 opacity-75">
+            {% trans "تسجيل قرض ممنوح أو مستلم مع جدول السداد" %}
+        </p>
+    </div>
+    
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-card">
+            <div class="form-header">
+                <h5>
+                    <i class="fas fa-info-circle"></i>
+                    {% trans "نوع القرض" %}
+                </h5>
+            </div>
+            <div class="form-body">
+                <!-- Type Selector -->
+                <div class="type-selector">
+                    <label class="type-option">
+                        <input type="radio" name="loan_type" value="given" checked>
+                        <div class="type-card given">
+                            <i class="fas fa-arrow-up"></i>
+                            <h4>{% trans "قرض ممنوح" %}</h4>
+                            <p>{% trans "قرض أو سلفة قدمتها لشخص أو جهة" %}</p>
+                        </div>
+                    </label>
+                    <label class="type-option">
+                        <input type="radio" name="loan_type" value="received">
+                        <div class="type-card received">
+                            <i class="fas fa-arrow-down"></i>
+                            <h4>{% trans "قرض مستلم" %}</h4>
+                            <p>{% trans "قرض حصلت عليه من بنك أو جهة" %}</p>
+                        </div>
+                    </label>
+                </div>
+                
+                <!-- Recipient Section -->
+                <div class="recipient-section">
+                    <label class="form-group">
+                        <span>{% trans "الجهة" %} <span class="required">*</span></span>
+                    </label>
+                    <div class="recipient-tabs">
+                        <button type="button" class="recipient-tab active" data-type="employee">
+                            <i class="fas fa-user me-1"></i> {% trans "موظف" %}
+                        </button>
+                        <button type="button" class="recipient-tab" data-type="partner">
+                            <i class="fas fa-handshake me-1"></i> {% trans "شريك" %}
+                        </button>
+                        <button type="button" class="recipient-tab" data-type="bank">
+                            <i class="fas fa-university me-1"></i> {% trans "بنك" %}
+                        </button>
+                        <button type="button" class="recipient-tab" data-type="other">
+                            <i class="fas fa-building me-1"></i> {% trans "أخرى" %}
+                        </button>
+                    </div>
+                    <select class="form-control-custom">
+                        <option value="">{% trans "اختر الموظف..." %}</option>
+                        <option value="1">{% trans "أحمد محمد - إداري" %}</option>
+                        <option value="2">{% trans "سارة أحمد - محاسبة" %}</option>
+                        <option value="3">{% trans "خالد علي - مبيعات" %}</option>
+                    </select>
+                </div>
+                
+                <!-- Loan Details -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>{% trans "مبلغ القرض" %} <span class="required">*</span></label>
+                        <input type="number" class="form-control-custom" id="loanAmount" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>{% trans "عدد الأقساط" %} <span class="required">*</span></label>
+                        <input type="number" class="form-control-custom" id="installments" value="12" min="1" max="60" required>
+                    </div>
+                    <div class="form-group">
+                        <label>{% trans "نسبة الفائدة %" %}</label>
+                        <input type="number" class="form-control-custom" id="interestRate" value="0" min="0" step="0.1">
+                        <div class="form-hint">{% trans "اتركها 0 للقروض بدون فائدة" %}</div>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>{% trans "تاريخ البدء" %} <span class="required">*</span></label>
+                        <input type="date" class="form-control-custom" id="startDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>{% trans "يوم السداد الشهري" %}</label>
+                        <select class="form-control-custom" id="paymentDay">
+                            <option value="1">1</option>
+                            <option value="15" selected>15</option>
+                            <option value="25">25</option>
+                            <option value="last">{% trans "نهاية الشهر" %}</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>{% trans "حساب القرض" %}</label>
+                        <select class="form-control-custom">
+                            <option value="">{% trans "اختر الحساب..." %}</option>
+                            <option value="1">{% trans "1300 - قروض ممنوحة للموظفين" %}</option>
+                            <option value="2">{% trans "1310 - سلف للشركاء" %}</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Calculator -->
+                <div class="calculator-section">
+                    <div class="calculator-title">
+                        <i class="fas fa-calculator"></i>
+                        {% trans "حساب الأقساط" %}
+                    </div>
+                    <div class="calc-grid">
+                        <div class="calc-item">
+                            <div class="label">{% trans "قيمة القسط" %}</div>
+                            <div class="value accent" id="installmentValue">0</div>
+                        </div>
+                        <div class="calc-item">
+                            <div class="label">{% trans "إجمالي الفائدة" %}</div>
+                            <div class="value" id="totalInterest">0</div>
+                        </div>
+                        <div class="calc-item">
+                            <div class="label">{% trans "المبلغ الإجمالي" %}</div>
+                            <div class="value" id="totalAmount">0</div>
+                        </div>
+                    </div>
+                    
+                    <div class="schedule-preview">
+                        <div class="schedule-title">
+                            <i class="fas fa-calendar-alt"></i>
+                            {% trans "معاينة جدول السداد" %}
+                        </div>
+                        <div class="schedule-timeline" id="scheduleTimeline">
+                            <!-- Will be populated by JS -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Notes -->
+                <div class="form-group mt-4">
+                    <label>{% trans "ملاحظات" %}</label>
+                    <textarea class="form-control-custom" rows="3" placeholder="{% trans 'أي ملاحظات إضافية عن القرض...' %}"></textarea>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <a href="{% url 'accounting:loans_dashboard' %}" class="btn-cancel">{% trans "إلغاء" %}</a>
+                <button type="submit" class="btn-submit">
+                    <i class="fas fa-save me-2"></i>
+                    {% trans "حفظ القرض" %}
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Recipient tabs
+    document.querySelectorAll('.recipient-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.recipient-tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+    
+    // Calculator
+    function calculate() {
+        const amount = parseFloat(document.getElementById('loanAmount').value) || 0;
+        const installments = parseInt(document.getElementById('installments').value) || 1;
+        const interest = parseFloat(document.getElementById('interestRate').value) || 0;
+        
+        const totalInterest = amount * (interest / 100) * (installments / 12);
+        const totalAmount = amount + totalInterest;
+        const installmentValue = totalAmount / installments;
+        
+        document.getElementById('installmentValue').textContent = installmentValue.toLocaleString('ar-SA', {maximumFractionDigits: 0});
+        document.getElementById('totalInterest').textContent = totalInterest.toLocaleString('ar-SA', {maximumFractionDigits: 0});
+        document.getElementById('totalAmount').textContent = totalAmount.toLocaleString('ar-SA', {maximumFractionDigits: 0});
+        
+        // Generate timeline
+        const timeline = document.getElementById('scheduleTimeline');
+        timeline.innerHTML = '';
+        const months = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+        const startDate = new Date();
+        
+        for (let i = 0; i < Math.min(installments, 6); i++) {
+            const date = new Date(startDate);
+            date.setMonth(date.getMonth() + i + 1);
+            
+            const item = document.createElement('div');
+            item.className = 'timeline-item';
+            item.innerHTML = `
+                <div class="month">${months[date.getMonth()]}</div>
+                <div class="amount">${installmentValue.toLocaleString('ar-SA', {maximumFractionDigits: 0})}</div>
+            `;
+            timeline.appendChild(item);
+        }
+        
+        if (installments > 6) {
+            const more = document.createElement('div');
+            more.className = 'timeline-item';
+            more.innerHTML = `<div class="amount">+${installments - 6} أقساط</div>`;
+            timeline.appendChild(more);
+        }
+    }
+    
+    document.querySelectorAll('#loanAmount, #installments, #interestRate').forEach(input => {
+        input.addEventListener('input', calculate);
+    });
+    
+    calculate();
+});
+</script>
+{% endblock %}
+

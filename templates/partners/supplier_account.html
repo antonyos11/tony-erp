@@ -1,0 +1,189 @@
+{% extends BASE_TEMPLATE %}
+{% load static humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">
+                <i class="bi bi-wallet2"></i> حساب المورد
+            </h2>
+            <p class="text-muted mb-0">{{ supplier.name }}</p>
+        </div>
+        <div>
+            <a href="{% url 'partners:suppliers_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-right"></i> رجوع
+            </a>
+        </div>
+    </div>
+
+    <!-- معلومات المورد -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <label class="small text-muted">الاسم</label>
+                    <div class="fw-bold">{{ supplier.name }}</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="small text-muted">الهاتف</label>
+                    <div>{{ supplier.phone|default:'-' }}</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="small text-muted">السجل التجاري</label>
+                    <div>{{ supplier.commercial_register|default:'-' }}</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="small text-muted">الرقم الضريبي</label>
+                    <div>{{ supplier.tax_number|default:'-' }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- الملخص المالي -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6 class="card-title">إجمالي الفواتير</h6>
+                    <h3 class="mb-0">{{ total_bills|floatformat:2|intcomma }} ج.م</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6 class="card-title">إجمالي المدفوعات</h6>
+                    <h3 class="mb-0">{{ total_payments|floatformat:2|intcomma }} ج.م</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card {% if balance > 0 %}bg-danger{% else %}bg-secondary{% endif %} text-white">
+                <div class="card-body">
+                    <h6 class="card-title">الرصيد المستحق</h6>
+                    <h3 class="mb-0">{{ balance|floatformat:2|intcomma }} ج.م</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-3" id="accountTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="bills-tab" data-bs-toggle="tab" data-bs-target="#bills" type="button">
+                <i class="bi bi-receipt"></i> الفواتير ({{ bills.count }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="payments-tab" data-bs-toggle="tab" data-bs-target="#payments" type="button">
+                <i class="bi bi-cash-coin"></i> الدفعات ({{ payments.count }})
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="accountTabsContent">
+        <!-- الفواتير -->
+        <div class="tab-pane fade show active" id="bills" role="tabpanel">
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>رقم الفاتورة</th>
+                                    <th>التاريخ</th>
+                                    <th>الإجمالي</th>
+                                    <th>المدفوع</th>
+                                    <th>المتبقي</th>
+                                    <th>الحالة</th>
+                                    <th>إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for bill in bills %}
+                                <tr>
+                                    <td>{{ bill.number }}</td>
+                                    <td>{{ bill.date|date:'Y-m-d' }}</td>
+                                    <td>{{ bill.total|floatformat:2|intcomma }}</td>
+                                    <td>{{ bill.paid|floatformat:2|intcomma }}</td>
+                                    <td>{{ bill.remaining|floatformat:2|intcomma }}</td>
+                                    <td>
+                                        {% if bill.remaining == 0 %}
+                                            <span class="badge bg-success">مدفوعة</span>
+                                        {% elif bill.paid > 0 %}
+                                            <span class="badge bg-warning">جزئية</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">غير مدفوعة</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'purchases:purchase_detail' bill.pk %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">لا توجد فواتير</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- الدفعات -->
+        <div class="tab-pane fade" id="payments" role="tabpanel">
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>رقم الإيصال</th>
+                                    <th>التاريخ</th>
+                                    <th>المبلغ</th>
+                                    <th>طريقة الدفع</th>
+                                    <th>الفاتورة</th>
+                                    <th>البيان</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in payments %}
+                                <tr>
+                                    <td>{{ payment.receipt_number }}</td>
+                                    <td>{{ payment.date|date:'Y-m-d H:i' }}</td>
+                                    <td class="fw-bold text-success">{{ payment.amount|floatformat:2|intcomma }}</td>
+                                    <td>{{ payment.payment_method.name|default:'-' }}</td>
+                                    <td>
+                                        {% if payment.bill %}
+                                            <a href="{% url 'purchases:purchase_detail' payment.bill.pk %}">
+                                                {{ payment.bill.number }}
+                                            </a>
+                                        {% else %}
+                                            <span class="text-muted">دفعة عامة</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ payment.description|default:'-' }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">لا توجد دفعات</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

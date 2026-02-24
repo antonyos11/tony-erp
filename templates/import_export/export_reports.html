@@ -1,0 +1,327 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تقارير التصدير{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- رأس الصفحة -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-1">
+                                <i class="fas fa-chart-bar me-2"></i>
+                                تقارير التصدير
+                            </h4>
+                            <p class="mb-0 opacity-75">إحصائيات وتحليلات عمليات التصدير</p>
+                        </div>
+                        <div>
+                            <a href="{% url 'import_export:export_to_csv' 'export_orders' %}" class="btn btn-light">
+                                <i class="fas fa-file-csv me-1"></i>
+                                تصدير CSV
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- بطاقات الإحصائيات -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="text-white-50">إجمالي الأوامر</h6>
+                            <h2 class="mb-0">{{ stats.total_orders|default:0 }}</h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-file-export fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="text-white-50">أوامر مكتملة</h6>
+                            <h2 class="mb-0">{{ stats.completed_orders|default:0 }}</h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-check-circle fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="text-dark opacity-75">أوامر معلقة</h6>
+                            <h2 class="mb-0">{{ stats.pending_orders|default:0 }}</h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-clock fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="text-white-50">إجمالي القيمة</h6>
+                            <h2 class="mb-0">{{ stats.total_value|floatformat:0|default:0 }}</h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-dollar-sign fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- فلترة التاريخ -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label">من تاريخ</label>
+                            <input type="date" name="date_from" class="form-control" value="{{ request.GET.date_from }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">إلى تاريخ</label>
+                            <input type="date" name="date_to" class="form-control" value="{{ request.GET.date_to }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">الحالة</label>
+                            <select name="status" class="form-select">
+                                <option value="">الكل</option>
+                                <option value="draft">مسودة</option>
+                                <option value="pending">قيد المراجعة</option>
+                                <option value="approved">معتمد</option>
+                                <option value="shipped">تم الشحن</option>
+                                <option value="delivered">تم التسليم</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-filter me-1"></i>تصفية
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- التوزيع حسب الحالة -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="fas fa-pie-chart me-2"></i>توزيع الأوامر حسب الحالة</h6>
+                </div>
+                <div class="card-body">
+                    {% for status in stats.by_status %}
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex align-items-center">
+                            <span class="badge me-2
+                                {% if status.status == 'draft' %}bg-secondary
+                                {% elif status.status == 'pending' %}bg-warning
+                                {% elif status.status == 'approved' %}bg-info
+                                {% elif status.status == 'shipped' %}bg-primary
+                                {% elif status.status == 'delivered' %}bg-success
+                                {% else %}bg-secondary{% endif %}">
+                                &nbsp;
+                            </span>
+                            <span>{{ status.status_display }}</span>
+                        </div>
+                        <span class="badge bg-light text-dark">{{ status.count }}</span>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted text-center">لا توجد بيانات</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- أفضل العملاء -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="fas fa-users me-2"></i>أفضل العملاء</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>العميل</th>
+                                    <th>عدد الأوامر</th>
+                                    <th>إجمالي القيمة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for customer in stats.top_customers %}
+                                <tr>
+                                    <td>{{ customer.name }}</td>
+                                    <td>{{ customer.orders_count }}</td>
+                                    <td>{{ customer.total_value|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted">لا توجد بيانات</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- التصدير حسب الشهر -->
+        <div class="col-md-8 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="fas fa-chart-line me-2"></i>التصدير حسب الشهر</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>الشهر</th>
+                                    <th>عدد الأوامر</th>
+                                    <th>القيمة الإجمالية</th>
+                                    <th>التغير</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for month in stats.by_month %}
+                                <tr>
+                                    <td>{{ month.month }}</td>
+                                    <td>{{ month.orders_count }}</td>
+                                    <td>{{ month.total_value|floatformat:2 }}</td>
+                                    <td>
+                                        {% if month.change > 0 %}
+                                        <span class="text-success">
+                                            <i class="fas fa-arrow-up"></i> {{ month.change }}%
+                                        </span>
+                                        {% elif month.change < 0 %}
+                                        <span class="text-danger">
+                                            <i class="fas fa-arrow-down"></i> {{ month.change_abs }}%
+                                        </span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">لا توجد بيانات</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- أفضل المنتجات المصدرة -->
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="fas fa-box me-2"></i>أكثر المنتجات تصديراً</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        {% for product in stats.top_products %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ product.name }}
+                            <span class="badge bg-primary rounded-pill">{{ product.quantity }}</span>
+                        </li>
+                        {% empty %}
+                        <li class="list-group-item text-center text-muted">لا توجد بيانات</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- وكلاء الشحن -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="fas fa-truck me-2"></i>أداء وكلاء الشحن</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>الوكيل</th>
+                                    <th>عدد الشحنات</th>
+                                    <th>متوسط وقت التسليم</th>
+                                    <th>نسبة التسليم في الوقت</th>
+                                    <th>تقييم</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for agent in stats.shipping_agents %}
+                                <tr>
+                                    <td><strong>{{ agent.name }}</strong></td>
+                                    <td>{{ agent.shipments_count }}</td>
+                                    <td>{{ agent.avg_delivery_time }} يوم</td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar bg-success" style="width: {{ agent.on_time_rate }}%;">
+                                                {{ agent.on_time_rate }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% for i in "12345" %}
+                                        {% if forloop.counter <= agent.rating %}
+                                        <i class="fas fa-star text-warning"></i>
+                                        {% else %}
+                                        <i class="far fa-star text-muted"></i>
+                                        {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">لا توجد بيانات</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

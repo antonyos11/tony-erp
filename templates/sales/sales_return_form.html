@@ -1,0 +1,390 @@
+﻿{% extends 'base_templates/_form_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% if form.instance.pk %}{% trans 'تعديل مرتجع' %}{% else %}{% trans 'مرتجع مبيعات جديد' %}{% endif %}{% endblock %}
+{% block form_hero_icon %}bi-arrow-return-left{% endblock %}
+{% block form_hero_title %}{% if form.instance.pk %}{% trans 'تعديل مرتجع مبيعات' %}{% else %}{% trans 'إنشاء مرتجع مبيعات' %}{% endif %}{% endblock %}
+{% block form_hero_subtitle %}{% if form.instance.pk %}{% trans 'تحديث بيانات المرتجع' %}{% else %}{% trans 'تسجيل مرتجع من العميل' %}{% endif %}{% endblock %}
+
+{% block form_content %}
+<style>
+  .invoice-selector {
+    background: var(--bg-card);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .invoice-selector:hover {
+    border-color: var(--primary);
+  }
+  .invoice-selector.selected {
+    border-color: var(--success);
+    background: rgba(16, 185, 129, 0.05);
+  }
+  .return-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    transition: var(--transition);
+  }
+  .return-item:hover {
+    border-color: var(--warning);
+  }
+  .return-item .product-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .return-item .product-icon {
+    width: 48px;
+    height: 48px;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+  }
+  .return-item .qty-control {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .return-item .qty-btn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .return-item .qty-btn:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+  .return-item .qty-input {
+    width: 60px;
+    text-align: center;
+  }
+  .reason-select {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .reason-option {
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    cursor: pointer;
+    text-align: center;
+    transition: var(--transition);
+  }
+  .reason-option:hover {
+    border-color: var(--primary);
+  }
+  .reason-option.selected {
+    border-color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.1);
+  }
+  .reason-option i {
+    display: block;
+    font-size: 1.25rem;
+    margin-bottom: 0.25rem;
+  }
+  .return-summary {
+    background: linear-gradient(135deg, #fef3cd 0%, #fff3cd 100%);
+    border: 2px solid #f59e0b;
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    text-align: center;
+  }
+  .return-summary .amount {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #b45309;
+  }
+</style>
+
+<form method="post" id="return-form" novalidate>
+  {% csrf_token %}
+
+  <!-- Invoice Selection -->
+  <div class="form-section">
+    <div class="section-header">
+      <i class="bi bi-receipt section-icon"></i>
+      <div class="section-title">{% trans 'اختيار الفاتورة الأصلية' %}</div>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">{% trans 'رقم الفاتورة' %} <span class="text-danger">*</span></label>
+        <select name="invoice" id="invoice-select" class="form-select" required>
+          <option value="">{% trans 'اختر الفاتورة...' %}</option>
+          {% for invoice in invoices %}
+          <option value="{{ invoice.pk }}"
+            data-customer="{{ invoice.customer.name }}"
+            data-date="{ invoice.date|date:'Y/m/d' }}"
+            data-total="{ invoice.total }">
+            {{ invoice.invoice_number }} - {{ invoice.customer.name }} ({{ invoice.total|floatformat:2 }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">{% trans 'تاريخ المرتجع' %}</label>
+        <input type="date" name="date" class="form-control" value="{ today|date:'Y-m-d' }}" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">{% trans 'رقم المرتجع' %}</label>
+        <input type="text" name="return_number" class="form-control" value="{ next_number }}" readonly>
+      </div>
+    </div>
+
+    <!-- Invoice Info (shown when invoice selected) -->
+    <div id="invoice-info" class="invoice-selector selected mt-3" style="display: none;">
+      <div class="row align-items-center">
+        <div class="col">
+          <div class="fw-bold text-primary" id="invoice-number-display"></div>
+          <div class="small text-muted">
+            <span id="invoice-customer-display"></span> | <span id="invoice-date-display"></span>
+          </div>
+        </div>
+        <div class="col-auto">
+          <span class="badge bg-primary fs-6" id="invoice-total-display"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Return Reason -->
+  <div class="form-section">
+    <div class="section-header">
+      <i class="bi bi-question-circle section-icon"></i>
+      <div class="section-title">{% trans 'سبب الإرجاع' %}</div>
+    </div>
+    <div class="reason-select">
+      <label class="reason-option">
+        <input type="radio" name="reason" value="defective" hidden>
+        <i class="bi bi-x-circle text-danger"></i>
+        <span>{% trans 'عيب صناعي' %}</span>
+      </label>
+      <label class="reason-option selected">
+        <input type="radio" name="reason" value="wrong_item" checked hidden>
+        <i class="bi bi-arrow-left-right text-warning"></i>
+        <span>{% trans 'صنف خاطئ' %}</span>
+      </label>
+      <label class="reason-option">
+        <input type="radio" name="reason" value="damaged" hidden>
+        <i class="bi bi-exclamation-triangle text-danger"></i>
+        <span>{% trans 'تالف' %}</span>
+      </label>
+      <label class="reason-option">
+        <input type="radio" name="reason" value="not_needed" hidden>
+        <i class="bi bi-dash-circle text-secondary"></i>
+        <span>{% trans 'غير مطلوب' %}</span>
+      </label>
+      <label class="reason-option">
+        <input type="radio" name="reason" value="other" hidden>
+        <i class="bi bi-three-dots text-muted"></i>
+        <span>{% trans 'أخرى' %}</span>
+      </label>
+    </div>
+    <textarea name="reason_details" class="form-control" rows="2" placeholder="{% trans 'تفاصيل إضافية عن سبب الإرجاع...' %}"></textarea>
+  </div>
+
+  <!-- Items to Return -->
+  <div class="form-section">
+    <div class="section-header">
+      <i class="bi bi-box-seam section-icon"></i>
+      <div class="section-title">{% trans 'الأصناف المرتجعة' %}</div>
+    </div>
+    
+    <div id="items-container">
+      <div class="text-center text-muted py-4">
+        <i class="bi bi-box fs-1 d-block mb-2"></i>
+        {% trans 'اختر الفاتورة لعرض الأصناف المتاحة للإرجاع' %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Return Summary -->
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="form-section">
+        <div class="section-header">
+          <i class="bi bi-wallet2 section-icon"></i>
+          <div class="section-title">{% trans 'طريقة الاسترداد' %}</div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">{% trans 'نوع الاسترداد' %}</label>
+            <select name="refund_method" class="form-select">
+              <option value="credit">{% trans 'خصم من الرصيد' %}</option>
+              <option value="cash">{% trans 'استرداد نقدي' %}</option>
+              <option value="replacement">{% trans 'استبدال' %}</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">{% trans 'إعادة للمخزون' %}</label>
+            <select name="restock" class="form-select">
+              <option value="yes">{% trans 'نعم - إضافة للمخزون' %}</option>
+              <option value="no">{% trans 'لا - تالف' %}</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="return-summary">
+        <div class="small text-muted mb-1">{% trans 'إجمالي قيمة المرتجع' %}</div>
+        <div class="amount" id="return-total">0.00</div>
+        <input type="hidden" name="total" id="total-input" value="0">
+      </div>
+    </div>
+  </div>
+
+  <!-- Notes -->
+  <div class="form-section">
+    <div class="section-header">
+      <i class="bi bi-sticky section-icon"></i>
+      <div class="section-title">{% trans 'ملاحظات' %}</div>
+    </div>
+    <textarea name="notes" class="form-control" rows="2" placeholder="{% trans 'ملاحظات إضافية...' %}"></textarea>
+  </div>
+</form>
+{% endblock %}
+
+{% block form_actions_left %}
+<a href="{% url 'sales:sales_return_list' %}" class="btn btn-outline-secondary">
+  <i class="bi bi-x-circle me-1"></i>{% trans 'إلغاء' %}
+</a>
+{% endblock %}
+
+{% block form_actions_right %}
+<button type="submit" form="return-form" class="btn btn-warning">
+  <i class="bi bi-check-circle me-1"></i>{% trans 'تسجيل المرتجع' %}
+</button>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Reason selection
+  document.querySelectorAll('.reason-option').forEach(option => {
+    option.addEventListener('click', function() {
+      document.querySelectorAll('.reason-option').forEach(o => o.classList.remove('selected'));
+      this.classList.add('selected');
+      this.querySelector('input').checked = true;
+    });
+  });
+
+  // Invoice selection
+  document.getElementById('invoice-select').addEventListener('change', function() {
+    const option = this.options[this.selectedIndex];
+    const infoDiv = document.getElementById('invoice-info');
+    
+    if (this.value) {
+      infoDiv.style.display = 'block';
+      document.getElementById('invoice-number-display').textContent = option.text.split(' - ')[0];
+      document.getElementById('invoice-customer-display').textContent = option.dataset.customer;
+      document.getElementById('invoice-date-display').textContent = option.dataset.date;
+      document.getElementById('invoice-total-display').textContent = parseFloat(option.dataset.total).toFixed(2);
+      
+      // Load invoice items (AJAX in real implementation)
+      loadInvoiceItems(this.value);
+    } else {
+      infoDiv.style.display = 'none';
+    }
+  });
+
+  function loadInvoiceItems(invoiceId) {
+    const container = document.getElementById('items-container');
+    // This would be AJAX in real implementation
+    container.innerHTML = `
+      <div class="return-item">
+        <div class="row align-items-center">
+          <div class="col-md-5">
+            <div class="product-info">
+              <div class="product-icon"><i class="bi bi-box"></i></div>
+              <div>
+                <div class="fw-medium">{% trans 'منتج عينة 1' %}</div>
+                <div class="small text-muted">{% trans 'الكمية المباعة' %}: 5 | {% trans 'السعر' %}: 100.00</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small">{% trans 'كمية الإرجاع' %}</label>
+            <div class="qty-control">
+              <button type="button" class="qty-btn" onclick="adjustQty(this, -1)">-</button>
+              <input type="number" name="items[0][qty]" class="form-control qty-input item-qty" value="0" min="0" max="5" onchange="calculateTotal()">
+              <button type="button" class="qty-btn" onclick="adjustQty(this, 1)">+</button>
+              <input type="hidden" name="items[0][product_id]" value="1">
+              <input type="hidden" name="items[0][price]" class="item-price" value="100">
+            </div>
+          </div>
+          <div class="col-md-3 text-end">
+            <div class="small text-muted">{% trans 'المبلغ' %}</div>
+            <div class="fw-bold item-subtotal">0.00</div>
+          </div>
+        </div>
+      </div>
+      <div class="return-item">
+        <div class="row align-items-center">
+          <div class="col-md-5">
+            <div class="product-info">
+              <div class="product-icon"><i class="bi bi-box"></i></div>
+              <div>
+                <div class="fw-medium">{% trans 'منتج عينة 2' %}</div>
+                <div class="small text-muted">{% trans 'الكمية المباعة' %}: 3 | {% trans 'السعر' %}: 250.00</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small">{% trans 'كمية الإرجاع' %}</label>
+            <div class="qty-control">
+              <button type="button" class="qty-btn" onclick="adjustQty(this, -1)">-</button>
+              <input type="number" name="items[1][qty]" class="form-control qty-input item-qty" value="0" min="0" max="3" onchange="calculateTotal()">
+              <button type="button" class="qty-btn" onclick="adjustQty(this, 1)">+</button>
+              <input type="hidden" name="items[1][product_id]" value="2">
+              <input type="hidden" name="items[1][price]" class="item-price" value="250">
+            </div>
+          </div>
+          <div class="col-md-3 text-end">
+            <div class="small text-muted">{% trans 'المبلغ' %}</div>
+            <div class="fw-bold item-subtotal">0.00</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function adjustQty(btn, delta) {
+    const input = btn.parentElement.querySelector('.qty-input');
+    let val = parseInt(input.value) || 0;
+    val = Math.max(parseInt(input.min), Math.min(parseInt(input.max), val + delta));
+    input.value = val;
+    calculateTotal();
+  }
+
+  function calculateTotal() {
+    let total = 0;
+    document.querySelectorAll('.return-item').forEach(row => {
+      const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+      const price = parseFloat(row.querySelector('.item-price').value) || 0;
+      const subtotal = qty * price;
+      row.querySelector('.item-subtotal').textContent = subtotal.toFixed(2);
+      total += subtotal;
+    });
+    document.getElementById('return-total').textContent = total.toFixed(2);
+    document.getElementById('total-input').value = total.toFixed(2);
+  }
+</script>
+{% endblock %}
+

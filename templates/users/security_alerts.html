@@ -1,0 +1,92 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load i18n %}
+{% block title %}{% trans 'التنبيهات الأمنية' %}{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="fa fa-shield-alt me-2"></i>{% trans 'التنبيهات الأمنية' %}</h3>
+    <a href="{% url 'users:dashboard' %}" class="btn btn-outline-secondary"><i class="fa fa-arrow-right"></i> {% trans 'رجوع' %}</a>
+  </div>
+  <form method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-md-3">
+      <label class="form-label">{% trans 'النوع' %}</label>
+      <select name="type" class="form-select">
+        <option value="">-- {% trans 'الكل' %} --</option>
+        {% for val,label in alert_types %}
+          <option value="{{ val }}" {% if selected_type == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">{% trans 'الحالة' %}</label>
+      <select name="resolved" class="form-select">
+        <option value="">-- {% trans 'الكل' %} --</option>
+        <option value="false" {% if selected_resolved == 'false' %}selected{% endif %}>{% trans 'غير محلول' %}</option>
+        <option value="true" {% if selected_resolved == 'true' %}selected{% endif %}>{% trans 'محلول' %}</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-primary w-100">{% trans 'تصفية' %}</button>
+    </div>
+  </form>
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-sm table-striped mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>{% trans 'التاريخ' %}</th>
+            <th>{% trans 'المستخدم' %}</th>
+            <th>{% trans 'النوع' %}</th>
+            <th>{% trans 'الوصف' %}</th>
+            <th>{% trans 'الحالة' %}</th>
+            <th style="width:110px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for alert in page_obj %}
+          <tr class="{% if not alert.is_resolved %}table-warning{% endif %}">
+            <td>{{ alert.timestamp|date:'Y-m-d H:i' }}</td>
+            <td>{{ alert.user.get_full_name|default:alert.user.username }}</td>
+            <td>{{ alert.get_alert_type_display }}</td>
+            <td>{{ alert.description|default:_('لا يوجد') }}</td>
+            <td>
+              {% if alert.is_resolved %}
+                <span class="badge bg-success">{% trans 'محلول' %}</span>
+              {% else %}
+                <span class="badge bg-danger">{% trans 'غير محلول' %}</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if not alert.is_resolved %}
+                <a href="{% url 'users:resolve_alert' alert.id %}" class="btn btn-sm btn-outline-success" onclick="return confirm('{% trans 'تأكيد حل التنبيه؟' %}')">{% trans 'حل' %}</a>
+              {% else %}
+                <span class="text-muted small">{% trans 'تم الحل' %}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-center text-muted py-4">{% trans 'لا توجد تنبيهات' %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if page_obj.has_other_pages %}
+    <div class="card-footer">
+      <nav>
+        <ul class="pagination pagination-sm mb-0 justify-content-center">
+          {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page=1{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_resolved %}&resolved={{ selected_resolved }}{% endif %}">&laquo;</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_resolved %}&resolved={{ selected_resolved }}{% endif %}">&lsaquo;</a></li>
+          {% endif %}
+          <li class="page-item active"><span class="page-link">{{ page_obj.number }}/{{ page_obj.paginator.num_pages }}</span></li>
+          {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_resolved %}&resolved={{ selected_resolved }}{% endif %}">&rsaquo;</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_resolved %}&resolved={{ selected_resolved }}{% endif %}">&raquo;</a></li>
+          {% endif %}
+        </ul>
+      </nav>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

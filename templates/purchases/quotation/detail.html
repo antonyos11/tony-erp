@@ -1,0 +1,325 @@
+﻿{% extends 'base_templates/_detail_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'تفاصيل عرض السعر' %}{% endblock %}
+{% block hero_icon %}bi-file-earmark-text{% endblock %}
+{% block hero_title %}{% trans 'عرض السعر' %} - {{ quotation.quotation_number }}{% endblock %}
+{% block hero_subtitle %}{% trans 'من المورد' %}: {{ quotation.supplier.name }}{% endblock %}
+
+{% block hero_badge %}
+{% if quotation.is_expired %}
+<span class="badge bg-danger">{% trans 'منتهي الصلاحية' %}</span>
+{% elif quotation.status == 'pending' %}
+<span class="badge bg-warning text-dark">{% trans 'قيد المراجعة' %}</span>
+{% elif quotation.status == 'approved' %}
+<span class="badge bg-success">{% trans 'معتمد' %}</span>
+{% elif quotation.status == 'rejected' %}
+<span class="badge bg-danger">{% trans 'مرفوض' %}</span>
+{% else %}
+<span class="badge bg-secondary">{{ quotation.get_status_display }}</span>
+{% endif %}
+{% endblock %}
+
+{% block hero_actions %}
+<a href="{% url 'purchases:quotation_edit' quotation.pk %}" class="btn btn-outline-light">
+  <i class="bi bi-pencil me-1"></i>{% trans 'تعديل' %}
+</a>
+<a href="{% url 'purchases:create_po_from_quotation' quotation.pk %}" class="btn btn-light">
+  <i class="bi bi-cart-plus me-1"></i>{% trans 'إنشاء أمر شراء' %}
+</a>
+{% endblock %}
+
+{% block back_url %}{% url 'purchases:quotation_list' %}{% endblock %}
+
+{% block detail_styles %}
+<style>
+.validity-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+}
+.validity-status.valid {
+  background: rgba(25,135,84,0.1);
+  color: #198754;
+}
+.validity-status.expiring {
+  background: rgba(255,193,7,0.15);
+  color: #997404;
+}
+.validity-status.expired {
+  background: rgba(220,53,69,0.1);
+  color: #dc3545;
+}
+.supplier-card {
+  background: linear-gradient(135deg, var(--color-brand-primary) 0%, #2d5a8a 100%);
+  border-radius: 12px;
+  padding: 1.25rem;
+  color: white;
+  margin-bottom: 1.5rem;
+}
+.supplier-card .supplier-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+.supplier-card .supplier-info {
+  opacity: 0.9;
+  font-size: 0.875rem;
+}
+.supplier-card .supplier-contact {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+}
+.supplier-card .supplier-contact span {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.terms-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+}
+.term-item {
+  background: var(--bs-tertiary-bg);
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+}
+.term-item .term-label {
+  font-size: 0.75rem;
+  color: var(--bs-secondary-color);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.term-item .term-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-brand-primary);
+}
+.compare-link {
+  background: linear-gradient(135deg, rgba(var(--color-brand-accent-rgb),0.1) 0%, rgba(var(--color-brand-accent-rgb),0.05) 100%);
+  border: 1px dashed var(--color-brand-accent);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+.compare-link span {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-brand-accent);
+}
+</style>
+{% endblock %}
+
+{% block info_cards %}
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon primary">
+      <i class="bi bi-hash"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'رقم العرض' %}</div>
+      <div class="info-value">{{ quotation.quotation_number }}</div>
+    </div>
+  </div>
+</div>
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon success">
+      <i class="bi bi-calendar-check"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'تاريخ العرض' %}</div>
+      <div class="info-value">{{ quotation.quotation_date|date:"Y/m/d" }}</div>
+    </div>
+  </div>
+</div>
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon {% if quotation.is_expired %}danger{% else %}warning{% endif %}">
+      <i class="bi bi-calendar-event"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'صالح حتى' %}</div>
+      <div class="info-value">{{ quotation.valid_until|date:"Y/m/d"|default:"-" }}</div>
+    </div>
+  </div>
+</div>
+<div class="col-md-6 col-lg-3">
+  <div class="info-card">
+    <div class="info-icon accent">
+      <i class="bi bi-cash-stack"></i>
+    </div>
+    <div class="info-content">
+      <div class="info-label">{% trans 'إجمالي العرض' %}</div>
+      <div class="info-value">{{ quotation.total|floatformat:2 }} {% trans 'ج.م' %}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block main_content %}
+{# Validity Status #}
+<div class="mb-4 text-center">
+  {% if quotation.is_expired %}
+  <span class="validity-status expired">
+    <i class="bi bi-x-circle"></i>
+    {% trans 'هذا العرض منتهي الصلاحية' %}
+  </span>
+  {% elif quotation.days_until_expiry <= 7 %}
+  <span class="validity-status expiring">
+    <i class="bi bi-exclamation-circle"></i>
+    {% trans 'ينتهي خلال' %} {{ quotation.days_until_expiry }} {% trans 'أيام' %}
+  </span>
+  {% else %}
+  <span class="validity-status valid">
+    <i class="bi bi-check-circle"></i>
+    {% trans 'العرض ساري المفعول' %}
+  </span>
+  {% endif %}
+</div>
+
+{# Supplier Card #}
+<div class="supplier-card">
+  <div class="supplier-name">
+    <i class="bi bi-building me-2"></i>{{ quotation.supplier.name }}
+  </div>
+  <div class="supplier-info">{{ quotation.supplier.address|default:'' }}</div>
+  <div class="supplier-contact">
+    {% if quotation.supplier.phone %}
+    <span><i class="bi bi-telephone"></i> {{ quotation.supplier.phone }}</span>
+    {% endif %}
+    {% if quotation.supplier.email %}
+    <span><i class="bi bi-envelope"></i> {{ quotation.supplier.email }}</span>
+    {% endif %}
+  </div>
+</div>
+
+{# Terms Grid #}
+<div class="terms-grid mb-4">
+  <div class="term-item">
+    <div class="term-label">{% trans 'شروط الدفع' %}</div>
+    <div class="term-value">{{ quotation.get_payment_terms_display|default:"-" }}</div>
+  </div>
+  <div class="term-item">
+    <div class="term-label">{% trans 'مدة التوريد' %}</div>
+    <div class="term-value">{{ quotation.delivery_days|default:"-" }} {% trans 'يوم' %}</div>
+  </div>
+  <div class="term-item">
+    <div class="term-label">{% trans 'عدد الأصناف' %}</div>
+    <div class="term-value">{{ quotation.items.count }}</div>
+  </div>
+  <div class="term-item">
+    <div class="term-label">{% trans 'طلب الشراء' %}</div>
+    <div class="term-value">{{ quotation.purchase_request.pr_number|default:"-" }}</div>
+  </div>
+</div>
+
+{# Items Table #}
+<div class="items-section mb-4">
+  <h5 class="section-title">
+    <i class="bi bi-box-seam me-2"></i>{% trans 'أصناف العرض' %}
+  </h5>
+  
+  <div class="table-responsive">
+    <table class="table pro-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>{% trans 'الصنف' %}</th>
+          <th class="text-center">{% trans 'الكمية' %}</th>
+          <th class="text-center">{% trans 'الوحدة' %}</th>
+          <th class="text-end">{% trans 'سعر الوحدة' %}</th>
+          <th class="text-center">{% trans 'الخصم' %}</th>
+          <th class="text-end">{% trans 'الإجمالي' %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in quotation.items.all %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>
+            <div class="fw-medium">{{ item.product.name }}</div>
+            <div class="small text-muted">{{ item.product.code }}</div>
+          </td>
+          <td class="text-center">{{ item.quantity }}</td>
+          <td class="text-center">{{ item.product.unit }}</td>
+          <td class="text-end">{{ item.unit_price|floatformat:2 }}</td>
+          <td class="text-center">
+            {% if item.discount_percent %}
+            <span class="badge bg-success">{{ item.discount_percent }}%</span>
+            {% else %}-{% endif %}
+          </td>
+          <td class="text-end fw-medium">{{ item.line_total|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="text-center text-muted py-4">
+            {% trans 'لا توجد أصناف' %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="table-light">
+          <td colspan="6" class="text-end fw-bold">{% trans 'الإجمالي' %}</td>
+          <td class="text-end fw-bold text-primary fs-5">{{ quotation.total|floatformat:2 }} {% trans 'ج.م' %}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  
+  {# Compare Link #}
+  {% if quotation.purchase_request %}
+  <div class="compare-link">
+    <span>
+      <i class="bi bi-arrow-left-right"></i>
+      {% trans 'قارن مع عروض أخرى لنفس طلب الشراء' %}
+    </span>
+    <a href="{% url 'purchases:quotation_compare' %}?pr={{ quotation.purchase_request.pk }}" class="btn btn-sm btn-outline-primary">
+      <i class="bi bi-columns-gap me-1"></i>{% trans 'مقارنة' %}
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+{# Notes #}
+{% if quotation.notes %}
+<div class="info-section">
+  <h5 class="section-title">
+    <i class="bi bi-sticky me-2"></i>{% trans 'ملاحظات' %}
+  </h5>
+  <div class="p-3 bg-body-tertiary rounded-3">
+    <p class="mb-0">{{ quotation.notes }}</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block bottom_actions %}
+<a href="{% url 'purchases:quotation_list' %}" class="btn btn-outline-secondary">
+  <i class="bi bi-arrow-right me-1"></i>{% trans 'رجوع' %}
+</a>
+<div class="d-flex gap-2">
+  <button type="button" class="btn btn-outline-primary" onclick="window.print()">
+    <i class="bi bi-printer me-1"></i>{% trans 'طباعة' %}
+  </button>
+  {% if quotation.status == 'pending' %}
+  <a href="{% url 'purchases:create_po_from_quotation' quotation.pk %}" class="btn btn-success">
+    <i class="bi bi-cart-plus me-1"></i>{% trans 'إنشاء أمر شراء' %}
+  </a>
+  {% endif %}
+</div>
+{% endblock %}
+

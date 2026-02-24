@@ -1,0 +1,520 @@
+﻿{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "كشف حساب العميل" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+    }
+    
+    .statement-container {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        overflow: hidden;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    
+    /* Header Section */
+    .statement-header {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+        padding: 2rem;
+    }
+    
+    .company-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+    
+    .company-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .company-logo {
+        width: 60px;
+        height: 60px;
+        background: white;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--primary-color);
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    
+    .company-name {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin: 0;
+    }
+    
+    .company-tagline {
+        font-size: 0.9rem;
+        opacity: 0.8;
+    }
+    
+    .print-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+    
+    .btn-print {
+        padding: 0.6rem 1.25rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        background: rgba(255,255,255,0.2);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+    
+    .btn-print:hover {
+        background: rgba(255,255,255,0.3);
+        color: white;
+    }
+    
+    .statement-title {
+        text-align: center;
+        padding: 1.5rem 0;
+        border-top: 1px solid rgba(255,255,255,0.2);
+        margin-top: 1rem;
+    }
+    
+    .statement-title h2 {
+        margin: 0 0 0.5rem;
+        font-size: 1.5rem;
+    }
+    
+    .period-range {
+        font-size: 0.95rem;
+        opacity: 0.9;
+    }
+    
+    /* Customer Info Section */
+    .customer-section {
+        background: #f8f9fa;
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .customer-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+    
+    .customer-box {
+        background: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    
+    .customer-box h4 {
+        margin: 0 0 1rem;
+        color: var(--primary-color);
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px dashed #e9ecef;
+    }
+    
+    .info-row:last-child { border-bottom: none; }
+    
+    .info-label { color: #6c757d; font-size: 0.9rem; }
+    .info-value { font-weight: 600; color: var(--primary-color); }
+    
+    /* Balance Summary */
+    .balance-summary {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        padding: 1.5rem 2rem;
+        background: white;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .balance-item {
+        text-align: center;
+        padding: 1rem;
+        border-radius: 10px;
+    }
+    
+    .balance-item.opening { background: rgba(108, 117, 125, 0.1); }
+    .balance-item.transactions { background: rgba(0, 212, 170, 0.1); }
+    .balance-item.closing { background: rgba(30, 58, 95, 0.1); }
+    
+    .balance-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+    }
+    
+    .balance-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    
+    .balance-item.opening .balance-value { color: #6c757d; }
+    .balance-item.transactions .balance-value { color: var(--accent-color); }
+    .balance-item.closing .balance-value { color: var(--primary-color); }
+    
+    .balance-type {
+        font-size: 0.8rem;
+        margin-top: 0.25rem;
+    }
+    
+    .balance-type.debit { color: var(--success-color); }
+    .balance-type.credit { color: var(--danger-color); }
+    
+    /* Transactions Table */
+    .transactions-section {
+        padding: 1.5rem 2rem;
+    }
+    
+    .transactions-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .transactions-table th {
+        padding: 1rem;
+        background: #f8f9fa;
+        font-weight: 600;
+        color: var(--primary-color);
+        text-align: right;
+        border-bottom: 2px solid #e9ecef;
+        font-size: 0.9rem;
+    }
+    
+    .transactions-table td {
+        padding: 1rem;
+        border-bottom: 1px solid #e9ecef;
+        font-size: 0.95rem;
+    }
+    
+    .transactions-table tr:hover {
+        background: rgba(0, 212, 170, 0.03);
+    }
+    
+    .tx-date {
+        color: #6c757d;
+        white-space: nowrap;
+    }
+    
+    .tx-ref {
+        font-family: monospace;
+        background: #f8f9fa;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+    }
+    
+    .tx-desc { color: var(--primary-color); }
+    
+    .tx-debit { color: var(--success-color); font-weight: 600; }
+    .tx-credit { color: var(--danger-color); font-weight: 600; }
+    .tx-balance { font-weight: 700; color: var(--primary-color); }
+    
+    /* Footer Summary */
+    .statement-footer {
+        background: #f8f9fa;
+        padding: 1.5rem 2rem;
+        border-top: 2px solid #e9ecef;
+    }
+    
+    .footer-totals {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .total-item {
+        text-align: center;
+    }
+    
+    .total-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+    
+    .total-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+    }
+    
+    .total-value.debit { color: var(--success-color); }
+    .total-value.credit { color: var(--danger-color); }
+    .total-value.balance { color: var(--primary-color); }
+    
+    .statement-notes {
+        margin-top: 1.5rem;
+        padding-top: 1rem;
+        border-top: 1px dashed #dee2e6;
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .statement-notes ul {
+        margin: 0;
+        padding-right: 1.25rem;
+    }
+    
+    .print-date {
+        text-align: center;
+        margin-top: 1rem;
+        font-size: 0.85rem;
+        color: #adb5bd;
+    }
+    
+    @media print {
+        .print-actions { display: none; }
+        .statement-container { box-shadow: none; }
+    }
+    
+    [data-bs-theme="dark"] .statement-container {
+        background: #1a1d21;
+    }
+    
+    [data-bs-theme="dark"] .customer-section,
+    [data-bs-theme="dark"] .statement-footer,
+    [data-bs-theme="dark"] .transactions-table th {
+        background: #2d3238;
+    }
+    
+    [data-bs-theme="dark"] .customer-box {
+        background: #1a1d21;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="statement-container">
+        <!-- Header -->
+        <div class="statement-header">
+            <div class="company-row">
+                <div class="company-info">
+                    <div class="company-logo">ك</div>
+                    <div>
+                        <h1 class="company-name">{% trans "شركة كيانات التجارية" %}</h1>
+                        <div class="company-tagline">{% trans "للتوريدات والخدمات المتكاملة" %}</div>
+                    </div>
+                </div>
+                <div class="print-actions">
+                    <a href="#" class="btn-print" onclick="window.print()">
+                        <i class="fas fa-print"></i>
+                        {% trans "طباعة" %}
+                    </a>
+                    <a href="#" class="btn-print">
+                        <i class="fas fa-download"></i>
+                        {% trans "PDF" %}
+                    </a>
+                </div>
+            </div>
+            
+            <div class="statement-title">
+                <h2>
+                    <i class="fas fa-file-alt me-2"></i>
+                    {% trans "كشف حساب العميل" %}
+                </h2>
+                <div class="period-range">
+                    {% trans "الفترة من" %} 01/01/2025 {% trans "إلى" %} 30/06/2025
+                </div>
+            </div>
+        </div>
+        
+        <!-- Customer Info -->
+        <div class="customer-section">
+            <div class="customer-grid">
+                <div class="customer-box">
+                    <h4>
+                        <i class="fas fa-user"></i>
+                        {% trans "بيانات العميل" %}
+                    </h4>
+                    <div class="info-row">
+                        <span class="info-label">{% trans "الاسم" %}</span>
+                        <span class="info-value">{% trans "شركة الأمل للمقاولات" %}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{% trans "الكود" %}</span>
+                        <span class="info-value">CUS-0045</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{% trans "الهاتف" %}</span>
+                        <span class="info-value">0512345678</span>
+                    </div>
+                </div>
+                <div class="customer-box">
+                    <h4>
+                        <i class="fas fa-map-marker-alt"></i>
+                        {% trans "بيانات التواصل" %}
+                    </h4>
+                    <div class="info-row">
+                        <span class="info-label">{% trans "العنوان" %}</span>
+                        <span class="info-value">{% trans "الرياض - حي الملز" %}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{% trans "البريد" %}</span>
+                        <span class="info-value">info@alamal.sa</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{% trans "الرقم الضريبي" %}</span>
+                        <span class="info-value">300123456789003</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Balance Summary -->
+        <div class="balance-summary">
+            <div class="balance-item opening">
+                <div class="balance-label">{% trans "الرصيد الافتتاحي" %}</div>
+                <div class="balance-value">25,000</div>
+                <div class="balance-type debit">{% trans "مدين" %}</div>
+            </div>
+            <div class="balance-item transactions">
+                <div class="balance-label">{% trans "حركة الفترة" %}</div>
+                <div class="balance-value">+85,500</div>
+                <div class="balance-type debit">{% trans "صافي مدين" %}</div>
+            </div>
+            <div class="balance-item closing">
+                <div class="balance-label">{% trans "الرصيد الختامي" %}</div>
+                <div class="balance-value">110,500</div>
+                <div class="balance-type debit">{% trans "مدين" %}</div>
+            </div>
+        </div>
+        
+        <!-- Transactions Table -->
+        <div class="transactions-section">
+            <div class="table-responsive"><table class="transactions-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "التاريخ" %}</th>
+                        <th>{% trans "المرجع" %}</th>
+                        <th>{% trans "البيان" %}</th>
+                        <th>{% trans "مدين" %}</th>
+                        <th>{% trans "دائن" %}</th>
+                        <th>{% trans "الرصيد" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="tx-date">01/01/2025</td>
+                        <td><span class="tx-ref">-</span></td>
+                        <td class="tx-desc">{% trans "رصيد افتتاحي" %}</td>
+                        <td class="tx-debit">-</td>
+                        <td class="tx-credit">-</td>
+                        <td class="tx-balance">25,000</td>
+                    </tr>
+                    <tr>
+                        <td class="tx-date">15/01/2025</td>
+                        <td><span class="tx-ref">INV-2025-0012</span></td>
+                        <td class="tx-desc">{% trans "فاتورة مبيعات" %}</td>
+                        <td class="tx-debit">45,000</td>
+                        <td class="tx-credit">-</td>
+                        <td class="tx-balance">70,000</td>
+                    </tr>
+                    <tr>
+                        <td class="tx-date">28/01/2025</td>
+                        <td><span class="tx-ref">REC-2025-0008</span></td>
+                        <td class="tx-desc">{% trans "سند قبض - تحويل بنكي" %}</td>
+                        <td class="tx-debit">-</td>
+                        <td class="tx-credit">20,000</td>
+                        <td class="tx-balance">50,000</td>
+                    </tr>
+                    <tr>
+                        <td class="tx-date">10/02/2025</td>
+                        <td><span class="tx-ref">INV-2025-0045</span></td>
+                        <td class="tx-desc">{% trans "فاتورة مبيعات" %}</td>
+                        <td class="tx-debit">32,500</td>
+                        <td class="tx-credit">-</td>
+                        <td class="tx-balance">82,500</td>
+                    </tr>
+                    <tr>
+                        <td class="tx-date">25/02/2025</td>
+                        <td><span class="tx-ref">REC-2025-0025</span></td>
+                        <td class="tx-desc">{% trans "سند قبض - شيك رقم 12456" %}</td>
+                        <td class="tx-debit">-</td>
+                        <td class="tx-credit">15,000</td>
+                        <td class="tx-balance">67,500</td>
+                    </tr>
+                    <tr>
+                        <td class="tx-date">15/03/2025</td>
+                        <td><span class="tx-ref">INV-2025-0089</span></td>
+                        <td class="tx-desc">{% trans "فاتورة مبيعات" %}</td>
+                        <td class="tx-debit">55,000</td>
+                        <td class="tx-credit">-</td>
+                        <td class="tx-balance">122,500</td>
+                    </tr>
+                    <tr>
+                        <td class="tx-date">30/03/2025</td>
+                        <td><span class="tx-ref">REC-2025-0042</span></td>
+                        <td class="tx-desc">{% trans "سند قبض - نقداً" %}</td>
+                        <td class="tx-debit">-</td>
+                        <td class="tx-credit">12,000</td>
+                        <td class="tx-balance">110,500</td>
+                    </tr>
+                </tbody>
+            </table></div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="statement-footer">
+            <div class="footer-totals">
+                <div class="total-item">
+                    <div class="total-label">{% trans "إجمالي المدين" %}</div>
+                    <div class="total-value debit">132,500</div>
+                </div>
+                <div class="total-item">
+                    <div class="total-label">{% trans "إجمالي الدائن" %}</div>
+                    <div class="total-value credit">47,000</div>
+                </div>
+                <div class="total-item">
+                    <div class="total-label">{% trans "الرصيد النهائي" %}</div>
+                    <div class="total-value balance">110,500 {% trans "مدين" %}</div>
+                </div>
+            </div>
+            
+            <div class="statement-notes">
+                <ul>
+                    <li>{% trans "هذا الكشف صادر آلياً من نظام الشامل ERP" %}</li>
+                    <li>{% trans "للاستفسار يرجى التواصل على: info@kayanac.com" %}</li>
+                </ul>
+            </div>
+            
+            <div class="print-date">
+                {% trans "تاريخ الطباعة:" %} {% now "d/m/Y H:i" %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

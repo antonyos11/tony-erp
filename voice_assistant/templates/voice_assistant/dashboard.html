@@ -1,0 +1,281 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}المساعد الصوتي{% endblock %}
+
+{% block extra_css %}
+<style>
+.voice-btn {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    font-size: 2.5rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+}
+.voice-btn.listening {
+    animation: pulse 1.5s infinite;
+    background-color: #dc3545 !important;
+}
+@keyframes pulse {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+    70% { transform: scale(1.05); box-shadow: 0 0 0 20px rgba(220, 53, 69, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+}
+.command-card {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+.command-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+.transcript-text {
+    font-size: 1.3rem;
+    min-height: 50px;
+}
+.response-area {
+    min-height: 100px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- منطقة المساعد الرئيسية -->
+            <div class="card shadow-lg mb-4">
+                <div class="card-body text-center py-5">
+                    <h4 class="mb-4">
+                        <i class="fas fa-robot me-2 text-primary"></i>
+                        المساعد الصوتي الذكي
+                    </h4>
+                    
+                    <!-- زر الاستماع -->
+                    <button type="button" class="btn btn-primary voice-btn mb-4" id="voiceBtn">
+                        <i class="fas fa-microphone" id="voiceIcon"></i>
+                    </button>
+                    
+                    <p class="text-muted mb-3">اضغط للتحدث أو قل "{{ preference.wake_word }}"</p>
+                    
+                    <!-- النص المكتشف -->
+                    <div class="transcript-text text-primary fw-bold mb-3" id="transcript">
+                        جاهز للاستماع...
+                    </div>
+                    
+                    <!-- منطقة الرد -->
+                    <div class="response-area p-4 d-none" id="responseArea">
+                        <div id="responseText"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- اقتراحات سريعة -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-lightbulb me-2 text-warning"></i>
+                        جرّب هذه الأوامر
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-2">
+                            <div class="command-card card border-0 bg-light p-2" data-command="افتح المبيعات">
+                                <i class="fas fa-shopping-cart text-success me-2"></i>
+                                "افتح المبيعات"
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <div class="command-card card border-0 bg-light p-2" data-command="أنشئ فاتورة جديدة">
+                                <i class="fas fa-file-invoice text-primary me-2"></i>
+                                "أنشئ فاتورة جديدة"
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <div class="command-card card border-0 bg-light p-2" data-command="كم المبيعات اليوم">
+                                <i class="fas fa-chart-line text-info me-2"></i>
+                                "كم المبيعات اليوم"
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <div class="command-card card border-0 bg-light p-2" data-command="ابحث عن عميل">
+                                <i class="fas fa-search text-secondary me-2"></i>
+                                "ابحث عن..."
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <div class="command-card card border-0 bg-light p-2" data-command="تقرير المبيعات">
+                                <i class="fas fa-chart-bar text-warning me-2"></i>
+                                "تقرير المبيعات"
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <div class="command-card card border-0 bg-light p-2" data-command="افتح الإعدادات">
+                                <i class="fas fa-cog text-dark me-2"></i>
+                                "افتح الإعدادات"
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- آخر الأوامر -->
+            {% if recent_commands %}
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between">
+                    <h6 class="mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        آخر الأوامر
+                    </h6>
+                    <a href="{% url 'voice_assistant:history' %}" class="btn btn-sm btn-outline-primary">
+                        عرض الكل
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        {% for cmd in recent_commands %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="{% if cmd.status == 'success' %}text-success{% else %}text-danger{% endif %}">
+                                    <i class="fas {% if cmd.status == 'success' %}fa-check-circle{% else %}fa-times-circle{% endif %} me-2"></i>
+                                </span>
+                                {{ cmd.command_text|truncatechars:50 }}
+                            </div>
+                            <small class="text-muted">{{ cmd.created_at|timesince }}</small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const voiceBtn = document.getElementById('voiceBtn');
+    const voiceIcon = document.getElementById('voiceIcon');
+    const transcript = document.getElementById('transcript');
+    const responseArea = document.getElementById('responseArea');
+    const responseText = document.getElementById('responseText');
+    
+    let recognition;
+    let isListening = false;
+    
+    // التحقق من دعم التعرف على الصوت
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = '{{ preference.language }}';
+        
+        recognition.onstart = function() {
+            isListening = true;
+            voiceBtn.classList.add('listening');
+            voiceIcon.className = 'fas fa-stop';
+            transcript.textContent = 'جاري الاستماع...';
+        };
+        
+        recognition.onresult = function(event) {
+            let finalTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                finalTranscript = event.results[i][0].transcript;
+            }
+            transcript.textContent = finalTranscript;
+            
+            if (event.results[event.resultIndex].isFinal) {
+                processCommand(finalTranscript);
+            }
+        };
+        
+        recognition.onend = function() {
+            isListening = false;
+            voiceBtn.classList.remove('listening');
+            voiceIcon.className = 'fas fa-microphone';
+        };
+        
+        recognition.onerror = function(event) {
+            console.error('Speech recognition error:', event.error);
+            transcript.textContent = 'حدث خطأ في التعرف على الصوت';
+            isListening = false;
+            voiceBtn.classList.remove('listening');
+            voiceIcon.className = 'fas fa-microphone';
+        };
+    } else {
+        voiceBtn.disabled = true;
+        transcript.textContent = 'عذراً، متصفحك لا يدعم التعرف على الصوت';
+    }
+    
+    // زر الاستماع
+    voiceBtn.addEventListener('click', function() {
+        if (isListening) {
+            recognition.stop();
+        } else {
+            recognition.start();
+        }
+    });
+    
+    // أوامر سريعة
+    document.querySelectorAll('.command-card').forEach(card => {
+        card.addEventListener('click', function() {
+            const command = this.dataset.command;
+            transcript.textContent = command;
+            processCommand(command);
+        });
+    });
+    
+    // معالجة الأمر
+    function processCommand(text) {
+        fetch('{% url "voice_assistant:process" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ text: text })
+        })
+        .then(r => r.json())
+        .then(data => {
+            responseArea.classList.remove('d-none');
+            responseText.textContent = data.response;
+            
+            // قراءة الرد
+            {% if preference.read_responses %}
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(data.response);
+                utterance.lang = 'ar-SA';
+                utterance.rate = {{ preference.speech_rate }};
+                utterance.pitch = {{ preference.pitch }};
+                speechSynthesis.speak(utterance);
+            }
+            {% endif %}
+            
+            // التوجيه
+            if (data.action === 'redirect' && data.url) {
+                setTimeout(() => {
+                    window.location.href = data.url;
+                }, 1500);
+            }
+            
+            // البحث
+            if (data.action === 'search' && data.query) {
+                setTimeout(() => {
+                    window.location.href = '/search/?q=' + encodeURIComponent(data.query);
+                }, 1500);
+            }
+        })
+        .catch(err => {
+            responseArea.classList.remove('d-none');
+            responseText.textContent = 'حدث خطأ في معالجة الأمر';
+        });
+    }
+});
+</script>
+{% endblock %}

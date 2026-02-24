@@ -1,0 +1,195 @@
+{% comment %}
+طباعة فاتورة A4 عبر وكيل الطباعة المحلي (Remote Print Agent)
+=============================================================
+يُضمَّن في صفحة تفاصيل الفاتورة - يوفر زر طباعة عن بعد + حالة الاتصال
+
+Usage:
+  {% include 'sales/invoice_remote_print.html' with invoice=invoice %}
+{% endcomment %}
+
+<!-- زر الطباعة عن بُعد عبر Print Agent + حالة الاتصال -->
+<div class="remote-print-section no-print" id="remotePrintSection">
+    <!-- حالة وكيل الطباعة -->
+    <span id="a4PrinterStatus" title="فحص الاتصال..." style="cursor:pointer;font-size:16px;" onclick="checkA4PrintAgent()">⏳</span>
+
+    <!-- زر الطباعة عبر الوكيل -->
+    <button type="button" id="remoteA4PrintBtn" onclick="remoteA4Print()" class="btn btn-sm"
+            style="background:linear-gradient(135deg,#11998e,#38ef7d);color:white;border:none;border-radius:20px;padding:6px 16px;font-size:12px;font-weight:600;cursor:pointer;">
+        <i class="bi bi-printer-fill" style="margin-left:4px;"></i>
+        🖨️ طباعة A4 عن بُعد
+    </button>
+</div>
+
+<script>
+// ========== نظام طباعة A4 عبر Print Agent المحلي ==========
+const A4_PRINT_AGENT_URL = 'ws://localhost:9100';
+const A4_DATA_URL = '{% url "sales:sales_invoice_a4_data" invoice.pk %}';
+
+/**
+ * فحص حالة وكيل الطباعة A4
+ */
+function checkA4PrintAgent() {
+    const statusEl = document.getElementById('a4PrinterStatus');
+    const btn = document.getElementById('remoteA4PrintBtn');
+    try {
+        const ws = new WebSocket(A4_PRINT_AGENT_URL);
+        ws.onopen = function() {
+            ws.send(JSON.stringify({ command: 'status' }));
+        };
+        ws.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.success && statusEl) {
+                    statusEl.innerHTML = '🟢';
+                    statusEl.title = 'وكيل الطباعة متصل - ' + (data.printer || 'جاهز');
+                    if (btn) btn.style.opacity = '1';
+                }
+            } catch (e) {}
+            ws.close();
+        };
+        ws.onerror = function() {
+            if (statusEl) {
+                statusEl.innerHTML = '🔴';
+                statusEl.title = 'وكيل الطباعة غير متصل - شغّل print_agent.py على جهازك';
+            }
+            if (btn) btn.style.opacity = '0.6';
+        };
+        setTimeout(() => {
+            if (ws.readyState === WebSocket.CONNECTING) ws.close();
+        }, 3000);
+    } catch (e) {
+        if (statusEl) {
+            statusEl.innerHTML = '🔴';
+            statusEl.title = 'خطأ في الاتصال بوكيل الطباعة';
+        }
+    }
+}
+
+/**
+ * طباعة فاتورة A4 عبر Print Agent المحلي
+ * النمط: Server API → HTML → WebSocket → Local Agent → Printer
+ */
+async function remoteA4Print() {
+    const btn = document.getElementById('remoteA4PrintBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '⏳ جاري التجهيز...';
+
+    try {
+        // 1. جلب HTML الفاتورة A4 من السيرفر
+        btn.innerHTML = '⏳ جاري جلب الفاتورة...';
+        const resp = await fetch(A4_DATA_URL);
+        const result = await resp.json();
+
+        if (!result.success) {
+            showPrintAlert('error', '❌ فشل جلب بيانات الفاتورة: ' + (result.error || ''));
+            resetBtn();
+            return;
+        }
+
+        // 2. إرسال HTML لوكيل الطباعة المحلي عبر WebSocket
+        btn.innerHTML = '⏳ جاري الإرسال للطابعة...';
+        const ws = new WebSocket(A4_PRINT_AGENT_URL);
+
+        ws.onopen = function() {
+            ws.send(JSON.stringify({
+                command: 'print_html',
+                html: result.html,
+                invoice_number: result.invoice_number
+            }));
+        };
+
+        ws.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.success) {
+                    btn.innerHTML = '✅ تم الإرسال للطابعة!';
+                    showPrintAlert('success', '✅ تم إرسال الفاتورة للطابعة بنجاح');
+                    setTimeout(resetBtn, 3000);
+                } else {
+                    showPrintAlert('error', '❌ فشلت الطباعة: ' + (data.error || ''));
+                    resetBtn();
+                }
+            } catch (e) {
+                resetBtn();
+            }
+            ws.close();
+        };
+
+        ws.onerror = function() {
+            showPrintAlert('warning',
+                '⚠️ وكيل الطباعة غير متصل!\n\n' +
+                'تأكد من تشغيل print_agent.py على جهازك المحلي.\n' +
+                'أو استخدم زر "طباعة مباشرة A4" كبديل.'
+            );
+            resetBtn();
+        };
+
+        // Timeout بعد 30 ثانية
+        setTimeout(() => {
+            if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+                ws.close();
+                resetBtn();
+            }
+        }, 30000);
+
+    } catch (error) {
+        showPrintAlert('error', '❌ خطأ: ' + error.message);
+        resetBtn();
+    }
+
+    function resetBtn() {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+/**
+ * إظهار رسالة مؤقتة
+ */
+function showPrintAlert(type, message) {
+    // Remove existing alerts
+    const existing = document.getElementById('printAlertMsg');
+    if (existing) existing.remove();
+
+    const colors = {
+        success: { bg: '#d4edda', border: '#28a745', text: '#155724' },
+        error: { bg: '#f8d7da', border: '#dc3545', text: '#721c24' },
+        warning: { bg: '#fff3cd', border: '#ffc107', text: '#856404' },
+    };
+    const c = colors[type] || colors.warning;
+
+    const div = document.createElement('div');
+    div.id = 'printAlertMsg';
+    div.style.cssText = `position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99999;
+        background:${c.bg};color:${c.text};border:1px solid ${c.border};padding:12px 25px;
+        border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 4px 15px rgba(0,0,0,0.15);
+        max-width:500px;text-align:center;white-space:pre-line;direction:rtl;`;
+    div.textContent = message;
+
+    document.body.appendChild(div);
+    setTimeout(() => { if (div.parentNode) div.remove(); }, 6000);
+}
+
+// === فحص حالة الوكيل عند التحميل + كل 30 ثانية ===
+document.addEventListener('DOMContentLoaded', function() {
+    checkA4PrintAgent();
+    setInterval(checkA4PrintAgent, 30000);
+});
+</script>
+
+<style>
+.remote-print-section {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+#remoteA4PrintBtn:hover {
+    transform: scale(1.03);
+    box-shadow: 0 3px 10px rgba(17,153,142,0.3);
+}
+#remoteA4PrintBtn:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+</style>

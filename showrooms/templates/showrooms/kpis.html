@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans 'مؤشرات الأداء - المعارض' %}{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-graph-up-arrow me-2"></i>{% trans 'مؤشرات الأداء للمعارض' %}</h3>
+    <form method="get" class="d-flex align-items-center gap-2">
+      <select name="showroom" class="form-select form-select-sm" onchange="this.form.submit()">
+        <option value="">{% trans 'كل المعارض' %}</option>
+        {% for s in showrooms %}
+          <option value="{{ s.id }}" {% if selected_showroom and selected_showroom.id == s.id %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+  <div class="row g-3">
+    <div class="col-md-3">
+      <div class="card text-center h-100">
+        <div class="card-body">
+          <h6 class="text-muted mb-1">{% trans 'مبيعات اليوم' %}</h6>
+          <div class="display-6 fw-bold">{{ metrics.sales_today|default:0 }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center h-100">
+        <div class="card-body">
+          <h6 class="text-muted mb-1">{% trans 'مرتجعات اليوم' %}</h6>
+          <div class="display-6 fw-bold text-danger">{{ metrics.returns_today|default:0 }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center h-100">
+        <div class="card-body">
+          <h6 class="text-muted mb-1">{% trans 'صافي المبيعات' %}</h6>
+          <div class="display-6 fw-bold text-primary">{{ metrics.net_sales|default:0 }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center h-100">
+        <div class="card-body">
+          <h6 class="text-muted mb-1">{% trans 'متوسط التذكرة' %}</h6>
+          <div class="display-6 fw-bold text-info">{{ metrics.avg_ticket|floatformat:2 }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="mt-4 text-muted small">
+    {% if selected_showroom %}
+      {% blocktrans with name=selected_showroom.name %}المعرض المحدد: {{ name }}{% endblocktrans %}
+    {% else %}
+      {% trans 'جميع المعارض مجمعة' %}
+    {% endif %}
+  </div>
+</div>
+<script>
+(function(){
+  const sel = new URLSearchParams(window.location.search).get('showroom');
+  if(!sel) return; // only per-showroom live updates
+  const proto = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+  const wsUrl = proto + window.location.host + '/ws/showrooms/' + sel + '/kpi/';
+  try {
+    const sock = new WebSocket(wsUrl);
+    sock.onmessage = function(ev){
+      try {
+        const msg = JSON.parse(ev.data);
+        if(msg.type === 'kpi' && msg.data){
+          if(msg.data.sales_today !== undefined){
+            document.querySelectorAll('.card .display-6').forEach(el=>{ /* simple refresh on sales only */ });
+            // For simplicity just reload section (could be refined)
+            fetch(window.location.href, {headers: {'X-Partial':'kpis'}}).then(r=>r.text()).then(html=>{ /* optional future enhancement */ });
+          }
+        }
+      }catch(e){}
+    };
+  }catch(e){}
+})();
+</script>
+{% endblock %}

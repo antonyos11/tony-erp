@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'inventory:product_list' %}">المنتجات</a></li>
+                    <li class="breadcrumb-item active">{{ title }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="mb-1">
+                                <i class="fas fa-balance-scale text-primary me-2"></i>
+                                {{ title }}
+                            </h4>
+                            <p class="text-muted mb-0">مقارنة تكاليف المنتجات وهوامش الربح</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <span class="badge bg-primary fs-6">{{ comparison_data|length }} منتج</span>
+                            {% if low_margin_products %}
+                            <span class="badge bg-danger fs-6 ms-1">{{ low_margin_products|length }} هامش منخفض</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if low_margin_products %}
+    <!-- تحذير المنتجات ذات الهامش المنخفض -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-warning border-0 shadow-sm">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-exclamation-triangle fa-2x text-warning me-3"></i>
+                    <div>
+                        <h6 class="mb-1">تنبيه: منتجات بهامش ربح أقل من 15%</h6>
+                        <p class="mb-0 text-muted">
+                            {% for item in low_margin_products %}
+                                <span class="badge bg-warning text-dark me-1">{{ item.product.name }}</span>
+                            {% endfor %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- جدول المقارنة -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0">
+                        <i class="fas fa-table text-info me-2"></i>
+                        مقارنة التكاليف وهوامش الربح
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="border-0">#</th>
+                                    <th class="border-0">المنتج</th>
+                                    <th class="border-0 text-center">تكلفة المواد</th>
+                                    <th class="border-0 text-center">تكلفة العمالة</th>
+                                    <th class="border-0 text-center">تكاليف إضافية</th>
+                                    <th class="border-0 text-center">إجمالي التكلفة</th>
+                                    <th class="border-0 text-center">سعر البيع</th>
+                                    <th class="border-0 text-center">هامش الربح</th>
+                                    <th class="border-0 text-center">آخر تغيير</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in comparison_data %}
+                                <tr{% if item.margin < 15 %} class="table-warning"{% endif %}>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>
+                                        <a href="{% url 'inventory:product_cost_breakdown' item.product.id %}" class="text-decoration-none">
+                                            {{ item.product.name }}
+                                        </a>
+                                        <br><small class="text-muted">{{ item.product.sku }}</small>
+                                    </td>
+                                    <td class="text-center">{{ item.material_cost|floatformat:2 }}</td>
+                                    <td class="text-center">{{ item.labor_cost|floatformat:2 }}</td>
+                                    <td class="text-center">{{ item.overhead_cost|floatformat:2 }}</td>
+                                    <td class="text-center"><strong>{{ item.current_cost|floatformat:2 }}</strong></td>
+                                    <td class="text-center">{{ item.selling_price|floatformat:2 }}</td>
+                                    <td class="text-center">
+                                        {% if item.margin < 0 %}
+                                        <span class="badge bg-danger">{{ item.margin|floatformat:1 }}%</span>
+                                        {% elif item.margin < 15 %}
+                                        <span class="badge bg-warning text-dark">{{ item.margin|floatformat:1 }}%</span>
+                                        {% elif item.margin < 30 %}
+                                        <span class="badge bg-info">{{ item.margin|floatformat:1 }}%</span>
+                                        {% else %}
+                                        <span class="badge bg-success">{{ item.margin|floatformat:1 }}%</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if item.last_change %}
+                                        <small>{{ item.last_change.changed_at|date:"Y/m/d" }}</small>
+                                        {% else %}
+                                        <small class="text-muted">-</small>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted py-4">
+                                        <i class="fas fa-inbox fa-3x mb-2 d-block"></i>
+                                        لا توجد بيانات للمقارنة
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

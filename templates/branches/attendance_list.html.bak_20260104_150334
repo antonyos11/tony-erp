@@ -1,0 +1,362 @@
+{% extends 'base_v2.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+/* Force-disable any backdrop overlay so modal stays clickable */
+.modal-backdrop {
+    display: none !important;
+    pointer-events: none !important;
+}
+/* Keep modal above page UI */
+.modal {
+function removeAnyBackdrops() {
+    var backdrops = document.querySelectorAll('.modal-backdrop');
+    backdrops.forEach(function (el) { el.remove(); });
+}
+
+function openPunchModal() {
+    removeAnyBackdrops();
+    var modalEl = document.getElementById('punchModal');
+    if (!modalEl) return;
+
+    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+        var inst = bootstrap.Modal.getOrCreateInstance(modalEl, {
+            backdrop: false,
+            keyboard: true
+        });
+        inst.show();
+        removeAnyBackdrops();
+        return;
+    }
+
+    // Fallback (no Bootstrap JS)
+    modalEl.style.display = 'block';
+    modalEl.classList.add('show');
+    modalEl.removeAttribute('aria-hidden');
+}
+
+function closePunchModal() {
+    var modalEl = document.getElementById('punchModal');
+    if (!modalEl) return;
+
+    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+        var inst = bootstrap.Modal.getOrCreateInstance(modalEl, {
+            backdrop: false,
+            keyboard: true
+        });
+        inst.hide();
+    } else {
+        modalEl.classList.remove('show');
+        modalEl.style.display = 'none';
+        modalEl.setAttribute('aria-hidden', 'true');
+    }
+
+    var form = document.getElementById('attendanceForm');
+    if (form) form.reset();
+
+    var employeeSelect = document.getElementById('modalEmployeeSelect');
+    if (employeeSelect) {
+        employeeSelect.innerHTML = '<option value="">اختر الفرع أولاً</option>';
+        employeeSelect.disabled = false;
+    }
+
+    setTimeout(removeAnyBackdrops, 50);
+}
+
+window.addEventListener('load', function () {
+    removeAnyBackdrops();
+
+    var modalEl = document.getElementById('punchModal');
+    if (modalEl) {
+        modalEl.addEventListener('click', function (e) {
+            if (e.target === modalEl) closePunchModal();
+        });
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closePunchModal();
+    });
+
+    var branchSelect = document.getElementById('modalBranchSelect');
+    var employeeSelect = document.getElementById('modalEmployeeSelect');
+    if (!branchSelect || !employeeSelect) return;
+
+    branchSelect.addEventListener('change', function () {
+        var branchId = this.value;
+
+        if (!branchId) {
+            employeeSelect.innerHTML = '<option value="">اختر الفرع أولاً</option>';
+            employeeSelect.disabled = false;
+            return;
+        }
+
+        employeeSelect.innerHTML = '<option value="">جاري التحميل...</option>';
+        employeeSelect.disabled = true;
+
+        fetch('/branches/api/staff/?branch=' + encodeURIComponent(branchId))
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                employeeSelect.innerHTML = '<option value="">اختر الموظف</option>';
+
+                if (data && data.staff && data.staff.length) {
+                    data.staff.forEach(function (staff) {
+                        var opt = document.createElement('option');
+                        opt.value = staff.id;
+                        opt.textContent = staff.name + ' - ' + staff.position;
+                        employeeSelect.appendChild(opt);
+                    });
+                } else {
+                    employeeSelect.innerHTML = '<option value="">لا يوجد موظفين</option>';
+                }
+
+                employeeSelect.disabled = false;
+            })
+            .catch(function () {
+                employeeSelect.innerHTML = '<option value="">خطأ في التحميل</option>';
+                employeeSelect.disabled = false;
+            });
+    });
+});
+                            <th>الفرع</th>
+                            <th>التاريخ</th>
+                            <th>وقت الحضور</th>
+                            <th>وقت الانصراف</th>
+                            <th>ساعات العمل</th>
+                            <th>الحالة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in records %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold">{{ record.user.get_full_name|default:record.user.username }}</div>
+                                <small class="text-muted">{{ record.employee.position }}</small>
+                            </td>
+                            <td>{{ record.branch.name }}</td>
+                            <td>{{ record.date|date:"Y/m/d" }}</td>
+                            <td>
+                                {% if record.in_time %}
+                                    <span class="badge bg-success">{{ record.in_time|time:"H:i" }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.out_time %}
+                                    <span class="badge bg-info">{{ record.out_time|time:"H:i" }}</span>
+                                {% else %}
+                                    <span class="badge bg-warning">لم ينصرف</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.in_time and record.out_time %}
+                                    {{ record.working_hours|floatformat:1 }} ساعة
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.in_time and record.out_time %}
+                                    <span class="badge bg-success">اكتمل</span>
+                                {% elif record.in_time %}
+                                    <span class="badge bg-warning">جاري</span>
+                                {% else %}
+                                    <span class="badge bg-danger">غائب</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                                <p>لا توجد سجلات</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if records.has_other_pages %}
+            <nav>
+                <ul class="pagination justify-content-center mt-3">
+                    {% if records.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if request.GET.branch %}&branch={{ request.GET.branch }}{% endif %}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}">الأولى</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ records.previous_page_number }}{% if request.GET.branch %}&branch={{ request.GET.branch }}{% endif %}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}">السابقة</a>
+                    </li>
+                    {% endif %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ records.number }} من {{ records.paginator.num_pages }}</span>
+                    </li>
+                    {% if records.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ records.next_page_number }}{% if request.GET.branch %}&branch={{ request.GET.branch }}{% endif %}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}">التالية</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ records.paginator.num_pages }}{% if request.GET.branch %}&branch={{ request.GET.branch }}{% endif %}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}">الأخيرة</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="punchModal" tabindex="-1" aria-labelledby="punchModalLabel" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" action="{% url 'branches:attendance_punch' %}" id="attendanceForm">
+                {% csrf_token %}
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="punchModalLabel">
+                        <i class="bi bi-clock-history me-2"></i>تسجيل حضور/انصراف
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" id="btnCloseModalX" aria-label="Close" onclick="closePunchModal();"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-building me-1"></i>الفرع
+                        </label>
+                        <select name="branch" id="modalBranchSelect" class="form-select" required>
+                            <option value="">اختر الفرع</option>
+                            {% for branch in branches %}
+                            <option value="{{ branch.id }}">{{ branch.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-person me-1"></i>الموظف
+                        </label>
+                        <select name="employee" id="modalEmployeeSelect" class="form-select" required>
+                            <option value="">اختر الفرع أولاً</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-check-circle me-1"></i>الإجراء
+                        </label>
+                        <select name="action" class="form-select" required>
+                            <option value="in">حضور</option>
+                            <option value="out">انصراف</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="btnCloseModal" onclick="closePunchModal();">
+                        <i class="bi bi-x-lg me-1"></i>إلغاء
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>تسجيل
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function _removeAnyBackdrops() {
+    document.querySelectorAll('.modal-backdrop').forEach(function(el) { el.remove(); });
+}
+
+function openPunchModal() {
+    _removeAnyBackdrops();
+    var modal = document.getElementById('punchModal');
+    if (!modal) return;
+
+    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+        var inst = bootstrap.Modal.getOrCreateInstance(modal, { backdrop: false, keyboard: true });
+        inst.show();
+        return;
+    }
+
+    // Fallback (no Bootstrap JS): show modal without backdrop
+    modal.style.display = 'block';
+    modal.classList.add('show');
+    modal.removeAttribute('aria-hidden');
+}
+
+function closePunchModal() {
+    var modal = document.getElementById('punchModal');
+    var form = document.getElementById('attendanceForm');
+    var employeeSelect = document.getElementById('modalEmployeeSelect');
+    if (!modal) return;
+
+    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+        var inst = bootstrap.Modal.getOrCreateInstance(modal, { backdrop: false, keyboard: true });
+        inst.hide();
+    } else {
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+    }
+
+    if (form) form.reset();
+    if (employeeSelect) employeeSelect.innerHTML = '<option value="">اختر الفرع أولاً</option>';
+    setTimeout(_removeAnyBackdrops, 50);
+}
+
+window.addEventListener('load', function() {
+    _removeAnyBackdrops();
+
+    var modal = document.getElementById('punchModal');
+    var branchSelect = document.getElementById('modalBranchSelect');
+    var employeeSelect = document.getElementById('modalEmployeeSelect');
+
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) closePunchModal();
+        });
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closePunchModal();
+    });
+
+    if (branchSelect && employeeSelect) {
+        branchSelect.addEventListener('change', function() {
+            var branchId = this.value;
+            if (!branchId) {
+                employeeSelect.innerHTML = '<option value="">اختر الفرع أولاً</option>';
+                employeeSelect.disabled = false;
+                return;
+            }
+
+            employeeSelect.innerHTML = '<option value="">جاري التحميل...</option>';
+            employeeSelect.disabled = true;
+
+            fetch('/branches/api/staff/?branch=' + branchId)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    employeeSelect.innerHTML = '<option value="">اختر الموظف</option>';
+                    if (data.staff && data.staff.length > 0) {
+                        for (var i = 0; i < data.staff.length; i++) {
+                            var opt = document.createElement('option');
+                            opt.value = data.staff[i].id;
+                            opt.textContent = data.staff[i].name + ' - ' + data.staff[i].position;
+                            employeeSelect.appendChild(opt);
+                        }
+                    } else {
+                        employeeSelect.innerHTML = '<option value="">لا يوجد موظفين</option>';
+                    }
+                    employeeSelect.disabled = false;
+                })
+                .catch(function() {
+                    employeeSelect.innerHTML = '<option value="">خطأ في التحميل</option>';
+                    employeeSelect.disabled = false;
+                });
+        });
+    }
+});
+</script>
+{% endblock %}

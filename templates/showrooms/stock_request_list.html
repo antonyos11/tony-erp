@@ -1,0 +1,198 @@
+{% extends 'base_v2.html' %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        text-align: center;
+    }
+    .stat-card h3 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    .stat-card p {
+        color: #666;
+        margin: 0;
+    }
+    .request-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+    }
+    .request-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    }
+    .priority-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .priority-low { background: #e3f2fd; color: #1976d2; }
+    .priority-normal { background: #e8f5e9; color: #388e3c; }
+    .priority-high { background: #fff3e0; color: #f57c00; }
+    .priority-urgent { background: #ffebee; color: #c62828; }
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .status-pending { background: #fff8e1; color: #f57f17; }
+    .status-approved { background: #e3f2fd; color: #1565c0; }
+    .status-in_transit { background: #f3e5f5; color: #7b1fa2; }
+    .status-delivered { background: #e8f5e9; color: #2e7d32; }
+    .status-rejected { background: #ffebee; color: #c62828; }
+    .status-cancelled { background: #eceff1; color: #546e7a; }
+    .showroom-flow {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin: 0.5rem 0;
+    }
+    .showroom-flow .arrow {
+        color: #0d6efd;
+        font-size: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="h3 mb-1">📦 {{ page_title }}</h1>
+            <p class="text-muted mb-0">{% trans 'إدارة طلبات نقل المخزون بين المعارض' %}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'showrooms:stock_request_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-2"></i>{% trans 'طلب جديد' %}
+            </a>
+            <a href="{% url 'showrooms:product_search' %}" class="btn btn-outline-primary">
+                <i class="bi bi-search me-2"></i>{% trans 'البحث عن منتج' %}
+            </a>
+        </div>
+    </div>
+    
+    <!-- Stats -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3 class="text-primary">{{ stats.total }}</h3>
+            <p>{% trans 'إجمالي الطلبات' %}</p>
+        </div>
+        <div class="stat-card">
+            <h3 class="text-warning">{{ stats.pending }}</h3>
+            <p>{% trans 'قيد الانتظار' %}</p>
+        </div>
+        <div class="stat-card">
+            <h3 class="text-info">{{ stats.in_transit }}</h3>
+            <p>{% trans 'قيد النقل' %}</p>
+        </div>
+        <div class="stat-card">
+            <h3 class="text-success">{{ stats.delivered }}</h3>
+            <p>{% trans 'تم التسليم' %}</p>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">{% trans 'الحالة' %}</label>
+                    <select name="status" class="form-select">
+                        <option value="">{% trans 'الكل' %}</option>
+                        {% for val, label in status_choices %}
+                        <option value="{{ val }}" {% if request.GET.status == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">{% trans 'الأولوية' %}</label>
+                    <select name="priority" class="form-select">
+                        <option value="">{% trans 'الكل' %}</option>
+                        {% for val, label in priority_choices %}
+                        <option value="{{ val }}" {% if request.GET.priority == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">{% trans 'الاتجاه' %}</label>
+                    <select name="direction" class="form-select">
+                        <option value="">{% trans 'الكل' %}</option>
+                        <option value="out" {% if request.GET.direction == 'out' %}selected{% endif %}>{% trans 'طلبات صادرة' %}</option>
+                        <option value="in" {% if request.GET.direction == 'in' %}selected{% endif %}>{% trans 'طلبات واردة' %}</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-funnel me-2"></i>{% trans 'فلترة' %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Requests List -->
+    {% for req in requests %}
+    <div class="request-card">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+                <h5 class="mb-1">
+                    <a href="{% url 'showrooms:stock_request_detail' pk=req.pk %}" class="text-decoration-none">
+                        {{ req.request_number }}
+                    </a>
+                    <span class="status-badge status-{{ req.status }}">{{ req.get_status_display }}</span>
+                    <span class="priority-badge priority-{{ req.priority }}">{{ req.get_priority_display }}</span>
+                </h5>
+                <div class="showroom-flow">
+                    <span><i class="bi bi-shop me-1"></i>{{ req.requesting_showroom.code }}</span>
+                    <i class="bi bi-arrow-left arrow"></i>
+                    <span><i class="bi bi-shop me-1"></i>{{ req.source_showroom.code }}</span>
+                </div>
+            </div>
+            <div class="text-end">
+                <div class="fw-bold text-primary">{{ req.product.name }}</div>
+                <div class="text-muted">{% trans 'الكمية:' %} {{ req.quantity_requested }}</div>
+            </div>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+            <small class="text-muted">
+                <i class="bi bi-person me-1"></i>{{ req.requested_by.get_full_name|default:req.requested_by.username }}
+                <i class="bi bi-clock me-1 ms-3"></i>{{ req.request_date|date:"Y/m/d H:i" }}
+            </small>
+            <a href="{% url 'showrooms:stock_request_detail' pk=req.pk %}" class="btn btn-sm btn-outline-primary">
+                {% trans 'التفاصيل' %} <i class="bi bi-arrow-left ms-1"></i>
+            </a>
+        </div>
+    </div>
+    {% empty %}
+    <div class="text-center py-5">
+        <i class="bi bi-inbox display-1 text-muted"></i>
+        <h4 class="mt-3 text-muted">{% trans 'لا توجد طلبات' %}</h4>
+        <p class="text-muted">{% trans 'ابدأ بإنشاء طلب نقل مخزون جديد' %}</p>
+        <a href="{% url 'showrooms:stock_request_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>{% trans 'طلب جديد' %}
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

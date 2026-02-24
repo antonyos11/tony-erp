@@ -1,0 +1,401 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}مراكز العمل - الإنتاج{% endblock %}
+
+{% block extra_css %}
+<style>
+    .work-center-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        margin-bottom: 25px;
+        overflow: hidden;
+    }
+    .work-center-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .work-center-header {
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        position: relative;
+    }
+    .work-center-body {
+        padding: 20px;
+        background: white;
+    }
+    
+    .status-badge {
+        padding: 6px 15px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: white;
+        display: inline-block;
+    }
+    .status-active { background: #28a745; }
+    .status-maintenance { background: #ffc107; color: #333; }
+    .status-inactive { background: #6c757d; }
+    .status-breakdown { background: #dc3545; }
+    
+    .capacity-bar {
+        background: #e9ecef;
+        border-radius: 10px;
+        height: 8px;
+        overflow: hidden;
+        margin: 10px 0;
+    }
+    .capacity-fill {
+        height: 100%;
+        border-radius: 10px;
+        transition: width 0.5s ease;
+    }
+    .capacity-low { background: #28a745; }
+    .capacity-medium { background: #ffc107; }
+    .capacity-high { background: #dc3545; }
+    
+    .metric-item {
+        text-align: center;
+        padding: 15px 10px;
+        background: #f8f9fa;
+        border-radius: 10px;
+        margin-bottom: 10px;
+    }
+    .metric-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #495057;
+        display: block;
+    }
+    .metric-label {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-top: 3px;
+    }
+    
+    .filter-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+        margin-top: 15px;
+    }
+    .btn-action {
+        flex: 1;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        text-decoration: none;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- العنوان والإجراءات -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1><i class="fas fa-industry"></i> مراكز العمل</h1>
+                    <p class="text-muted mb-0">إدارة ومراقبة مراكز العمل والإنتاج</p>
+                </div>
+                <div>
+                    <a href="/production/work-centers/create/" class="btn btn-success">
+                        <i class="fas fa-plus"></i> مركز عمل جديد
+                    </a>
+                    <a href="/production/" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-right"></i> العودة
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- مرشحات البحث -->
+    <div class="filter-card">
+        <form method="get" class="row g-3">
+            <div class="col-lg-4 col-md-6">
+                <label class="form-label">البحث</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" name="search" 
+                           value="{{ current_filters.search|default:'' }}" 
+                           placeholder="اسم مركز العمل">
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label">الحالة</label>
+                <select class="form-select" name="status">
+                    <option value="">جميع الحالات</option>
+                    <option value="active" {% if current_filters.status == 'active' %}selected{% endif %}>نشط</option>
+                    <option value="maintenance" {% if current_filters.status == 'maintenance' %}selected{% endif %}>صيانة</option>
+                    <option value="inactive" {% if current_filters.status == 'inactive' %}selected{% endif %}>غير نشط</option>
+                    <option value="breakdown" {% if current_filters.status == 'breakdown' %}selected{% endif %}>عطل</option>
+                </select>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label">النوع</label>
+                <select class="form-select" name="type">
+                    <option value="">جميع الأنواع</option>
+                    <option value="cutting" {% if current_filters.type == 'cutting' %}selected{% endif %}>قطع</option>
+                    <option value="sewing" {% if current_filters.type == 'sewing' %}selected{% endif %}>خياطة</option>
+                    <option value="assembly" {% if current_filters.type == 'assembly' %}selected{% endif %}>تجميع</option>
+                    <option value="quality" {% if current_filters.type == 'quality' %}selected{% endif %}>جودة</option>
+                    <option value="packing" {% if current_filters.type == 'packing' %}selected{% endif %}>تعبئة</option>
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-6 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-primary flex-fill">
+                    <i class="fas fa-filter"></i> تصفية
+                </button>
+                <a href="/production/work-centers/" class="btn btn-outline-secondary">
+                    <i class="fas fa-times"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- النتائج -->
+    <div class="row">
+        {% for work_center in work_centers %}
+        <div class="col-xl-4 col-lg-6">
+            <div class="work-center-card">
+                <div class="work-center-header">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <h5 class="mb-2">{{ work_center.name }}</h5>
+                            <p class="mb-2 opacity-75">{{ work_center.description|default:"لا يوجد وصف" }}</p>
+                        </div>
+                        <div class="text-end">
+                            <span class="status-badge status-{{ work_center.status|default:'active' }}">
+                                {% if work_center.status == 'active' %}نشط
+                                {% elif work_center.status == 'maintenance' %}صيانة
+                                {% elif work_center.status == 'inactive' %}غير نشط
+                                {% elif work_center.status == 'breakdown' %}عطل
+                                {% else %}نشط{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- معدل الاستخدام -->
+                    <div class="mt-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <small>معدل الاستخدام</small>
+                            <small>{{ work_center.utilization_rate|default:0|floatformat:0 }}%</small>
+                        </div>
+                        <div class="capacity-bar">
+                            <div class="capacity-fill 
+                                {% if work_center.utilization_rate|default:0 < 50 %}capacity-low
+                                {% elif work_center.utilization_rate|default:0 < 80 %}capacity-medium
+                                {% else %}capacity-high{% endif %}" 
+                                style="width: {{ work_center.utilization_rate|default:0 }}%">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="work-center-body">
+                    <!-- المقاييس -->
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="metric-item">
+                                <span class="metric-value">{{ work_center.capacity|default:0 }}</span>
+                                <div class="metric-label">الطاقة/ساعة</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="metric-item">
+                                <span class="metric-value">{{ work_center.active_orders_count|default:0 }}</span>
+                                <div class="metric-label">أوامر نشطة</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="metric-item">
+                                <span class="metric-value">{{ work_center.efficiency_rate|default:0|floatformat:0 }}%</span>
+                                <div class="metric-label">الكفاءة</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="metric-item">
+                                <span class="metric-value">{{ work_center.maintenance_hours|default:0 }}</span>
+                                <div class="metric-label">ساعات الصيانة</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- معلومات إضافية -->
+                    <div class="mt-3">
+                        {% if work_center.supervisor %}
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted">المشرف:</small>
+                                <small><strong>{{ work_center.supervisor.arabic_name|default:work_center.supervisor.first_name }}</strong></small>
+                            </div>
+                        {% endif %}
+                        
+                        {% if work_center.location %}
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted">الموقع:</small>
+                                <small><strong>{{ work_center.location }}</strong></small>
+                            </div>
+                        {% endif %}
+                        
+                        <div class="d-flex justify-content-between">
+                            <small class="text-muted">نوع المركز:</small>
+                            <small><strong>
+                                {% if work_center.work_center_type == 'cutting' %}قطع
+                                {% elif work_center.work_center_type == 'sewing' %}خياطة
+                                {% elif work_center.work_center_type == 'assembly' %}تجميع
+                                {% elif work_center.work_center_type == 'quality' %}جودة
+                                {% elif work_center.work_center_type == 'packing' %}تعبئة
+                                {% else %}عام{% endif %}
+                            </strong></small>
+                        </div>
+                    </div>
+
+                    <!-- تنبيهات خاصة -->
+                    {% if work_center.status == 'breakdown' %}
+                    <div class="alert alert-danger mt-3 py-2">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>عطل!</strong> يتطلب إصلاح فوري
+                    </div>
+                    {% elif work_center.status == 'maintenance' %}
+                    <div class="alert alert-warning mt-3 py-2">
+                        <i class="fas fa-wrench me-2"></i>
+                        <strong>صيانة!</strong> غير متاح حالياً
+                    </div>
+                    {% elif work_center.utilization_rate|default:0 > 90 %}
+                    <div class="alert alert-info mt-3 py-2">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>استخدام مكثف!</strong> قد يحتاج إعادة جدولة
+                    </div>
+                    {% endif %}
+
+                    <!-- أزرار الإجراءات -->
+                    <div class="action-buttons">
+                        <a href="/production/work-centers/{{ work_center.id }}/" 
+                           class="btn-action btn btn-primary btn-sm">
+                            <i class="fas fa-eye"></i> التفاصيل
+                        </a>
+                        
+                        <a href="/production/work-centers/{{ work_center.id }}/edit/" 
+                           class="btn-action btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-edit"></i> تعديل
+                        </a>
+                        
+                        <div class="dropdown d-inline-block">
+                            <button class="btn-action btn btn-outline-secondary btn-sm dropdown-toggle" 
+                                    type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-ellipsis-h"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                {% if work_center.status == 'active' %}
+                                    <li><a class="dropdown-item" href="#" 
+                                           onclick="updateWorkCenterStatus({{ work_center.id }}, 'maintenance')">
+                                        <i class="fas fa-wrench me-2"></i>بدء صيانة
+                                    </a></li>
+                                {% elif work_center.status == 'maintenance' %}
+                                    <li><a class="dropdown-item" href="#" 
+                                           onclick="updateWorkCenterStatus({{ work_center.id }}, 'active')">
+                                        <i class="fas fa-play me-2"></i>تفعيل
+                                    </a></li>
+                                {% endif %}
+                                
+                                <li><a class="dropdown-item" href="/production/work-centers/{{ work_center.id }}/schedule/">
+                                    <i class="fas fa-calendar me-2"></i>الجدولة
+                                </a></li>
+                                
+                                <li><a class="dropdown-item" href="/production/work-centers/{{ work_center.id }}/reports/">
+                                    <i class="fas fa-chart-bar me-2"></i>التقارير
+                                </a></li>
+                                
+                                <li><hr class="dropdown-divider"></li>
+                                
+                                {% if work_center.status != 'inactive' %}
+                                    <li><a class="dropdown-item text-warning" href="#" 
+                                           onclick="updateWorkCenterStatus({{ work_center.id }}, 'inactive')">
+                                        <i class="fas fa-pause me-2"></i>إيقاف مؤقت
+                                    </a></li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="fas fa-industry fa-5x text-muted mb-3"></i>
+                <h4 class="text-muted">لا توجد مراكز عمل</h4>
+                <p class="text-muted">لم يتم العثور على أي مراكز عمل تطابق معايير البحث</p>
+                <a href="/production/work-centers/create/" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> إنشاء مركز عمل جديد
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateWorkCenterStatus(workCenterId, status) {
+    const statusLabels = {
+        'active': 'تفعيل',
+        'maintenance': 'صيانة', 
+        'inactive': 'إيقاف',
+        'breakdown': 'عطل'
+    };
+    
+    if (confirm(`هل تريد تحديث حالة مركز العمل إلى "${statusLabels[status]}"؟`)) {
+        fetch(`/production/work-centers/${workCenterId}/update-status/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value || '{{ csrf_token }}'
+            },
+            body: `status=${status}`
+        })
+        .then(response => {
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert('حدث خطأ أثناء تحديث حالة مركز العمل');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('حدث خطأ في الاتصال');
+        });
+    }
+}
+
+// تحديث الصفحة كل 2 دقيقة لإظهار التحديثات
+setInterval(function() {
+    if (document.visibilityState === 'visible') {
+        // تحديث فقط إذا لم يكن هناك مرشحات معقدة
+        const urlParams = new URLSearchParams(window.location.search);
+        if (!urlParams.get('search') && !urlParams.get('status')) {
+            location.reload();
+        }
+    }
+}, 120000);
+</script>
+{% endblock %}

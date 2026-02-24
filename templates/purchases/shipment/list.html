@@ -1,0 +1,154 @@
+﻿{% extends 'base_templates/_list_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'الشحنات الواردة' %}{% endblock %}
+{% block hero_icon %}bi-truck{% endblock %}
+{% block hero_title %}{% trans 'الشحنات الواردة' %}{% endblock %}
+{% block hero_subtitle %}{% trans 'تتبع شحنات الموردين ومواعيد التسليم المتوقعة' %}{% endblock %}
+
+{% block hero_actions %}
+<a href="{% url 'purchases:shipment_create' %}" class="btn btn-light">
+  <i class="bi bi-plus-lg me-1"></i>{% trans 'شحنة جديدة' %}
+</a>
+{% endblock %}
+
+{% block stats_section %}
+<div class="stats-grid">
+  <div class="stat-card primary">
+    <div class="stat-icon"><i class="bi bi-truck"></i></div>
+    <div class="stat-value">{{ stats.total|default:0 }}</div>
+    <div class="stat-label">{% trans 'إجمالي الشحنات' %}</div>
+  </div>
+  <div class="stat-card info">
+    <div class="stat-icon"><i class="bi bi-geo-alt"></i></div>
+    <div class="stat-value">{{ stats.in_transit|default:0 }}</div>
+    <div class="stat-label">{% trans 'في الطريق' %}</div>
+  </div>
+  <div class="stat-card warning">
+    <div class="stat-icon"><i class="bi bi-clock-history"></i></div>
+    <div class="stat-value">{{ stats.delayed|default:0 }}</div>
+    <div class="stat-label">{% trans 'متأخرة' %}</div>
+  </div>
+  <div class="stat-card success">
+    <div class="stat-icon"><i class="bi bi-check-circle"></i></div>
+    <div class="stat-value">{{ stats.delivered|default:0 }}</div>
+    <div class="stat-label">{% trans 'تم التسليم' %}</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block filter_fields %}
+<div class="filter-group">
+  <label>{% trans 'بحث' %}</label>
+  <div class="input-group input-group-sm">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input type="text" name="search" class="form-control" placeholder="{% trans 'رقم التتبع...' %}" value="{{ search }}">
+  </div>
+</div>
+<div class="filter-group">
+  <label>{% trans 'الحالة' %}</label>
+  <select name="status" class="form-select form-select-sm">
+    <option value="">{% trans 'الكل' %}</option>
+    <option value="pending" {% if status == 'pending' %}selected{% endif %}>{% trans 'قيد التحضير' %}</option>
+    <option value="shipped" {% if status == 'shipped' %}selected{% endif %}>{% trans 'تم الشحن' %}</option>
+    <option value="in_transit" {% if status == 'in_transit' %}selected{% endif %}>{% trans 'في الطريق' %}</option>
+    <option value="delivered" {% if status == 'delivered' %}selected{% endif %}>{% trans 'تم التسليم' %}</option>
+  </select>
+</div>
+<div class="filter-group">
+  <label>{% trans 'المورد' %}</label>
+  <select name="supplier" class="form-select form-select-sm">
+    <option value="">{% trans 'الكل' %}</option>
+    {% for supplier in suppliers %}
+    <option value="{{ supplier.id }}" {% if selected_supplier == supplier.id|stringformat:"s" %}selected{% endif %}>{{ supplier.name }}</option>
+    {% endfor %}
+  </select>
+</div>
+{% endblock %}
+
+{% block table_icon %}bi-truck{% endblock %}
+{% block table_title %}{% trans 'الشحنات' %}{% endblock %}
+
+{% block table_headers %}
+<th>#</th>
+<th>{% trans 'رقم التتبع' %}</th>
+<th>{% trans 'أمر الشراء' %}</th>
+<th>{% trans 'المورد' %}</th>
+<th>{% trans 'شركة الشحن' %}</th>
+<th>{% trans 'تاريخ الشحن' %}</th>
+<th>{% trans 'التسليم المتوقع' %}</th>
+<th>{% trans 'الحالة' %}</th>
+<th class="text-center">{% trans 'الإجراءات' %}</th>
+{% endblock %}
+
+{% block table_body %}
+{% for shipment in shipments|default:object_list %}
+<tr>
+  <td>{{ forloop.counter }}</td>
+  <td>
+    <div class="cell-main">
+      <a href="{% url 'purchases:shipment_detail' shipment.pk %}">{{ shipment.tracking_number|default:"-" }}</a>
+    </div>
+  </td>
+  <td>
+    {% if shipment.purchase_order %}
+    <a href="{% url 'purchases:po_detail' shipment.purchase_order.pk %}">{{ shipment.purchase_order.po_number }}</a>
+    {% else %}
+    <span class="text-muted">-</span>
+    {% endif %}
+  </td>
+  <td>
+    <div class="fw-medium">{{ shipment.supplier.name }}</div>
+  </td>
+  <td>{{ shipment.carrier|default:"-" }}</td>
+  <td>{{ shipment.ship_date|date:"Y/m/d"|default:"-" }}</td>
+  <td>
+    {% if shipment.expected_delivery %}
+    <div>{{ shipment.expected_delivery|date:"Y/m/d" }}</div>
+    {% if shipment.is_delayed %}
+    <span class="priority-badge urgent">{% trans 'متأخر' %}</span>
+    {% endif %}
+    {% else %}
+    <span class="text-muted">-</span>
+    {% endif %}
+  </td>
+  <td>
+    {% if shipment.status == 'pending' %}
+    <span class="pro-badge draft"><i class="bi bi-clock"></i> {% trans 'قيد التحضير' %}</span>
+    {% elif shipment.status == 'shipped' %}
+    <span class="pro-badge pending"><i class="bi bi-send"></i> {% trans 'تم الشحن' %}</span>
+    {% elif shipment.status == 'in_transit' %}
+    <span class="pro-badge partial"><i class="bi bi-truck"></i> {% trans 'في الطريق' %}</span>
+    {% elif shipment.status == 'delivered' %}
+    <span class="pro-badge approved"><i class="bi bi-check-circle"></i> {% trans 'تم التسليم' %}</span>
+    {% endif %}
+  </td>
+  <td>
+    <div class="action-buttons">
+      <a href="{% url 'purchases:shipment_detail' shipment.pk %}" class="action-btn view" title="{% trans 'عرض' %}">
+        <i class="bi bi-eye"></i>
+      </a>
+      {% if shipment.tracking_url %}
+      <a href="{{ shipment.tracking_url }}" class="action-btn" target="_blank" title="{% trans 'تتبع' %}">
+        <i class="bi bi-geo-alt"></i>
+      </a>
+      {% endif %}
+      <a href="{% url 'purchases:shipment_edit' shipment.pk %}" class="action-btn edit" title="{% trans 'تعديل' %}">
+        <i class="bi bi-pencil"></i>
+      </a>
+    </div>
+  </td>
+</tr>
+{% empty %}
+<tr>
+  <td colspan="9">
+    <div class="empty-state">
+      <div class="empty-icon"><i class="bi bi-truck"></i></div>
+      <h5>{% trans 'لا توجد شحنات' %}</h5>
+      <p>{% trans 'الشحنات تُسجل عند إرسال الموردين للبضائع' %}</p>
+    </div>
+  </td>
+</tr>
+{% endfor %}
+{% endblock %}

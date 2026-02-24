@@ -1,0 +1,325 @@
+﻿{% extends 'base_templates/modern_list.html' %}
+{% load static %}
+{% load i18n %}
+{% load tony_erb_tags %}
+
+{% block page_module %}partners{% endblock %}
+{% block page_icon %}bi-people-fill{% endblock %}
+{% block page_title %}{% trans 'إدارة الشركاء' %}{% endblock %}
+{% block page_subtitle %}{% trans 'العملاء والموردين - إدارة شاملة للعلاقات التجارية' %}{% endblock %}
+
+{% block hero_actions %}
+<a href="{% url 'partners:partner_create' %}" class="mp-btn mp-btn--primary mp-btn--lg">
+    <i class="bi bi-person-plus-fill"></i>
+    {% trans 'شريك جديد' %}
+</a>
+<div class="dropdown">
+    <button class="mp-btn mp-btn--outline" style="color: white; border-color: rgba(255,255,255,0.5);" 
+            type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="bi bi-plus-lg"></i>
+        {% trans 'إضافة سريعة' %}
+        <i class="bi bi-chevron-down ms-1"></i>
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+        <li><a class="dropdown-item" href="{% url 'partners:customer_create' %}">
+            <i class="bi bi-person-check me-2 text-info"></i>{% trans 'عميل جديد' %}
+        </a></li>
+        <li><a class="dropdown-item" href="{% url 'partners:supplier_create' %}">
+            <i class="bi bi-truck me-2 text-warning"></i>{% trans 'مورد جديد' %}
+        </a></li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block hero_stats %}
+<div class="mp-hero-stats">
+    <div class="mp-hero-stat">
+        <div class="mp-hero-stat-value">{{ total_partners|default:"0" }}</div>
+        <div class="mp-hero-stat-label">{% trans 'إجمالي الشركاء' %}</div>
+    </div>
+    <div class="mp-hero-stat">
+        <div class="mp-hero-stat-value">{{ total_customers|default:"0" }}</div>
+        <div class="mp-hero-stat-label">{% trans 'العملاء' %}</div>
+    </div>
+    <div class="mp-hero-stat">
+        <div class="mp-hero-stat-value">{{ total_suppliers|default:"0" }}</div>
+        <div class="mp-hero-stat-label">{% trans 'الموردين' %}</div>
+    </div>
+    <div class="mp-hero-stat">
+        <div class="mp-hero-stat-value">{{ active_partners|default:"0" }}</div>
+        <div class="mp-hero-stat-label">{% trans 'نشط' %}</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block filters %}
+<form method="get" class="mp-filters mp-animate-fade">
+    <div class="mp-filter-group">
+        <label class="mp-filter-label">{% trans 'بحث' %}</label>
+        <input type="text" 
+               name="search" 
+               value="{{ search_query }}" 
+               placeholder="{% trans 'اسم، هاتف، بريد إلكتروني...' %}" 
+               class="mp-filter-input">
+    </div>
+    
+    <div class="mp-filter-group">
+        <label class="mp-filter-label">{% trans 'نوع الشريك' %}</label>
+        <select name="type" class="mp-filter-input">
+            <option value="">{% trans 'كل الأنواع' %}</option>
+            {% for key, label in type_choices %}
+            <option value="{{ key }}" {% if current_type == key %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    
+    <div class="mp-filter-group">
+        <label class="mp-filter-label">{% trans 'الحالة' %}</label>
+        <select name="status" class="mp-filter-input">
+            <option value="">{% trans 'الكل' %}</option>
+            <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>{% trans 'نشط' %}</option>
+            <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>{% trans 'غير نشط' %}</option>
+        </select>
+    </div>
+    
+    <div class="mp-filter-actions">
+        <button type="submit" class="mp-btn mp-btn--primary">
+            <i class="bi bi-search"></i>
+            {% trans 'بحث' %}
+        </button>
+        <a href="{% url 'partners:partners_list' %}" class="mp-btn mp-btn--ghost">
+            <i class="bi bi-x-lg"></i>
+            {% trans 'مسح' %}
+        </a>
+    </div>
+</form>
+{% endblock %}
+
+{% block table_search %}
+<input type="search" 
+       placeholder="{% trans 'بحث سريع في الجدول...' %}" 
+       class="form-control" 
+       id="tableSearch">
+{% endblock %}
+
+{% block table_toolbar_actions %}
+<div class="dropdown">
+    <button class="mp-btn mp-btn--ghost mp-btn--sm" type="button" data-bs-toggle="dropdown">
+        <i class="bi bi-download"></i>
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+        <li><a class="dropdown-item" href="?export=excel"><i class="bi bi-file-earmark-excel me-2"></i>{% trans 'تصدير Excel' %}</a></li>
+        <li><a class="dropdown-item" href="?export=pdf"><i class="bi bi-file-earmark-pdf me-2"></i>{% trans 'تصدير PDF' %}</a></li>
+        <li><a class="dropdown-item" href="?export=csv"><i class="bi bi-filetype-csv me-2"></i>{% trans 'تصدير CSV' %}</a></li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block table_headers %}
+<th style="width: 50px;">#</th>
+<th>{% trans 'الشريك' %}</th>
+<th>{% trans 'النوع' %}</th>
+<th>{% trans 'الهاتف' %}</th>
+<th>{% trans 'البريد الإلكتروني' %}</th>
+<th>{% trans 'الحالة' %}</th>
+<th style="width: 120px;">{% trans 'الإجراءات' %}</th>
+{% endblock %}
+
+{% block table_body %}
+{% if partners %}
+    {% for p in partners %}
+    <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>
+            <div class="mp-entity">
+                <div class="mp-avatar mp-avatar--sm" style="background: {% cycle 'var(--mp-gradient-primary)' 'var(--mp-gradient-accent)' 'var(--mp-gradient-success)' %}">
+                    {{ p.name|slice:":1"|upper }}
+                </div>
+                <div class="mp-entity-info">
+                    <a href="{% url 'partners:partner_detail' p.id %}" class="mp-entity-name">{{ p.name }}</a>
+                    <span class="mp-entity-meta">{{ p.code|default:p.id }}</span>
+                </div>
+            </div>
+        </td>
+        <td>
+            {% if p.partner_type == 'customer' %}
+                <span class="mp-badge mp-badge--info mp-badge--dot">{% trans 'عميل' %}</span>
+            {% elif p.partner_type == 'supplier' %}
+                <span class="mp-badge mp-badge--warning mp-badge--dot">{% trans 'مورد' %}</span>
+            {% elif p.partner_type == 'both' %}
+                <span class="mp-badge mp-badge--success mp-badge--dot">{% trans 'عميل ومورد' %}</span>
+            {% endif %}
+        </td>
+        <td>
+            {% if p.phone %}
+            <a href="tel:{{ p.phone }}" class="text-decoration-none">
+                <i class="bi bi-telephone me-1 text-muted"></i>{{ p.phone }}
+            </a>
+            {% else %}
+            <span class="text-muted">-</span>
+            {% endif %}
+        </td>
+        <td>
+            {% if p.email %}
+            <a href="mailto:{{ p.email }}" class="text-decoration-none">
+                <i class="bi bi-envelope me-1 text-muted"></i>{{ p.email|truncatechars:25 }}
+            </a>
+            {% else %}
+            <span class="text-muted">-</span>
+            {% endif %}
+        </td>
+        <td>
+            {% if p.is_active %}
+                <span class="mp-status mp-status--active">
+                    <i class="bi bi-check-circle-fill"></i>
+                    {% trans 'نشط' %}
+                </span>
+            {% else %}
+                <span class="mp-status mp-status--inactive">
+                    <i class="bi bi-pause-circle"></i>
+                    {% trans 'غير نشط' %}
+                </span>
+            {% endif %}
+        </td>
+        <td>
+            <div class="mp-actions">
+                <a href="{% url 'partners:partner_detail' p.id %}" 
+                   class="mp-action-btn mp-action-btn--view" 
+                   title="{% trans 'عرض' %}"
+                   data-bs-toggle="tooltip">
+                    <i class="bi bi-eye"></i>
+                </a>
+                <a href="{% url 'partners:partner_edit' p.id %}" 
+                   class="mp-action-btn mp-action-btn--edit" 
+                   title="{% trans 'تعديل' %}"
+                   data-bs-toggle="tooltip">
+                    <i class="bi bi-pencil"></i>
+                </a>
+                <a href="{% url 'partners:partner_delete' p.id %}" 
+                   class="mp-action-btn mp-action-btn--delete" 
+                   title="{% trans 'حذف' %}"
+                   data-bs-toggle="tooltip">
+                    <i class="bi bi-trash"></i>
+                </a>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+{% else %}
+<tr>
+    <td colspan="7">
+        <div class="mp-table-empty">
+            <div class="mp-table-empty-icon">
+                <i class="bi bi-people"></i>
+            </div>
+            <div class="mp-table-empty-title">{% trans 'لا يوجد شركاء' %}</div>
+            <div class="mp-table-empty-text">{% trans 'ابدأ بإضافة عملاء أو موردين جدد' %}</div>
+            <a href="{% url 'partners:partner_create' %}" class="mp-btn mp-btn--primary mt-3">
+                <i class="bi bi-person-plus"></i>
+                {% trans 'إضافة شريك' %}
+            </a>
+        </div>
+    </td>
+</tr>
+{% endif %}
+{% endblock %}
+
+{% block grid_body %}
+{% for p in partners %}
+<div class="mp-grid-item">
+    <div class="mp-grid-item-header">
+        <div class="mp-entity">
+            <div class="mp-avatar" style="background: {% cycle 'var(--mp-gradient-primary)' 'var(--mp-gradient-accent)' 'var(--mp-gradient-success)' %}">
+                {{ p.name|slice:":1"|upper }}
+            </div>
+            <div class="mp-entity-info">
+                <a href="{% url 'partners:partner_detail' p.id %}" class="mp-entity-name">{{ p.name }}</a>
+                <span class="mp-entity-meta">{{ p.code|default:p.id }}</span>
+            </div>
+        </div>
+        {% if p.is_active %}
+            <span class="mp-badge mp-badge--success mp-badge--dot">{% trans 'نشط' %}</span>
+        {% else %}
+            <span class="mp-badge mp-badge--neutral">{% trans 'غير نشط' %}</span>
+        {% endif %}
+    </div>
+    <div class="mp-grid-item-body">
+        <div class="mp-grid-item-field">
+            <span class="mp-grid-item-label">{% trans 'النوع' %}</span>
+            <span class="mp-grid-item-value">
+                {% if p.partner_type == 'customer' %}{% trans 'عميل' %}
+                {% elif p.partner_type == 'supplier' %}{% trans 'مورد' %}
+                {% elif p.partner_type == 'both' %}{% trans 'عميل ومورد' %}
+                {% endif %}
+            </span>
+        </div>
+        <div class="mp-grid-item-field">
+            <span class="mp-grid-item-label">{% trans 'الهاتف' %}</span>
+            <span class="mp-grid-item-value">{{ p.phone|default:'-' }}</span>
+        </div>
+        <div class="mp-grid-item-field">
+            <span class="mp-grid-item-label">{% trans 'البريد' %}</span>
+            <span class="mp-grid-item-value">{{ p.email|default:'-' }}</span>
+        </div>
+    </div>
+    <div class="mp-grid-item-footer">
+        <a href="{% url 'partners:partner_detail' p.id %}" class="mp-btn mp-btn--ghost mp-btn--sm">
+            <i class="bi bi-eye"></i> {% trans 'عرض' %}
+        </a>
+        <a href="{% url 'partners:partner_edit' p.id %}" class="mp-btn mp-btn--primary mp-btn--sm">
+            <i class="bi bi-pencil"></i> {% trans 'تعديل' %}
+        </a>
+    </div>
+</div>
+{% empty %}
+<div class="mp-grid-item" style="grid-column: 1 / -1;">
+    <div class="mp-table-empty">
+        <div class="mp-table-empty-icon"><i class="bi bi-people"></i></div>
+        <div class="mp-table-empty-title">{% trans 'لا يوجد شركاء' %}</div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block pagination %}
+{% if partners.has_other_pages %}
+<nav class="mp-pagination" aria-label="{% trans 'التنقل' %}">
+    {% if partners.has_previous %}
+    <a href="?page={{ partners.previous_page_number }}&type={{ current_type }}&search={{ search_query }}" 
+       class="mp-pagination-item">
+        <i class="bi bi-chevron-right"></i>
+    </a>
+    {% else %}
+    <span class="mp-pagination-item mp-pagination-item--disabled">
+        <i class="bi bi-chevron-right"></i>
+    </span>
+    {% endif %}
+    
+    {% for num in partners.paginator.page_range %}
+        {% if num == partners.number %}
+        <span class="mp-pagination-item mp-pagination-item--active">{{ num }}</span>
+        {% elif num > partners.number|add:'-3' and num < partners.number|add:'3' %}
+        <a href="?page={{ num }}&type={{ current_type }}&search={{ search_query }}" 
+           class="mp-pagination-item">{{ num }}</a>
+        {% endif %}
+    {% endfor %}
+    
+    {% if partners.has_next %}
+    <a href="?page={{ partners.next_page_number }}&type={{ current_type }}&search={{ search_query }}" 
+       class="mp-pagination-item">
+        <i class="bi bi-chevron-left"></i>
+    </a>
+    {% else %}
+    <span class="mp-pagination-item mp-pagination-item--disabled">
+        <i class="bi bi-chevron-left"></i>
+    </span>
+    {% endif %}
+    
+    <span class="mp-pagination-info">
+        {% blocktrans with current=partners.number total=partners.paginator.num_pages %}
+        صفحة {{ current }} من {{ total }}
+        {% endblocktrans %}
+    </span>
+</nav>
+{% endif %}
+{% endblock %}

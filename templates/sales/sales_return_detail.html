@@ -1,0 +1,301 @@
+﻿{% extends 'base_templates/_detail_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'تفاصيل المرتجع' %}{% endblock %}
+{% block detail_hero_icon %}bi-arrow-return-left{% endblock %}
+{% block detail_hero_title %}{% trans 'مرتجع مبيعات رقم' %} {{ return.return_number }}{% endblock %}
+{% block detail_hero_subtitle %}{% trans 'تفاصيل ومعلومات المرتجع' %}{% endblock %}
+
+{% block detail_status %}
+{% if return.status == 'approved' %}
+<span class="badge badge-status approved fs-6">{% trans 'معتمد' %}</span>
+{% elif return.status == 'pending' %}
+<span class="badge badge-status pending fs-6">{% trans 'قيد المراجعة' %}</span>
+{% elif return.status == 'rejected' %}
+<span class="badge badge-status rejected fs-6">{% trans 'مرفوض' %}</span>
+{% else %}
+<span class="badge badge-status draft fs-6">{% trans 'مسودة' %}</span>
+{% endif %}
+{% endblock %}
+
+{% block detail_actions %}
+{% if return.status == 'pending' %}
+<a href="{% url 'sales:sales_return_approve' return.pk %}" class="btn btn-success btn-sm">
+  <i class="bi bi-check-circle me-1"></i>{% trans 'اعتماد' %}
+</a>
+<a href="{% url 'sales:sales_return_reject' return.pk %}" class="btn btn-danger btn-sm">
+  <i class="bi bi-x-circle me-1"></i>{% trans 'رفض' %}
+</a>
+{% endif %}
+<a href="{% url 'sales:sales_return_print' return.pk %}" class="btn btn-outline-info btn-sm" target="_blank">
+  <i class="bi bi-printer me-1"></i>{% trans 'طباعة' %}
+</a>
+{% endblock %}
+
+{% block detail_content %}
+<style>
+  .return-header {
+    background: linear-gradient(135deg, #fef3cd 0%, #fff3cd 100%);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    margin-bottom: 2rem;
+    border: 2px solid #f59e0b;
+  }
+  .return-header .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+  }
+  .info-box {
+    background: white;
+    border-radius: var(--radius);
+    padding: 1rem;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+  }
+  .info-box .label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+  }
+  .info-box .value {
+    font-weight: 600;
+    color: var(--text-dark);
+  }
+  .reason-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+    border-radius: var(--radius);
+    font-weight: 500;
+  }
+  .items-table {
+    width: 100%;
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    margin-bottom: 2rem;
+  }
+  .items-table thead {
+    background: linear-gradient(135deg, #b45309 0%, #d97706 100%);
+    color: white;
+  }
+  .items-table th {
+    padding: 1rem;
+    font-weight: 600;
+  }
+  .items-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .items-table tbody tr:hover {
+    background: rgba(245, 158, 11, 0.05);
+  }
+  .refund-box {
+    background: linear-gradient(135deg, var(--primary) 0%, #2d5a87 100%);
+    color: white;
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    text-align: center;
+  }
+  .refund-box .amount {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0.5rem 0;
+  }
+  .refund-box .method {
+    background: rgba(255,255,255,0.2);
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius);
+    display: inline-block;
+    margin-top: 0.5rem;
+  }
+  .original-invoice {
+    background: var(--bg-card);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .original-invoice:hover {
+    border-color: var(--primary);
+  }
+  .timeline-item {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .timeline-item:last-child {
+    border-bottom: none;
+  }
+  .timeline-dot {
+    width: 12px;
+    height: 12px;
+    background: var(--primary);
+    border-radius: 50%;
+    margin-top: 0.25rem;
+  }
+  .timeline-dot.success { background: var(--success); }
+  .timeline-dot.warning { background: var(--warning); }
+  .timeline-dot.danger { background: var(--danger); }
+</style>
+
+<!-- Return Header -->
+<div class="return-header">
+  <div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+      <h4 class="mb-1"><i class="bi bi-arrow-return-left me-2"></i>{{ return.return_number }}</h4>
+      <div class="reason-badge">
+        <i class="bi bi-exclamation-circle"></i>
+        {{ return.get_reason_display }}
+      </div>
+    </div>
+    <div class="text-end">
+      <div class="small text-muted">{% trans 'تاريخ المرتجع' %}</div>
+      <div class="fw-bold">{{ return.date|date:"Y/m/d" }}</div>
+    </div>
+  </div>
+  
+  <div class="info-grid">
+    <div class="info-box">
+      <div class="label">{% trans 'العميل' %}</div>
+      <div class="value">{{ return.customer.name }}</div>
+    </div>
+    <div class="info-box">
+      <div class="label">{% trans 'الفاتورة الأصلية' %}</div>
+      <div class="value">
+        <a href="{% url 'sales:invoice_detail' return.invoice.pk %}">{{ return.invoice.invoice_number }}</a>
+      </div>
+    </div>
+    <div class="info-box">
+      <div class="label">{% trans 'إعادة للمخزون' %}</div>
+      <div class="value">
+        {% if return.restocked %}
+        <span class="text-success"><i class="bi bi-check-circle me-1"></i>{% trans 'نعم' %}</span>
+        {% else %}
+        <span class="text-danger"><i class="bi bi-x-circle me-1"></i>{% trans 'لا' %}</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="info-box">
+      <div class="label">{% trans 'بواسطة' %}</div>
+      <div class="value">{% if return.created_by %}{{ return.created_by.get_full_name|default:return.created_by.username }}{% else %}-{% endif %}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Original Invoice Link -->
+<div class="original-invoice mb-4">
+  <div class="d-flex align-items-center gap-3">
+    <div class="bg-primary text-white p-3 rounded">
+      <i class="bi bi-receipt fs-4"></i>
+    </div>
+    <div>
+      <div class="fw-bold">{% trans 'الفاتورة الأصلية' %}: {{ return.invoice.invoice_number }}</div>
+      <div class="small text-muted">
+        {{ return.invoice.date|date:"Y/m/d" }} | {% trans 'إجمالي' %}: {{ return.invoice.total|floatformat:2 }}
+      </div>
+    </div>
+  </div>
+  <a href="{% url 'sales:invoice_detail' return.invoice.pk %}" class="btn btn-outline-primary btn-sm">
+    <i class="bi bi-eye me-1"></i>{% trans 'عرض الفاتورة' %}
+  </a>
+</div>
+
+<!-- Returned Items -->
+<h5 class="mb-3"><i class="bi bi-box-seam me-2"></i>{% trans 'الأصناف المرتجعة' %}</h5>
+<div class="table-responsive"><table class="items-table">
+  <thead>
+    <tr>
+      <th style="width: 5%">#</th>
+      <th style="width: 40%">{% trans 'الصنف' %}</th>
+      <th class="text-center" style="width: 15%">{% trans 'الكمية' %}</th>
+      <th class="text-end" style="width: 20%">{% trans 'سعر الوحدة' %}</th>
+      <th class="text-end" style="width: 20%">{% trans 'الإجمالي' %}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in return.items.all %}
+    <tr>
+      <td>{{ forloop.counter }}</td>
+      <td>
+        <div class="fw-medium">{{ item.product.name }}</div>
+        <div class="small text-muted">{{ item.product.code|default:'' }}</div>
+      </td>
+      <td class="text-center">{{ item.quantity }}</td>
+      <td class="text-end">{{ item.unit_price|floatformat:2 }}</td>
+      <td class="text-end fw-bold">{{ item.line_total|floatformat:2 }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table></div>
+
+<!-- Refund Summary -->
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="refund-box">
+      <div class="small opacity-75">{% trans 'قيمة المرتجع' %}</div>
+      <div class="amount">{{ return.total|floatformat:2 }}</div>
+      <div class="method">
+        <i class="bi bi-wallet2 me-1"></i>{{ return.get_refund_method_display }}
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-lg-6">
+    <div class="bg-card border rounded-3 p-4 h-100">
+      <h6 class="mb-3"><i class="bi bi-clock-history me-2"></i>{% trans 'سجل الحركات' %}</h6>
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div>
+            <div class="fw-medium">{% trans 'تم إنشاء المرتجع' %}</div>
+            <div class="small text-muted">{{ return.created_at|date:"Y/m/d H:i" }}</div>
+          </div>
+        </div>
+        {% if return.status == 'approved' %}
+        <div class="timeline-item">
+          <div class="timeline-dot success"></div>
+          <div>
+            <div class="fw-medium text-success">{% trans 'تم الاعتماد' %}</div>
+            <div class="small text-muted">{{ return.approved_at|date:"Y/m/d H:i" }}</div>
+          </div>
+        </div>
+        {% endif %}
+        {% if return.restocked %}
+        <div class="timeline-item">
+          <div class="timeline-dot success"></div>
+          <div>
+            <div class="fw-medium text-success">{% trans 'تمت إعادة الأصناف للمخزون' %}</div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Reason Details -->
+{% if return.reason_details %}
+<div class="mt-4 p-3 bg-light rounded">
+  <h6><i class="bi bi-chat-text me-2"></i>{% trans 'تفاصيل السبب' %}</h6>
+  <p class="mb-0">{{ return.reason_details }}</p>
+</div>
+{% endif %}
+
+<!-- Notes -->
+{% if return.notes %}
+<div class="mt-3 p-3 bg-light rounded">
+  <h6><i class="bi bi-sticky me-2"></i>{% trans 'ملاحظات' %}</h6>
+  <p class="mb-0">{{ return.notes }}</p>
+</div>
+{% endif %}
+{% endblock %}
+

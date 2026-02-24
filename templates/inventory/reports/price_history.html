@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان والإحصائيات -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="mb-0">
+                            <i class="fas fa-history text-primary me-2"></i>
+                            {{ title }}
+                        </h4>
+                        <div class="btn-group">
+                            <button class="btn btn-outline-primary btn-sm" onclick="exportToExcel()">
+                                <i class="fas fa-file-excel me-1"></i> تصدير Excel
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+                                <i class="fas fa-print me-1"></i> طباعة
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- الإحصائيات -->
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <div class="bg-primary bg-opacity-10 rounded p-3 text-center">
+                                <h3 class="text-primary mb-1">{{ stats.total_changes|default:0 }}</h3>
+                                <small class="text-muted">إجمالي التغييرات</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="bg-success bg-opacity-10 rounded p-3 text-center">
+                                <h3 class="text-success mb-1">{{ stats.increases|default:0 }}</h3>
+                                <small class="text-muted">ارتفاعات</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="bg-danger bg-opacity-10 rounded p-3 text-center">
+                                <h3 class="text-danger mb-1">{{ stats.decreases|default:0 }}</h3>
+                                <small class="text-muted">انخفاضات</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="bg-warning bg-opacity-10 rounded p-3 text-center">
+                                <h3 class="text-warning mb-1">{{ stats.avg_change_pct|floatformat:1|default:"0" }}%</h3>
+                                <small class="text-muted">متوسط التغيير</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- الفلاتر -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <form method="get" class="row g-3 align-items-end">
+                        <div class="col-md-2">
+                            <label class="form-label small">المادة الخام</label>
+                            <select name="product" class="form-select form-select-sm">
+                                <option value="">الكل</option>
+                                {% for product in products %}
+                                <option value="{{ product.id }}" {% if filters.product == product.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ product.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small">المورد</label>
+                            <select name="supplier" class="form-select form-select-sm">
+                                <option value="">الكل</option>
+                                {% for supplier in suppliers %}
+                                <option value="{{ supplier.id }}" {% if filters.supplier == supplier.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ supplier.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small">نوع التغيير</label>
+                            <select name="change_type" class="form-select form-select-sm">
+                                <option value="">الكل</option>
+                                {% for type_code, type_name in change_types %}
+                                <option value="{{ type_code }}" {% if filters.change_type == type_code %}selected{% endif %}>
+                                    {{ type_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small">الاتجاه</label>
+                            <select name="direction" class="form-select form-select-sm">
+                                <option value="">الكل</option>
+                                <option value="increase" {% if filters.direction == 'increase' %}selected{% endif %}>زيادة ↑</option>
+                                <option value="decrease" {% if filters.direction == 'decrease' %}selected{% endif %}>نقصان ↓</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small">من تاريخ</label>
+                            <input type="date" name="date_from" class="form-control form-control-sm" 
+                                   value="{{ filters.date_from }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small">إلى تاريخ</label>
+                            <input type="date" name="date_to" class="form-control form-control-sm" 
+                                   value="{{ filters.date_to }}">
+                        </div>
+                        <div class="col-md-12 text-end">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="fas fa-filter me-1"></i> تصفية
+                            </button>
+                            <a href="{% url 'inventory:price_history_list' %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-times me-1"></i> إعادة تعيين
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- جدول السجلات -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="historyTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="border-0">التاريخ</th>
+                                    <th class="border-0">المادة الخام</th>
+                                    <th class="border-0">المورد</th>
+                                    <th class="border-0 text-center">السعر القديم</th>
+                                    <th class="border-0 text-center">السعر الجديد</th>
+                                    <th class="border-0 text-center">التغيير</th>
+                                    <th class="border-0 text-center">النسبة</th>
+                                    <th class="border-0">نوع التغيير</th>
+                                    <th class="border-0">بواسطة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in history %}
+                                <tr>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ record.changed_at|date:"Y/m/d" }}<br>
+                                            {{ record.changed_at|time:"H:i" }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'inventory:product_cost_breakdown' record.product.id %}" 
+                                           class="text-decoration-none">
+                                            <strong>{{ record.product.name }}</strong>
+                                        </a>
+                                        <br>
+                                        <small class="text-muted">{{ record.product.sku }}</small>
+                                    </td>
+                                    <td>
+                                        {% if record.supplier %}
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary">
+                                            {{ record.supplier.name }}
+                                        </span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="text-muted">{{ record.old_price|floatformat:2 }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <strong>{{ record.new_price|floatformat:2 }}</strong>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if record.price_change > 0 %}
+                                        <span class="text-danger">
+                                            <i class="fas fa-arrow-up"></i>
+                                            +{{ record.price_change|floatformat:2 }}
+                                        </span>
+                                        {% elif record.price_change < 0 %}
+                                        <span class="text-success">
+                                            <i class="fas fa-arrow-down"></i>
+                                            {{ record.price_change|floatformat:2 }}
+                                        </span>
+                                        {% else %}
+                                        <span class="text-muted">=</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if record.change_percentage > 0 %}
+                                        <span class="badge bg-danger bg-opacity-10 text-danger">
+                                            +{{ record.change_percentage|floatformat:1 }}%
+                                        </span>
+                                        {% elif record.change_percentage < 0 %}
+                                        <span class="badge bg-success bg-opacity-10 text-success">
+                                            {{ record.change_percentage|floatformat:1 }}%
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary">0%</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small>{{ record.get_change_type_display }}</small>
+                                    </td>
+                                    <td>
+                                        {% if record.changed_by %}
+                                        <small class="text-muted">{{ record.changed_by.username }}</small>
+                                        {% else %}
+                                        <small class="text-muted">النظام</small>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center py-5 text-muted">
+                                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                                        لا توجد سجلات
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .btn-group, form, .card-body form { display: none !important; }
+    .card { border: 1px solid #ddd !important; }
+}
+</style>
+
+<script>
+function exportToExcel() {
+    if (typeof XLSX === 'undefined') {
+        alert('ميزة التصدير غير متاحة حالياً.');
+        return;
+    }
+    const table = document.getElementById('historyTable');
+    const wb = XLSX.utils.table_to_book(table, {sheet: "سجل الأسعار"});
+    XLSX.writeFile(wb, 'price_history_' + new Date().toISOString().slice(0,10) + '.xlsx');
+}
+</script>
+{% endblock %}

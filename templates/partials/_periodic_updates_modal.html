@@ -1,0 +1,265 @@
+{% load i18n %}
+{# Modal التحديثات الدورية #}
+
+<!-- زر فتح Modal -->
+<button type="button" class="btn btn-primary btn-sm d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#periodicUpdatesModal" id="openUpdatesBtn">
+    <i class="bi bi-arrow-repeat"></i>
+    <span>{% trans 'التحديثات الدورية' %}</span>
+</button>
+
+<!-- Modal -->
+<div class="modal fade" id="periodicUpdatesModal" tabindex="-1" aria-labelledby="periodicUpdatesModalLabel" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;">
+            <!-- Header -->
+            <div class="modal-header border-0 pb-0 pt-3 px-4">
+                <h5 class="modal-title d-flex align-items-center gap-2 fw-bold" id="periodicUpdatesModalLabel">
+                    <i class="bi bi-arrow-repeat text-primary"></i>
+                    {% trans 'التحديثات الدورية' %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <!-- Body -->
+            <div class="modal-body text-center p-4">
+                <!-- Progress Circle -->
+                <div class="update-progress-container mb-4">
+                    <div class="progress-circle" id="updateProgressCircle">
+                        <svg viewBox="0 0 100 100">
+                            <circle class="progress-bg" cx="50" cy="50" r="45"></circle>
+                            <circle class="progress-bar" cx="50" cy="50" r="45" id="progressBar"></circle>
+                        </svg>
+                        <div class="progress-text">
+                            <span class="progress-value" id="progressValue">0</span>
+                            <span class="progress-percent">%</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Status Text -->
+                <p class="text-muted mb-4" id="updateStatusText">
+                    {% trans 'اضغط على "تحديث الآن" للبدء' %}
+                </p>
+                
+                <!-- Update Button -->
+                <button type="button" class="btn btn-primary btn-lg px-5 rounded-pill" id="runUpdateBtn">
+                    <i class="bi bi-download me-2"></i>
+                    {% trans 'تحديث الآن' %}
+                </button>
+                
+                <!-- Last Update Info -->
+                <div class="mt-4 pt-3 border-top" id="lastUpdateInfo" style="display: none;">
+                    <small class="text-muted">
+                        <i class="bi bi-clock me-1"></i>
+                        {% trans 'آخر تحديث:' %}
+                        <span id="lastUpdateTime">-</span>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* ===== تنسيقات Modal التحديثات ===== */
+.update-progress-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.progress-circle {
+    position: relative;
+    width: 160px;
+    height: 160px;
+}
+
+.progress-circle svg {
+    transform: rotate(-90deg);
+    width: 100%;
+    height: 100%;
+}
+
+.progress-circle .progress-bg {
+    fill: none;
+    stroke: #e5e7eb;
+    stroke-width: 8;
+}
+
+.progress-circle .progress-bar {
+    fill: none;
+    stroke: url(#progressGradient);
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-dasharray: 283;
+    stroke-dashoffset: 283;
+    transition: stroke-dashoffset 0.5s ease;
+}
+
+.progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+.progress-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #1e3a5f;
+    line-height: 1;
+}
+
+.progress-percent {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #6b7280;
+}
+
+html[data-theme='dark'] .progress-value {
+    color: #e5e7eb;
+}
+
+html[data-theme='dark'] .progress-circle .progress-bg {
+    stroke: #374151;
+}
+
+/* Animation for update button */
+#runUpdateBtn.updating {
+    pointer-events: none;
+}
+
+#runUpdateBtn.updating i {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Success state */
+.progress-circle.success .progress-bar {
+    stroke: #22c55e;
+}
+
+.progress-circle.success + .progress-text .progress-value {
+    color: #22c55e;
+}
+</style>
+
+<!-- SVG Gradient Definition -->
+<svg style="height: 0; width: 0; position: absolute;">
+    <defs>
+        <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+        </linearGradient>
+    </defs>
+</svg>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('periodicUpdatesModal');
+    const runBtn = document.getElementById('runUpdateBtn');
+    const progressBar = document.getElementById('progressBar');
+    const progressValue = document.getElementById('progressValue');
+    const statusText = document.getElementById('updateStatusText');
+    const lastUpdateInfo = document.getElementById('lastUpdateInfo');
+    const lastUpdateTime = document.getElementById('lastUpdateTime');
+    const progressCircle = document.getElementById('updateProgressCircle');
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                      document.querySelector('#django-csrf-token input')?.value || '';
+    
+    // تحميل حالة التحديثات عند فتح Modal
+    modal?.addEventListener('shown.bs.modal', async function() {
+        await loadUpdateStatus();
+    });
+    
+    // زر التحديث
+    runBtn?.addEventListener('click', async function() {
+        this.classList.add('updating');
+        this.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>{% trans "جاري التحديث..." %}';
+        statusText.textContent = '{% trans "جاري تحديث البيانات..." %}';
+        
+        // محاكاة التقدم
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress > 90) progress = 90;
+            updateProgress(progress);
+        }, 200);
+        
+        try {
+            const response = await fetch('{% url "core:api_run_updates" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const data = await response.json();
+            clearInterval(interval);
+            
+            if (data.success) {
+                updateProgress(100);
+                progressCircle.classList.add('success');
+                statusText.textContent = data.message || '{% trans "تم التحديث بنجاح!" %}';
+                runBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>{% trans "تم التحديث" %}';
+                runBtn.classList.remove('btn-primary');
+                runBtn.classList.add('btn-success');
+                
+                // تحديث وقت آخر تحديث
+                lastUpdateTime.textContent = new Date().toLocaleString('ar-EG');
+                lastUpdateInfo.style.display = 'block';
+                
+                // إعادة تعيين الحالة بعد 3 ثواني
+                setTimeout(() => {
+                    resetState();
+                }, 3000);
+            } else {
+                throw new Error(data.message);
+            }
+        } catch (e) {
+            clearInterval(interval);
+            statusText.textContent = '{% trans "حدث خطأ أثناء التحديث" %}';
+            runBtn.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i>{% trans "إعادة المحاولة" %}';
+            runBtn.classList.remove('btn-primary', 'updating');
+            runBtn.classList.add('btn-warning');
+        }
+    });
+    
+    function updateProgress(percent) {
+        const circumference = 2 * Math.PI * 45; // 283
+        const offset = circumference - (percent / 100) * circumference;
+        progressBar.style.strokeDashoffset = offset;
+        progressValue.textContent = Math.round(percent);
+    }
+    
+    function resetState() {
+        updateProgress(0);
+        progressCircle.classList.remove('success');
+        runBtn.classList.remove('updating', 'btn-success', 'btn-warning');
+        runBtn.classList.add('btn-primary');
+        runBtn.innerHTML = '<i class="bi bi-download me-2"></i>{% trans "تحديث الآن" %}';
+        statusText.textContent = '{% trans "اضغط على \"تحديث الآن\" للبدء" %}';
+    }
+    
+    async function loadUpdateStatus() {
+        try {
+            const response = await fetch('{% url "core:api_periodic_updates_status" %}');
+            const data = await response.json();
+            
+            if (data.last_update) {
+                lastUpdateTime.textContent = new Date(data.last_update).toLocaleString('ar-EG');
+                lastUpdateInfo.style.display = 'block';
+            }
+        } catch (e) {
+            console.error('Error loading update status:', e);
+        }
+    }
+});
+</script>

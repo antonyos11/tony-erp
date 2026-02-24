@@ -1,0 +1,175 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تحسين جدول الإنتاج{% endblock %}
+
+{% block extra_css %}
+<style>
+    .optimize-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        margin-bottom: 20px;
+    }
+    .optimization-option {
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 20px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .optimization-option:hover {
+        border-color: #3b82f6;
+        background: #f8fafc;
+    }
+    .optimization-option.selected {
+        border-color: #3b82f6;
+        background: #eff6ff;
+    }
+    .before-after {
+        display: flex;
+        gap: 20px;
+    }
+    .before-after > div {
+        flex: 1;
+        padding: 20px;
+        border-radius: 12px;
+    }
+    .before { background: #fef3c7; }
+    .after { background: #dcfce7; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-magic me-2 text-purple"></i>تحسين جدول الإنتاج</h2>
+            <p class="text-muted mb-0">استخدم الخوارزميات الذكية لتحسين الجدولة</p>
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        
+        <!-- معايير التحسين -->
+        <div class="optimize-card">
+            <h5 class="mb-4">اختر هدف التحسين</h5>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="optimization-option" onclick="selectOption(this, 'minimize_time')">
+                        <input type="radio" name="optimization_goal" value="minimize_time" class="d-none">
+                        <div class="text-center">
+                            <i class="fas fa-clock fa-2x text-primary mb-3"></i>
+                            <h6>تقليل وقت الإنتاج</h6>
+                            <p class="text-muted small mb-0">إنهاء الأوامر في أقصر وقت ممكن</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="optimization-option" onclick="selectOption(this, 'minimize_cost')">
+                        <input type="radio" name="optimization_goal" value="minimize_cost" class="d-none">
+                        <div class="text-center">
+                            <i class="fas fa-coins fa-2x text-success mb-3"></i>
+                            <h6>تقليل التكاليف</h6>
+                            <p class="text-muted small mb-0">تخفيض تكاليف الإنتاج والعمالة</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="optimization-option" onclick="selectOption(this, 'maximize_utilization')">
+                        <input type="radio" name="optimization_goal" value="maximize_utilization" class="d-none">
+                        <div class="text-center">
+                            <i class="fas fa-chart-line fa-2x text-info mb-3"></i>
+                            <h6>زيادة الاستغلال</h6>
+                            <p class="text-muted small mb-0">الاستفادة القصوى من الموارد</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- القيود -->
+        <div class="optimize-card">
+            <h5 class="mb-4">القيود والمحددات</h5>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="form-check mb-2">
+                        <input type="checkbox" class="form-check-input" id="respectDeadlines" name="respect_deadlines" checked>
+                        <label class="form-check-label" for="respectDeadlines">احترام مواعيد التسليم</label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input type="checkbox" class="form-check-input" id="respectPriorities" name="respect_priorities" checked>
+                        <label class="form-check-label" for="respectPriorities">مراعاة أولويات الأوامر</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="minimizeSetup" name="minimize_setup">
+                        <label class="form-check-label" for="minimizeSetup">تقليل وقت إعداد الآلات</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check mb-2">
+                        <input type="checkbox" class="form-check-input" id="balanceLoad" name="balance_load">
+                        <label class="form-check-label" for="balanceLoad">توازن الحمل على الخطوط</label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input type="checkbox" class="form-check-input" id="considerSkills" name="consider_skills">
+                        <label class="form-check-label" for="considerSkills">مراعاة مهارات العمال</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="avoidOvertime" name="avoid_overtime">
+                        <label class="form-check-label" for="avoidOvertime">تجنب العمل الإضافي</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- المقارنة قبل وبعد -->
+        {% if optimization_result %}
+        <div class="optimize-card">
+            <h5 class="mb-4">نتائج التحسين المتوقعة</h5>
+            <div class="before-after">
+                <div class="before">
+                    <h6 class="text-center mb-3">قبل التحسين</h6>
+                    <div class="text-center">
+                        <div class="mb-2">إجمالي الوقت: <strong>{{ current_time }} ساعة</strong></div>
+                        <div class="mb-2">التكلفة: <strong>{{ current_cost }} ج.م</strong></div>
+                        <div>الاستغلال: <strong>{{ current_utilization }}%</strong></div>
+                    </div>
+                </div>
+                <div class="after">
+                    <h6 class="text-center mb-3">بعد التحسين</h6>
+                    <div class="text-center">
+                        <div class="mb-2">إجمالي الوقت: <strong class="text-success">{{ optimized_time }} ساعة</strong></div>
+                        <div class="mb-2">التكلفة: <strong class="text-success">{{ optimized_cost }} ج.م</strong></div>
+                        <div>الاستغلال: <strong class="text-success">{{ optimized_utilization }}%</strong></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="d-flex gap-2">
+            <a href="{% url 'production:scheduling_list' %}" class="btn btn-outline-secondary flex-fill">إلغاء</a>
+            <button type="submit" name="action" value="preview" class="btn btn-outline-primary flex-fill">
+                <i class="fas fa-eye me-1"></i> معاينة
+            </button>
+            <button type="submit" name="action" value="apply" class="btn btn-success flex-fill">
+                <i class="fas fa-check me-1"></i> تطبيق التحسين
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function selectOption(element, value) {
+    document.querySelectorAll('.optimization-option').forEach(el => el.classList.remove('selected'));
+    element.classList.add('selected');
+    element.querySelector('input[type="radio"]').checked = true;
+}
+</script>
+{% endblock %}
+

@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .template-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 15px;
+        transition: all 0.3s;
+        background: white;
+    }
+    
+    .template-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transform: translateY(-2px);
+    }
+    
+    .template-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 15px;
+    }
+    
+    .template-name {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 5px;
+    }
+    
+    .template-meta {
+        color: #6c757d;
+        font-size: 0.9em;
+    }
+    
+    .template-details {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 6px;
+        margin-top: 10px;
+    }
+    
+    .template-detail-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 5px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .template-detail-row:last-child {
+        border-bottom: none;
+    }
+    
+    .template-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-copy"></i> {{ title }}</h2>
+                    <p class="text-muted">قوالب جاهزة للمنتجات لتسريع عملية الإدخال</p>
+                </div>
+                <div>
+                    <a href="{% url 'inventory:product_template_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> قالب جديد
+                    </a>
+                    <a href="{% url 'inventory:product_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-right"></i> رجوع
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if templates %}
+    <div class="row">
+        {% for template in templates %}
+        <div class="col-md-6 col-lg-4">
+            <div class="template-card">
+                <div class="template-header">
+                    <div>
+                        <div class="template-name">{{ template.name }}</div>
+                        <div class="template-meta">
+                            <i class="fas fa-user"></i> {{ template.created_by.username }}
+                            <span class="mx-2">•</span>
+                            <i class="fas fa-calendar"></i> {{ template.created_at|date:"Y-m-d" }}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="template-details">
+                    <div class="template-detail-row">
+                        <span><strong>نوع المنتج:</strong></span>
+                        <span class="badge badge-info">{{ template.get_product_type_display }}</span>
+                    </div>
+                    
+                    {% if template.raw_material_type %}
+                    <div class="template-detail-row">
+                        <span><strong>نوع المادة:</strong></span>
+                        <span class="badge badge-secondary">{{ template.get_raw_material_type_display }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    {% if template.category %}
+                    <div class="template-detail-row">
+                        <span><strong>الفئة:</strong></span>
+                        <span>{{ template.category.name }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="template-detail-row">
+                        <span><strong>الوحدات:</strong></span>
+                        <span>{{ template.purchase_uom }} → {{ template.usage_uom }}</span>
+                    </div>
+                    
+                    <div class="template-detail-row">
+                        <span><strong>معامل التحويل:</strong></span>
+                        <span class="badge badge-success">{{ template.conversion_factor }}</span>
+                    </div>
+                    
+                    {% if template.purchase_price %}
+                    <div class="template-detail-row">
+                        <span><strong>السعر:</strong></span>
+                        <span>{{ template.purchase_price }} ر.س</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="template-actions">
+                    <a href="{% url 'inventory:product_add_from_template' template.id %}" 
+                       class="btn btn-success btn-sm flex-fill">
+                        <i class="fas fa-plus-circle"></i> استخدام القالب
+                    </a>
+                    <a href="{% url 'inventory:product_template_edit' template.id %}" 
+                       class="btn btn-warning btn-sm">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <button type="button" 
+                            class="btn btn-danger btn-sm"
+                            onclick="deleteTemplate({{ template.id }}, '{{ template.name }}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info text-center">
+        <i class="fas fa-info-circle fa-3x mb-3"></i>
+        <h4>لا توجد قوالب محفوظة</h4>
+        <p>يمكنك إنشاء قالب جديد أو حفظ منتج موجود كقالب</p>
+        <a href="{% url 'inventory:product_template_create' %}" class="btn btn-primary mt-3">
+            <i class="fas fa-plus"></i> إنشاء قالب جديد
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal للحذف -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle"></i> تأكيد الحذف</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>هل أنت متأكد من حذف القالب "<strong id="templateName"></strong>"؟</p>
+                <p class="text-danger"><i class="fas fa-info-circle"></i> هذا الإجراء لا يمكن التراجع عنه</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">إلغاء</button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> حذف
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function deleteTemplate(templateId, templateName) {
+        document.getElementById('templateName').textContent = templateName;
+        document.getElementById('deleteForm').action = '{% url "inventory:product_template_delete" 0 %}'.replace('0', templateId);
+        $('#deleteModal').modal('show');
+    }
+</script>
+{% endblock %}

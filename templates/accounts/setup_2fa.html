@@ -1,0 +1,571 @@
+﻿{% extends 'base_v2.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}إعداد التحقق الثنائي{% endblock %}
+
+{% block extra_css %}
+<style>
+    .setup-container {
+        max-width: 700px;
+        margin: 0 auto;
+    }
+    
+    .step-indicator {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 40px;
+    }
+    
+    .step {
+        display: flex;
+        align-items: center;
+    }
+    
+    .step-circle {
+        width: 45px;
+        height: 45px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 1.2rem;
+        transition: all 0.3s ease;
+    }
+    
+    .step-circle.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    .step-circle.completed {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: white;
+    }
+    
+    .step-circle.pending {
+        background: #e9ecef;
+        color: #6c757d;
+    }
+    
+    .step-line {
+        width: 60px;
+        height: 3px;
+        background: #e9ecef;
+        margin: 0 10px;
+    }
+    
+    .step-line.completed {
+        background: linear-gradient(90deg, #11998e, #38ef7d);
+    }
+    
+    .setup-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        padding: 40px;
+        animation: fadeInUp 0.6s ease;
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .qr-container {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 20px;
+        padding: 30px;
+        text-align: center;
+        margin: 30px 0;
+    }
+    
+    .qr-code-wrapper {
+        display: inline-block;
+        background: white;
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+    
+    .qr-code-wrapper img, .qr-code-wrapper svg {
+        width: 200px;
+        height: 200px;
+    }
+    
+    .secret-key {
+        background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+        color: white;
+        padding: 15px 25px;
+        border-radius: 10px;
+        font-family: 'Courier New', monospace;
+        font-size: 1.2rem;
+        letter-spacing: 3px;
+        display: inline-block;
+        margin: 20px 0;
+        user-select: all;
+        cursor: pointer;
+        transition: transform 0.3s ease;
+    }
+    
+    .secret-key:hover {
+        transform: scale(1.02);
+    }
+    
+    .app-logos {
+        display: flex;
+        justify-content: center;
+        gap: 30px;
+        margin: 30px 0;
+        flex-wrap: wrap;
+    }
+    
+    .app-logo {
+        text-align: center;
+        transition: transform 0.3s ease;
+    }
+    
+    .app-logo:hover {
+        transform: translateY(-5px);
+    }
+    
+    .app-logo-img {
+        width: 60px;
+        height: 60px;
+        border-radius: 15px;
+        margin-bottom: 10px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    .verification-input {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin: 30px 0;
+        flex-wrap: wrap;
+    }
+    
+    .verification-input input {
+        width: 55px;
+        height: 65px;
+        text-align: center;
+        font-size: 1.8rem;
+        font-weight: bold;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+    }
+    
+    .verification-input input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 15px rgba(102, 126, 234, 0.3);
+        outline: none;
+    }
+    
+    .verification-input input.filled {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: transparent;
+    }
+    
+    .backup-codes {
+        background: #fff3cd;
+        border-radius: 15px;
+        padding: 25px;
+        margin: 30px 0;
+    }
+    
+    .backup-codes-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin-top: 20px;
+    }
+    
+    .backup-code {
+        background: white;
+        padding: 12px;
+        border-radius: 8px;
+        font-family: 'Courier New', monospace;
+        font-size: 1.1rem;
+        text-align: center;
+        border: 1px solid #ffc107;
+    }
+    
+    .security-tip {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        border-radius: 12px;
+        padding: 20px;
+        margin: 20px 0;
+        display: flex;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .security-tip i {
+        font-size: 1.5rem;
+        color: #1976d2;
+    }
+    
+    .btn-setup {
+        padding: 15px 40px;
+        font-size: 1.1rem;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-setup:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+    }
+    
+    .hero-2fa {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 60px 20px;
+        border-radius: 0 0 30px 30px;
+        margin-bottom: 40px;
+        text-align: center;
+    }
+    
+    .shield-icon {
+        font-size: 4rem;
+        margin-bottom: 20px;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+    }
+    
+    @media (max-width: 576px) {
+        .verification-input input {
+            width: 45px;
+            height: 55px;
+            font-size: 1.4rem;
+        }
+        
+        .backup-codes-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="hero-2fa">
+    <i class="bi bi-shield-lock shield-icon"></i>
+    <h1 class="mb-3">إعداد التحقق الثنائي</h1>
+    <p class="mb-0 opacity-75">حماية إضافية لحسابك</p>
+</div>
+
+<div class="container">
+    <div class="setup-container">
+        <!-- Step Indicator -->
+        <div class="step-indicator">
+            <div class="step">
+                <div class="step-circle active" id="step1-circle">1</div>
+            </div>
+            <div class="step-line" id="line1"></div>
+            <div class="step">
+                <div class="step-circle pending" id="step2-circle">2</div>
+            </div>
+            <div class="step-line" id="line2"></div>
+            <div class="step">
+                <div class="step-circle pending" id="step3-circle">3</div>
+            </div>
+        </div>
+        
+        <!-- Step 1: Download App -->
+        <div class="setup-card" id="step1">
+            <div class="text-center">
+                <div class="mb-4">
+                    <i class="bi bi-phone text-primary" style="font-size: 3rem;"></i>
+                </div>
+                <h3 class="mb-3">الخطوة 1: تحميل تطبيق المصادقة</h3>
+                <p class="text-muted">قم بتحميل أحد تطبيقات المصادقة التالية على هاتفك</p>
+            </div>
+            
+            <div class="app-logos">
+                <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2" 
+                   target="_blank" class="app-logo text-decoration-none">
+                    <div class="app-logo-img d-flex align-items-center justify-content-center bg-light">
+                        <i class="bi bi-google text-danger" style="font-size: 2rem;"></i>
+                    </div>
+                    <div class="text-dark small">Google Authenticator</div>
+                </a>
+                <a href="https://www.microsoft.com/en-us/security/mobile-authenticator-app" 
+                   target="_blank" class="app-logo text-decoration-none">
+                    <div class="app-logo-img d-flex align-items-center justify-content-center bg-light">
+                        <i class="bi bi-microsoft text-primary" style="font-size: 2rem;"></i>
+                    </div>
+                    <div class="text-dark small">Microsoft Authenticator</div>
+                </a>
+                <a href="https://authy.com/download/" 
+                   target="_blank" class="app-logo text-decoration-none">
+                    <div class="app-logo-img d-flex align-items-center justify-content-center" style="background: #ec1c24;">
+                        <i class="bi bi-shield-check text-white" style="font-size: 2rem;"></i>
+                    </div>
+                    <div class="text-dark small">Authy</div>
+                </a>
+            </div>
+            
+            <div class="security-tip">
+                <i class="bi bi-info-circle"></i>
+                <div>
+                    <strong>نصيحة أمان:</strong>
+                    نوصي باستخدام Google Authenticator أو Microsoft Authenticator لأنهما الأكثر أماناً وموثوقية.
+                </div>
+            </div>
+            
+            <div class="text-center mt-4">
+                <button type="button" class="btn btn-primary btn-setup" onclick="goToStep(2)">
+                    <i class="bi bi-arrow-left me-2"></i>
+                    التالي: مسح رمز QR
+                </button>
+            </div>
+        </div>
+        
+        <!-- Step 2: Scan QR -->
+        <div class="setup-card d-none" id="step2">
+            <div class="text-center">
+                <div class="mb-4">
+                    <i class="bi bi-qr-code-scan text-success" style="font-size: 3rem;"></i>
+                </div>
+                <h3 class="mb-3">الخطوة 2: مسح رمز QR</h3>
+                <p class="text-muted">افتح تطبيق المصادقة وامسح رمز QR التالي</p>
+            </div>
+            
+            <div class="qr-container">
+                <div class="qr-code-wrapper">
+                    {% if qr_code %}
+                        {{ qr_code|safe }}
+                    {% else %}
+                        <div style="width: 200px; height: 200px; background: #f8f9fa; 
+                                    display: flex; align-items: center; justify-content: center;
+                                    border-radius: 10px;">
+                            <i class="bi bi-qr-code" style="font-size: 4rem; color: #dee2e6;"></i>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mt-4">
+                    <p class="text-muted small mb-2">أو أدخل المفتاح يدوياً:</p>
+                    <div class="secret-key" onclick="copySecret(this)" title="انقر للنسخ">
+                        {{ secret_key|default:"XXXX-XXXX-XXXX-XXXX" }}
+                    </div>
+                    <p class="text-muted small mt-2">
+                        <i class="bi bi-clipboard me-1"></i>
+                        انقر على المفتاح لنسخه
+                    </p>
+                </div>
+            </div>
+            
+            <div class="security-tip">
+                <i class="bi bi-exclamation-triangle text-warning"></i>
+                <div>
+                    <strong>تحذير:</strong>
+                    احتفظ بهذا المفتاح في مكان آمن. ستحتاجه لاستعادة الوصول إذا فقدت هاتفك.
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-between mt-4">
+                <button type="button" class="btn btn-outline-secondary btn-setup" onclick="goToStep(1)">
+                    <i class="bi bi-arrow-right me-2"></i>
+                    السابق
+                </button>
+                <button type="button" class="btn btn-primary btn-setup" onclick="goToStep(3)">
+                    <i class="bi bi-arrow-left me-2"></i>
+                    التالي: التحقق
+                </button>
+            </div>
+        </div>
+        
+        <!-- Step 3: Verify -->
+        <div class="setup-card d-none" id="step3">
+            <div class="text-center">
+                <div class="mb-4">
+                    <i class="bi bi-check-circle text-info" style="font-size: 3rem;"></i>
+                </div>
+                <h3 class="mb-3">الخطوة 3: التحقق من الإعداد</h3>
+                <p class="text-muted">أدخل الرمز المكون من 6 أرقام من تطبيق المصادقة</p>
+            </div>
+            
+            <form method="post" id="verifyForm">
+                {% csrf_token %}
+                <input type="hidden" name="secret_key" value="{{ secret_key }}">
+                
+                <div class="verification-input">
+                    <input type="text" maxlength="1" class="code-input" data-index="0" inputmode="numeric" pattern="[0-9]">
+                    <input type="text" maxlength="1" class="code-input" data-index="1" inputmode="numeric" pattern="[0-9]">
+                    <input type="text" maxlength="1" class="code-input" data-index="2" inputmode="numeric" pattern="[0-9]">
+                    <input type="text" maxlength="1" class="code-input" data-index="3" inputmode="numeric" pattern="[0-9]">
+                    <input type="text" maxlength="1" class="code-input" data-index="4" inputmode="numeric" pattern="[0-9]">
+                    <input type="text" maxlength="1" class="code-input" data-index="5" inputmode="numeric" pattern="[0-9]">
+                </div>
+                <input type="hidden" name="otp_code" id="otpCode">
+                
+                {% if error %}
+                <div class="alert alert-danger text-center">
+                    <i class="bi bi-x-circle me-2"></i>
+                    {{ error }}
+                </div>
+                {% endif %}
+                
+                <div class="backup-codes">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <i class="bi bi-key text-warning" style="font-size: 1.5rem;"></i>
+                        <div>
+                            <strong>رموز الاسترداد الاحتياطية</strong>
+                            <p class="text-muted small mb-0">احتفظ بهذه الرموز في مكان آمن لاستخدامها في حالة فقدان الهاتف</p>
+                        </div>
+                    </div>
+                    <div class="backup-codes-grid">
+                        {% for code in backup_codes %}
+                        <div class="backup-code">{{ code }}</div>
+                        {% empty %}
+                        <div class="backup-code">XXXX-XXXX</div>
+                        <div class="backup-code">XXXX-XXXX</div>
+                        <div class="backup-code">XXXX-XXXX</div>
+                        <div class="backup-code">XXXX-XXXX</div>
+                        <div class="backup-code">XXXX-XXXX</div>
+                        <div class="backup-code">XXXX-XXXX</div>
+                        <div class="backup-code">XXXX-XXXX</div>
+                        <div class="backup-code">XXXX-XXXX</div>
+                        {% endfor %}
+                    </div>
+                    <div class="text-center mt-3">
+                        <button type="button" class="btn btn-sm btn-outline-warning" onclick="downloadBackupCodes()">
+                            <i class="bi bi-download me-1"></i>
+                            تحميل الرموز
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="printBackupCodes()">
+                            <i class="bi bi-printer me-1"></i>
+                            طباعة
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-between mt-4">
+                    <button type="button" class="btn btn-outline-secondary btn-setup" onclick="goToStep(2)">
+                        <i class="bi bi-arrow-right me-2"></i>
+                        السابق
+                    </button>
+                    <button type="submit" class="btn btn-success btn-setup">
+                        <i class="bi bi-shield-check me-2"></i>
+                        تفعيل التحقق الثنائي
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function goToStep(step) {
+    document.querySelectorAll('.setup-card').forEach(card => card.classList.add('d-none'));
+    document.getElementById('step' + step).classList.remove('d-none');
+    
+    for (let i = 1; i <= 3; i++) {
+        const circle = document.getElementById('step' + i + '-circle');
+        const line = document.getElementById('line' + (i - 1));
+        
+        if (i < step) {
+            circle.classList.remove('active', 'pending');
+            circle.classList.add('completed');
+            circle.innerHTML = '<i class="bi bi-check"></i>';
+            if (line) line.classList.add('completed');
+        } else if (i === step) {
+            circle.classList.remove('completed', 'pending');
+            circle.classList.add('active');
+            circle.innerHTML = i;
+        } else {
+            circle.classList.remove('active', 'completed');
+            circle.classList.add('pending');
+            circle.innerHTML = i;
+        }
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+const codeInputs = document.querySelectorAll('.code-input');
+codeInputs.forEach((input, index) => {
+    input.addEventListener('input', (e) => {
+        const value = e.target.value;
+        if (!/^\d*$/.test(value)) { e.target.value = ''; return; }
+        if (value) {
+            input.classList.add('filled');
+            if (index < codeInputs.length - 1) codeInputs[index + 1].focus();
+        } else {
+            input.classList.remove('filled');
+        }
+        updateOTPCode();
+    });
+    
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !input.value && index > 0) {
+            codeInputs[index - 1].focus();
+            codeInputs[index - 1].value = '';
+            codeInputs[index - 1].classList.remove('filled');
+        }
+    });
+    
+    input.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+        [...pastedData].forEach((char, i) => {
+            if (codeInputs[i]) {
+                codeInputs[i].value = char;
+                codeInputs[i].classList.add('filled');
+            }
+        });
+        if (pastedData.length > 0) codeInputs[Math.min(pastedData.length, 5)].focus();
+        updateOTPCode();
+    });
+});
+
+function updateOTPCode() {
+    document.getElementById('otpCode').value = [...codeInputs].map(i => i.value).join('');
+}
+
+function copySecret(element) {
+    navigator.clipboard.writeText(element.textContent.replace(/-/g, '')).then(() => {
+        const original = element.textContent;
+        element.textContent = 'تم النسخ!';
+        setTimeout(() => element.textContent = original, 2000);
+    });
+}
+
+function downloadBackupCodes() {
+    const codes = [...document.querySelectorAll('.backup-code')].map(el => el.textContent).join('\n');
+    const blob = new Blob([`رموز الاسترداد\n${'='.repeat(30)}\n\n${codes}`], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'backup-codes.txt';
+    a.click();
+}
+
+function printBackupCodes() {
+    window.print();
+}
+
+document.getElementById('verifyForm')?.addEventListener('submit', function(e) {
+    if (document.getElementById('otpCode').value.length !== 6) {
+        e.preventDefault();
+        alert('يرجى إدخال الرمز المكون من 6 أرقام');
+    }
+});
+</script>
+{% endblock %}

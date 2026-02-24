@@ -1,0 +1,343 @@
+{% extends 'base_templates/_detail_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'تفاصيل الفاتورة' %}{% endblock %}
+{% block detail_hero_icon %}bi-receipt{% endblock %}
+{% block detail_hero_title %}{% trans 'فاتورة مبيعات رقم' %} {{ invoice.invoice_number }}{% endblock %}
+{% block detail_hero_subtitle %}{% trans 'تفاصيل ومعلومات الفاتورة' %}{% endblock %}
+
+{% block detail_status %}
+{% if invoice.payment_status == 'paid' %}
+<span class="badge badge-status approved fs-6">{% trans 'مدفوعة بالكامل' %}</span>
+{% elif invoice.payment_status == 'partial' %}
+<span class="badge badge-status pending fs-6">{% trans 'دفع جزئي' %}</span>
+{% elif invoice.is_overdue %}
+<span class="badge badge-status cancelled fs-6">{% trans 'متأخرة' %}</span>
+{% else %}
+<span class="badge badge-status draft fs-6">{% trans 'غير مدفوعة' %}</span>
+{% endif %}
+{% endblock %}
+
+{% block detail_actions %}
+<a href="{% url 'sales:invoice_edit' invoice.pk %}" class="btn btn-outline-primary btn-sm">
+  <i class="bi bi-pencil me-1"></i>{% trans 'تعديل' %}
+</a>
+{% include 'sales/invoice_remote_print.html' with invoice=invoice %}
+<a href="{% url 'sales:invoice_direct_print_a4' invoice.pk %}" class="btn btn-primary btn-sm" target="_blank">
+  <i class="bi bi-printer-fill me-1"></i>{% trans 'طباعة مباشرة A4' %}
+</a>
+<a href="{% url 'sales:invoice_print' invoice.pk %}" class="btn btn-outline-info btn-sm" target="_blank">
+  <i class="bi bi-printer me-1"></i>{% trans 'عرض الطباعة' %}
+</a>
+{% if invoice.payment_status != 'paid' %}
+<a href="{% url 'sales:invoice_add_payment' invoice.pk %}" class="btn btn-success btn-sm">
+  <i class="bi bi-cash me-1"></i>{% trans 'تحصيل' %}
+</a>
+{% endif %}
+{% if invoice.einvoice %}
+<a href="/zatca/invoices/" class="btn btn-outline-success btn-sm" title="{% trans 'الفاتورة الإلكترونية' %}">
+  <i class="bi bi-qr-code me-1"></i>{% trans 'ZATCA' %}
+</a>
+{% else %}
+<a href="/zatca/invoices/" class="btn btn-outline-secondary btn-sm" title="{% trans 'إنشاء فاتورة إلكترونية' %}">
+  <i class="bi bi-qr-code me-1"></i>{% trans 'فوترة إلكترونية' %}
+</a>
+{% endif %}
+{% endblock %}
+
+{% block detail_content %}
+<style>
+  .invoice-header {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    margin-bottom: 2rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+  .customer-box, .invoice-box {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+  }
+  .customer-box h5, .invoice-box h5 {
+    color: var(--primary);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--primary);
+  }
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  .info-item {
+    display: flex;
+    flex-direction: column;
+  }
+  .info-item .label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+  }
+  .info-item .value {
+    font-weight: 600;
+    color: var(--text-dark);
+  }
+  .items-table {
+    width: 100%;
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    margin-bottom: 2rem;
+  }
+  .items-table thead {
+    background: linear-gradient(135deg, var(--primary) 0%, #2d5a87 100%);
+    color: white;
+  }
+  .items-table th {
+    padding: 1rem;
+    font-weight: 600;
+  }
+  .items-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .items-table tbody tr:hover {
+    background: rgba(var(--primary-rgb), 0.05);
+  }
+  .totals-section {
+    background: linear-gradient(135deg, var(--primary) 0%, #2d5a87 100%);
+    color: white;
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    margin-bottom: 2rem;
+  }
+  .totals-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1.5rem;
+    text-align: center;
+  }
+  .total-item {
+    padding: 1rem;
+    background: rgba(255,255,255,0.1);
+    border-radius: var(--radius);
+  }
+  .total-item .value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+  .total-item .label {
+    font-size: 0.875rem;
+    opacity: 0.8;
+  }
+  .payment-history {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+  }
+  .payment-history h5 {
+    margin-bottom: 1rem;
+    color: var(--primary);
+  }
+  .payment-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .payment-item:last-child {
+    border-bottom: none;
+  }
+  .payment-badge {
+    width: 40px;
+    height: 40px;
+    background: var(--success);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .balance-card {
+    background: linear-gradient(135deg, #fef3cd 0%, #fff3cd 100%);
+    border: 2px solid #f59e0b;
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    text-align: center;
+  }
+  .balance-card.paid {
+    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+    border-color: #10b981;
+  }
+  .balance-card .amount {
+    font-size: 2rem;
+    font-weight: 700;
+  }
+</style>
+
+<!-- Invoice Header -->
+<div class="invoice-header">
+  <div class="customer-box">
+    <h5><i class="bi bi-person-badge me-2"></i>{% trans 'معلومات العميل' %}</h5>
+    <div class="info-grid">
+      <div class="info-item">
+        <span class="label">{% trans 'اسم العميل' %}</span>
+        <span class="value">{{ invoice.customer.name }}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">{% trans 'الهاتف' %}</span>
+        <span class="value">{{ invoice.customer.phone|default:'-' }}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">{% trans 'البريد الإلكتروني' %}</span>
+        <span class="value">{{ invoice.customer.email|default:'-' }}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">{% trans 'العنوان' %}</span>
+        <span class="value">{{ invoice.customer.address|default:'-' }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="invoice-box">
+    <h5><i class="bi bi-receipt me-2"></i>{% trans 'معلومات الفاتورة' %}</h5>
+    <div class="info-grid">
+      <div class="info-item">
+        <span class="label">{% trans 'رقم الفاتورة' %}</span>
+        <span class="value">{{ invoice.invoice_number }}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">{% trans 'تاريخ الإصدار' %}</span>
+        <span class="value">{{ invoice.date|date:"Y/m/d" }}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">{% trans 'تاريخ الاستحقاق' %}</span>
+        <span class="value">{{ invoice.due_date|date:"Y/m/d"|default:'-' }}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">{% trans 'طريقة الدفع' %}</span>
+        <span class="value">{{ invoice.get_payment_method_display|default:'-' }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Invoice Items -->
+<div class="mb-4">
+  <h5 class="mb-3"><i class="bi bi-box-seam me-2"></i>{% trans 'أصناف الفاتورة' %}</h5>
+  <div class="table-responsive"><table class="items-table">
+    <thead>
+      <tr>
+        <th style="width: 5%">#</th>
+        <th style="width: 35%">{% trans 'الصنف' %}</th>
+        <th class="text-center" style="width: 15%">{% trans 'الكمية' %}</th>
+        <th class="text-end" style="width: 15%">{% trans 'السعر' %}</th>
+        <th class="text-end" style="width: 15%">{% trans 'الخصم' %}</th>
+        <th class="text-end" style="width: 15%">{% trans 'الإجمالي' %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in invoice.items.all %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>
+          <div class="fw-medium">{{ item.product.name }}</div>
+          <div class="small text-muted">{{ item.product.code|default:'' }}</div>
+        </td>
+        <td class="text-center">{{ item.quantity }}</td>
+        <td class="text-end">{{ item.unit_price|floatformat:2 }}</td>
+        <td class="text-end text-danger">{{ item.discount|floatformat:2|default:'0.00' }}</td>
+        <td class="text-end fw-bold">{{ item.line_total|floatformat:2 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+
+<!-- Totals Section -->
+<div class="totals-section">
+  <div class="totals-grid">
+    <div class="total-item">
+      <div class="value">{{ invoice.subtotal|floatformat:2 }}</div>
+      <div class="label">{% trans 'المجموع الفرعي' %}</div>
+    </div>
+    <div class="total-item">
+      <div class="value">{{ invoice.total_discount|floatformat:2|default:'0.00' }}</div>
+      <div class="label">{% trans 'الخصم' %}</div>
+    </div>
+    <div class="total-item">
+      <div class="value">{{ invoice.tax_amount|floatformat:2|default:'0.00' }}</div>
+      <div class="label">{% trans 'الضريبة' %}</div>
+    </div>
+    <div class="total-item" style="background: rgba(255,255,255,0.2);">
+      <div class="value">{{ invoice.total|floatformat:2 }}</div>
+      <div class="label">{% trans 'الإجمالي النهائي' %}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Payment & Balance -->
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="payment-history">
+      <h5><i class="bi bi-credit-card me-2"></i>{% trans 'سجل المدفوعات' %}</h5>
+      {% for payment in invoice.payments.all %}
+      <div class="payment-item">
+        <div class="d-flex align-items-center gap-3">
+          <div class="payment-badge">
+            <i class="bi bi-cash"></i>
+          </div>
+          <div>
+            <div class="fw-medium">{{ payment.amount|floatformat:2 }}</div>
+            <div class="small text-muted">{{ payment.date|date:"Y/m/d H:i" }} - {{ payment.get_method_display }}</div>
+          </div>
+        </div>
+        <span class="badge bg-success">{% trans 'تم التحصيل' %}</span>
+      </div>
+      {% empty %}
+      <div class="text-center py-4 text-muted">
+        <i class="bi bi-credit-card fs-1 d-block mb-2"></i>
+        {% trans 'لا توجد مدفوعات مسجلة' %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="balance-card {% if invoice.remaining_amount <= 0 %}paid{% endif %}">
+      <div class="mb-2">
+        <i class="bi bi-wallet2 fs-1"></i>
+      </div>
+      <div class="amount {% if invoice.remaining_amount > 0 %}text-warning{% else %}text-success{% endif %}">
+        {{ invoice.remaining_amount|floatformat:2 }}
+      </div>
+      <div class="text-muted">{% trans 'المبلغ المتبقي' %}</div>
+      {% if invoice.remaining_amount > 0 %}
+      <a href="{% url 'sales:invoice_add_payment' invoice.pk %}" class="btn btn-warning btn-sm mt-3">
+        <i class="bi bi-cash me-1"></i>{% trans 'تسجيل دفعة' %}
+      </a>
+      {% else %}
+      <span class="badge bg-success mt-3">{% trans 'تم السداد بالكامل' %}</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Notes -->
+{% if invoice.notes %}
+<div class="mt-4 p-3 bg-light rounded">
+  <h6><i class="bi bi-sticky me-2"></i>{% trans 'ملاحظات' %}</h6>
+  <p class="mb-0">{{ invoice.notes }}</p>
+</div>
+{% endif %}
+{% endblock %}
+

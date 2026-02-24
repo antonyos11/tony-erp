@@ -1,0 +1,202 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}لوحة تحكم واتساب{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <i class="fab fa-whatsapp text-success"></i>
+                لوحة تحكم واتساب
+            </h1>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">إجمالي المحادثات</h5>
+                    <h2>{{ stats.total_conversations }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5 class="card-title">محادثات مفتوحة</h5>
+                    <h2>{{ stats.open_conversations }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">رسائل اليوم</h5>
+                    <h2>{{ stats.today_messages }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">عملاء مسجلين تلقائياً</h5>
+                    <h2>{{ stats.auto_registered }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Conversations List -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-comments"></i>
+                        المحادثات الأخيرة
+                    </h5>
+                    <span class="badge bg-success">{{ conversations|length }} محادثة</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for conv in conversations %}
+                        <a href="{% url 'whatsapp_integration:conversation_detail' conv.id %}" 
+                           class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">
+                                    <i class="fab fa-whatsapp text-success me-2"></i>
+                                    {{ conv.customer_name|default:conv.phone_number }}
+                                </h6>
+                                <small class="text-muted">{{ conv.last_message_at|timesince }}</small>
+                            </div>
+                            <p class="mb-1 text-muted small">{{ conv.phone_number }}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge 
+                                    {% if conv.status == 'open' %}bg-warning
+                                    {% elif conv.status == 'resolved' %}bg-success
+                                    {% elif conv.status == 'closed' %}bg-secondary
+                                    {% else %}bg-info{% endif %}">
+                                    {{ conv.get_status_display }}
+                                </span>
+                                {% if conv.auto_registered %}
+                                <span class="badge bg-primary">
+                                    <i class="fas fa-user-plus"></i> CRM
+                                </span>
+                                {% endif %}
+                            </div>
+                        </a>
+                        {% empty %}
+                        <div class="list-group-item text-center text-muted py-4">
+                            <i class="fab fa-whatsapp fa-3x mb-3"></i>
+                            <p>لا توجد محادثات بعد</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions & Templates -->
+        <div class="col-md-4">
+            <!-- n8n Integration Status -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-plug"></i>
+                        تكامل n8n
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Webhook URL:</strong>
+                        <code class="d-block mt-1 p-2 bg-light rounded" style="font-size: 0.8rem;">
+                            /whatsapp/api/n8n/incoming/
+                        </code>
+                    </div>
+                    <div class="mb-3">
+                        <strong>بحث المنتجات:</strong>
+                        <code class="d-block mt-1 p-2 bg-light rounded" style="font-size: 0.8rem;">
+                            /whatsapp/api/n8n/products/search/
+                        </code>
+                    </div>
+                    <div class="mb-3">
+                        <strong>تسجيل العملاء:</strong>
+                        <code class="d-block mt-1 p-2 bg-light rounded" style="font-size: 0.8rem;">
+                            /whatsapp/api/n8n/customer/register/
+                        </code>
+                    </div>
+                    <a href="{% url 'admin:whatsapp_integration_whatsappconfig_changelist' %}" 
+                       class="btn btn-outline-primary w-100">
+                        <i class="fas fa-cog"></i> إعدادات التكامل
+                    </a>
+                </div>
+            </div>
+
+            <!-- Templates -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-file-alt"></i>
+                        قوالب الرسائل
+                    </h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for template in templates %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>{{ template.name }}</span>
+                            <span class="badge bg-secondary">{{ template.get_category_display }}</span>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-center text-muted">
+                        لا توجد قوالب
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="card-footer">
+                    <a href="{% url 'admin:whatsapp_integration_whatsapptemplate_add' %}" 
+                       class="btn btn-sm btn-success w-100">
+                        <i class="fas fa-plus"></i> إضافة قالب
+                    </a>
+                </div>
+            </div>
+
+            <!-- Auto Reply Rules -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-robot"></i>
+                        قواعد الرد التلقائي
+                    </h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for rule in rules %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>{{ rule.name }}</span>
+                            <span class="badge bg-info">{{ rule.get_action_display }}</span>
+                        </div>
+                        <small class="text-muted">{{ rule.trigger_text }}</small>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-center text-muted">
+                        لا توجد قواعد
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="card-footer">
+                    <a href="{% url 'admin:whatsapp_integration_autoreplyrule_add' %}" 
+                       class="btn btn-sm btn-info w-100">
+                        <i class="fas fa-plus"></i> إضافة قاعدة
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,347 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}لوحة التحليلات المتقدمة - الإنتاج{% endblock %}
+
+{% block extra_css %}
+<style>
+    .kpi-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    .kpi-card.success { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+    .kpi-card.warning { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .kpi-card.info { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .kpi-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin: 10px 0;
+    }
+    .kpi-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    .oee-gauge {
+        width: 200px;
+        height: 200px;
+        margin: 0 auto;
+    }
+    .bottleneck-card {
+        border-left: 4px solid #dc3545;
+        background: #fff5f5;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 8px;
+    }
+    .bottleneck-card.warning {
+        border-left-color: #ffc107;
+        background: #fffef5;
+    }
+    .suggestion-card {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border: 1px solid #e9ecef;
+    }
+    .suggestion-card:hover {
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .trend-chart {
+        height: 300px;
+    }
+    .priority-badge {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        border-radius: 20px;
+    }
+    .priority-high { background: #dc3545; color: white; }
+    .priority-medium { background: #ffc107; color: black; }
+    .priority-low { background: #28a745; color: white; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-chart-line me-2"></i>لوحة التحليلات المتقدمة</h2>
+                    <p class="text-muted mb-0">تحليلات ذكية وتوصيات لتحسين الإنتاج</p>
+                </div>
+                <div>
+                    <select id="periodSelector" class="form-select" onchange="updatePeriod(this.value)">
+                        <option value="7" {% if selected_days == 7 %}selected{% endif %}>آخر 7 أيام</option>
+                        <option value="30" {% if selected_days == 30 %}selected{% endif %}>آخر 30 يوم</option>
+                        <option value="90" {% if selected_days == 90 %}selected{% endif %}>آخر 3 أشهر</option>
+                        <option value="365" {% if selected_days == 365 %}selected{% endif %}>آخر سنة</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Cards Row -->
+    <div class="row">
+        <!-- OEE Card -->
+        <div class="col-md-3">
+            <div class="kpi-card {% if kpis.oee.oee >= 85 %}success{% elif kpis.oee.oee >= 60 %}info{% else %}warning{% endif %}">
+                <div class="kpi-label"><i class="fas fa-cogs me-1"></i>كفاءة المعدات الشاملة (OEE)</div>
+                <div class="kpi-value">{{ kpis.oee.oee|floatformat:1 }}%</div>
+                <div class="d-flex justify-content-between small">
+                    <span>إتاحة: {{ kpis.oee.availability|floatformat:0 }}%</span>
+                    <span>أداء: {{ kpis.oee.performance|floatformat:0 }}%</span>
+                    <span>جودة: {{ kpis.oee.quality|floatformat:0 }}%</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Orders Card -->
+        <div class="col-md-3">
+            <div class="kpi-card info">
+                <div class="kpi-label"><i class="fas fa-clipboard-list me-1"></i>أوامر الإنتاج</div>
+                <div class="kpi-value">{{ kpis.orders.total }}</div>
+                <div class="d-flex justify-content-between small">
+                    <span>مكتمل: {{ kpis.orders.completed }}</span>
+                    <span>قيد التنفيذ: {{ kpis.orders.in_progress }}</span>
+                </div>
+                <div class="progress mt-2" style="height: 6px;">
+                    <div class="progress-bar bg-white" data-completion="{ kpis.orders.completion_rate }"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Material Efficiency -->
+        <div class="col-md-3">
+            <div class="kpi-card {% if kpis.material_efficiency.efficiency_percentage >= 95 %}success{% elif kpis.material_efficiency.efficiency_percentage >= 85 %}info{% else %}warning{% endif %}">
+                <div class="kpi-label"><i class="fas fa-boxes me-1"></i>كفاءة المواد</div>
+                <div class="kpi-value">{{ kpis.material_efficiency.efficiency_percentage|floatformat:1 }}%</div>
+                <div class="small">نسبة الهدر: {{ kpis.material_efficiency.waste_rate|floatformat:1 }}%</div>
+            </div>
+        </div>
+        
+        <!-- Cost Variance -->
+        <div class="col-md-3">
+            <div class="kpi-card {% if kpis.cost_variance.status == 'favorable' %}success{% elif kpis.cost_variance.status == 'on_target' %}info{% else %}warning{% endif %}">
+                <div class="kpi-label"><i class="fas fa-dollar-sign me-1"></i>انحراف التكلفة</div>
+                <div class="kpi-value">{{ kpis.cost_variance.variance_percentage|floatformat:1 }}%</div>
+                <div class="small">
+                    {% if kpis.cost_variance.status == 'favorable' %}
+                        <i class="fas fa-arrow-down"></i> وفر في التكلفة
+                    {% elif kpis.cost_variance.status == 'unfavorable' %}
+                        <i class="fas fa-arrow-up"></i> زيادة في التكلفة
+                    {% else %}
+                        <i class="fas fa-check"></i> ضمن الهدف
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Second Row: Bottlenecks & Suggestions -->
+    <div class="row mt-4">
+        <!-- Bottlenecks -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>الاختناقات المكتشفة</h5>
+                </div>
+                <div class="card-body">
+                    {% if bottlenecks %}
+                        {% for b in bottlenecks %}
+                        <div class="bottleneck-card {% if b.severity == 'warning' %}warning{% endif %}">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-industry me-2"></i>{{ b.work_center.name }}
+                                </h6>
+                                <span class="badge {% if b.severity == 'critical' %}bg-danger{% else %}bg-warning{% endif %}">
+                                    {{ b.severity }}
+                                </span>
+                            </div>
+                            <div class="mt-2 small">
+                                <span class="me-3"><strong>الاستغلال:</strong> {{ b.utilization }}%</span>
+                                <span><strong>متوسط الانتظار:</strong> {{ b.avg_wait_hours }} ساعة</span>
+                            </div>
+                            <div class="mt-2 text-muted small">
+                                <i class="fas fa-lightbulb me-1"></i>{{ b.recommendation }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-success py-4">
+                            <i class="fas fa-check-circle fa-3x mb-3"></i>
+                            <p class="mb-0">لا توجد اختناقات مكتشفة - الإنتاج يعمل بسلاسة</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Optimization Suggestions -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-magic me-2"></i>اقتراحات التحسين</h5>
+                </div>
+                <div class="card-body">
+                    {% if suggestions %}
+                        {% for s in suggestions %}
+                        <div class="suggestion-card">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">{{ s.title }}</h6>
+                                    <p class="text-muted small mb-2">{{ s.description }}</p>
+                                    <span class="text-primary small">
+                                        <i class="fas fa-arrow-right me-1"></i>{{ s.action }}
+                                    </span>
+                                </div>
+                                <span class="priority-badge priority-{ s.priority }">
+                                    {{ s.priority }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-success py-4">
+                            <i class="fas fa-thumbs-up fa-3x mb-3"></i>
+                            <p class="mb-0">النظام في حالة مثالية!</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Third Row: Trends Chart -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-area me-2"></i>اتجاهات الإنتاج</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="trendsChart" class="trend-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fourth Row: Worker Productivity & Quality -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-users me-2"></i>إنتاجية العمال</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-3">
+                        <span>عدد العمال النشطين</span>
+                        <strong>{{ kpis.worker_productivity.total_workers }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-3">
+                        <span>إجمالي الإنتاج</span>
+                        <strong>{{ kpis.worker_productivity.total_produced|floatformat:0 }} وحدة</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>متوسط الإنتاجية/عامل</span>
+                        <strong>{{ kpis.worker_productivity.avg_per_worker|floatformat:1 }} وحدة</strong>
+                    </div>
+                    <hr>
+                    <a href="{% url 'production:worker_performance_report' %}" class="btn btn-outline-primary btn-sm w-100">
+                        <i class="fas fa-external-link-alt me-1"></i>تقرير تفصيلي
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-medal me-2"></i>نسبة الجودة</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="display-4 {% if kpis.quality_rate.quality_rate >= 95 %}text-success{% elif kpis.quality_rate.quality_rate >= 85 %}text-warning{% else %}text-danger{% endif %}">
+                            {{ kpis.quality_rate.quality_rate|floatformat:1 }}%
+                        </div>
+                        <small class="text-muted">نسبة المنتجات المطابقة للجودة</small>
+                    </div>
+                    <div class="d-flex justify-content-between small">
+                        <span>الإنتاج الكلي: {{ kpis.quality_rate.total_produced|floatformat:0 }}</span>
+                        <span>التالف: {{ kpis.quality_rate.scrap_quantity|floatformat:0 }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('[data-completion]').forEach(el => {
+        const value = parseFloat(el.dataset.completion);
+        if (!Number.isNaN(value)) {
+            el.style.width = `${value}%`;
+        }
+    });
+});
+
+function updatePeriod(days) {
+    window.location.href = '?days=' + days;
+}
+
+// Trends Chart
+const trendsData = JSON.parse('{ kpis.trends.weekly|escapejs }');
+const labels = trendsData.map(d => new Date(d.week).toLocaleDateString('ar-EG'));
+const quantities = trendsData.map(d => d.total_quantity || 0);
+const completed = trendsData.map(d => d.completed || 0);
+
+const ctx = document.getElementById('trendsChart').getContext('2d');
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: labels,
+        datasets: [{
+            label: 'الكمية المخططة',
+            data: quantities,
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.1)',
+            fill: true,
+            tension: 0.4
+        }, {
+            label: 'الأوامر المكتملة',
+            data: completed,
+            borderColor: 'rgb(54, 162, 235)',
+            backgroundColor: 'rgba(54, 162, 235, 0.1)',
+            fill: true,
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'top',
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+</script>
+{% endblock %}
+

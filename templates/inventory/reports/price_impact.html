@@ -1,0 +1,294 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm bg-gradient-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-1">
+                                <i class="fas fa-chart-line me-2"></i>
+                                {{ title }}
+                            </h4>
+                            <small class="opacity-75">
+                                آخر {{ period }} يوم (من {{ date_from|date:"Y/m/d" }})
+                            </small>
+                        </div>
+                        <div class="btn-group">
+                            <a href="?period=7" class="btn btn-light btn-sm {% if period == 7 %}active{% endif %}">أسبوع</a>
+                            <a href="?period=30" class="btn btn-light btn-sm {% if period == 30 %}active{% endif %}">شهر</a>
+                            <a href="?period=90" class="btn btn-light btn-sm {% if period == 90 %}active{% endif %}">3 أشهر</a>
+                            <a href="?period=365" class="btn btn-light btn-sm {% if period == 365 %}active{% endif %}">سنة</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- إحصائيات التغييرات -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="display-6 text-primary mb-2">{{ stats.total_changes|default:0 }}</div>
+                    <div class="text-muted">إجمالي تغييرات الأسعار</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="display-6 text-danger mb-2">
+                        {% if stats.avg_increase %}+{{ stats.avg_increase|floatformat:1 }}%{% else %}0%{% endif %}
+                    </div>
+                    <div class="text-muted">متوسط الزيادة</div>
+                    <small class="text-danger">
+                        <i class="fas fa-arrow-up"></i> أقصى: {{ stats.max_increase|floatformat:1|default:"0" }}%
+                    </small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="display-6 text-success mb-2">
+                        {% if stats.avg_decrease %}{{ stats.avg_decrease|floatformat:1 }}%{% else %}0%{% endif %}
+                    </div>
+                    <div class="text-muted">متوسط الانخفاض</div>
+                    <small class="text-success">
+                        <i class="fas fa-arrow-down"></i> أقصى: {{ stats.max_decrease|floatformat:1|default:"0" }}%
+                    </small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="display-6 text-warning mb-2">{{ impact_stats.total_affected|default:0 }}</div>
+                    <div class="text-muted">منتجات متأثرة</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- إحصائيات التأثير -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3">
+                        <i class="fas fa-coins text-warning me-2"></i>
+                        التأثير على التكاليف
+                    </h6>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>إجمالي تأثير التكلفة:</span>
+                        <strong class="{% if impact_stats.total_cost_impact > 0 %}text-danger{% else %}text-success{% endif %}">
+                            {{ impact_stats.total_cost_impact|floatformat:2|default:"0" }} ج.م
+                        </strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3">
+                        <i class="fas fa-warehouse text-info me-2"></i>
+                        التأثير على المخزون
+                    </h6>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>تأثير قيمة المخزون:</span>
+                        <strong class="{% if impact_stats.total_stock_impact > 0 %}text-danger{% else %}text-success{% endif %}">
+                            {{ impact_stats.total_stock_impact|floatformat:2|default:"0" }} ج.م
+                        </strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3">
+                        <i class="fas fa-percentage text-success me-2"></i>
+                        التأثير على الأرباح
+                    </h6>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>متوسط تغير الهامش:</span>
+                        <strong class="{% if impact_stats.avg_margin_change < 0 %}text-danger{% else %}text-success{% endif %}">
+                            {{ impact_stats.avg_margin_change|floatformat:1|default:"0" }}%
+                        </strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row g-4">
+        <!-- المواد الأكثر تغيراً -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0">
+                        <i class="fas fa-fire text-danger me-2"></i>
+                        المواد الأكثر تغيراً في الأسعار
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="border-0">المادة</th>
+                                    <th class="border-0 text-center">عدد التغييرات</th>
+                                    <th class="border-0 text-center">متوسط التغيير</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in top_changed %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'inventory:product_cost_breakdown' item.product__id %}" 
+                                           class="text-decoration-none">
+                                            {{ item.product__name }}
+                                        </a>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-primary">{{ item.change_count }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="{% if item.avg_change > 0 %}text-danger{% else %}text-success{% endif %}">
+                                            {{ item.avg_change|floatformat:1 }}%
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted py-4">لا توجد بيانات</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- المنتجات الأكثر تأثراً -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0">
+                        <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                        المنتجات الأكثر تأثراً
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="border-0">المنتج</th>
+                                    <th class="border-0 text-center">عدد التأثيرات</th>
+                                    <th class="border-0 text-center">إجمالي التأثير</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in most_affected %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'inventory:product_cost_breakdown' item.affected_product__id %}" 
+                                           class="text-decoration-none">
+                                            {{ item.affected_product__name }}
+                                        </a>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-warning text-dark">{{ item.impact_count }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <strong class="{% if item.total_impact > 0 %}text-danger{% else %}text-success{% endif %}">
+                                            {{ item.total_impact|floatformat:2 }} ج.م
+                                        </strong>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted py-4">لا توجد بيانات</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- آخر التغييرات -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-clock text-secondary me-2"></i>
+                        آخر تغييرات الأسعار
+                    </h6>
+                    <a href="{% url 'inventory:price_history_list' %}" class="btn btn-sm btn-outline-primary">
+                        عرض الكل <i class="fas fa-arrow-left ms-1"></i>
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="border-0">التاريخ</th>
+                                    <th class="border-0">المادة</th>
+                                    <th class="border-0">المورد</th>
+                                    <th class="border-0 text-center">السعر القديم</th>
+                                    <th class="border-0 text-center">السعر الجديد</th>
+                                    <th class="border-0 text-center">التغيير</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in price_changes %}
+                                <tr>
+                                    <td>
+                                        <small>{{ record.changed_at|date:"Y/m/d H:i" }}</small>
+                                    </td>
+                                    <td>{{ record.product.name }}</td>
+                                    <td>{{ record.supplier.name|default:"-" }}</td>
+                                    <td class="text-center">{{ record.old_price|floatformat:2 }}</td>
+                                    <td class="text-center"><strong>{{ record.new_price|floatformat:2 }}</strong></td>
+                                    <td class="text-center">
+                                        <span class="badge {% if record.price_change > 0 %}bg-danger{% else %}bg-success{% endif %}">
+                                            {% if record.price_change > 0 %}+{% endif %}{{ record.change_percentage|floatformat:1 }}%
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-4">لا توجد تغييرات</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+</style>
+{% endblock %}

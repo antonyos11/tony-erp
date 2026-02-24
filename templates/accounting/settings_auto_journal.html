@@ -1,0 +1,237 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}إعدادات القيود التلقائية{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-3">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'accounting:dashboard' %}">المحاسبة</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'accounting:settings' %}">الإعدادات</a></li>
+                    <li class="breadcrumb-item active">القيود التلقائية</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-magic"></i> إعدادات القيود المحاسبية التلقائية
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>ملاحظة:</strong> عند تفعيل هذه الميزة، سيتم إنشاء قيد محاسبي تلقائياً عند تسجيل أي إيراد أو مصروف في النظام.
+                    </div>
+
+                    <form method="post" action="{% url 'accounting:settings_auto_journal' %}">
+                        {% csrf_token %}
+                        
+                        <!-- التفعيل/التعطيل -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0">التفعيل</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" 
+                                           id="auto_create_journal_entries" 
+                                           name="auto_create_journal_entries"
+                                           {% if settings.auto_create_journal_entries %}checked{% endif %}>
+                                    <label class="form-check-label" for="auto_create_journal_entries">
+                                        <strong>تفعيل القيود التلقائية للإيرادات والمصروفات</strong>
+                                        <br>
+                                        <small class="text-muted">
+                                            عند التفعيل، يتم إنشاء قيد محاسبي مزدوج القيد تلقائياً عند تسجيل أي إيراد أو مصروف
+                                        </small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- الحسابات الافتراضية -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0">الحسابات الافتراضية للإيرادات والمصروفات</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">
+                                            <i class="bi bi-arrow-up-circle text-success"></i> حساب الإيرادات المتنوعة
+                                        </label>
+                                        <select name="misc_revenue_account" class="form-select">
+                                            <option value="">-- اختر حساباً --</option>
+                                            {% for account in revenue_accounts %}
+                                            <option value="{{ account.id }}" 
+                                                    {% if settings.misc_revenue_account_id == account.id %}selected{% endif %}>
+                                                {{ account.code }} - {{ account.name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <small class="text-muted">الحساب الافتراضي للإيرادات غير المصنفة</small>
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">
+                                            <i class="bi bi-arrow-down-circle text-danger"></i> حساب المصروفات المتنوعة
+                                        </label>
+                                        <select name="misc_expense_account" class="form-select">
+                                            <option value="">-- اختر حساباً --</option>
+                                            {% for account in expense_accounts %}
+                                            <option value="{{ account.id }}" 
+                                                    {% if settings.misc_expense_account_id == account.id %}selected{% endif %}>
+                                                {{ account.code }} - {{ account.name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <small class="text-muted">الحساب الافتراضي للمصروفات غير المصنفة</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- حسابات النقدية -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0">حسابات النقدية الافتراضية</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">
+                                            <i class="bi bi-cash-stack"></i> حساب الخزينة الافتراضي
+                                        </label>
+                                        <select name="default_treasury_account" class="form-select">
+                                            <option value="">-- اختر حساباً --</option>
+                                            {% for account in asset_accounts %}
+                                            <option value="{{ account.id }}" 
+                                                    {% if settings.default_treasury_account_id == account.id %}selected{% endif %}>
+                                                {{ account.code }} - {{ account.name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <small class="text-muted">للإيرادات/المصروفات النقدية</small>
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">
+                                            <i class="bi bi-bank"></i> حساب البنك الافتراضي
+                                        </label>
+                                        <select name="default_bank_account" class="form-select">
+                                            <option value="">-- اختر حساباً --</option>
+                                            {% for account in asset_accounts %}
+                                            <option value="{{ account.id }}" 
+                                                    {% if settings.default_bank_account_id == account.id %}selected{% endif %}>
+                                                {{ account.code }} - {{ account.name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <small class="text-muted">للتحويلات البنكية</small>
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">
+                                            <i class="bi bi-phone"></i> حساب المحافظ الإلكترونية
+                                        </label>
+                                        <select name="default_electronic_account" class="form-select">
+                                            <option value="">-- اختر حساباً --</option>
+                                            {% for account in asset_accounts %}
+                                            <option value="{{ account.id }}" 
+                                                    {% if settings.default_electronic_account_id == account.id %}selected{% endif %}>
+                                                {{ account.code }} - {{ account.name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <small class="text-muted">للدفعات الإلكترونية</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- أمثلة توضيحية -->
+                        <div class="card mb-4 border-info">
+                            <div class="card-header bg-info text-white">
+                                <h5 class="mb-0"><i class="bi bi-lightbulb"></i> أمثلة توضيحية</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6 class="text-success"><i class="bi bi-arrow-up"></i> مثال: تسجيل إيراد</h6>
+                                        <p class="small">عند تسجيل إيراد بمبلغ 1000 جنيه نقداً:</p>
+                                        <div class="table-responsive"><table class="table table-sm table-bordered">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>الحساب</th>
+                                                    <th>مدين</th>
+                                                    <th>دائن</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td>الخزينة</td>
+                                                    <td class="text-success">1000</td>
+                                                    <td>-</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>الإيرادات المتنوعة</td>
+                                                    <td>-</td>
+                                                    <td class="text-danger">1000</td>
+                                                </tr>
+                                            </tbody>
+                                        </table></div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <h6 class="text-danger"><i class="bi bi-arrow-down"></i> مثال: تسجيل مصروف</h6>
+                                        <p class="small">عند تسجيل مصروف بمبلغ 500 جنيه نقداً:</p>
+                                        <div class="table-responsive"><table class="table table-sm table-bordered">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>الحساب</th>
+                                                    <th>مدين</th>
+                                                    <th>دائن</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td>المصروفات المتنوعة</td>
+                                                    <td class="text-success">500</td>
+                                                    <td>-</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>الخزينة</td>
+                                                    <td>-</td>
+                                                    <td class="text-danger">500</td>
+                                                </tr>
+                                            </tbody>
+                                        </table></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- أزرار الحفظ -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'accounting:settings' %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-right"></i> رجوع
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-save"></i> حفظ الإعدادات
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

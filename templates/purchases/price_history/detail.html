@@ -1,0 +1,137 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تفاصيل سجل الأسعار{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-chart-line me-2 text-info"></i>سجل أسعار {{ product.name }}</h2>
+            <p class="text-muted mb-0">تتبع تغيرات الأسعار عبر الزمن</p>
+        </div>
+        <a href="{% url 'purchases:price_history_list' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-right me-1"></i> رجوع للقائمة
+        </a>
+    </div>
+
+    <div class="row g-4">
+        <!-- معلومات المنتج -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <h5 class="mb-4">معلومات المنتج</h5>
+                    <div class="mb-3">
+                        <small class="text-muted d-block">اسم المنتج</small>
+                        <strong>{{ product.name }}</strong>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted d-block">الكود</small>
+                        <strong>{{ product.sku }}</strong>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted d-block">السعر الحالي</small>
+                        <h3 class="text-primary mb-0">{{ current_price|default:"0.00" }} ج.م</h3>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted d-block">متوسط السعر</small>
+                        <strong>{{ avg_price|default:"0.00" }} ج.م</strong>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted d-block">أقل سعر</small>
+                        <strong class="text-success">{{ min_price|default:"0.00" }} ج.م</strong>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted d-block">أعلى سعر</small>
+                        <strong class="text-danger">{{ max_price|default:"0.00" }} ج.م</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- الرسم البياني والجدول -->
+        <div class="col-lg-8">
+            <!-- الرسم البياني -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <h5 class="mb-4">تطور السعر</h5>
+                    <div class="chart-container" style="height: 300px;">
+                        <canvas id="priceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- جدول التاريخ -->
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <h5 class="mb-4">سجل التغيرات</h5>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>التاريخ</th>
+                                    <th>المورد</th>
+                                    <th>السعر</th>
+                                    <th>التغير</th>
+                                    <th>المصدر</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in price_history %}
+                                <tr>
+                                    <td>{{ record.date|date:"Y/m/d" }}</td>
+                                    <td>{{ record.vendor.name }}</td>
+                                    <td><strong>{{ record.price }} ج.م</strong></td>
+                                    <td>
+                                        {% if record.change > 0 %}
+                                        <span class="text-danger"><i class="fas fa-arrow-up"></i> +{{ record.change }}%</span>
+                                        {% elif record.change < 0 %}
+                                        <span class="text-success"><i class="fas fa-arrow-down"></i> {{ record.change }}%</span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ record.get_source_display }}</span>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">لا يوجد سجل أسعار</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const ctx = document.getElementById('priceChart').getContext('2d');
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: {{ chart_labels|safe }},
+        datasets: [{
+            label: 'السعر',
+            data: {{ chart_data|safe }},
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            fill: true,
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } }
+    }
+});
+</script>
+{% endblock %}

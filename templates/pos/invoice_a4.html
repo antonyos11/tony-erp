@@ -1,0 +1,324 @@
+﻿{% load currency_tags %}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>فاتورة {{ order.number }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <style>
+        @page { 
+            size: A4 portrait; 
+            margin: 12mm; 
+        }
+        body { 
+            font-family: 'Tahoma', 'Arial', sans-serif;
+            font-size: 12px; 
+            margin: 0;
+            padding: 15px;
+            background: #fff; 
+        }
+        .container { 
+            max-width: 100%;
+            padding: 0;
+            background: #fff; 
+        }
+        /* Watermark - تظهر خلف المحتوى */
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0.15;
+            z-index: 1;
+            pointer-events: none;
+        }
+        .watermark img {
+            width: 400px;
+            height: 400px;
+            object-fit: contain;
+            filter: grayscale(30%);
+        }
+        
+        @media print {
+            body { 
+                margin: 0;
+                padding: 0;
+            }
+            .no-print { 
+                display: none !important; 
+            }
+            .container {
+                max-width: 100%;
+            }
+            .watermark {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                opacity: 0.12;
+                z-index: 1;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .watermark img {
+                width: 400px !important;
+                height: 400px !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+        .invoice-header { 
+            border-bottom: 2px solid #dee2e6; 
+            padding-bottom: 1rem; 
+            margin-bottom: 1rem; 
+        }
+        .company-info { 
+            text-align: center; 
+            margin-bottom: 1.5rem; 
+        }
+        .invoice-details { 
+            background-color: #f8f9fa; 
+            padding: 1rem; 
+            border-radius: 0.375rem; 
+        }
+        .signatures {
+            margin-top: 2.5rem;
+            display: flex;
+            justify-content: space-between;
+            gap: 3rem;
+        }
+        .sign-box {
+            flex: 1;
+            text-align: center;
+            border-top: 1px solid #000;
+            padding-top: 0.5rem;
+            font-size: 0.8rem;
+        }
+        .table th {
+            background-color: #2c3e50;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- Watermark -->
+    {% if company.logo %}
+    <div class="watermark">
+        <img src="{ company.logo }}" alt="Watermark">
+    </div>
+    {% endif %}
+    
+    <div class="container">
+        <!-- Print Button -->
+        <div class="no-print mb-3 text-center">
+            <button onclick="window.print()" class="btn btn-primary me-2">
+                <i class="bi bi-printer"></i> طباعة
+            </button>
+            <button onclick="window.close()" class="btn btn-outline-secondary">إغلاق</button>
+        </div>
+
+        <!-- Company Header -->
+        <div class="company-info text-center">
+            {% if company.logo %}
+              <img src="{{ company.logo }}" alt="{ company.name }}" style="max-height:150px; max-width:350px; object-fit:contain;" class="mb-3">
+            {% endif %}
+            <h2 class="mb-1">{{ company.name|default:'Tony ERP' }}</h2>
+            <p class="text-muted mb-0">
+              {% if company.address %}{{ company.address }} - {% endif %}
+              {% if company.phone %}هاتف: {{ company.phone }}{% endif %}
+              {% if order.is_tax_invoice and company.vat_number %} - الرقم الضريبي: {{ company.vat_number }}{% endif %}
+            </p>
+            {% if branch_name %}
+            <div class="bg-light p-2 rounded mb-2">
+                <p class="mb-0"><strong>🏪 الفرع:</strong> {{ branch_name }}
+                {% if branch_address %} | {{ branch_address }}{% endif %}
+                {% if branch_phone %} | 📞 {{ branch_phone }}{% endif %}
+                </p>
+            </div>
+            {% endif %}
+            <hr class="my-3">
+        </div>
+
+        <!-- Invoice Header -->
+        <div class="row invoice-header">
+            <div class="col-md-6">
+                <h3 class="mb-3">
+                    {% if order.is_tax_invoice %}
+                    <span class="badge bg-danger">فاتورة ضريبية</span>
+                    {% else %}
+                    فاتورة بيع
+                    {% endif %}
+                </h3>
+                <p class="mb-1"><strong>رقم الفاتورة:</strong> {{ order.number }}</p>
+                <p class="mb-1"><strong>التاريخ:</strong> {{ order.created_at|date:"Y/m/d" }}</p>
+                <p class="mb-0"><strong>الوقت:</strong> {{ order.created_at|date:"H:i" }}</p>
+            </div>
+            <div class="col-md-6">
+                <div class="invoice-details">
+                    <h5>بيانات العميل</h5>
+                    <p class="mb-1"><strong>الاسم:</strong> {{ order.customer|default:'عميل نقدي' }}</p>
+                    {% if order.customer.phone %}
+                    <p class="mb-0"><strong>الهاتف:</strong> {{ order.customer.phone }}</p>
+                    {% endif %}
+                    <hr>
+                    <p class="mb-1"><strong>الكاشير:</strong> {{ cashier_name|default:'-' }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Invoice Items -->
+        <div class="table-responsive mb-4">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th style="width: 5%">#</th>
+                        <th style="width: 40%">المنتج</th>
+                        <th style="width: 15%">الكود</th>
+                        <th style="width: 10%">الكمية</th>
+                        <th style="width: 15%">السعر</th>
+                        <th style="width: 15%">الإجمالي</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for line in lines %}
+                    <tr>
+                        <td class="text-center">{{ forloop.counter }}</td>
+                        <td>{{ line.product.name }}</td>
+                        <td class="text-center">{{ line.product.sku|default:'-' }}</td>
+                        <td class="text-center">{{ line.quantity|floatformat:0 }}</td>
+                        <td class="text-center">{{ line.price|floatformat:2 }}</td>
+                        <td class="text-center"><strong>{{ line.total|floatformat:2 }}</strong></td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">لا توجد بنود</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Invoice Totals -->
+        <div class="row">
+            <div class="col-md-7"></div>
+            <div class="col-md-5">
+                <div class="invoice-details">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>المجموع الفرعي:</span>
+                        <span>{{ order.subtotal|default:order.total|floatformat:2 }} ج.م</span>
+                    </div>
+                    {% if order.discount_amount %}
+                    <div class="d-flex justify-content-between mb-2 text-success">
+                        <span>الخصم:</span>
+                        <span>- {{ order.discount_amount|floatformat:2 }} ج.م</span>
+                    </div>
+                    {% endif %}
+                    {% if order.is_tax_invoice and order.tax_amount %}
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>ضريبة القيمة المضافة ({{ order.vat_rate|default:14 }}%):</span>
+                        <span>{{ order.tax_amount|floatformat:2 }} ج.م</span>
+                    </div>
+                    {% endif %}
+                    {% if order.withholding_tax_amount %}
+                    <div class="d-flex justify-content-between mb-2 text-danger">
+                        <span>ضريبة المنبع ({{ order.withholding_tax_rate|default:0 }}%):</span>
+                        <span>- {{ order.withholding_tax_amount|floatformat:2 }} ج.م</span>
+                    </div>
+                    {% endif %}
+                    {% if order.shipping_cost %}
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>مصاريف الشحن:</span>
+                        <span>{{ order.shipping_cost|floatformat:2 }} ج.م</span>
+                    </div>
+                    {% endif %}
+                    <hr>
+                    <div class="d-flex justify-content-between mb-2 h5">
+                        <strong>الإجمالي:</strong>
+                        <strong>{{ order.total|floatformat:2 }} ج.م</strong>
+                    </div>
+                    {% if order.paid_amount %}
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>المدفوع:</span>
+                        <span>{{ order.paid_amount|floatformat:2 }} ج.م</span>
+                    </div>
+                    {% endif %}
+                    {% if remaining > 0 %}
+                    <div class="d-flex justify-content-between mb-2 text-danger">
+                        <strong>المتبقي:</strong>
+                        <strong>{{ remaining|floatformat:2 }} ج.م</strong>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Signatures -->
+        <div class="signatures">
+            <div class="sign-box">توقيع البائع</div>
+            <div class="sign-box">توقيع المستلم</div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-4 pt-3 border-top">
+            <p class="mb-1"><strong>شكراً لتعاملكم معنا</strong></p>
+            
+            <!-- معلومات الاتصال -->
+            <div class="d-flex justify-content-center flex-wrap gap-3 mb-2" style="font-size: 11px;">
+                {% if company.phone %}<span>📞 {{ company.phone }}</span>{% endif %}
+                {% if company.mobile %}<span>📱 {{ company.mobile }}</span>{% endif %}
+                {% if company.email %}<span>✉️ {{ company.email }}</span>{% endif %}
+                {% if company.whatsapp %}<span>💬 {{ company.whatsapp }}</span>{% endif %}
+                {% if company.website %}<span>🌐 {{ company.website }}</span>{% endif %}
+            </div>
+            
+            <!-- مواقع التواصل -->
+            {% if company.facebook or company.instagram or company.twitter or company.tiktok %}
+            <div class="d-flex justify-content-center gap-3 mb-2" style="font-size: 12px;">
+                {% if company.facebook %}<span>📘 Facebook</span>{% endif %}
+                {% if company.instagram %}<span>📷 Instagram</span>{% endif %}
+                {% if company.twitter %}<span>🐦 X</span>{% endif %}
+                {% if company.tiktok %}<span>🎵 TikTok</span>{% endif %}
+            </div>
+            {% endif %}
+            
+            <!-- جميع فروع الشركة -->
+            {% if all_branches %}
+            <div class="mt-3 p-3" style="background: #f8f9fa; border-radius: 10px;">
+                <h6 class="mb-2" style="color: #2c3e50;"><strong>🏪 فروعنا</strong></h6>
+                <div class="row">
+                    {% for branch in all_branches %}
+                    <div class="col-md-6 mb-2">
+                        <div class="p-2" style="background: white; border-radius: 5px; border-right: 3px solid #3498db; font-size: 11px;">
+                            <strong>{{ branch.name }}</strong><br>
+                            {% if branch.governorate %}{{ branch.governorate }}{% if branch.city %} - {{ branch.city }}{% endif %}{% endif %}
+                            {% if branch.country and branch.country != 'مصر' %} ({{ branch.country }}){% endif %}<br>
+                            {% if branch.address %}<small>{{ branch.address }}</small><br>{% endif %}
+                            {% if branch.phone %}<span style="direction:ltr;">📞 {{ branch.phone }}</span>{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="text-muted" style="font-size: 10px;">
+                {% if company.tax_id %}الرقم الضريبي: {{ company.tax_id }} | {% endif %}
+                {% if company.commercial_register %}السجل التجاري: {{ company.commercial_register }} | {% endif %}
+                {{ company.address|default:'' }}
+            </div>
+            
+            <small class="text-muted">تم إنشاء هذه الفاتورة بواسطة نظام Tony ERP - {{ now|date:"Y-m-d H:i" }}</small>
+        </div>
+    </div>
+
+    {% if auto_print %}
+    <script>
+        window.onload = function() {
+            setTimeout(function() { window.print(); }, 500);
+        };
+    </script>
+    {% endif %}
+</body>
+</html>
+

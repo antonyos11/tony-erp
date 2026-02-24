@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        padding: 25px;
+        color: white;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        transition: transform 0.3s ease;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .stats-card.whatsapp {
+        background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+    }
+    
+    .stats-card.facebook {
+        background: linear-gradient(135deg, #1877F2 0%, #0C5BA8 100%);
+    }
+    
+    .stats-card.instagram {
+        background: linear-gradient(135deg, #E4405F 0%, #833AB4 100%);
+    }
+    
+    .stats-number {
+        font-size: 3rem;
+        font-weight: bold;
+        margin: 10px 0;
+    }
+    
+    .stats-label {
+        font-size: 1.1rem;
+        opacity: 0.9;
+    }
+    
+    .conversation-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border-right: 5px solid #667eea;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        transition: all 0.3s ease;
+    }
+    
+    .conversation-card:hover {
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        transform: translateX(-5px);
+    }
+    
+    .platform-badge {
+        display: inline-block;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: bold;
+        color: white;
+    }
+    
+    .platform-badge.whatsapp { background: #25D366; }
+    .platform-badge.facebook { background: #1877F2; }
+    .platform-badge.instagram { background: #E4405F; }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: bold;
+    }
+    
+    .status-badge.active { background: #ffc107; color: #000; }
+    .status-badge.closed { background: #6c757d; color: white; }
+    .status-badge.converted { background: #28a745; color: white; }
+    
+    .chart-container {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12 mb-4">
+            <h1 class="display-4">
+                <i class="fas fa-chart-line me-3"></i>
+                {{ page_title }}
+            </h1>
+        </div>
+    </div>
+    
+    <!-- الإحصائيات الرئيسية -->
+    <div class="row">
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="stats-label">إجمالي المحادثات</div>
+                <div class="stats-number">{{ total_conversations }}</div>
+                <i class="fas fa-comments fa-3x" style="opacity: 0.3; position: absolute; bottom: 20px; left: 20px;"></i>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="stats-label">محادثات نشطة</div>
+                <div class="stats-number">{{ active_conversations }}</div>
+                <i class="fas fa-bolt fa-3x" style="opacity: 0.3; position: absolute; bottom: 20px; left: 20px;"></i>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="stats-label">عملاء تم تحويلهم</div>
+                <div class="stats-number">{{ converted_customers }}</div>
+                <i class="fas fa-user-check fa-3x" style="opacity: 0.3; position: absolute; bottom: 20px; left: 20px;"></i>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                <div class="stats-label">محادثات اليوم</div>
+                <div class="stats-number">{{ today_conversations }}</div>
+                <i class="fas fa-calendar-day fa-3x" style="opacity: 0.3; position: absolute; bottom: 20px; left: 20px;"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- إحصائيات حسب المنصة -->
+    <div class="row mt-4">
+        {% for platform in platform_stats %}
+        <div class="col-md-4">
+            <div class="stats-card {{ platform.platform }}">
+                <div class="stats-label">
+                    {% if platform.platform == 'whatsapp' %}
+                        <i class="fab fa-whatsapp me-2"></i> واتساب
+                    {% elif platform.platform == 'facebook' %}
+                        <i class="fab fa-facebook-messenger me-2"></i> فيسبوك
+                    {% elif platform.platform == 'instagram' %}
+                        <i class="fab fa-instagram me-2"></i> انستجرام
+                    {% endif %}
+                </div>
+                <div class="stats-number">{{ platform.total }}</div>
+                <div class="mt-2">
+                    <span class="badge bg-light text-dark me-2">نشط: {{ platform.active }}</span>
+                    <span class="badge bg-success">تم تحويلهم: {{ platform.converted }}</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- أحدث المحادثات -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="chart-container">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3>
+                        <i class="fas fa-clock me-2"></i>
+                        أحدث المحادثات
+                    </h3>
+                    <a href="{% url 'whatsapp_ai:conversations_list' %}" class="btn btn-primary">
+                        <i class="fas fa-list me-2"></i>
+                        عرض الكل
+                    </a>
+                </div>
+                
+                {% for conv in recent_conversations %}
+                <div class="conversation-card">
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <span class="platform-badge {{ conv.platform }}">
+                                {% if conv.platform == 'whatsapp' %}
+                                    <i class="fab fa-whatsapp me-1"></i> واتساب
+                                {% elif conv.platform == 'facebook' %}
+                                    <i class="fab fa-facebook-messenger me-1"></i> فيسبوك
+                                {% elif conv.platform == 'instagram' %}
+                                    <i class="fab fa-instagram me-1"></i> انستجرام
+                                {% endif %}
+                            </span>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <strong>{{ conv.customer_name|default:conv.platform_user_id }}</strong>
+                            {% if conv.phone_number %}
+                                <br><small class="text-muted">{{ conv.phone_number }}</small>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <span class="status-badge {{ conv.status }}">
+                                {{ conv.get_status_display }}
+                            </span>
+                        </div>
+                        
+                        <div class="col-md-2 text-center">
+                            <div class="text-muted small">عدد الرسائل</div>
+                            <strong>{{ conv.messages_count }}</strong>
+                        </div>
+                        
+                        <div class="col-md-2 text-start">
+                            <a href="{% url 'whatsapp_ai:conversation_detail' conv.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye me-1"></i>
+                                عرض
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    لا توجد محادثات حتى الآن
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- روابط سريعة -->
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <a href="{% url 'whatsapp_ai:customers_list' %}" class="card text-center text-decoration-none p-4 border-0 shadow-sm" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <i class="fas fa-users fa-3x mb-3"></i>
+                <h5>العملاء</h5>
+            </a>
+        </div>
+        
+        <div class="col-md-3">
+            <a href="{% url 'whatsapp_ai:opportunities_list' %}" class="card text-center text-decoration-none p-4 border-0 shadow-sm" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+                <i class="fas fa-handshake fa-3x mb-3"></i>
+                <h5>فرص البيع</h5>
+            </a>
+        </div>
+        
+        <div class="col-md-3">
+            <a href="{% url 'whatsapp_ai:products_knowledge' %}" class="card text-center text-decoration-none p-4 border-0 shadow-sm" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white;">
+                <i class="fas fa-box fa-3x mb-3"></i>
+                <h5>المنتجات</h5>
+            </a>
+        </div>
+        
+        <div class="col-md-3">
+            <a href="{% url 'whatsapp_ai:platform_settings' %}" class="card text-center text-decoration-none p-4 border-0 shadow-sm" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white;">
+                <i class="fas fa-cog fa-3x mb-3"></i>
+                <h5>الإعدادات</h5>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // يمكن إضافة charts هنا لاحقاً
+</script>
+{% endblock %}

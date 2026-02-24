@@ -1,0 +1,546 @@
+﻿{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "تسويات الفترة" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+    }
+    
+    .page-hero {
+        background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    
+    .period-selector {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: rgba(255,255,255,0.2);
+        border-radius: 25px;
+        margin-bottom: 1rem;
+    }
+    
+    .period-selector select {
+        background: transparent;
+        border: none;
+        color: white;
+        font-weight: 600;
+        outline: none;
+        cursor: pointer;
+    }
+    
+    .period-selector select option {
+        color: #333;
+    }
+    
+    /* Adjustment Types */
+    .adjustment-types {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .type-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+    
+    .type-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+    
+    .type-card.selected {
+        border-color: #6c5ce7;
+        background: rgba(108, 92, 231, 0.05);
+    }
+    
+    .type-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+    }
+    
+    .type-icon.prepaid { background: rgba(0, 212, 170, 0.15); color: var(--accent-color); }
+    .type-icon.accrued { background: rgba(108, 92, 231, 0.15); color: #6c5ce7; }
+    .type-icon.depreciation { background: rgba(255, 193, 7, 0.15); color: #b38600; }
+    .type-icon.provision { background: rgba(220, 53, 69, 0.15); color: var(--danger-color); }
+    
+    .type-card h4 {
+        margin: 0 0 0.5rem;
+        font-size: 1.1rem;
+        color: var(--primary-color);
+    }
+    
+    .type-card p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    
+    /* Form Card */
+    .form-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .form-header {
+        background: #f8f9fa;
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .form-header h5 {
+        margin: 0;
+        color: var(--primary-color);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .form-body { padding: 1.5rem; }
+    
+    .form-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-control-custom {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        font-size: 1rem;
+        transition: all 0.2s ease;
+    }
+    
+    .form-control-custom:focus {
+        border-color: #6c5ce7;
+        box-shadow: 0 0 0 4px rgba(108, 92, 231, 0.15);
+        outline: none;
+    }
+    
+    /* Calculation Preview */
+    .calculation-box {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .calc-title {
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-bottom: 1rem;
+        font-size: 0.95rem;
+    }
+    
+    .calc-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px dashed #dee2e6;
+    }
+    
+    .calc-row:last-child {
+        border-bottom: none;
+        font-weight: 700;
+        color: var(--primary-color);
+        padding-top: 0.75rem;
+        margin-top: 0.25rem;
+        border-top: 2px solid #dee2e6;
+    }
+    
+    .calc-label { color: #6c757d; }
+    .calc-value { font-weight: 600; }
+    
+    /* Preview Entry */
+    .preview-entry {
+        border: 2px dashed #6c5ce7;
+        border-radius: 12px;
+        padding: 1.5rem;
+        background: rgba(108, 92, 231, 0.02);
+    }
+    
+    .preview-title {
+        font-weight: 600;
+        color: #6c5ce7;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .entry-line {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+    }
+    
+    .entry-line .account { color: var(--primary-color); }
+    .entry-line .debit { color: var(--success-color); font-weight: 600; }
+    .entry-line .credit { color: var(--danger-color); font-weight: 600; }
+    
+    /* Recent Adjustments */
+    .recent-section {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        padding: 1.5rem;
+        margin-top: 2rem;
+    }
+    
+    .recent-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    
+    .recent-header h5 {
+        margin: 0;
+        color: var(--primary-color);
+    }
+    
+    .adjustment-table {
+        width: 100%;
+    }
+    
+    .adjustment-table th {
+        padding: 0.75rem 1rem;
+        background: #f8f9fa;
+        font-weight: 600;
+        color: var(--primary-color);
+        text-align: right;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .adjustment-table td {
+        padding: 1rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .adjustment-type-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    
+    .type-prepaid { background: rgba(0, 212, 170, 0.15); color: var(--accent-color); }
+    .type-accrued { background: rgba(108, 92, 231, 0.15); color: #6c5ce7; }
+    .type-depreciation { background: rgba(255, 193, 7, 0.15); color: #b38600; }
+    
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+        padding-top: 1rem;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .btn-submit {
+        background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+        border: none;
+        color: white;
+        padding: 0.875rem 2rem;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(108, 92, 231, 0.3);
+        color: white;
+    }
+    
+    .btn-cancel {
+        background: white;
+        border: 2px solid #dee2e6;
+        color: #666;
+        padding: 0.875rem 2rem;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+    
+    [data-bs-theme="dark"] .type-card,
+    [data-bs-theme="dark"] .form-card,
+    [data-bs-theme="dark"] .recent-section {
+        background: #1a1d21;
+    }
+    
+    [data-bs-theme="dark"] .form-header,
+    [data-bs-theme="dark"] .calculation-box,
+    [data-bs-theme="dark"] .adjustment-table th {
+        background: #2d3238;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Hero Section -->
+    <div class="page-hero">
+        <div class="period-selector">
+            <i class="fas fa-calendar-alt"></i>
+            <select id="periodSelect">
+                <option value="06-2025">{% trans "يونيو 2025" %}</option>
+                <option value="05-2025">{% trans "مايو 2025" %}</option>
+                <option value="04-2025">{% trans "أبريل 2025" %}</option>
+            </select>
+        </div>
+        <h1 class="h2 mb-2">
+            <i class="fas fa-sliders-h me-2"></i>
+            {% trans "تسويات نهاية الفترة" %}
+        </h1>
+        <p class="mb-0 opacity-75">
+            {% trans "إنشاء قيود التسوية للمصروفات المقدمة والمستحقة والاستهلاكات" %}
+        </p>
+    </div>
+    
+    <!-- Adjustment Types -->
+    <div class="adjustment-types">
+        <div class="type-card selected" data-type="prepaid">
+            <div class="type-icon prepaid">
+                <i class="fas fa-arrow-right"></i>
+            </div>
+            <h4>{% trans "مصروفات مقدمة" %}</h4>
+            <p>{% trans "تحويل الجزء المستهلك من المصروفات المدفوعة مقدماً" %}</p>
+        </div>
+        
+        <div class="type-card" data-type="accrued">
+            <div class="type-icon accrued">
+                <i class="fas fa-arrow-left"></i>
+            </div>
+            <h4>{% trans "مصروفات مستحقة" %}</h4>
+            <p>{% trans "تسجيل المصروفات المستحقة التي لم تُسدد بعد" %}</p>
+        </div>
+        
+        <div class="type-card" data-type="depreciation">
+            <div class="type-icon depreciation">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <h4>{% trans "استهلاك الأصول" %}</h4>
+            <p>{% trans "تسجيل قيد استهلاك الأصول الثابتة للفترة" %}</p>
+        </div>
+        
+        <div class="type-card" data-type="provision">
+            <div class="type-icon provision">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+            <h4>{% trans "المخصصات" %}</h4>
+            <p>{% trans "تكوين مخصصات للديون المشكوك فيها" %}</p>
+        </div>
+    </div>
+    
+    <!-- Adjustment Form -->
+    <div class="form-card">
+        <div class="form-header">
+            <h5>
+                <i class="fas fa-arrow-right"></i>
+                {% trans "تسوية مصروفات مقدمة" %}
+            </h5>
+            <span class="badge bg-info">{% trans "مساعد حسابي" %}</span>
+        </div>
+        <div class="form-body">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>{% trans "الحساب المقدم" %}</label>
+                    <select class="form-control-custom">
+                        <option value="">{% trans "اختر الحساب..." %}</option>
+                        <option value="1">{% trans "إيجار مقدم" %}</option>
+                        <option value="2">{% trans "تأمين مقدم" %}</option>
+                        <option value="3">{% trans "إعلان مقدم" %}</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>{% trans "حساب المصروف" %}</label>
+                    <select class="form-control-custom">
+                        <option value="">{% trans "اختر الحساب..." %}</option>
+                        <option value="1">{% trans "مصروف الإيجار" %}</option>
+                        <option value="2">{% trans "مصروف التأمين" %}</option>
+                        <option value="3">{% trans "مصروف الإعلان" %}</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>{% trans "إجمالي المبلغ المقدم" %}</label>
+                    <input type="number" class="form-control-custom" value="24000" id="totalAmount">
+                </div>
+                <div class="form-group">
+                    <label>{% trans "عدد الفترات (شهور)" %}</label>
+                    <input type="number" class="form-control-custom" value="12" id="periods">
+                </div>
+                <div class="form-group">
+                    <label>{% trans "الفترات المنقضية" %}</label>
+                    <input type="number" class="form-control-custom" value="6" id="elapsed">
+                </div>
+            </div>
+            
+            <!-- Calculation Box -->
+            <div class="calculation-box">
+                <div class="calc-title">{% trans "الحساب التلقائي" %}</div>
+                <div class="calc-row">
+                    <span class="calc-label">{% trans "المبلغ الشهري" %}</span>
+                    <span class="calc-value">2,000 {% trans "ج.م" %}</span>
+                </div>
+                <div class="calc-row">
+                    <span class="calc-label">{% trans "المستهلك سابقاً" %}</span>
+                    <span class="calc-value">10,000 {% trans "ج.م" %}</span>
+                </div>
+                <div class="calc-row">
+                    <span class="calc-label">{% trans "مبلغ التسوية الحالية" %}</span>
+                    <span class="calc-value" style="color: var(--accent-color);">2,000 {% trans "ج.م" %}</span>
+                </div>
+            </div>
+            
+            <!-- Preview Entry -->
+            <div class="preview-entry">
+                <div class="preview-title">
+                    <i class="fas fa-eye"></i>
+                    {% trans "معاينة القيد" %}
+                </div>
+                <div class="entry-line">
+                    <span class="account">{% trans "من حـ/ مصروف الإيجار" %}</span>
+                    <span class="debit">2,000</span>
+                    <span class="credit">-</span>
+                </div>
+                <div class="entry-line">
+                    <span class="account">{% trans "إلى حـ/ إيجار مقدم" %}</span>
+                    <span class="debit">-</span>
+                    <span class="credit">2,000</span>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" class="btn-cancel">{% trans "إلغاء" %}</button>
+                <button type="submit" class="btn-submit">
+                    <i class="fas fa-check me-2"></i>
+                    {% trans "إنشاء قيد التسوية" %}
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Adjustments -->
+    <div class="recent-section">
+        <div class="recent-header">
+            <h5>
+                <i class="fas fa-history me-2 text-primary"></i>
+                {% trans "آخر التسويات" %}
+            </h5>
+            <a href="#" class="btn btn-outline-primary btn-sm">{% trans "عرض الكل" %}</a>
+        </div>
+        <div class="table-responsive"><table class="adjustment-table">
+            <thead>
+                <tr>
+                    <th>{% trans "التاريخ" %}</th>
+                    <th>{% trans "النوع" %}</th>
+                    <th>{% trans "الوصف" %}</th>
+                    <th>{% trans "المبلغ" %}</th>
+                    <th>{% trans "رقم القيد" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>31/05/2025</td>
+                    <td><span class="adjustment-type-badge type-prepaid">{% trans "مقدم" %}</span></td>
+                    <td>{% trans "تسوية إيجار مقدم - مايو" %}</td>
+                    <td>2,000</td>
+                    <td><a href="#">JV-2025-0145</a></td>
+                </tr>
+                <tr>
+                    <td>31/05/2025</td>
+                    <td><span class="adjustment-type-badge type-depreciation">{% trans "استهلاك" %}</span></td>
+                    <td>{% trans "استهلاك الأصول الثابتة - مايو" %}</td>
+                    <td>8,500</td>
+                    <td><a href="#">JV-2025-0144</a></td>
+                </tr>
+                <tr>
+                    <td>31/05/2025</td>
+                    <td><span class="adjustment-type-badge type-accrued">{% trans "مستحق" %}</span></td>
+                    <td>{% trans "مصروف كهرباء مستحق" %}</td>
+                    <td>3,200</td>
+                    <td><a href="#">JV-2025-0143</a></td>
+                </tr>
+            </tbody>
+        </table></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Type card selection
+    document.querySelectorAll('.type-card').forEach(card => {
+        card.addEventListener('click', function() {
+            document.querySelectorAll('.type-card').forEach(c => c.classList.remove('selected'));
+            this.classList.add('selected');
+        });
+    });
+    
+    // Auto-calculate
+    function calculate() {
+        const total = parseFloat(document.getElementById('totalAmount').value) || 0;
+        const periods = parseFloat(document.getElementById('periods').value) || 1;
+        const elapsed = parseFloat(document.getElementById('elapsed').value) || 0;
+        
+        const monthly = total / periods;
+        const consumed = monthly * (elapsed - 1);
+        const current = monthly;
+        
+        // Update calculation display (simplified)
+        console.log('Monthly:', monthly, 'Consumed:', consumed, 'Current:', current);
+    }
+    
+    document.querySelectorAll('#totalAmount, #periods, #elapsed').forEach(input => {
+        input.addEventListener('input', calculate);
+    });
+});
+</script>
+{% endblock %}
+

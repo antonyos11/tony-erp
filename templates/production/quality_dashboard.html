@@ -1,0 +1,246 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}لوحة الجودة - الإنتاج{% endblock %}
+
+{% block extra_css %}
+<style>
+    .quality-hero {
+        background: linear-gradient(120deg, #1f8b4c, #16a085);
+        color: #fff;
+        border-radius: 18px;
+    }
+    .quality-hero .metric-chip {
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        padding: 10px 14px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-inline-start: 10px;
+        margin-top: 8px;
+        backdrop-filter: blur(6px);
+    }
+    .kpi-card {
+        border: 1px solid #eef2f7;
+        border-radius: 14px;
+        box-shadow: 0 10px 30px rgba(17, 38, 146, 0.06);
+        height: 100%;
+    }
+    .kpi-card .card-title {
+        font-size: 15px;
+        margin-bottom: 4px;
+    }
+    .kpi-value {
+        font-size: 32px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+    }
+    .progress {
+        height: 7px;
+        border-radius: 8px;
+    }
+    .section-title {
+        font-weight: 700;
+        font-size: 16px;
+        margin-bottom: 10px;
+    }
+    .timeline {
+        border-inline-start: 2px solid #e9ecef;
+        padding-inline-start: 16px;
+    }
+    .timeline-item {
+        position: relative;
+        padding-bottom: 12px;
+    }
+    .timeline-item::before {
+        content: "";
+        position: absolute;
+        inset-inline-start: -25px;
+        top: 4px;
+        width: 12px;
+        height: 12px;
+        background: #1f8b4c;
+        border-radius: 50%;
+        box-shadow: 0 0 0 4px #e9f5ef;
+    }
+    .quality-badge {
+        padding: 6px 10px;
+        border-radius: 10px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .card-mini {
+        border: 1px dashed #d9e2ec;
+        border-radius: 12px;
+    }
+    .quality-table thead th {
+        background: #f8fafc;
+        font-size: 13px;
+        font-weight: 700;
+    }
+    .quality-table td {
+        vertical-align: middle;
+    }
+    .quality-actions .btn {
+        border-radius: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="quality-hero card border-0 shadow-sm mb-4 p-4">
+        <div class="d-flex flex-wrap align-items-center justify-content-between">
+            <div>
+                <h1 class="mb-2"><i class="fas fa-award me-2"></i>لوحة مراقبة الجودة</h1>
+                <p class="mb-0">متابعة الانضباط والجودة عبر خطوط الإنتاج</p>
+            </div>
+            <div class="text-md-end mt-3 mt-md-0">
+                <div class="metric-chip"><i class="fas fa-check-circle"></i> نسبة النجاح: {{ pass_rate|floatformat:1|default:"0" }}%</div>
+                <div class="metric-chip"><i class="fas fa-clipboard-check"></i> إجمالي الفحوصات: {{ total_checks|default:0 }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card kpi-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <p class="card-title mb-0">معدل النجاح</p>
+                        <span class="badge bg-success quality-badge">{{ passed_checks|default:0 }} ناجح</span>
+                    </div>
+                    <div class="d-flex align-items-end gap-2 mb-2">
+                        <span class="kpi-value text-success">{{ pass_rate|floatformat:1|default:"0" }}%</span>
+                        <small class="text-muted">على {{ total_checks|default:0 }} فحص</small>
+                    </div>
+                    <div class="progress mb-2">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ pass_rate|floatformat:0|default:"0" }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card kpi-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <p class="card-title mb-0">معدل الفشل</p>
+                        <span class="badge bg-danger quality-badge">{{ failed_checks|default:0 }} فشل</span>
+                    </div>
+                    <div class="d-flex align-items-end gap-2 mb-2">
+                        {% with fail_rate=total_checks|default:0 %}
+                        <span class="kpi-value text-danger">{% if total_checks > 0 %}{{ failed_checks|default:0 }}{% else %}0{% endif %}</span>
+                        {% endwith %}
+                        <small class="text-muted">{{ failed_checks|default:0 }} دفعات مرفوضة</small>
+                    </div>
+                    <div class="progress mb-2">
+                        <div class="progress-bar bg-danger" role="progressbar" style="width: {% if total_checks > 0 %}{{ fail_rate|default:"0" }}{% else %}0{% endif %}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card kpi-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <p class="card-title mb-0">في الانتظار</p>
+                        {% if pending_checks > 0 %}
+                        <span class="badge bg-warning text-dark quality-badge">استجابة مطلوبة</span>
+                        {% else %}
+                        <span class="badge bg-success quality-badge">لا يوجد معلق</span>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex align-items-end gap-2 mb-2">
+                        <span class="kpi-value text-warning">{{ pending_checks|default:0 }}</span>
+                        <small class="text-muted">فحص معلق</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-lg-8">
+            <div class="card kpi-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="section-title">أحدث فحوصات الجودة</span>
+                        <span class="badge bg-light text-dark quality-badge">{{ today_checks.count|default:0 }} فحص اليوم</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover quality-table align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>أمر الإنتاج</th>
+                                    <th>المفتش</th>
+                                    <th>النتيجة</th>
+                                    <th>الدرجة</th>
+                                    <th>التاريخ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for check in recent_checks %}
+                                <tr>
+                                    <td class="fw-bold">{{ check.production_order|default:"-" }}</td>
+                                    <td>{{ check.inspector|default:"-" }}</td>
+                                    <td>
+                                        {% if check.overall_result == 'passed' %}
+                                        <span class="badge bg-success">ناجح</span>
+                                        {% elif check.overall_result == 'failed' %}
+                                        <span class="badge bg-danger">فشل</span>
+                                        {% else %}
+                                        <span class="badge bg-warning text-dark">معلق</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ check.quality_score|default:"-" }}</td>
+                                    <td>{{ check.check_date|date:"Y/m/d" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-4">
+                                        <i class="fas fa-clipboard-check fa-2x mb-2"></i>
+                                        <p>لا توجد فحوصات جودة بعد</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            {% if inspector_stats %}
+            <div class="card kpi-card mb-3">
+                <div class="card-body">
+                    <div class="section-title">إحصائيات المفتشين</div>
+                    <div class="list-group list-group-flush">
+                        {% for stat in inspector_stats %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div>
+                                <strong>{{ stat.inspector__arabic_name|default:"غير محدد" }}</strong>
+                                <br><small class="text-muted">{{ stat.total_checks }} فحص</small>
+                            </div>
+                            <span class="badge bg-primary rounded-pill">{{ stat.avg_quality_score|floatformat:1|default:"0" }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            <div class="card kpi-card">
+                <div class="card-body">
+                    <div class="section-title">ملخص سريع</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <span class="metric-chip text-success"><i class="fas fa-clipboard-check"></i> {{ today_checks.count|default:0 }} فحص اليوم</span>
+                        <span class="metric-chip text-primary"><i class="fas fa-check-double"></i> {{ passed_checks|default:0 }} ناجح</span>
+                        <span class="metric-chip text-danger"><i class="fas fa-times-circle"></i> {{ failed_checks|default:0 }} فشل</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

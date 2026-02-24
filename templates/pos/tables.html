@@ -1,0 +1,517 @@
+﻿{% extends 'base_v2.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'إدارة الطاولات' %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tables-hero {
+        background: linear-gradient(135deg, #ea580c 0%, #dc2626 50%, #b91c1c 100%);
+        border-radius: 24px;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .tables-hero::before {
+        content: '';
+        position: absolute;
+        top: -80px;
+        left: -80px;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+        border-radius: 50%;
+    }
+    
+    .floor-selector {
+        background: white;
+        border-radius: 16px;
+        padding: 1rem 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    
+    .floor-btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        font-weight: 600;
+        border: 2px solid #e2e8f0;
+        background: white;
+        color: #64748b;
+        transition: all 0.3s ease;
+    }
+    
+    .floor-btn:hover {
+        border-color: #ea580c;
+        color: #ea580c;
+    }
+    
+    .floor-btn.active {
+        background: linear-gradient(135deg, #ea580c, #dc2626);
+        border-color: #ea580c;
+        color: white;
+    }
+    
+    .stats-bar {
+        display: flex;
+        gap: 2rem;
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .stat-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+    }
+    
+    .stat-dot.available { background: #22c55e; box-shadow: 0 0 10px rgba(34, 197, 94, 0.5); }
+    .stat-dot.occupied { background: #ef4444; box-shadow: 0 0 10px rgba(239, 68, 68, 0.5); }
+    .stat-dot.reserved { background: #f59e0b; box-shadow: 0 0 10px rgba(245, 158, 11, 0.5); }
+    .stat-dot.cleaning { background: #6366f1; box-shadow: 0 0 10px rgba(99, 102, 241, 0.5); }
+    
+    .tables-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .table-card {
+        background: white;
+        border-radius: 20px;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        border: 3px solid transparent;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        position: relative;
+    }
+    
+    .table-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+    }
+    
+    .table-card.available {
+        border-color: #22c55e;
+    }
+    
+    .table-card.available:hover {
+        background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+    }
+    
+    .table-card.occupied {
+        border-color: #ef4444;
+        background: linear-gradient(135deg, #fef2f2, #fee2e2);
+    }
+    
+    .table-card.reserved {
+        border-color: #f59e0b;
+        background: linear-gradient(135deg, #fffbeb, #fef3c7);
+    }
+    
+    .table-card.cleaning {
+        border-color: #6366f1;
+        background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+    }
+    
+    .table-status-badge {
+        position: absolute;
+        top: -10px;
+        right: -10px;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        color: white;
+    }
+    
+    .table-status-badge.available { background: #22c55e; }
+    .table-status-badge.occupied { background: #ef4444; }
+    .table-status-badge.reserved { background: #f59e0b; }
+    .table-status-badge.cleaning { background: #6366f1; }
+    
+    .table-icon {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+    
+    .table-shape {
+        width: 100%;
+        height: 100%;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: white;
+    }
+    
+    .table-shape.round {
+        border-radius: 50%;
+    }
+    
+    .table-card.available .table-shape { background: linear-gradient(135deg, #22c55e, #16a34a); }
+    .table-card.occupied .table-shape { background: linear-gradient(135deg, #ef4444, #dc2626); }
+    .table-card.reserved .table-shape { background: linear-gradient(135deg, #f59e0b, #d97706); }
+    .table-card.cleaning .table-shape { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+    
+    .table-name {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 0.25rem;
+    }
+    
+    .table-capacity {
+        font-size: 0.85rem;
+        color: #64748b;
+    }
+    
+    .table-capacity i {
+        margin-left: 0.25rem;
+    }
+    
+    .table-info {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px dashed #e2e8f0;
+        font-size: 0.8rem;
+    }
+    
+    .table-info-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+    }
+    
+    .table-info-label {
+        color: #94a3b8;
+    }
+    
+    .table-info-value {
+        font-weight: 600;
+        color: #1e293b;
+    }
+    
+    .table-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+    
+    .table-actions .btn {
+        flex: 1;
+        padding: 0.5rem;
+        border-radius: 10px;
+        font-size: 0.8rem;
+    }
+    
+    .quick-action-bar {
+        position: fixed;
+        bottom: 2rem;
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        border-radius: 20px;
+        padding: 1rem 2rem;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        display: none;
+        gap: 1rem;
+        z-index: 1000;
+    }
+    
+    .quick-action-bar.show {
+        display: flex;
+    }
+    
+    @media (max-width: 768px) {
+        .tables-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .stats-bar {
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .floor-selector {
+            justify-content: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Hero Section -->
+    <div class="tables-hero">
+        <div class="row align-items-center position-relative" style="z-index: 1;">
+            <div class="col-lg-7">
+                <h1 class="mb-2">
+                    <i class="bi bi-grid-3x3 me-2"></i>{% trans 'إدارة الطاولات' %}
+                </h1>
+                <p class="mb-0 opacity-75">{% trans 'إدارة طاولات المطعم والحجوزات بشكل مباشر' %}</p>
+            </div>
+            <div class="col-lg-5 text-lg-end mt-3 mt-lg-0">
+                <a href="{% url 'pos:table_create' %}" class="btn btn-light btn-lg me-2">
+                    <i class="bi bi-plus-lg me-1"></i>{% trans 'إضافة طاولة' %}
+                </a>
+                <a href="{% url 'pos:reservations' %}" class="btn btn-outline-light">
+                    <i class="bi bi-calendar-check me-1"></i>{% trans 'الحجوزات' %}
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Floor Selector -->
+    <div class="floor-selector">
+        <span class="text-muted fw-bold">{% trans 'الطابق:' %}</span>
+        <button class="floor-btn active" data-floor="all">{% trans 'الكل' %}</button>
+        {% for floor in floors %}
+        <button class="floor-btn" data-floor="{{ floor.id }}">{{ floor.name }}</button>
+        {% endfor %}
+        <div class="ms-auto">
+            <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addFloorModal">
+                <i class="bi bi-plus me-1"></i>{% trans 'طابق جديد' %}
+            </button>
+        </div>
+    </div>
+    
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+        <div class="stat-item">
+            <span class="stat-dot available"></span>
+            <div>
+                <strong>{{ available_count|default:0 }}</strong>
+                <span class="text-muted">{% trans 'متاحة' %}</span>
+            </div>
+        </div>
+        <div class="stat-item">
+            <span class="stat-dot occupied"></span>
+            <div>
+                <strong>{{ occupied_count|default:0 }}</strong>
+                <span class="text-muted">{% trans 'مشغولة' %}</span>
+            </div>
+        </div>
+        <div class="stat-item">
+            <span class="stat-dot reserved"></span>
+            <div>
+                <strong>{{ reserved_count|default:0 }}</strong>
+                <span class="text-muted">{% trans 'محجوزة' %}</span>
+            </div>
+        </div>
+        <div class="stat-item">
+            <span class="stat-dot cleaning"></span>
+            <div>
+                <strong>{{ cleaning_count|default:0 }}</strong>
+                <span class="text-muted">{% trans 'تنظيف' %}</span>
+            </div>
+        </div>
+        <div class="ms-auto">
+            <span class="text-muted">{% trans 'إجمالي الطاولات:' %}</span>
+            <strong>{{ tables.count|default:0 }}</strong>
+        </div>
+    </div>
+    
+    <!-- Tables Grid -->
+    <div class="tables-grid" id="tablesGrid">
+        {% for table in tables %}
+        <div class="table-card {{ table.status }}" 
+             data-table-id="{{ table.id }}" 
+             data-floor="{{ table.floor.id|default:'none' }}"
+             onclick="selectTable({{ table.id }})">
+            
+            <span class="table-status-badge {{ table.status }}">
+                {% if table.status == 'available' %}<i class="bi bi-check"></i>
+                {% elif table.status == 'occupied' %}<i class="bi bi-person-fill"></i>
+                {% elif table.status == 'reserved' %}<i class="bi bi-clock"></i>
+                {% else %}<i class="bi bi-droplet"></i>
+                {% endif %}
+            </span>
+            
+            <div class="table-icon">
+                <div class="table-shape {% if table.shape == 'round' %}round{% endif %}">
+                    {{ table.number }}
+                </div>
+            </div>
+            
+            <h5 class="table-name">{{ table.name|default:table.number }}</h5>
+            <div class="table-capacity">
+                <i class="bi bi-people"></i> {{ table.capacity }} {% trans 'أشخاص' %}
+            </div>
+            
+            {% if table.status == 'occupied' %}
+            <div class="table-info">
+                <div class="table-info-row">
+                    <span class="table-info-label">{% trans 'الطلب:' %}</span>
+                    <span class="table-info-value">#{{ table.current_order.id|default:'-' }}</span>
+                </div>
+                <div class="table-info-row">
+                    <span class="table-info-label">{% trans 'الوقت:' %}</span>
+                    <span class="table-info-value">{{ table.occupied_since|timesince }}</span>
+                </div>
+                <div class="table-info-row">
+                    <span class="table-info-label">{% trans 'المبلغ:' %}</span>
+                    <span class="table-info-value text-success">{{ table.current_order.total|floatformat:2|default:0 }}</span>
+                </div>
+            </div>
+            {% elif table.status == 'reserved' %}
+            <div class="table-info">
+                <div class="table-info-row">
+                    <span class="table-info-label">{% trans 'الاسم:' %}</span>
+                    <span class="table-info-value">{{ table.reservation.customer_name|default:'-' }}</span>
+                </div>
+                <div class="table-info-row">
+                    <span class="table-info-label">{% trans 'الموعد:' %}</span>
+                    <span class="table-info-value">{{ table.reservation.time|time:"H:i" }}</span>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="table-actions">
+                {% if table.status == 'available' %}
+                <a href="{% url 'pos:new_order' %}?table={{ table.id }}" class="btn btn-success">
+                    <i class="bi bi-plus-lg"></i> {% trans 'طلب' %}
+                </a>
+                <a href="{% url 'pos:reserve_table' table.id %}" class="btn btn-outline-warning">
+                    <i class="bi bi-calendar"></i>
+                </a>
+                {% elif table.status == 'occupied' %}
+                <a href="{% url 'pos:view_order' table.current_order.id %}" class="btn btn-primary">
+                    <i class="bi bi-eye"></i> {% trans 'الطلب' %}
+                </a>
+                <a href="{% url 'pos:pay_order' table.current_order.id %}" class="btn btn-success">
+                    <i class="bi bi-cash"></i>
+                </a>
+                {% elif table.status == 'reserved' %}
+                <button class="btn btn-success" onclick="checkIn({{ table.id }})">
+                    <i class="bi bi-check"></i> {% trans 'وصل' %}
+                </button>
+                <button class="btn btn-outline-danger" onclick="cancelReservation({{ table.id }})">
+                    <i class="bi bi-x"></i>
+                </button>
+                {% else %}
+                <button class="btn btn-success w-100" onclick="markAvailable({{ table.id }})">
+                    <i class="bi bi-check-lg"></i> {% trans 'جاهزة' %}
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center py-5" style="grid-column: 1 / -1;">
+            <i class="bi bi-grid-3x3 text-muted" style="font-size: 5rem;"></i>
+            <h4 class="mt-3 text-muted">{% trans 'لا توجد طاولات' %}</h4>
+            <p class="text-muted mb-4">{% trans 'ابدأ بإضافة طاولات لمطعمك' %}</p>
+            <a href="{% url 'pos:table_create' %}" class="btn btn-primary btn-lg">
+                <i class="bi bi-plus-lg me-1"></i>{% trans 'إضافة طاولة' %}
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Quick Action Bar -->
+<div class="quick-action-bar" id="quickActionBar">
+    <span class="text-muted">{% trans 'الطاولة المحددة:' %}</span>
+    <strong id="selectedTableName">-</strong>
+    <button class="btn btn-success" id="quickNewOrder">
+        <i class="bi bi-plus me-1"></i>{% trans 'طلب جديد' %}
+    </button>
+    <button class="btn btn-outline-secondary" onclick="hideQuickBar()">
+        <i class="bi bi-x"></i>
+    </button>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedTableId = null;
+
+document.querySelectorAll('.floor-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.floor-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        
+        const floor = this.dataset.floor;
+        document.querySelectorAll('.table-card').forEach(card => {
+            if (floor === 'all' || card.dataset.floor === floor) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    });
+});
+
+function selectTable(id) {
+    selectedTableId = id;
+    const table = document.querySelector(`[data-table-id="${id}"]`);
+    const name = table.querySelector('.table-name').textContent;
+    document.getElementById('selectedTableName').textContent = name;
+    document.getElementById('quickActionBar').classList.add('show');
+}
+
+function hideQuickBar() {
+    document.getElementById('quickActionBar').classList.remove('show');
+    selectedTableId = null;
+}
+
+function markAvailable(id) {
+    fetch(`/pos/tables/${id}/status/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ status: 'available' })
+    }).then(() => location.reload());
+}
+
+function checkIn(id) {
+    fetch(`/pos/tables/${id}/checkin/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    }).then(() => location.reload());
+}
+
+function cancelReservation(id) {
+    if (confirm('{% trans "هل تريد إلغاء الحجز؟" %}')) {
+        fetch(`/pos/tables/${id}/cancel-reservation/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        }).then(() => location.reload());
+    }
+}
+
+// Auto refresh every 30 seconds
+setInterval(() => location.reload(), 30000);
+</script>
+{% endblock %}

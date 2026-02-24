@@ -1,0 +1,162 @@
+{% extends 'base_templates/modern_detail.html' %}
+{% load static i18n humanize %}
+
+{% block page_module %}accounting{% endblock %}
+{% block page_icon %}bi-cash-coin{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'accounting:dashboard' %}">{% trans 'المحاسبة' %}</a></li>
+<li class="breadcrumb-item active">{{ title }}</li>
+{% endblock %}
+
+{% block actions %}
+    <form method="get" class="d-flex align-items-center gap-2">
+        <label for="date" class="form-label mb-0 text-nowrap">{% trans 'تاريخ التقرير:' %}</label>
+        <input type="date" name="date" id="date" class="form-control" value="{{ report_date|date:'Y-m-d' }}">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-search"></i>
+        </button>
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+            <i class="bi bi-printer"></i>
+        </button>
+    </form>
+{% endblock %}
+
+{% block detail_content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card shadow-sm border-0 bg-primary text-white">
+            <div class="card-body text-center p-4">
+                <h5 class="card-title opacity-75">{% trans 'إجمالي المصاريف اليومية' %}</h5>
+                <h2 class="display-4 fw-bold mb-0">{{ total_amount|intcomma }}</h2>
+                <p class="mb-0 mt-2 opacity-75">{{ report_date|date:"l, d F Y" }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- By Account -->
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-transparent py-3">
+                <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>{% trans 'حسب الحساب' %}</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-4">{% trans 'الحساب' %}</th>
+                                <th class="text-end pe-4">{% trans 'المبلغ' %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in by_account %}
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="fw-bold">{{ item.account__name }}</div>
+                                    <div class="small text-muted">{{ item.account__code }}</div>
+                                </td>
+                                <td class="text-end pe-4 fw-bold text-danger">
+                                    {{ item.total|intcomma }}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="2" class="text-center py-4 text-muted">{% trans 'لا توجد مصاريف لهذا اليوم' %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- By Cost Center -->
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-transparent py-3">
+                <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>{% trans 'حسب مركز التكلفة' %}</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-4">{% trans 'مركز التكلفة' %}</th>
+                                <th class="text-end pe-4">{% trans 'المبلغ' %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in by_cost_center %}
+                            <tr>
+                                <td class="ps-4">
+                                    {{ item.cost_center__name|default:"عام (بدون مركز)" }}
+                                </td>
+                                <td class="text-end pe-4 fw-bold text-danger">
+                                    {{ item.total|intcomma }}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="2" class="text-center py-4 text-muted">{% trans 'لا توجد بيانات' %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Details Table -->
+<div class="card shadow-sm border-0 mt-4">
+    <div class="card-header bg-transparent py-3">
+        <h5 class="mb-0"><i class="bi bi-journal-text me-2"></i>{% trans 'تفاصيل القيود' %}</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4">{% trans 'رقم القيد' %}</th>
+                        <th>{% trans 'الحساب' %}</th>
+                        <th>{% trans 'الوصف' %}</th>
+                        <th>{% trans 'مركز التكلفة' %}</th>
+                        <th class="text-end pe-4">{% trans 'المبلغ' %}</th>
+                        <th>{% trans 'إجراء' %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in expenses %}
+                    <tr>
+                        <td class="ps-4">
+                            <a href="{% url 'accounting:journal_entry_detail' item.journal_entry.pk %}">
+                                #{{ item.journal_entry.number }}
+                            </a>
+                        </td>
+                        <td>{{ item.account.name }}</td>
+                        <td>{{ item.description|truncatechars:50 }}</td>
+                        <td>{{ item.cost_center.name|default:"-" }}</td>
+                        <td class="text-end pe-4 fw-bold">{{ item.amount|intcomma }}</td>
+                        <td>
+                            <a href="{% url 'accounting:journal_entry_detail' item.journal_entry.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">{% trans 'لا توجد قيود مصاريف لهذا اليوم' %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

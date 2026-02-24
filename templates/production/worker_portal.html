@@ -1,0 +1,263 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}بوابة العامل - {{ employee.arabic_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .worker-portal {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    
+    .welcome-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+        text-align: center;
+    }
+    
+    .welcome-card h1 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .quick-action-btn {
+        display: block;
+        width: 100%;
+        padding: 2rem;
+        font-size: 1.3rem;
+        font-weight: bold;
+        border-radius: 15px;
+        margin-bottom: 1rem;
+        text-decoration: none;
+        text-align: center;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .quick-action-btn:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+    
+    .btn-production {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+    }
+    
+    .btn-leave {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+    }
+    
+    .stats-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+    
+    .stats-card .number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #667eea;
+    }
+    
+    .stats-card .label {
+        font-size: 1rem;
+        color: #666;
+    }
+    
+    .recent-list {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        padding: 1.5rem;
+    }
+    
+    .recent-item {
+        padding: 1rem;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .recent-item:last-child {
+        border-bottom: none;
+    }
+    
+    .badge-status {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+    }
+    
+    @media (max-width: 768px) {
+        .welcome-card h1 {
+            font-size: 1.5rem;
+        }
+        
+        .quick-action-btn {
+            padding: 1.5rem;
+            font-size: 1.1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="worker-portal">
+    <div class="welcome-card">
+        <h1>🏭 مرحباً {{ employee.arabic_name }}</h1>
+        <p>{{ employee.department.name }} - {{ employee.position.title }}</p>
+        <p>التاريخ: {{ today|date:"l، j F Y" }}</p>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <a href="{% url 'production:worker_production_entry' %}" class="quick-action-btn btn-production">
+                <i class="fas fa-industry fa-2x mb-2"></i><br>
+                سجل إنتاج اليوم
+            </a>
+        </div>
+        <div class="col-md-6">
+            <a href="{% url 'hr:leave_request_create' %}" class="quick-action-btn btn-leave">
+                <i class="fas fa-calendar-alt fa-2x mb-2"></i><br>
+                طلب إجازة
+            </a>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-md-3 col-6">
+            <div class="stats-card">
+                <div class="number">{{ today_production_count }}</div>
+                <div class="label">إنتاج اليوم</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stats-card">
+                <div class="number">{{ month_production_count }}</div>
+                <div class="label">إنتاج الشهر</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stats-card">
+                <div class="number">{{ leave_balance|floatformat:1 }}</div>
+                <div class="label">رصيد الإجازات</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stats-card">
+                <div class="number">{{ pending_leaves }}</div>
+                <div class="label">إجازات معلقة</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="recent-list">
+                <h4><i class="fas fa-industry text-primary"></i> آخر التسجيلات الإنتاجية</h4>
+                <hr>
+                {% if recent_production %}
+                    {% for entry in recent_production %}
+                    <div class="recent-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ entry.product.name }}</strong><br>
+                                <small class="text-muted">{{ entry.quantity }} {{ entry.unit_of_measure }} - {{ entry.date|date:"d/m/Y" }}</small>
+                            </div>
+                            <div>
+                                {% if entry.status == 'approved' %}
+                                    <span class="badge-status bg-success text-white">موافق عليه</span>
+                                {% elif entry.status == 'submitted' %}
+                                    <span class="badge-status bg-warning">قيد المراجعة</span>
+                                {% elif entry.status == 'rejected' %}
+                                    <span class="badge-status bg-danger text-white">مرفوض</span>
+                                {% else %}
+                                    <span class="badge-status bg-secondary text-white">مسودة</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center mt-3">لا توجد تسجيلات حتى الآن</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="recent-list">
+                <h4><i class="fas fa-calendar-alt text-info"></i> طلبات الإجازات الأخيرة</h4>
+                <hr>
+                {% if recent_leaves %}
+                    {% for leave in recent_leaves %}
+                    <div class="recent-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ leave.leave_type.name }}</strong><br>
+                                <small class="text-muted">{{ leave.start_date|date:"d/m" }} - {{ leave.end_date|date:"d/m" }} ({{ leave.days_requested }} يوم)</small>
+                            </div>
+                            <div>
+                                {% if leave.status == 'approved' %}
+                                    <span class="badge-status bg-success text-white">موافق عليها</span>
+                                {% elif leave.status == 'pending' %}
+                                    <span class="badge-status bg-warning">في الانتظار</span>
+                                {% elif leave.status == 'rejected' %}
+                                    <span class="badge-status bg-danger text-white">مرفوضة</span>
+                                {% else %}
+                                    <span class="badge-status bg-secondary text-white">ملغية</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center mt-3">لا توجد طلبات حتى الآن</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="recent-list">
+                <h4><i class="fas fa-clock text-success"></i> آخر سجلات الحضور</h4>
+                <hr>
+                {% if recent_attendance %}
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>التاريخ</th>
+                                    <th>الحضور</th>
+                                    <th>الانصراف</th>
+                                    <th>ساعات العمل</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for att in recent_attendance %}
+                                <tr>
+                                    <td>{{ att.date|date:"d/m/Y - l" }}</td>
+                                    <td>{{ att.check_in_time|time:"h:i A"|default:"-" }}</td>
+                                    <td>{{ att.check_out_time|time:"h:i A"|default:"-" }}</td>
+                                    <td>{{ att.hours_worked|floatformat:2|default:"-" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center mt-3">لا توجد سجلات حضور</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+

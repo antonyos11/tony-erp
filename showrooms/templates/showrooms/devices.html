@@ -1,0 +1,263 @@
+{% extends 'base.html' %}
+{% load i18n humanize %}
+{% block title %}{% trans 'أجهزة POS' %} - {{ showroom.name_ar|default:showroom.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Breadcrumb -->
+  <nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'showrooms:list' %}"><i class="fas fa-store"></i> {% trans 'المعارض' %}</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'showrooms:detail' showroom.id %}">{{ showroom.name_ar|default:showroom.name }}</a></li>
+      <li class="breadcrumb-item active">{% trans 'الأجهزة' %}</li>
+    </ol>
+  </nav>
+
+  <!-- Header -->
+  <div class="row align-items-center mb-4">
+    <div class="col-md-6">
+      <h2 class="mb-1">
+        <i class="fas fa-desktop text-success"></i> 
+        {% trans 'أجهزة نقطة البيع' %}
+      </h2>
+      <p class="text-muted mb-0">{% trans 'إدارة أجهزة POS الخاصة بالمعرض' %}</p>
+    </div>
+    <div class="col-md-6 text-end">
+      <button class="btn btn-success btn-lg shadow-sm" data-bs-toggle="modal" data-bs-target="#addDeviceModal">
+        <i class="fas fa-plus-circle"></i> {% trans 'إضافة جهاز جديد' %}
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm bg-gradient" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+        <div class="card-body text-white">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="mb-1 text-white-50">{% trans 'إجمالي الأجهزة' %}</h6>
+              <h2 class="mb-0 fw-bold">{{ devices|length }}</h2>
+            </div>
+            <i class="fas fa-desktop fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm bg-gradient" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="card-body text-white">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="mb-1 text-white-50">{% trans 'الأجهزة النشطة' %}</h6>
+              <h2 class="mb-0 fw-bold">{{ active_count|default:0 }}</h2>
+            </div>
+            <i class="fas fa-check-circle fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm bg-gradient" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+        <div class="card-body text-white">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="mb-1 text-white-50">{% trans 'متصل الآن' %}</h6>
+              <h2 class="mb-0 fw-bold">{{ online_count|default:0 }}</h2>
+            </div>
+            <i class="fas fa-wifi fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Devices Grid -->
+  <div class="row g-4">
+    {% for device in devices %}
+    <div class="col-md-6 col-lg-4">
+      <div class="card border-0 shadow-sm h-100 hover-lift">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start mb-3">
+            <div class="d-flex align-items-center">
+              <div class="device-icon {% if device.is_active %}bg-success-soft{% else %}bg-secondary{% endif %} rounded-circle p-3 me-3">
+                <i class="fas fa-desktop fa-lg {% if device.is_active %}text-success{% else %}text-white{% endif %}"></i>
+              </div>
+              <div>
+                <h5 class="mb-0 fw-bold">{{ device.name }}</h5>
+                <small class="text-muted">{{ device.identifier }}</small>
+              </div>
+            </div>
+            <div class="dropdown">
+              <button class="btn btn-sm btn-light rounded-circle" data-bs-toggle="dropdown">
+                <i class="fas fa-ellipsis-v"></i>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#editDeviceModal{{ device.id }}">
+                  <i class="fas fa-edit text-primary"></i> {% trans 'تعديل' %}
+                </a></li>
+                <li><a class="dropdown-item" href="#" onclick="regenerateApiKey({{ device.id }})">
+                  <i class="fas fa-key text-warning"></i> {% trans 'إعادة توليد API Key' %}
+                </a></li>
+                <li><hr class="dropdown-divider"></li>
+                {% if device.is_active %}
+                <li><a class="dropdown-item" href="{% url 'showrooms:device_toggle' device.id %}">
+                  <i class="fas fa-pause text-warning"></i> {% trans 'تعطيل' %}
+                </a></li>
+                {% else %}
+                <li><a class="dropdown-item" href="{% url 'showrooms:device_toggle' device.id %}">
+                  <i class="fas fa-play text-success"></i> {% trans 'تفعيل' %}
+                </a></li>
+                {% endif %}
+                <li><a class="dropdown-item text-danger" href="{% url 'showrooms:device_delete' device.id %}">
+                  <i class="fas fa-trash"></i> {% trans 'حذف' %}
+                </a></li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Device Info -->
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <div class="bg-light rounded p-2 text-center">
+                <small class="text-muted d-block">{% trans 'الحالة' %}</small>
+                {% if device.is_active %}
+                  <span class="badge bg-success">{% trans 'نشط' %}</span>
+                {% else %}
+                  <span class="badge bg-secondary">{% trans 'معطل' %}</span>
+                {% endif %}
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="bg-light rounded p-2 text-center">
+                <small class="text-muted d-block">{% trans 'آخر اتصال' %}</small>
+                {% if device.last_seen %}
+                  <small class="fw-bold">{{ device.last_seen|timesince }}</small>
+                {% else %}
+                  <small class="text-muted">{% trans 'لم يتصل' %}</small>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <!-- API Key (Hidden) -->
+          <div class="api-key-container bg-light rounded p-2 mb-3">
+            <div class="d-flex align-items-center justify-content-between">
+              <small class="text-muted">{% trans 'API Key' %}</small>
+              <button class="btn btn-sm btn-outline-secondary" onclick="toggleApiKey(this, '{{ device.api_key }}')">
+                <i class="fas fa-eye"></i>
+              </button>
+            </div>
+            <code class="api-key-value d-none">{{ device.api_key }}</code>
+            <span class="api-key-placeholder">••••••••••••••••</span>
+          </div>
+
+          <!-- Registration Date -->
+          <div class="d-flex justify-content-between align-items-center text-muted small">
+            <span><i class="fas fa-calendar"></i> {% trans 'تاريخ التسجيل' %}</span>
+            <span>{{ device.registered_at|date:"Y/m/d" }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-5">
+          <i class="fas fa-desktop fa-4x text-muted mb-3"></i>
+          <h4 class="text-muted">{% trans 'لا توجد أجهزة مسجلة' %}</h4>
+          <p class="text-muted">{% trans 'قم بإضافة جهاز POS جديد للبدء' %}</p>
+          <button class="btn btn-success btn-lg" data-bs-toggle="modal" data-bs-target="#addDeviceModal">
+            <i class="fas fa-plus"></i> {% trans 'إضافة جهاز' %}
+          </button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Add Device Modal -->
+<div class="modal fade" id="addDeviceModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i> {% trans 'إضافة جهاز جديد' %}</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'showrooms:device_add' showroom.id %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-bold">{% trans 'اسم الجهاز' %} <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control" placeholder="{% trans 'مثال: كاشير 1' %}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">{% trans 'المعرف الفريد' %} <span class="text-danger">*</span></label>
+            <input type="text" name="identifier" class="form-control" placeholder="{% trans 'Serial / MAC / UUID' %}" required>
+            <small class="text-muted">{% trans 'يمكن استخدام الرقم التسلسلي أو عنوان MAC أو أي معرف فريد' %}</small>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" class="form-check-input" name="is_active" id="deviceActive" checked>
+            <label class="form-check-label" for="deviceActive">{% trans 'تفعيل الجهاز فوراً' %}</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans 'إلغاء' %}</button>
+          <button type="submit" class="btn btn-success">
+            <i class="fas fa-save"></i> {% trans 'حفظ' %}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+.hover-lift {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
+.device-icon {
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bg-success-soft {
+  background-color: rgba(25, 135, 84, 0.15);
+}
+</style>
+
+<script>
+function toggleApiKey(btn, apiKey) {
+  const container = btn.closest('.api-key-container');
+  const placeholder = container.querySelector('.api-key-placeholder');
+  const value = container.querySelector('.api-key-value');
+  const icon = btn.querySelector('i');
+  
+  if (placeholder.classList.contains('d-none')) {
+    placeholder.classList.remove('d-none');
+    value.classList.add('d-none');
+    icon.classList.remove('fa-eye-slash');
+    icon.classList.add('fa-eye');
+  } else {
+    placeholder.classList.add('d-none');
+    value.classList.remove('d-none');
+    value.textContent = apiKey;
+    icon.classList.remove('fa-eye');
+    icon.classList.add('fa-eye-slash');
+  }
+}
+
+function regenerateApiKey(deviceId) {
+  if (confirm('{% trans "هل أنت متأكد من إعادة توليد API Key؟ سيتوقف الجهاز عن العمل حتى يتم تحديث المفتاح." %}')) {
+    window.location.href = `/showrooms/device/${deviceId}/regenerate-key/`;
+  }
+}
+</script>
+{% endblock %}

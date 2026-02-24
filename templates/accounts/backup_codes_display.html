@@ -1,0 +1,220 @@
+﻿{% extends "base.html" %}
+{% load static %}
+
+{% block title %}رموز النسخ الاحتياطي{% endblock %}
+
+{% block extra_css %}
+<style>
+	.backup-container {
+		max-width: 700px;
+		margin: 50px auto;
+	}
+	
+	.warning-box {
+		background: #fff3cd;
+		border: 2px solid #ffc107;
+		border-radius: 10px;
+		padding: 20px;
+		margin-bottom: 30px;
+	}
+	
+	.codes-display {
+		background: white;
+		border: 3px dashed #007bff;
+		border-radius: 15px;
+		padding: 40px;
+		margin-bottom: 30px;
+	}
+	
+	.code-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 15px;
+		margin: 30px 0;
+	}
+	
+	.backup-code {
+		font-family: 'Courier New', monospace;
+		font-size: 1.5rem;
+		font-weight: bold;
+		letter-spacing: 3px;
+		background: #f8f9fa;
+		padding: 15px;
+		border-radius: 8px;
+		text-align: center;
+		border: 2px solid #dee2e6;
+	}
+	
+	.action-buttons {
+		display: flex;
+		gap: 15px;
+		justify-content: center;
+		margin-top: 30px;
+	}
+	
+	.instruction-list {
+		background: #e3f2fd;
+		padding: 20px;
+		border-radius: 10px;
+		margin-top: 30px;
+	}
+	
+	@media print {
+		.no-print {
+			display: none;
+		}
+		.codes-display {
+			border: 2px solid #000;
+		}
+	}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container backup-container">
+	<div class="text-center mb-4 no-print">
+		<h2><i class="bi bi-key-fill text-warning"></i> رموز النسخ الاحتياطي</h2>
+	</div>
+	
+	<!-- تحذير هام -->
+	<div class="warning-box no-print">
+		<h5><i class="bi bi-exclamation-triangle-fill text-warning"></i> تحذير هام!</h5>
+		<ul class="mb-0">
+			<li>احتفظ بهذه الرموز في مكان آمن ولا تشاركها مع أحد</li>
+			<li>كل رمز يمكن استخدامه <strong>مرة واحدة فقط</strong></li>
+			<li>استخدم هذه الرموز عند فقدان الوصول لتطبيق المصادقة</li>
+			<li><strong>هذه هي المرة الوحيدة التي ستظهر فيها هذه الرموز - احفظها الآن!</strong></li>
+		</ul>
+	</div>
+	
+	<!-- عرض الرموز -->
+	<div class="codes-display">
+		<h4 class="text-center mb-4">رموزك الاحتياطية</h4>
+		
+		<div class="code-grid">
+			{% for code in backup_codes %}
+			<div class="backup-code">{{ code }}</div>
+			{% endfor %}
+		</div>
+		
+		<div class="text-center text-muted">
+			<small>تم التوليد في: {{ generated_at|date:"Y/m/d H:i:s" }}</small>
+		</div>
+	</div>
+	
+	<!-- أزرار الإجراءات -->
+	<div class="action-buttons no-print">
+		<button onclick="window.print()" class="btn btn-primary">
+			<i class="bi bi-printer"></i> طباعة الرموز
+		</button>
+		
+		<button onclick="downloadCodes()" class="btn btn-success">
+			<i class="bi bi-download"></i> تحميل كملف نصي
+		</button>
+		
+		<button onclick="copyCodes()" class="btn btn-info" id="copy-btn">
+			<i class="bi bi-clipboard"></i> نسخ الرموز
+		</button>
+	</div>
+	
+	<!-- تعليمات الاستخدام -->
+	<div class="instruction-list no-print">
+		<h5><i class="bi bi-info-circle"></i> كيفية استخدام الرموز الاحتياطية:</h5>
+		<ol>
+			<li>عند تسجيل الدخول، اختر "رمز نسخ احتياطي" بدلاً من رمز TOTP</li>
+			<li>أدخل أحد الرموز المحفوظة لديك</li>
+			<li>سيتم حذف الرمز تلقائياً بعد الاستخدام</li>
+			<li>تأكد من توليد رموز جديدة عندما تنفد الرموز الحالية</li>
+		</ol>
+		
+		<div class="alert alert-info mt-3 mb-0">
+			<i class="bi bi-shield-check"></i>
+			<strong>نصيحة:</strong> احفظ هذه الرموز في مدير كلمات المرور الخاص بك أو في مكان آمن آخر.
+		</div>
+	</div>
+	
+	<!-- زر العودة -->
+	<div class="text-center mt-4 no-print">
+		<a href="{% url 'accounts:manage_2fa' %}" class="btn btn-outline-secondary">
+			<i class="bi bi-arrow-left"></i> العودة لإعدادات المصادقة
+		</a>
+	</div>
+</div>
+
+<!-- نسخة قابلة للطباعة -->
+<div style="display: none;" id="print-version">
+	<h2>رموز النسخ الاحتياطي - نظام Tony ERP</h2>
+	<p>المستخدم: {{ request.user.username }}</p>
+	<p>تاريخ التوليد: {{ generated_at|date:"Y/m/d H:i:s" }}</p>
+	<hr>
+	{% for code in backup_codes %}
+	<p style="font-family: monospace; font-size: 18px;">{{ forloop.counter }}. {{ code }}</p>
+	{% endfor %}
+	<hr>
+	<p><strong>تحذير:</strong> كل رمز يستخدم مرة واحدة فقط. احتفظ بهذه الورقة في مكان آمن.</p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+	// نسخ الرموز إلى الحافظة
+	function copyCodes() {
+		const codes = [
+			{% for code in backup_codes %}
+			'{ code }'{% if not forloop.last %},{% endif %}
+			{% endfor %}
+		];
+		
+		const text = codes.join('\n');
+		
+		navigator.clipboard.writeText(text).then(() => {
+			const btn = document.getElementById('copy-btn');
+			const originalText = btn.innerHTML;
+			btn.innerHTML = '<i class="bi bi-check"></i> تم النسخ!';
+			btn.classList.remove('btn-info');
+			btn.classList.add('btn-success');
+			
+			setTimeout(() => {
+				btn.innerHTML = originalText;
+				btn.classList.remove('btn-success');
+				btn.classList.add('btn-info');
+			}, 2000);
+		}).catch(err => {
+			alert('فشل النسخ. حاول مرة أخرى.');
+		});
+	}
+	
+	// تحميل الرموز كملف نصي
+	function downloadCodes() {
+		const codes = [
+			{% for code in backup_codes %}
+			'{{ code }}'{% if not forloop.last %},{% endif %}
+			{% endfor %}
+		];
+		
+		let content = 'رموز النسخ الاحتياطي - نظام Tony ERP\n';
+		content += 'المستخدم: {{ request.user.username }}\n';
+		content += 'تاريخ التوليد: { generated_at|date:"Y/m/d H:i:s" }\n';
+		content += '='.repeat(50) + '\n\n';
+		
+		codes.forEach((code, index) => {
+			content += `${index + 1}. ${code}\n`;
+		});
+		
+		content += '\n' + '='.repeat(50) + '\n';
+		content += 'تحذير: كل رمز يستخدم مرة واحدة فقط.\n';
+		content += 'احتفظ بهذا الملف في مكان آمن ولا تشاركه مع أحد.\n';
+		
+		const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+		const url = window.URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = 'backup_codes_{{ request.user.username }}.txt';
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		window.URL.revokeObjectURL(url);
+	}
+</script>
+{% endblock %}
+

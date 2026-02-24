@@ -1,0 +1,332 @@
+﻿{% extends 'base_templates/_form_professional.html' %}
+{% load static %}
+{% load i18n %}
+{% load crispy_forms_tags %}
+
+{% block page_title %}{% if object %}{% trans 'تعديل طلب الشراء' %}{% else %}{% trans 'طلب شراء جديد' %}{% endif %}{% endblock %}
+{% block hero_icon %}bi-clipboard-plus{% endblock %}
+{% block hero_title %}{% if object %}{% trans 'تعديل طلب الشراء' %} - {{ object.pr_number }}{% else %}{% trans 'إنشاء طلب شراء جديد' %}{% endif %}{% endblock %}
+{% block hero_subtitle %}{% trans 'أدخل الأصناف المطلوبة وبيانات الطلب' %}{% endblock %}
+
+{% block back_url %}{% url 'purchases:pr_list' %}{% endblock %}
+{% block section_icon %}bi-info-circle{% endblock %}
+{% block section_title %}{% trans 'البيانات الأساسية' %}{% endblock %}
+
+{% block form_styles %}
+<style>
+.items-table-wrapper {
+  overflow-x: auto;
+}
+.items-table {
+  width: 100%;
+  min-width: 700px;
+}
+.items-table thead th {
+  background: var(--bs-tertiary-bg);
+  font-weight: 600;
+  font-size: 0.8rem;
+  padding: 0.75rem;
+}
+.items-table tbody td {
+  padding: 0.5rem;
+  vertical-align: middle;
+}
+.items-table .form-control,
+.items-table .form-select {
+  font-size: 0.85rem;
+  padding: 0.4rem 0.5rem;
+}
+.add-item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(0,212,170,0.05);
+  border: 1px dashed var(--color-brand-accent);
+  border-radius: 8px;
+  margin-top: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.add-item-row:hover {
+  background: rgba(0,212,170,0.12);
+}
+.priority-options {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.priority-option {
+  flex: 1;
+  min-width: 100px;
+  padding: 0.75rem;
+  border: 2px solid var(--bs-border-color);
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.priority-option:hover {
+  border-color: var(--color-brand-primary);
+}
+.priority-option.active {
+  border-color: var(--color-brand-primary);
+  background: rgba(30,58,95,0.05);
+}
+.priority-option.urgent { border-color: #dc3545; }
+.priority-option.urgent.active { background: rgba(220,53,69,0.1); }
+.priority-option.high { border-color: #ffc107; }
+.priority-option.high.active { background: rgba(255,193,7,0.1); }
+.priority-option input { display: none; }
+.priority-option i { font-size: 1.25rem; margin-bottom: 0.25rem; }
+.priority-option .label { font-size: 0.85rem; font-weight: 500; }
+</style>
+{% endblock %}
+
+{% block form_fields %}
+<div class="form-row three-col">
+  <div class="form-field">
+    <label class="form-label"><span class="required-star">*</span>{% trans 'القسم الطالب' %}</label>
+    <select name="department" class="form-select" required>
+      <option value="">{% trans 'اختر القسم...' %}</option>
+      {% for dept in departments %}
+      <option value="{ dept.id }}" {% if object.department_id == dept.id %}selected{% endif %}>{{ dept.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="form-field">
+    <label class="form-label">{% trans 'تاريخ الاحتياج' %}</label>
+    <input type="date" name="needed_date" class="form-control" value="{ object.needed_date|date:'Y-m-d'|default:'' }">
+  </div>
+  <div class="form-field">
+    <label class="form-label">{% trans 'رقم المرجع' %}</label>
+    <input type="text" name="reference" class="form-control" value="{ object.reference|default:'' }}" placeholder="{% trans 'مرجع داخلي (اختياري)' %}">
+  </div>
+</div>
+
+<div class="form-field mb-4">
+  <label class="form-label">{% trans 'الأولوية' %}</label>
+  <div class="priority-options">
+    <label class="priority-option urgent {% if object.priority == 'urgent' %}active{% endif %}">
+      <input type="radio" name="priority" value="urgent" {% if object.priority == 'urgent' %}checked{% endif %}>
+      <i class="bi bi-exclamation-triangle d-block text-danger"></i>
+      <div class="label">{% trans 'عاجل' %}</div>
+    </label>
+    <label class="priority-option high {% if object.priority == 'high' %}active{% endif %}">
+      <input type="radio" name="priority" value="high" {% if object.priority == 'high' %}checked{% endif %}>
+      <i class="bi bi-arrow-up-circle d-block text-warning"></i>
+      <div class="label">{% trans 'عالي' %}</div>
+    </label>
+    <label class="priority-option {% if object.priority == 'normal' or not object.priority %}active{% endif %}">
+      <input type="radio" name="priority" value="normal" {% if object.priority == 'normal' or not object.priority %}checked{% endif %}>
+      <i class="bi bi-dash-circle d-block text-secondary"></i>
+      <div class="label">{% trans 'عادي' %}</div>
+    </label>
+    <label class="priority-option {% if object.priority == 'low' %}active{% endif %}">
+      <input type="radio" name="priority" value="low" {% if object.priority == 'low' %}checked{% endif %}>
+      <i class="bi bi-arrow-down-circle d-block text-info"></i>
+      <div class="label">{% trans 'منخفض' %}</div>
+    </label>
+  </div>
+</div>
+
+<div class="form-field">
+  <label class="form-label">{% trans 'سبب الطلب / الملاحظات' %}</label>
+  <textarea name="notes" class="form-control" rows="2" placeholder="{% trans 'اشرح سبب الحاجة للأصناف المطلوبة...' %}">{{ object.notes|default:'' }}</textarea>
+</div>
+{% endblock %}
+
+{% block items_section %}
+<div class="form-card">
+  <div class="card-header">
+    <div class="section-icon success">
+      <i class="bi bi-box-seam"></i>
+    </div>
+    <h5>{% trans 'الأصناف المطلوبة' %}</h5>
+  </div>
+  <div class="card-body p-0">
+    <div class="items-table-wrapper">
+      <div class="table-responsive"><table class="items-table" id="itemsTable">
+        <thead>
+          <tr>
+            <th style="width: 40px;">#</th>
+            <th style="min-width: 250px;">{% trans 'الصنف' %}</th>
+            <th style="width: 100px;">{% trans 'الكمية' %}</th>
+            <th style="width: 80px;">{% trans 'الوحدة' %}</th>
+            <th style="width: 120px;">{% trans 'السعر التقديري' %}</th>
+            <th style="width: 120px;">{% trans 'الإجمالي' %}</th>
+            <th style="width: 50px;"></th>
+          </tr>
+        </thead>
+        <tbody id="itemsBody">
+          {% for item in object.items.all %}
+          <tr class="item-row" data-row="{ forloop.counter }">
+            <td class="row-number">{{ forloop.counter }}</td>
+            <td>
+              <select name="items[{ forloop.counter0 }][product]" class="form-select product-select" required>
+                <option value="">{% trans 'اختر الصنف...' %}</option>
+                {% for product in products %}
+                <option value="{{ product.id }}" data-unit="{ product.unit }}" {% if item.product_id == product.id %}selected{% endif %}>
+                  {{ product.name }} ({{ product.code }})
+                </option>
+                {% endfor %}
+              </select>
+            </td>
+            <td><input type="number" name="items[{{ forloop.counter0 }}][quantity]" class="form-control qty-input" value="{ item.quantity }}" min="1" step="1" required></td>
+            <td><input type="text" class="form-control unit-display" value="{ item.product.unit }}" readonly></td>
+            <td><input type="number" name="items[{{ forloop.counter0 }}][estimated_price]" class="form-control price-input" value="{ item.estimated_price|floatformat:2 }}" step="0.01"></td>
+            <td><input type="text" class="form-control line-total" value="{ item.line_total|floatformat:2 }}" readonly></td>
+            <td><button type="button" class="btn btn-sm text-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td>
+          </tr>
+          {% empty %}
+          <tr class="item-row" data-row="1">
+            <td class="row-number">1</td>
+            <td>
+              <select name="items[0][product]" class="form-select product-select" required>
+                <option value="">{% trans 'اختر الصنف...' %}</option>
+                {% for product in products %}
+                <option value="{{ product.id }}" data-unit="{ product.unit }">{{ product.name }} ({{ product.code }})</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td><input type="number" name="items[0][quantity]" class="form-control qty-input" value="1" min="1" step="1" required></td>
+            <td><input type="text" class="form-control unit-display" readonly></td>
+            <td><input type="number" name="items[0][estimated_price]" class="form-control price-input" step="0.01" placeholder="0.00"></td>
+            <td><input type="text" class="form-control line-total" readonly value="0.00"></td>
+            <td><button type="button" class="btn btn-sm text-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+    </div>
+    <div class="p-3">
+      <div class="add-item-row" onclick="addNewRow()">
+        <i class="bi bi-plus-circle text-success"></i>
+        <span>{% trans 'إضافة صنف آخر' %}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Totals #}
+<div class="d-flex justify-content-end">
+  <div class="totals-box">
+    <div class="total-row">
+      <span class="label">{% trans 'عدد الأصناف' %}</span>
+      <span class="value" id="itemsCount">1</span>
+    </div>
+    <div class="total-row">
+      <span class="label">{% trans 'الإجمالي التقديري' %}</span>
+      <span class="value" id="grandTotal">0.00 {% trans 'ج.م' %}</span>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block cancel_url %}{% url 'purchases:pr_list' %}{% endblock %}
+
+{% block save_draft_button %}
+<button type="submit" name="save_draft" value="1" class="btn btn-draft">
+  <i class="bi bi-save me-1"></i>{% trans 'حفظ كمسودة' %}
+</button>
+{% endblock %}
+
+{% block submit_text %}{% trans 'إرسال للاعتماد' %}{% endblock %}
+
+{% block form_scripts %}
+<script>
+let rowCounter = { object.items.count|default:1 };
+
+// Priority options
+document.querySelectorAll('.priority-option').forEach(option => {
+  option.addEventListener('click', function() {
+    document.querySelectorAll('.priority-option').forEach(o => o.classList.remove('active'));
+    this.classList.add('active');
+  });
+});
+
+// Add new row
+function addNewRow() {
+  rowCounter++;
+  const tbody = document.getElementById('itemsBody');
+  const newRow = document.createElement('tr');
+  newRow.className = 'item-row';
+  newRow.dataset.row = rowCounter;
+  newRow.innerHTML = `
+    <td class="row-number">${rowCounter}</td>
+    <td>
+      <select name="items[${rowCounter-1}][product]" class="form-select product-select" required>
+        <option value="">{% trans 'اختر الصنف...' %}</option>
+        {% for product in products %}
+        <option value="{{ product.id }}" data-unit="{ product.unit }">{{ product.name }} ({{ product.code }})</option>
+        {% endfor %}
+      </select>
+    </td>
+    <td><input type="number" name="items[${rowCounter-1}][quantity]" class="form-control qty-input" value="1" min="1" step="1" required></td>
+    <td><input type="text" class="form-control unit-display" readonly></td>
+    <td><input type="number" name="items[${rowCounter-1}][estimated_price]" class="form-control price-input" step="0.01" placeholder="0.00"></td>
+    <td><input type="text" class="form-control line-total" readonly value="0.00"></td>
+    <td><button type="button" class="btn btn-sm text-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td>
+  `;
+  tbody.appendChild(newRow);
+  bindRowEvents(newRow);
+  updateTotals();
+}
+
+// Remove row
+function removeRow(btn) {
+  const rows = document.querySelectorAll('.item-row');
+  if (rows.length <= 1) return; // Keep at least one row
+  btn.closest('tr').remove();
+  updateRowNumbers();
+  updateTotals();
+}
+
+// Update row numbers
+function updateRowNumbers() {
+  document.querySelectorAll('.item-row').forEach((row, idx) => {
+    row.querySelector('.row-number').textContent = idx + 1;
+  });
+}
+
+// Bind events to row inputs
+function bindRowEvents(row) {
+  const productSelect = row.querySelector('.product-select');
+  const qtyInput = row.querySelector('.qty-input');
+  const priceInput = row.querySelector('.price-input');
+  const unitDisplay = row.querySelector('.unit-display');
+  
+  productSelect.addEventListener('change', function() {
+    const option = this.options[this.selectedIndex];
+    unitDisplay.value = option.dataset.unit || '';
+  });
+  
+  qtyInput.addEventListener('input', () => calculateLineTotal(row));
+  priceInput.addEventListener('input', () => calculateLineTotal(row));
+}
+
+// Calculate line total
+function calculateLineTotal(row) {
+  const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
+  const price = parseFloat(row.querySelector('.price-input').value) || 0;
+  row.querySelector('.line-total').value = (qty * price).toFixed(2);
+  updateTotals();
+}
+
+// Update totals
+function updateTotals() {
+  let total = 0;
+  const rows = document.querySelectorAll('.item-row');
+  rows.forEach(row => {
+    total += parseFloat(row.querySelector('.line-total').value) || 0;
+  });
+  document.getElementById('itemsCount').textContent = rows.length;
+  document.getElementById('grandTotal').textContent = total.toFixed(2) + ' {% trans "ج.م" %}';
+}
+
+// Initialize
+document.querySelectorAll('.item-row').forEach(row => bindRowEvents(row));
+updateTotals();
+</script>
+{% endblock %}
+

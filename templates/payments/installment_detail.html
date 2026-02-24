@@ -1,0 +1,167 @@
+﻿{% extends 'base_templates/modern_detail.html' %}
+
+{% block page_module %}payments{% endblock %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "تفاصيل القسط" %} - {{ SYSTEM_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="bi bi-calendar-check me-2"></i>{% trans "تفاصيل القسط" %}</h2>
+            <p class="text-muted mb-0">{{ installment.loan.loan_number }} - {% trans "قسط" %} {{ installment.installment_number }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if installment.status != 'paid' %}
+            <a href="{% url 'payments:installment_pay' installment.pk %}" class="btn btn-success">
+                <i class="bi bi-cash me-1"></i>{% trans "تسجيل دفعة" %}
+            </a>
+            {% endif %}
+            <a href="{% url 'payments:loan_detail' installment.loan.pk %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-right me-1"></i>{% trans "العودة للقرض" %}
+            </a>
+        </div>
+    </div>
+    
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <!-- Installment Info -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0"><i class="bi bi-info-circle me-2"></i>{% trans "معلومات القسط" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <td class="text-muted">{% trans "رقم القسط" %}</td>
+                                    <td class="fw-bold">{{ installment.installment_number }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "القرض" %}</td>
+                                    <td>
+                                        <a href="{% url 'payments:loan_detail' installment.loan.pk %}">{{ installment.loan.loan_number }}</a>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "المقترض" %}</td>
+                                    <td>{{ installment.loan.borrower.name }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "تاريخ الاستحقاق" %}</td>
+                                    <td>{{ installment.due_date }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <td class="text-muted">{% trans "مبلغ القسط" %}</td>
+                                    <td class="fw-bold">{{ installment.amount|floatformat:2|intcomma }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "المدفوع" %}</td>
+                                    <td class="text-success">{{ installment.paid_amount|floatformat:2|intcomma }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "المتبقي" %}</td>
+                                    <td class="text-danger fw-bold">{{ installment.remaining_amount|floatformat:2|intcomma }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "رسوم التأخير" %}</td>
+                                    <td>{{ installment.late_fee|floatformat:2|intcomma }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    {% if installment.notes %}
+                    <hr>
+                    <h6 class="text-muted mb-2">{% trans "ملاحظات" %}</h6>
+                    <p class="mb-0">{{ installment.notes }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Payment History -->
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0"><i class="bi bi-clock-history me-2"></i>{% trans "سجل المدفوعات" %}</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "التاريخ" %}</th>
+                                    <th>{% trans "المبلغ" %}</th>
+                                    <th>{% trans "طريقة الدفع" %}</th>
+                                    <th>{% trans "المرجع" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for trans in installment.paymenttransaction_set.all %}
+                                <tr>
+                                    <td>{{ trans.created_at|date:"Y-m-d H:i" }}</td>
+                                    <td class="fw-bold">{{ trans.amount|floatformat:2|intcomma }}</td>
+                                    <td>{{ trans.payment_method.name }}</td>
+                                    <td>{{ trans.reference_number|default:"-" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">
+                                        {% trans "لا توجد مدفوعات مسجلة بعد" %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Status Card -->
+            <div class="card border-0 shadow-sm {% if installment.is_overdue %}bg-danger{% elif installment.status == 'paid' %}bg-success{% else %}bg-warning{% endif %} text-white">
+                <div class="card-body text-center py-4">
+                    {% if installment.is_overdue %}
+                    <i class="bi bi-exclamation-triangle display-4 mb-3"></i>
+                    <h4>{% trans "قسط متأخر" %}</h4>
+                    {% elif installment.status == 'paid' %}
+                    <i class="bi bi-check-circle display-4 mb-3"></i>
+                    <h4>{% trans "تم الدفع" %}</h4>
+                    {% elif installment.status == 'partially_paid' %}
+                    <i class="bi bi-clock display-4 mb-3 text-dark"></i>
+                    <h4 class="text-dark">{% trans "مدفوع جزئياً" %}</h4>
+                    {% else %}
+                    <i class="bi bi-hourglass display-4 mb-3 text-dark"></i>
+                    <h4 class="text-dark">{% trans "في انتظار الدفع" %}</h4>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Progress -->
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0"><i class="bi bi-graph-up me-2"></i>{% trans "نسبة الدفع" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>{% trans "المدفوع" %}</span>
+                        <span class="fw-bold">{% widthratio installment.paid_amount installment.amount 100 %}%</span>
+                    </div>
+                    <div class="progress" style="height: 15px;">
+                        <div class="progress-bar bg-success" style="width: {% widthratio installment.paid_amount installment.amount 100 %}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

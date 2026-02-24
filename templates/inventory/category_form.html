@@ -1,0 +1,318 @@
+{% extends 'base_templates/_form_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% if category %}{% trans 'تعديل الفئة' %}{% else %}{% trans 'فئة جديدة' %}{% endif %}{% endblock %}
+{% block hero_icon %}bi-folder-plus{% endblock %}
+{% block hero_title %}{% if category %}{% trans 'تعديل الفئة' %}: {{ category.name }}{% else %}{% trans 'إنشاء فئة جديدة' %}{% endif %}{% endblock %}
+{% block hero_subtitle %}{% trans 'تنظيم المنتجات في فئات وتصنيفات' %}{% endblock %}
+
+{% block form_id %}categoryForm{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .category-preview {
+    background: var(--bg-light);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  .preview-icon {
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 1rem;
+    border-radius: var(--radius-lg);
+    background: var(--primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+  }
+  .preview-name {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .preview-parent {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+  
+  .icon-selector {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 0.5rem;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 0.5rem;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+  }
+  .icon-option {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid transparent;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: var(--transition);
+    font-size: 1.25rem;
+  }
+  .icon-option:hover {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+  }
+  .icon-option.selected {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+  
+  .color-selector {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .color-option {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    border: 3px solid transparent;
+    transition: var(--transition);
+  }
+  .color-option:hover { transform: scale(1.1); }
+  .color-option.selected { border-color: var(--text); box-shadow: 0 0 0 2px white; }
+  
+  .parent-tree {
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    padding: 0.75rem;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .tree-item {
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: var(--transition);
+  }
+  .tree-item:hover { background: var(--bg-card); }
+  .tree-item.selected { background: var(--primary); color: white; }
+  .tree-item.level-1 { padding-right: 1.5rem; }
+  .tree-item.level-2 { padding-right: 2.5rem; }
+  
+  .image-upload-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .image-upload-zone:hover {
+    border-color: var(--primary);
+    background: var(--bg-light);
+  }
+  .image-upload-zone.has-image {
+    padding: 1rem;
+  }
+  .image-upload-zone .upload-icon {
+    font-size: 3rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+  .image-upload-zone img {
+    max-width: 200px;
+    max-height: 150px;
+    border-radius: var(--radius);
+  }
+</style>
+{% endblock %}
+
+{% block form_content %}
+<div class="row">
+  <div class="col-lg-8">
+    <!-- Basic Info -->
+    <div class="form-card">
+      <div class="card-header">
+        <div class="section-icon primary">
+          <i class="bi bi-info-circle"></i>
+        </div>
+        <h5>{% trans 'المعلومات الأساسية' %}</h5>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label">{% trans 'اسم الفئة' %} <span class="text-danger">*</span></label>
+            <input type="text" class="form-control form-control-lg" name="name" 
+                   value="{{ category.name|default:'' }}" required
+                   placeholder="{% trans 'أدخل اسم الفئة' %}"
+                   oninput="updatePreview()">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'ترتيب العرض' %}</label>
+            <input type="number" class="form-control form-control-lg" name="sort_order" 
+                   value="{{ category.sort_order|default:'0' }}"
+                   placeholder="0" min="0">
+          </div>
+          <div class="col-12">
+            <label class="form-label">{% trans 'الوصف' %}</label>
+            <textarea class="form-control" name="description" rows="3"
+                      placeholder="{% trans 'وصف مختصر للفئة...' %}">{{ category.description|default:'' }}</textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Parent Category -->
+    <div class="form-card">
+      <div class="card-header">
+        <div class="section-icon info">
+          <i class="bi bi-diagram-2"></i>
+        </div>
+        <h5>{% trans 'الفئة الأب' %}</h5>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label">{% trans 'اختر الفئة الأب (اختياري)' %}</label>
+          <select class="form-select" name="parent" onchange="updatePreview()">
+            <option value="">{% trans 'بدون - فئة رئيسية' %}</option>
+            {% for cat in parent_categories %}
+            <option value="{{ cat.pk }}" {% if category and category.parent_id == cat.pk %}selected{% endif %}>{{ cat.name }}</option>
+            {% endfor %}
+          </select>
+          <div class="form-text">{% trans 'اترك فارغاً لإنشاء فئة رئيسية' %}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Sidebar - Preview & Image -->
+  <div class="col-lg-4">
+    <!-- Preview -->
+    <div class="form-card">
+      <div class="card-header">
+        <div class="section-icon success">
+          <i class="bi bi-eye"></i>
+        </div>
+        <h5>{% trans 'معاينة' %}</h5>
+      </div>
+      <div class="card-body p-0">
+        <div class="category-preview">
+          <div class="preview-icon" id="previewIcon">
+            <i class="bi bi-folder"></i>
+          </div>
+          <div class="preview-name" id="previewName">{{ category.name|default:'اسم الفئة' }}</div>
+          <div class="preview-parent" id="previewParent">{% trans 'فئة رئيسية' %}</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Image Upload -->
+    <div class="form-card">
+      <div class="card-header">
+        <div class="section-icon warning">
+          <i class="bi bi-image"></i>
+        </div>
+        <h5>{% trans 'صورة الفئة' %}</h5>
+      </div>
+      <div class="card-body">
+        <label class="image-upload-zone" for="categoryImage">
+          <input type="file" id="categoryImage" name="image" accept="image/*" hidden onchange="previewImage(this)">
+          <div id="uploadPlaceholder">
+            <div class="upload-icon"><i class="bi bi-cloud-upload"></i></div>
+            <p class="mb-1">{% trans 'اسحب الصورة هنا أو انقر للاختيار' %}</p>
+            <small class="text-muted">{% trans 'PNG, JPG حتى 2MB' %}</small>
+          </div>
+          <div id="imagePreview" style="display: none;">
+            <img src="" alt="Preview" id="previewImg">
+            <p class="mt-2 mb-0 small text-primary">{% trans 'انقر لتغيير الصورة' %}</p>
+          </div>
+        </label>
+      </div>
+    </div>
+    
+    <!-- Settings -->
+    <div class="form-card">
+      <div class="card-header">
+        <div class="section-icon primary">
+          <i class="bi bi-gear"></i>
+        </div>
+        <h5>{% trans 'إعدادات' %}</h5>
+      </div>
+      <div class="card-body">
+        <div class="form-check form-switch mb-3">
+          <input class="form-check-input" type="checkbox" id="isActive" name="is_active" {% if not category or category.is_active %}checked{% endif %}>
+          <label class="form-check-label" for="isActive">{% trans 'فئة نشطة' %}</label>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block submit_text %}{% if category %}{% trans 'حفظ التغييرات' %}{% else %}{% trans 'إنشاء الفئة' %}{% endif %}{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function updatePreview() {
+    const name = document.querySelector('input[name="name"]').value || '{% trans "اسم الفئة" %}';
+    document.getElementById('previewName').textContent = name;
+    
+    const parentSelect = document.querySelector('select[name="parent"]');
+    if (parentSelect && parentSelect.value) {
+      document.getElementById('previewParent').textContent = parentSelect.options[parentSelect.selectedIndex].text;
+    } else {
+      document.getElementById('previewParent').textContent = '{% trans "فئة رئيسية" %}';
+    }
+  }
+  
+  function selectIcon(el) {
+    document.querySelectorAll('.icon-option').forEach(opt => opt.classList.remove('selected'));
+    el.classList.add('selected');
+    const icon = el.dataset.icon;
+    document.getElementById('selectedIcon').value = icon;
+    document.querySelector('#previewIcon i').className = 'bi ' + icon;
+  }
+  
+  function selectColor(el) {
+    document.querySelectorAll('.color-option').forEach(opt => opt.classList.remove('selected'));
+    el.classList.add('selected');
+    const color = el.dataset.color;
+    document.getElementById('selectedColor').value = color;
+    document.getElementById('previewIcon').style.background = color;
+  }
+  
+  function previewImage(input) {
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('previewImg').src = e.target.result;
+        document.getElementById('uploadPlaceholder').style.display = 'none';
+        document.getElementById('imagePreview').style.display = 'block';
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+  
+  // Parent type toggle
+  document.querySelectorAll('input[name="parent_type"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+      document.getElementById('parentSelector').style.display = 
+        this.value === 'parent' ? 'block' : 'none';
+      if (this.value === 'none') {
+        document.getElementById('previewParent').textContent = '{% trans "فئة رئيسية" %}';
+      }
+    });
+  });
+</script>
+{% endblock %}
+

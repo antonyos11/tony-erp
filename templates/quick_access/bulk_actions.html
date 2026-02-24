@@ -1,0 +1,731 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bulk-actions-page {
+        padding: 30px 20px;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    .page-header {
+        margin-bottom: 30px;
+    }
+    
+    .page-header h1 {
+        font-size: 32px;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    
+    .operations-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 20px;
+        margin-bottom: 40px;
+    }
+    
+    .operation-card {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        cursor: pointer;
+        transition: all 0.3s;
+        border: 2px solid transparent;
+    }
+    
+    .operation-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+        border-color: var(--op-color);
+    }
+    
+    .op-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        color: white;
+        margin-bottom: 15px;
+    }
+    
+    .op-name {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+    
+    .op-description {
+        font-size: 14px;
+        color: #6b7280;
+        line-height: 1.5;
+    }
+    
+    .history-section {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .history-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e5e7eb;
+    }
+    
+    .history-header i {
+        font-size: 24px;
+        color: #3b82f6;
+    }
+    
+    .history-header h2 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 600;
+    }
+    
+    .history-table {
+        width: 100%;
+    }
+    
+    .history-table th {
+        background: #f9fafb;
+        padding: 12px;
+        text-align: right;
+        font-weight: 600;
+        color: #374151;
+        border-bottom: 2px solid #e5e7eb;
+    }
+    
+    .history-table td {
+        padding: 12px;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    
+    .status-success {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .status-partial {
+        background: #fed7aa;
+        color: #92400e;
+    }
+    
+    .status-error {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .modal-backdrop-custom {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+    
+    .modal-custom {
+        background: white;
+        border-radius: 16px;
+        max-width: 600px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        border-top: 4px solid #3b82f6;
+        animation: modalSlideIn 0.3s ease-out;
+    }
+    
+    @keyframes modalSlideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .modal-header-custom {
+        padding: 25px;
+        border-bottom: 2px solid #e5e7eb;
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border-radius: 12px 12px 0 0;
+    }
+    
+    .modal-header-custom h3 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 700;
+        color: #1f2937;
+    }
+    
+    .modal-body-custom {
+        padding: 25px;
+    }
+    
+    .modal-body-custom .form-label {
+        color: #374151;
+        margin-bottom: 8px;
+    }
+    
+    .modal-body-custom .form-control {
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+        padding: 10px 12px;
+    }
+    
+    .modal-body-custom .form-control:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .modal-footer-custom {
+        padding: 20px 25px;
+        border-top: 2px solid #e5e7eb;
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        background: #f9fafb;
+        border-radius: 0 0 12px 12px;
+    }
+    
+    .modal-footer-custom .btn-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        border: none;
+        padding: 10px 24px;
+        font-weight: 600;
+        border-radius: 8px;
+    }
+    
+    .modal-footer-custom .btn-secondary {
+        background: #e5e7eb;
+        border: none;
+        color: #4b5563;
+        padding: 10px 24px;
+        font-weight: 600;
+        border-radius: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bulk-actions-page">
+    
+    <div class="page-header">
+        <h1>⚡ العمليات الجماعية</h1>
+        <p class="text-muted">نفّذ عمليات على سجلات متعددة في وقت واحد لتوفير الوقت والجهد</p>
+    </div>
+    
+    <!-- شبكة العمليات المتاحة -->
+    <div class="operations-grid">
+        {% for operation in available_operations %}
+        <div class="operation-card" 
+             style="--op-color: {{ operation.color }};"
+             onclick="openOperationModal('{{ operation.id }}')">
+            <div class="op-icon" style="background: {{ operation.color }};">
+                <i class="{{ operation.icon }}"></i>
+            </div>
+            <div class="op-name">{{ operation.name }}</div>
+            <div class="op-description">{{ operation.description }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- سجل العمليات السابقة -->
+    <div class="history-section">
+        <div class="history-header">
+            <i class="bi bi-clock-history"></i>
+            <h2>سجل العمليات السابقة</h2>
+        </div>
+        
+        {% if recent_operations %}
+        <div class="table-responsive"><table class="history-table">
+            <thead>
+                <tr>
+                    <th>العملية</th>
+                    <th>النموذج</th>
+                    <th>عدد السجلات</th>
+                    <th>النجاح</th>
+                    <th>الأخطاء</th>
+                    <th>المدة</th>
+                    <th>التاريخ</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for op in recent_operations %}
+                <tr>
+                    <td><strong>{{ op.action_type }}</strong></td>
+                    <td>{{ op.model_name }}</td>
+                    <td>{{ op.affected_count }}</td>
+                    <td>
+                        <span class="status-badge status-success">
+                            {{ op.success_count }} ✓
+                        </span>
+                    </td>
+                    <td>
+                        {% if op.error_count > 0 %}
+                        <span class="status-badge status-error">
+                            {{ op.error_count }} ✗
+                        </span>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ op.duration_seconds|floatformat:2 }}s</td>
+                    <td>{{ op.timestamp|date:"Y-m-d H:i" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+        {% else %}
+        <p class="text-center text-muted py-4">لم تقم بأي عمليات جماعية بعد</p>
+        {% endif %}
+    </div>
+    
+</div>
+
+<!-- Modal للعمليات -->
+<div id="operationModal" class="modal-backdrop-custom">
+    <div class="modal-custom">
+        <div class="modal-header-custom">
+            <h3 id="modalTitle">عملية جماعية</h3>
+        </div>
+        <div class="modal-body-custom">
+            <div id="modalContent"></div>
+        </div>
+        <div class="modal-footer-custom">
+            <button class="btn btn-secondary" onclick="closeModal()">إلغاء</button>
+            <button class="btn btn-primary" onclick="executeOperation()">تنفيذ</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Cache bust: v5 - {{ now }} - Fixed dynamic forms
+console.log('Bulk Actions JS loaded - v5 - Dynamic Forms');
+
+let currentOperation = null;
+
+// بيانات العمليات المتاحة - لكل عملية نموذج مخصص
+const operationsConfig = {
+    'bulk_update_prices': {
+        title: '💰 تحديث الأسعار الجماعي',
+        icon: 'bi-tag',
+        color: '#3b82f6',
+        form: `
+            <div class="mb-3">
+                <label class="form-label fw-bold">نوع التغيير</label>
+                <select class="form-control" id="changeType">
+                    <option value="percentage">نسبة مئوية (%)</option>
+                    <option value="fixed">قيمة ثابتة (جنيه)</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">قيمة التغيير</label>
+                <input type="number" class="form-control" id="priceChange" step="0.01" placeholder="مثال: 10 للزيادة أو -10 للتخفيض">
+                <small class="text-muted">للنسبة المئوية: 10 = زيادة 10%، -10 = خصم 10%</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">IDs المنتجات (مفصولة بفواصل) أو اتركها فارغة لتحديث الكل</label>
+                <textarea class="form-control" id="targetIds" rows="3" placeholder="1, 2, 3, 4"></textarea>
+            </div>
+        `
+    },
+    'bulk_update_stock': {
+        title: '📦 تحديث المخزون الجماعي',
+        icon: 'bi-boxes',
+        color: '#10b981',
+        form: `
+            <div class="mb-3">
+                <label class="form-label fw-bold">المستودع</label>
+                <select class="form-control" id="locationId">
+                    <option value="">-- اختر المستودع --</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">نوع التغيير</label>
+                <select class="form-control" id="stockChangeType">
+                    <option value="add">إضافة للمخزون</option>
+                    <option value="subtract">خصم من المخزون</option>
+                    <option value="set">تعيين قيمة محددة</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">الكمية</label>
+                <input type="number" class="form-control" id="quantityChange" min="0" placeholder="أدخل الكمية">
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">IDs المنتجات (مفصولة بفواصل)</label>
+                <textarea class="form-control" id="targetIds" rows="3" placeholder="1, 2, 3, 4"></textarea>
+            </div>
+        `
+    },
+    'bulk_send_emails': {
+        title: '📧 إرسال بريد إلكتروني جماعي',
+        icon: 'bi-envelope',
+        color: '#8b5cf6',
+        form: `
+            <div class="mb-3">
+                <label class="form-label fw-bold">الموضوع</label>
+                <input type="text" class="form-control" id="emailSubject" placeholder="موضوع الرسالة">
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">محتوى الرسالة</label>
+                <textarea class="form-control" id="emailBody" rows="5" placeholder="اكتب محتوى الرسالة هنا..."></textarea>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">IDs العملاء (مفصولة بفواصل) أو اتركها فارغة لإرسال للكل</label>
+                <textarea class="form-control" id="targetIds" rows="2" placeholder="1, 2, 3, 4"></textarea>
+            </div>
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> سيتم إرسال البريد للعملاء الذين لديهم بريد إلكتروني فقط
+            </div>
+        `
+    },
+    'bulk_export_data': {
+        title: '📥 تصدير البيانات',
+        icon: 'bi-download',
+        color: '#f59e0b',
+        form: `
+            <div class="mb-3">
+                <label class="form-label fw-bold">نوع البيانات</label>
+                <select class="form-control" id="exportModel">
+                    <option value="products">المنتجات</option>
+                    <option value="customers">العملاء</option>
+                    <option value="invoices">الفواتير</option>
+                    <option value="stocks">المخزون</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">صيغة التصدير</label>
+                <select class="form-control" id="exportFormat">
+                    <option value="excel">Excel (.xlsx)</option>
+                    <option value="csv">CSV</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">IDs محددة (اختياري - اتركها فارغة لتصدير الكل)</label>
+                <textarea class="form-control" id="targetIds" rows="2" placeholder="1, 2, 3, 4"></textarea>
+            </div>
+        `
+    },
+    'bulk_delete': {
+        title: '🗑️ حذف جماعي',
+        icon: 'bi-trash',
+        color: '#ef4444',
+        form: `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>تحذير:</strong> هذه العملية لا يمكن التراجع عنها!
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">نوع البيانات المراد حذفها</label>
+                <select class="form-control" id="deleteModel">
+                    <option value="">-- اختر النوع --</option>
+                    <option value="products">المنتجات</option>
+                    <option value="customers">العملاء</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">IDs المراد حذفها (مفصولة بفواصل)</label>
+                <textarea class="form-control" id="targetIds" rows="3" placeholder="1, 2, 3, 4"></textarea>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">للتأكيد، اكتب "حذف" في الحقل التالي</label>
+                <input type="text" class="form-control" id="deleteConfirm" placeholder="اكتب: حذف">
+            </div>
+        `
+    }
+};
+
+function openOperationModal(operationId) {
+    console.log('=== Opening Modal ===');
+    console.log('Operation ID:', operationId);
+    console.log('Available operations:', Object.keys(operationsConfig));
+
+    currentOperation = operationId;
+    const modal = document.getElementById('operationModal');
+    const title = document.getElementById('modalTitle');
+    const content = document.getElementById('modalContent');
+    const modalBox = modal.querySelector('.modal-custom');
+
+    const config = operationsConfig[operationId];
+    console.log('Config found:', config ? 'YES - ' + config.title : 'NOT FOUND');
+
+    if (config) {
+        // تحديث العنوان مع الأيقونة
+        title.textContent = config.title;
+        
+        // تحديث لون الحدود
+        if (modalBox) {
+            modalBox.style.borderTop = `4px solid ${config.color}`;
+        }
+        
+        // تحديث محتوى النموذج
+        content.innerHTML = config.form;
+        console.log('Form HTML set for:', operationId);
+
+        // تحميل المستودعات لعملية المخزون
+        if (operationId === 'bulk_update_stock') {
+            loadLocations();
+        }
+    } else {
+        // عملية غير معروفة - عرض رسالة خطأ
+        title.textContent = '⚠️ عملية غير معروفة';
+        content.innerHTML = `
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>خطأ:</strong> العملية "${operationId}" غير متوفرة حالياً.
+                <br><small>العمليات المتاحة: ${Object.keys(operationsConfig).join(', ')}</small>
+            </div>
+        `;
+    }
+
+    modal.style.display = 'flex';
+    console.log('Modal displayed');
+}
+
+function loadLocations() {
+    fetch('{% url "quick_access:get_locations" %}')
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('locationId');
+            if (select && data.locations) {
+                data.locations.forEach(loc => {
+                    const option = document.createElement('option');
+                    option.value = loc.id;
+                    option.textContent = loc.name;
+                    select.appendChild(option);
+                });
+            }
+        })
+        .catch((err) => {
+            console.error('Failed to load locations:', err);
+            // Fallback - load from inline data if API not available
+            console.log('Could not load locations from API');
+        });
+}
+
+function closeModal() {
+    document.getElementById('operationModal').style.display = 'none';
+    currentOperation = null;
+}
+
+function collectFormData() {
+    const targetIdsEl = document.getElementById('targetIds');
+    let targetIds = [];
+    if (targetIdsEl && targetIdsEl.value.trim()) {
+        targetIds = targetIdsEl.value.split(',').map(id => id.trim()).filter(id => id);
+    }
+
+    const parameters = {};
+
+    switch(currentOperation) {
+        case 'bulk_update_prices':
+            parameters.price_change = parseFloat(document.getElementById('priceChange')?.value || 0);
+            parameters.change_type = document.getElementById('changeType')?.value || 'fixed';
+            parameters.model_name = 'product';
+            break;
+
+        case 'bulk_update_stock':
+            parameters.quantity_change = parseInt(document.getElementById('quantityChange')?.value || 0);
+            parameters.location_id = document.getElementById('locationId')?.value;
+            parameters.stock_change_type = document.getElementById('stockChangeType')?.value || 'add';
+            parameters.model_name = 'stock';
+            break;
+
+        case 'bulk_send_emails':
+            parameters.subject = document.getElementById('emailSubject')?.value || '';
+            parameters.body = document.getElementById('emailBody')?.value || '';
+            parameters.model_name = 'customer';
+            break;
+
+        case 'bulk_export_data':
+            parameters.export_model = document.getElementById('exportModel')?.value || 'products';
+            parameters.export_format = document.getElementById('exportFormat')?.value || 'excel';
+            parameters.model_name = parameters.export_model;
+            break;
+
+        case 'bulk_delete':
+            parameters.delete_model = document.getElementById('deleteModel')?.value || '';
+            parameters.confirm = document.getElementById('deleteConfirm')?.value || '';
+            parameters.model_name = parameters.delete_model;
+            break;
+    }
+
+    return { targetIds, parameters };
+}
+
+function validateForm() {
+    switch(currentOperation) {
+        case 'bulk_update_prices':
+            const priceChange = document.getElementById('priceChange')?.value;
+            if (!priceChange || priceChange === '0') {
+                alert('الرجاء إدخال قيمة التغيير');
+                return false;
+            }
+            return true;
+
+        case 'bulk_update_stock':
+            if (!document.getElementById('locationId')?.value) {
+                alert('الرجاء اختيار المستودع');
+                return false;
+            }
+            const qty = document.getElementById('quantityChange')?.value;
+            if (!qty || qty === '0') {
+                alert('الرجاء إدخال الكمية');
+                return false;
+            }
+            return true;
+
+        case 'bulk_send_emails':
+            if (!document.getElementById('emailSubject')?.value.trim()) {
+                alert('الرجاء إدخال موضوع الرسالة');
+                return false;
+            }
+            if (!document.getElementById('emailBody')?.value.trim()) {
+                alert('الرجاء إدخال محتوى الرسالة');
+                return false;
+            }
+            return true;
+
+        case 'bulk_export_data':
+            return true;
+
+        case 'bulk_delete':
+            if (!document.getElementById('deleteModel')?.value) {
+                alert('الرجاء اختيار نوع البيانات');
+                return false;
+            }
+            const targetIds = document.getElementById('targetIds')?.value.trim();
+            if (!targetIds) {
+                alert('الرجاء إدخال IDs المراد حذفها');
+                return false;
+            }
+            if (document.getElementById('deleteConfirm')?.value !== 'حذف') {
+                alert('الرجاء كتابة "حذف" للتأكيد');
+                return false;
+            }
+            return true;
+    }
+    return true;
+}
+
+function executeOperation() {
+    if (!currentOperation) return;
+
+    if (!validateForm()) return;
+
+    const { targetIds, parameters } = collectFormData();
+
+    // Show loading
+    const executeBtn = document.querySelector('.modal-footer-custom .btn-primary');
+    const originalText = executeBtn.textContent;
+    executeBtn.disabled = true;
+    executeBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> جاري التنفيذ...';
+
+    // Handle export differently - need to download file
+    if (currentOperation === 'bulk_export_data') {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{% url "quick_access:execute_bulk_action" %}';
+        form.innerHTML = `
+            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+            <input type="hidden" name="action_type" value="${currentOperation}">
+            <input type="hidden" name="target_ids" value="${targetIds.join(',')}">
+            <input type="hidden" name="parameters" value='${JSON.stringify(parameters)}'>
+        `;
+        document.body.appendChild(form);
+        form.submit();
+
+        setTimeout(() => {
+            executeBtn.disabled = false;
+            executeBtn.textContent = originalText;
+            closeModal();
+        }, 2000);
+        return;
+    }
+
+    // إرسال الطلب
+    fetch('{% url "quick_access:execute_bulk_action" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            action_type: currentOperation,
+            target_ids: targetIds,
+            parameters: parameters
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        executeBtn.disabled = false;
+        executeBtn.textContent = originalText;
+
+        if (data.success) {
+            let message = `✅ نجح! تمت معالجة ${data.success_count} عنصر`;
+            if (data.error_count > 0) {
+                message += `\n⚠️ ${data.error_count} أخطاء`;
+            }
+            message += `\n⏱️ المدة: ${data.duration} ثانية`;
+            alert(message);
+            location.reload();
+        } else {
+            alert('❌ خطأ: ' + data.error);
+        }
+        closeModal();
+    })
+    .catch(error => {
+        executeBtn.disabled = false;
+        executeBtn.textContent = originalText;
+        alert('❌ حدث خطأ: ' + error);
+        closeModal();
+    });
+}
+
+// إغلاق عند النقر خارج الModal
+document.getElementById('operationModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
+
+// إغلاق بالضغط على Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeModal();
+    }
+});
+</script>
+{% endblock %}

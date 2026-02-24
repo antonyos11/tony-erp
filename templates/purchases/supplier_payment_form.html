@@ -1,0 +1,307 @@
+﻿{% extends 'base_templates/_form_professional.html' %}
+{% load static %}
+{% load i18n %}
+{% load crispy_forms_tags %}
+
+{% block page_title %}{% trans 'دفعة للمورد' %}{% endblock %}
+{% block hero_icon %}bi-credit-card{% endblock %}
+{% block hero_title %}{% trans 'تسجيل دفعة للمورد' %}{% endblock %}
+{% block hero_subtitle %}{% trans 'تسجيل سداد مبلغ للمورد مقابل المشتريات' %}{% endblock %}
+
+{% block back_url %}{% url 'purchases:vendors_balances' %}{% endblock %}
+{% block section_icon %}bi-credit-card{% endblock %}
+{% block section_title %}{% trans 'بيانات الدفعة' %}{% endblock %}
+
+{% block form_styles %}
+<style>
+.supplier-balance-card {
+  background: linear-gradient(135deg, rgba(220,53,69,0.1) 0%, rgba(220,53,69,0.05) 100%);
+  border: 1px solid rgba(220,53,69,0.2);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.supplier-balance-card.no-balance {
+  background: linear-gradient(135deg, rgba(25,135,84,0.1) 0%, rgba(25,135,84,0.05) 100%);
+  border-color: rgba(25,135,84,0.2);
+}
+.supplier-balance-card .balance-label {
+  font-size: 0.85rem;
+  color: var(--bs-secondary-color);
+}
+.supplier-balance-card .balance-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #dc3545;
+}
+.supplier-balance-card.no-balance .balance-value {
+  color: #198754;
+}
+.quick-amounts {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+.quick-amounts .btn {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  border-radius: 6px;
+}
+.payment-method-cards {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.payment-method-card {
+  flex: 1;
+  min-width: 150px;
+  padding: 1rem;
+  border: 2px solid var(--bs-border-color);
+  border-radius: 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.payment-method-card:hover {
+  border-color: var(--color-brand-primary);
+  background: rgba(30,58,95,0.03);
+}
+.payment-method-card.active {
+  border-color: var(--color-brand-primary);
+  background: rgba(30,58,95,0.08);
+}
+.payment-method-card i {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: var(--color-brand-primary);
+}
+.payment-method-card .method-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.payment-method-card input[type="radio"] {
+  display: none;
+}
+</style>
+{% endblock %}
+
+{% block form_content %}
+{# Supplier Balance Card #}
+<div class="supplier-balance-card {% if not supplier_balance or supplier_balance <= 0 %}no-balance{% endif %}" id="balanceCard">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <div class="balance-label">{% trans 'المورد المحدد' %}</div>
+      <div class="h5 mb-0" id="supplierName">{{ supplier.name|default:"---" }}</div>
+    </div>
+    <div class="text-end">
+      <div class="balance-label">{% trans 'الرصيد المستحق' %}</div>
+      <div class="balance-value" id="supplierBalance">{{ supplier_balance|floatformat:2|default:"0.00" }}</div>
+      <div class="small text-muted">{% trans 'ج.م' %}</div>
+    </div>
+  </div>
+</div>
+
+{# Main Form Card #}
+<div class="form-card">
+  <div class="card-header">
+    <div class="section-icon primary">
+      <i class="bi bi-person-check"></i>
+    </div>
+    <h5>{% trans 'بيانات المورد والمبلغ' %}</h5>
+  </div>
+  <div class="card-body">
+    <div class="form-row two-col">
+      <div class="form-field">
+        <label class="form-label"><span class="required-star">*</span>{% trans 'المورد' %}</label>
+        <select name="supplier" class="form-select" id="supplierSelect" required>
+          <option value="">{% trans 'اختر المورد...' %}</option>
+          {% for s in suppliers %}
+          <option value="{{ s.id }}" 
+                  data-balance="{ s.balance|floatformat:2 }}"
+                  data-name="{ s.name }"
+                  {% if supplier.id == s.id %}selected{% endif %}>
+            {{ s.name }} ({% trans 'الرصيد:' %} {{ s.balance|floatformat:2 }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-label"><span class="required-star">*</span>{% trans 'المبلغ' %}</label>
+        <div class="input-group">
+          <input type="number" name="amount" class="form-control" id="amountInput" 
+                 step="0.01" min="0.01" required placeholder="0.00">
+          <span class="input-group-text">{% trans 'ج.م' %}</span>
+        </div>
+        <div class="quick-amounts">
+          <button type="button" class="btn btn-outline-primary btn-sm" onclick="setAmount('all')">{% trans 'كامل الرصيد' %}</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setAmount('half')">{% trans 'نصف الرصيد' %}</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setAmount(1000)">1,000</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setAmount(5000)">5,000</button>
+        </div>
+      </div>
+    </div>
+    <div class="form-row two-col">
+      <div class="form-field">
+        <label class="form-label"><span class="required-star">*</span>{% trans 'تاريخ الدفع' %}</label>
+        <input type="date" name="payment_date" class="form-control" value="{ today|date:'Y-m-d' }}" required>
+      </div>
+      <div class="form-field">
+        <label class="form-label">{% trans 'رقم المرجع' %}</label>
+        <input type="text" name="reference" class="form-control" placeholder="{% trans 'رقم الشيك أو التحويل...' %}">
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Payment Method Card #}
+<div class="form-card">
+  <div class="card-header">
+    <div class="section-icon success">
+      <i class="bi bi-wallet2"></i>
+    </div>
+    <h5>{% trans 'طريقة الدفع' %}</h5>
+  </div>
+  <div class="card-body">
+    <div class="payment-method-cards">
+      <label class="payment-method-card active">
+        <input type="radio" name="payment_method" value="cash" checked>
+        <i class="bi bi-cash-coin d-block"></i>
+        <div class="method-name">{% trans 'نقدي' %}</div>
+      </label>
+      <label class="payment-method-card">
+        <input type="radio" name="payment_method" value="bank_transfer">
+        <i class="bi bi-bank d-block"></i>
+        <div class="method-name">{% trans 'تحويل بنكي' %}</div>
+      </label>
+      <label class="payment-method-card">
+        <input type="radio" name="payment_method" value="check">
+        <i class="bi bi-file-earmark-text d-block"></i>
+        <div class="method-name">{% trans 'شيك' %}</div>
+      </label>
+      <label class="payment-method-card">
+        <input type="radio" name="payment_method" value="credit_card">
+        <i class="bi bi-credit-card-2-front d-block"></i>
+        <div class="method-name">{% trans 'بطاقة' %}</div>
+      </label>
+    </div>
+    
+    {# Bank Transfer Details (hidden by default) #}
+    <div id="bankTransferDetails" class="mt-3" style="display: none;">
+      <div class="form-row two-col">
+        <div class="form-field">
+          <label class="form-label">{% trans 'البنك' %}</label>
+          <select name="bank" class="form-select">
+            <option value="">{% trans 'اختر البنك...' %}</option>
+            {% for bank in banks %}
+            <option value="{ bank.id }">{{ bank.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">{% trans 'رقم الحساب' %}</label>
+          <input type="text" name="bank_account" class="form-control">
+        </div>
+      </div>
+    </div>
+    
+    {# Check Details (hidden by default) #}
+    <div id="checkDetails" class="mt-3" style="display: none;">
+      <div class="form-row three-col">
+        <div class="form-field">
+          <label class="form-label">{% trans 'رقم الشيك' %}</label>
+          <input type="text" name="check_number" class="form-control">
+        </div>
+        <div class="form-field">
+          <label class="form-label">{% trans 'البنك' %}</label>
+          <input type="text" name="check_bank" class="form-control">
+        </div>
+        <div class="form-field">
+          <label class="form-label">{% trans 'تاريخ الاستحقاق' %}</label>
+          <input type="date" name="check_date" class="form-control">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# وجهة الصرف - من أين يخرج المبلغ #}
+{% include 'partials/_payment_destination.html' %}
+
+{# Notes Section #}
+<div class="form-card">
+  <div class="card-header">
+    <div class="section-icon warning">
+      <i class="bi bi-sticky"></i>
+    </div>
+    <h5>{% trans 'ملاحظات' %}</h5>
+  </div>
+  <div class="card-body">
+    <textarea name="notes" class="form-control" rows="3" placeholder="{% trans 'أي ملاحظات إضافية على الدفعة...' %}"></textarea>
+  </div>
+</div>
+{% endblock %}
+
+{% block cancel_url %}{% url 'purchases:vendors_balances' %}{% endblock %}
+{% block submit_text %}{% trans 'تسجيل الدفعة' %}{% endblock %}
+
+{% block form_scripts %}
+<script>
+// Supplier selection handler
+document.getElementById('supplierSelect').addEventListener('change', function() {
+  const selected = this.options[this.selectedIndex];
+  const balance = parseFloat(selected.dataset.balance) || 0;
+  const name = selected.dataset.name || '---';
+  
+  document.getElementById('supplierName').textContent = name;
+  document.getElementById('supplierBalance').textContent = balance.toFixed(2);
+  
+  const card = document.getElementById('balanceCard');
+  if (balance <= 0) {
+    card.classList.add('no-balance');
+  } else {
+    card.classList.remove('no-balance');
+  }
+});
+
+// Quick amount buttons
+function setAmount(type) {
+  const balanceText = document.getElementById('supplierBalance').textContent;
+  const balance = parseFloat(balanceText) || 0;
+  const input = document.getElementById('amountInput');
+  
+  if (type === 'all') {
+    input.value = balance.toFixed(2);
+  } else if (type === 'half') {
+    input.value = (balance / 2).toFixed(2);
+  } else {
+    input.value = type;
+  }
+}
+
+// Payment method cards
+document.querySelectorAll('.payment-method-card').forEach(card => {
+  card.addEventListener('click', function() {
+    document.querySelectorAll('.payment-method-card').forEach(c => c.classList.remove('active'));
+    this.classList.add('active');
+    
+    const method = this.querySelector('input').value;
+    document.getElementById('bankTransferDetails').style.display = method === 'bank_transfer' ? 'block' : 'none';
+    document.getElementById('checkDetails').style.display = method === 'check' ? 'block' : 'none';
+  });
+});
+
+// Form validation
+document.getElementById('mainForm').addEventListener('submit', function(e) {
+  const amount = parseFloat(document.getElementById('amountInput').value) || 0;
+  const balance = parseFloat(document.getElementById('supplierBalance').textContent) || 0;
+  
+  if (amount > balance) {
+    if (!confirm("{% trans 'المبلغ المدخل أكبر من الرصيد المستحق. هل تريد المتابعة؟' %}")) {
+      e.preventDefault();
+    }
+  }
+});
+</script>
+{% endblock %}
+

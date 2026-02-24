@@ -1,0 +1,282 @@
+{% extends 'base.html' %}
+{% load static i18n humanize %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" dir="rtl">
+    
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h3 mb-2 text-gray-800">
+                <i class="fas fa-file-contract me-2 text-primary"></i>
+                {{ page_title }}
+            </h1>
+            <p class="text-muted">{% trans "إدارة العقود والوثائق الرسمية والأرشفة" %}</p>
+        </div>
+    </div>
+    
+    <!-- KPI Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                {% trans "إجمالي العقود" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_contracts|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-file-signature fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                {% trans "العقود النشطة" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ active_contracts|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                {% trans "القيمة الإجمالية" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_value|default:0|floatformat:0|intcomma }} ر.س</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                {% trans "معدل التجديد" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ renewal_rate|default:0 }}%</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-sync fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Charts -->
+    <div class="row mb-4">
+        <div class="col-xl-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "العقود حسب النوع" %}</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="contractsChart" height="80"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "حالة العقود" %}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>{% trans "نشطة" %}</span>
+                            <span class="font-weight-bold">{{ active_contracts|default:0 }}</span>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar bg-success" style="width: {% widthratio active_contracts total_contracts 100 %}%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>{% trans "منتهية" %}</span>
+                            <span class="font-weight-bold">{{ expired_contracts|default:0 }}</span>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar bg-danger" style="width: {% widthratio expired_contracts total_contracts 100 %}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tables -->
+    <div class="row">
+        <div class="col-xl-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3 bg-warning text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        {% trans "عقود تحتاج تجديد (30 يوم)" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "رقم العقد" %}</th>
+                                    <th>{% trans "الطرف" %}</th>
+                                    <th>{% trans "تاريخ الانتهاء" %}</th>
+                                    <th>{% trans "القيمة" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for contract in expiring_soon %}
+                                <tr>
+                                    <td><a href="{% url 'contract_management:contract_detail' contract.pk %}">{{ contract.contract_number }}</a></td>
+                                    <td>{{ contract.party_b|default:"—" }}</td>
+                                    <td class="text-danger">{{ contract.end_date|date:"Y-m-d" }}</td>
+                                    <td class="font-weight-bold">{{ contract.contract_value|floatformat:0|intcomma }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">{% trans "لا توجد عقود تحتاج تجديد" %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "أكبر 10 عقود" %}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "رقم العقد" %}</th>
+                                    <th>{% trans "النوع" %}</th>
+                                    <th>{% trans "القيمة" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for contract in top_contracts %}
+                                <tr>
+                                    <td><a href="{% url 'contract_management:contract_detail' contract.pk %}">{{ contract.contract_number }}</a></td>
+                                    <td>{{ contract.get_contract_type_display }}</td>
+                                    <td class="font-weight-bold text-success">{{ contract.contract_value|floatformat:0|intcomma }} ر.س</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted">{% trans "لا توجد عقود" %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "إجراءات سريعة" %}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'contract_management:contracts_list' %}" class="btn btn-outline-primary btn-block">
+                                <i class="fas fa-list fa-2x mb-2"></i>
+                                <p class="mb-0">{% trans "جميع العقود" %}</p>
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'contract_management:renewal_alerts' %}" class="btn btn-outline-warning btn-block">
+                                <i class="fas fa-bell fa-2x mb-2"></i>
+                                <p class="mb-0">{% trans "تنبيهات التجديد" %}</p>
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="#" class="btn btn-outline-success btn-block">
+                                <i class="fas fa-plus fa-2x mb-2"></i>
+                                <p class="mb-0">{% trans "عقد جديد" %}</p>
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="#" class="btn btn-outline-info btn-block">
+                                <i class="fas fa-file-export fa-2x mb-2"></i>
+                                <p class="mb-0">{% trans "تقرير العقود" %}</p>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+// Contracts by Type Chart
+const ctx = document.getElementById('contractsChart').getContext('2d');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: [{% for item in contracts_by_type %}'{{ item.contract_type }}',{% endfor %}],
+        datasets: [{
+            label: 'عدد العقود',
+            data: [{% for item in contracts_by_type %}{{ item.count }},{% endfor %}],
+            backgroundColor: '#4e73df',
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

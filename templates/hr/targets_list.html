@@ -1,0 +1,387 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}قائمة الأهداف{% endblock %}
+
+{% block extra_css %}
+<style>
+.filter-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    color: white;
+    margin-bottom: 25px;
+}
+
+.targets-table {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.table th {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: none;
+    font-weight: 600;
+    color: #495057;
+    padding: 15px;
+}
+
+.table td {
+    padding: 12px 15px;
+    border: none;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+.table tbody tr:hover {
+    background-color: #f8f9fa;
+    transform: scale(1.01);
+    transition: all 0.2s ease;
+}
+
+.progress-bar {
+    height: 20px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-badge {
+    font-size: 0.8rem;
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-weight: 500;
+}
+
+.priority-badge {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+.action-buttons .btn {
+    padding: 5px 10px;
+    margin: 0 2px;
+    border-radius: 8px;
+}
+
+.employee-avatar {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">📋 قائمة الأهداف</h1>
+            <p class="text-muted">إدارة ومتابعة جميع الأهداف</p>
+        </div>
+        <div class="btn-group">
+            <a href="{% url 'hr:targets_dashboard' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-tachometer-alt"></i> لوحة التحكم
+            </a>
+            <a href="{% url 'hr:target_create' %}" class="btn btn-outline-primary">
+                <i class="fas fa-edit"></i> نموذج متقدم
+            </a>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#quickTargetModal">
+                <i class="fas fa-bolt"></i> هدف سريع
+            </button>
+        </div>
+    </div>
+
+    <!-- البحث والفلترة -->
+    <div class="filter-card">
+        <div class="card-body p-4">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">البحث</label>
+                    <input type="text" name="search" class="form-control" 
+                           placeholder="ابحث في الأهداف أو الموظفين..." 
+                           value="{{ request.GET.search }}">
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">الحالة</label>
+                    <select name="status" class="form-select">
+                        <option value="">جميع الحالات</option>
+                        {% for status_code, status_name in status_choices %}
+                            <option value="{{ status_code }}" 
+                                    {% if request.GET.status == status_code %}selected{% endif %}>
+                                {{ status_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">فئة الهدف</label>
+                    <select name="category" class="form-select">
+                        <option value="">جميع الفئات</option>
+                        {% for category in target_categories %}
+                            <option value="{{ category.id }}" 
+                                    {% if request.GET.category|add:0 == category.id %}selected{% endif %}>
+                                {{ category.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-light me-2">
+                        <i class="fas fa-search"></i> بحث
+                    </button>
+                    <a href="{% url 'hr:targets_list' %}" class="btn btn-outline-light">
+                        <i class="fas fa-times"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- جدول الأهداف -->
+    <div class="targets-table">
+        {% if targets %}
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>الموظف</th>
+                            <th>الهدف</th>
+                            <th>الفئة</th>
+                            <th>الفترة</th>
+                            <th>التقدم</th>
+                            <th>الحالة</th>
+                            <th>الأولوية</th>
+                            <th>التواريخ</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for target in targets %}
+                        <tr>
+                            <!-- الموظف -->
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="employee-avatar me-3">
+                                        {{ target.employee.arabic_name|first }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold">{{ target.employee.arabic_name }}</div>
+                                        <small class="text-muted">{{ target.employee.employee_id }}</small>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- الهدف -->
+                            <td>
+                                <div>
+                                    <div class="fw-bold">{{ target.title|truncatechars:30 }}</div>
+                                    <small class="text-muted">{{ target.target_value }} {{ target.unit }}</small>
+                                </div>
+                            </td>
+
+                            <!-- الفئة -->
+                            <td>
+                                <span class="badge bg-info">{{ target.category.name }}</span>
+                            </td>
+
+                            <!-- الفترة -->
+                            <td>
+                                <span class="badge bg-secondary">{{ target.get_target_period_display }}</span>
+                            </td>
+
+                            <!-- التقدم -->
+                            <td style="min-width: 150px;">
+                                {% with percentage=target.achievement_percentage %}
+                                <div class="mb-1">
+                                    <small class="text-muted">{{ target.current_value }} / {{ target.target_value }}</small>
+                                </div>
+                                <div class="progress" style="height: 8px;">
+                                    {% if percentage >= 100 %}
+                                        <div class="progress-bar bg-success" style="width: 100%"></div>
+                                    {% elif percentage >= 80 %}
+                                        <div class="progress-bar bg-info" style="width: {{ percentage }}%"></div>
+                                    {% elif percentage >= 60 %}
+                                        <div class="progress-bar bg-warning" style="width: {{ percentage }}%"></div>
+                                    {% else %}
+                                        <div class="progress-bar bg-danger" style="width: {{ percentage }}%"></div>
+                                    {% endif %}
+                                </div>
+                                <small class="text-muted">{{ percentage|floatformat:1 }}%</small>
+                                {% endwith %}
+                            </td>
+
+                            <!-- الحالة -->
+                            <td>
+                                {% if target.status == 'active' %}
+                                    <span class="status-badge bg-success text-white">نشط</span>
+                                {% elif target.status == 'completed' %}
+                                    <span class="status-badge bg-primary text-white">مكتمل</span>
+                                {% elif target.status == 'draft' %}
+                                    <span class="status-badge bg-secondary text-white">مسودة</span>
+                                {% elif target.status == 'cancelled' %}
+                                    <span class="status-badge bg-danger text-white">ملغي</span>
+                                {% elif target.status == 'expired' %}
+                                    <span class="status-badge bg-warning text-white">منتهي</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- الأولوية -->
+                            <td>
+                                {% if target.priority == 'critical' %}
+                                    <span class="priority-badge bg-danger text-white">حرج</span>
+                                {% elif target.priority == 'high' %}
+                                    <span class="priority-badge bg-warning text-white">عالي</span>
+                                {% elif target.priority == 'medium' %}
+                                    <span class="priority-badge bg-info text-white">متوسط</span>
+                                {% else %}
+                                    <span class="priority-badge bg-secondary text-white">منخفض</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- التواريخ -->
+                            <td>
+                                <div>
+                                    <small class="d-block">البدء: {{ target.start_date }}</small>
+                                    <small class="d-block">الانتهاء: {{ target.end_date }}</small>
+                                    <small class="d-block text-muted">
+                                        {% if target.remaining_days > 0 %}
+                                            المتبقي: {{ target.remaining_days }} يوم
+                                        {% else %}
+                                            <span class="text-danger">متأخر</span>
+                                        {% endif %}
+                                    </small>
+                                </div>
+                            </td>
+
+                            <!-- الإجراءات -->
+                            <td>
+                                <div class="action-buttons">
+                                    <a href="{% url 'hr:target_detail' target.pk %}" 
+                                       class="btn btn-sm btn-outline-primary" 
+                                       data-bs-toggle="tooltip" title="عرض التفاصيل">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    
+                                    {% if target.status == 'active' %}
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-success" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#progressModal{{ target.pk }}"
+                                            title="تحديث التقدم">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                    {% endif %}
+                                    
+                                    <a href="{% url 'hr:employee_targets' target.employee.pk %}" 
+                                       class="btn btn-sm btn-outline-info" 
+                                       data-bs-toggle="tooltip" title="أهداف الموظف">
+                                        <i class="fas fa-user"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- Modal لتحديث التقدم -->
+                        {% if target.status == 'active' %}
+                        <div class="modal fade" id="progressModal{{ target.pk }}" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <form method="post" action="{% url 'hr:target_update_progress' target.pk %}">
+                                        {% csrf_token %}
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">تحديث تقدم: {{ target.title }}</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="mb-3">
+                                                <label class="form-label">القيمة الحالية: {{ target.current_value }} {{ target.unit }}</label>
+                                                <input type="number" name="new_value" class="form-control" 
+                                                       step="0.01" min="0" max="{{ target.target_value }}" 
+                                                       value="{{ target.current_value }}" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">ملاحظات</label>
+                                                <textarea name="notes" class="form-control" rows="3" 
+                                                          placeholder="أضف ملاحظات حول التحديث..."></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                                            <button type="submit" class="btn btn-primary">تحديث</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <!-- رسالة عدم وجود بيانات -->
+            <div class="text-center py-5">
+                <i class="fas fa-bullseye fa-4x text-muted mb-3"></i>
+                <h4>لا توجد أهداف</h4>
+                <p class="text-muted mb-4">لم يتم العثور على أهداف مطابقة للبحث</p>
+                <a href="{% url 'hr:target_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> إنشاء هدف جديد
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Modal: إنشاء هدف سريع -->
+<div class="modal fade" id="quickTargetModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post">{% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-bolt text-warning me-1"></i>هدف سريع</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning small">
+                        النموذج السريع ينشئ هدفاً أساسياً. استخدم النموذج المتقدم لإضافة تفاصيل الوزن والحدود المتقدمة.
+                    </div>
+                    {{ form.as_p }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+// تفعيل tooltips
+var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl)
+});
+
+// تحديث تلقائي كل دقيقتين
+setTimeout(() => {
+    location.reload();
+}, 120000);
+</script>
+{% endblock %}

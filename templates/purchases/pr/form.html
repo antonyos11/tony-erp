@@ -1,0 +1,264 @@
+﻿{% extends 'base_templates/_form_professional.html' %}
+{% load static i18n %}
+{% load tony_erb_tags %}
+
+{% block page_module %}purchases{% endblock %}
+{% block page_icon %}bi-clipboard-plus{% endblock %}
+{% block page_title %}{% if object %}{% trans "تعديل طلب شراء" %}{% else %}{% trans "طلب شراء جديد" %}{% endif %}{% endblock %}
+{% block page_subtitle %}{% trans 'إنشاء طلب شراء للموافقة والتنفيذ' %}{% endblock %}
+
+{% block hero_icon %}bi-clipboard-plus{% endblock %}
+{% block hero_title %}{% if object %}{% trans "تعديل طلب شراء" %}{% else %}{% trans "طلب شراء جديد" %}{% endif %}{% endblock %}
+{% block hero_subtitle %}{% trans 'إنشاء طلب شراء للموافقة والتنفيذ' %}{% endblock %}
+{% block back_url %}{% url 'purchases:pr_list' %}{% endblock %}
+{% block cancel_url %}{% url 'purchases:pr_list' %}{% endblock %}
+
+{% block form_styles %}
+<style>
+  .items-table { width: 100%; }
+  .items-table th { background: var(--bs-tertiary-bg); font-weight: 600; }
+  .items-table input, .items-table select { min-width: 100px; }
+  .btn-remove-row { padding: 0.25rem 0.5rem; }
+</style>
+{% endblock %}
+
+{% block section_title %}{% trans "البيانات الأساسية" %}{% endblock %}
+
+{% block form_fields %}
+<!-- البيانات الأساسية -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <label class="form-label">{% trans "القسم الطالب" %}</label>
+    <input type="text" name="department" class="form-control"
+           value="{{ object.department|default:'' }}"
+           placeholder="{% trans 'مثال: قسم المبيعات' %}">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">{% trans "تاريخ الحاجة" %}</label>
+    <input type="date" name="required_date" class="form-control"
+           value="{{ object.required_date|date:'Y-m-d'|default:'' }}">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">{% trans "الأولوية" %} <span class="text-danger">*</span></label>
+    <select name="priority" class="form-select" required>
+      <option value="low" {% if object.priority == 'low' %}selected{% endif %}>{% trans "منخفضة" %}</option>
+      <option value="normal" {% if object.priority == 'normal' or not object %}selected{% endif %}>{% trans "عادية" %}</option>
+      <option value="high" {% if object.priority == 'high' %}selected{% endif %}>{% trans "عالية" %}</option>
+      <option value="urgent" {% if object.priority == 'urgent' %}selected{% endif %}>{% trans "عاجلة" %}</option>
+    </select>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <label class="form-label">{% trans "التبرير/السبب" %}</label>
+    <textarea name="justification" class="form-control" rows="2"
+              placeholder="{% trans 'سبب طلب هذه المشتريات' %}">{{ object.justification|default:'' }}</textarea>
+  </div>
+  <div class="col-md-6">
+    <label class="form-label">{% trans "ملاحظات" %}</label>
+    <textarea name="notes" class="form-control" rows="2"
+              placeholder="{% trans 'ملاحظات إضافية' %}">{{ object.notes|default:'' }}</textarea>
+  </div>
+</div>
+{% endblock %}
+
+{% block items_section %}
+<!-- بنود الطلب -->
+<div class="form-card">
+  <div class="card-header">
+    <div class="section-icon success">
+      <i class="bi bi-list-check"></i>
+    </div>
+    <h5>{% trans "بنود الطلب" %}</h5>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive mb-3">
+      <table class="table table-bordered items-table">
+        <thead>
+          <tr>
+            <th style="width: 40px;">#</th>
+            <th>{% trans "المنتج" %} <span class="text-danger">*</span></th>
+            <th style="width: 120px;">{% trans "الكمية" %} <span class="text-danger">*</span></th>
+            <th style="width: 120px;">{% trans "الوحدة" %} <span class="text-danger">*</span></th>
+            <th style="width: 140px;">{% trans "السعر التقديري" %}</th>
+            <th>{% trans "ملاحظات" %}</th>
+            <th style="width: 50px;"></th>
+          </tr>
+        </thead>
+        <tbody id="itemsBody">
+          <tr class="item-row" data-row="1">
+            <td class="row-number text-center">1</td>
+            <td>
+              <select name="items[0][product_id]" class="form-select product-select" required>
+                <option value="">{% trans "اختر المنتج..." %}</option>
+                {% for product in products %}
+                <option value="{{ product.id }}"
+                        data-unit="{{ product.purchase_uom|default:'unit' }}"
+                        data-cost="{{ product.cost|default:0 }}">
+                  {{ product.name }} {% if product.sku %}({{ product.sku }}){% endif %}
+                </option>
+                {% endfor %}
+              </select>
+            </td>
+            <td>
+              <input type="number" name="items[0][quantity]" class="form-control quantity-input"
+                     value="1" min="0.01" step="0.01" required>
+            </td>
+            <td>
+              <select name="items[0][unit]" class="form-select unit-select" required>
+                <option value="">{% trans "اختر..." %}</option>
+                {% for value, label in uom_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td>
+              <input type="number" name="items[0][estimated_price]" class="form-control price-input"
+                     value="0" min="0" step="0.01" readonly>
+            </td>
+            <td>
+              <input type="text" name="items[0][notes]" class="form-control"
+                     placeholder="{% trans 'ملاحظات' %}">
+            </td>
+            <td class="text-center">
+              <button type="button" class="btn btn-outline-danger btn-sm btn-remove-row" onclick="removeRow(this)">
+                <i class="bi bi-trash"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <button type="button" class="btn btn-outline-primary btn-sm add-item-btn" onclick="addRow()">
+      <i class="bi bi-plus-lg me-1"></i>{% trans "إضافة بند" %}
+    </button>
+    <!-- Hidden field for items JSON -->
+    <input type="hidden" name="items" id="itemsJson">
+  </div>
+</div>
+{% endblock %}
+
+{% block form_scripts %}
+<script>
+  let rowCounter = 1;
+
+  // بيانات أسعار الموردين من الـ backend
+  const supplierPrices = {{ supplier_prices|safe }};
+
+  // Store product options for dynamic rows
+  const productOptionsHtml = document.querySelector('.product-select')?.innerHTML || '';
+  const uomOptionsHtml = document.querySelector('.unit-select')?.innerHTML || '';
+
+  function addRow() {
+    rowCounter++;
+    const tbody = document.getElementById('itemsBody');
+    const newRow = document.createElement('tr');
+    newRow.className = 'item-row';
+    newRow.dataset.row = rowCounter;
+    newRow.innerHTML = `
+      <td class="row-number text-center">${rowCounter}</td>
+      <td>
+        <select name="items[${rowCounter-1}][product_id]" class="form-select product-select" required>
+          ${productOptionsHtml}
+        </select>
+      </td>
+      <td>
+        <input type="number" name="items[${rowCounter-1}][quantity]" class="form-control quantity-input"
+               value="1" min="0.01" step="0.01" required>
+      </td>
+      <td>
+        <select name="items[${rowCounter-1}][unit]" class="form-select unit-select" required>
+          ${uomOptionsHtml}
+        </select>
+      </td>
+      <td>
+        <input type="number" name="items[${rowCounter-1}][estimated_price]" class="form-control price-input"
+               value="0" min="0" step="0.01" readonly>
+      </td>
+      <td>
+        <input type="text" name="items[${rowCounter-1}][notes]" class="form-control"
+               placeholder="ملاحظات">
+      </td>
+      <td class="text-center">
+        <button type="button" class="btn btn-outline-danger btn-sm btn-remove-row" onclick="removeRow(this)">
+          <i class="bi bi-trash"></i>
+        </button>
+      </td>
+    `;
+    tbody.appendChild(newRow);
+    updateRowNumbers();
+  }
+
+  function removeRow(btn) {
+    const rows = document.querySelectorAll('.item-row');
+    if (rows.length > 1) {
+      btn.closest('tr').remove();
+      updateRowNumbers();
+    }
+  }
+
+  function updateRowNumbers() {
+    const rows = document.querySelectorAll('.item-row');
+    rows.forEach((row, index) => {
+      row.querySelector('.row-number').textContent = index + 1;
+    });
+  }
+
+  // عند اختيار منتج، ملء الوحدة والسعر تلقائياً
+  document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('product-select')) {
+      const selected = e.target.options[e.target.selectedIndex];
+      const productId = e.target.value;
+      const row = e.target.closest('tr');
+      const unitSelect = row.querySelector('.unit-select');
+      const priceInput = row.querySelector('.price-input');
+
+      // ملء الوحدة من بيانات المنتج
+      const defaultUnit = selected.dataset.unit || 'unit';
+      if (unitSelect) {
+        unitSelect.value = defaultUnit;
+      }
+
+      // ملء السعر من بيانات المورد المفضل أو من تكلفة المنتج
+      if (priceInput) {
+        if (supplierPrices[productId]) {
+          priceInput.value = supplierPrices[productId].price;
+          priceInput.title = `سعر المورد: ${supplierPrices[productId].supplier_name}`;
+        } else {
+          // استخدام تكلفة المنتج كبديل
+          const cost = selected.dataset.cost || 0;
+          priceInput.value = cost;
+          priceInput.title = 'تكلفة المنتج';
+        }
+      }
+    }
+  });
+
+  // Collect items data before form submit
+  document.getElementById('mainForm')?.addEventListener('submit', function(e) {
+    const rows = document.querySelectorAll('.item-row');
+    const items = [];
+
+    rows.forEach((row, index) => {
+      const productSelect = row.querySelector('.product-select');
+      const quantity = row.querySelector('.quantity-input');
+      const unitSelect = row.querySelector('.unit-select');
+      const price = row.querySelector('.price-input');
+      const notes = row.querySelector('input[name*="[notes]"]');
+
+      if (productSelect && productSelect.value) {
+        items.push({
+          product_id: parseInt(productSelect.value),
+          quantity: parseFloat(quantity.value) || 1,
+          unit: unitSelect ? unitSelect.value : '',
+          estimated_price: parseFloat(price.value) || 0,
+          notes: notes ? notes.value : ''
+        });
+      }
+    });
+
+    document.getElementById('itemsJson').value = JSON.stringify(items);
+  });
+</script>
+{% endblock %}

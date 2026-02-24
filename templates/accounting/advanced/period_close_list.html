@@ -1,0 +1,358 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}إقفال الفترات المحاسبية - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .period-card {
+        border-radius: 15px;
+        transition: all 0.3s;
+        border-left: 5px solid;
+    }
+    .period-card.draft { border-color: #6c757d; }
+    .period-card.closed { border-color: #28a745; }
+    .period-card.locked { border-color: #dc3545; }
+    .period-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    }
+    .timeline-vertical {
+        position: relative;
+        padding-right: 40px;
+    }
+    .timeline-vertical::before {
+        content: '';
+        position: absolute;
+        right: 15px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #dee2e6;
+    }
+    .timeline-item {
+        position: relative;
+        margin-bottom: 2rem;
+    }
+    .timeline-marker {
+        position: absolute;
+        right: 7px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        border: 3px solid #fff;
+        box-shadow: 0 0 0 3px #dee2e6;
+    }
+    .timeline-marker.success { background: #28a745; }
+    .timeline-marker.warning { background: #ffc107; }
+    .timeline-marker.danger { background: #dc3545; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-lock text-primary"></i>
+                        إقفال الفترات المحاسبية
+                    </h2>
+                    <p class="text-muted mt-2">إدارة وإقفال الفترات المحاسبية ومنع التعديلات</p>
+                </div>
+                <div>
+                    <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#newPeriodModal">
+                        <i class="fas fa-plus"></i> إقفال فترة جديدة
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-primary text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-calendar fa-2x mb-2"></i>
+                    <h3 class="mb-0">{{ stats.total_periods }}</h3>
+                    <p class="mb-0 small opacity-75">إجمالي الفترات</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-success text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-check-circle fa-2x mb-2"></i>
+                    <h3 class="mb-0">{{ stats.closed_periods }}</h3>
+                    <p class="mb-0 small opacity-75">فترات مقفلة</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-danger text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-lock fa-2x mb-2"></i>
+                    <h3 class="mb-0">{{ stats.locked_periods }}</h3>
+                    <p class="mb-0 small opacity-75">فترات محظورة</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-warning text-dark">
+                <div class="card-body text-center">
+                    <i class="fas fa-clock fa-2x mb-2"></i>
+                    <h3 class="mb-0">{{ stats.draft_periods }}</h3>
+                    <p class="mb-0 small opacity-75">فترات مسودة</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Periods List -->
+    <div class="row">
+        {% if periods %}
+            {% for period in periods %}
+            <div class="col-md-6 mb-4">
+                <div class="card period-card {{ period.status }} h-100">
+                    <div class="card-body">
+                        <!-- Status Badge -->
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h5 class="mb-0">{{ period.fiscal_year.name }}</h5>
+                            <span class="badge 
+                                {% if period.status == 'closed' %}bg-success
+                                {% elif period.status == 'locked' %}bg-danger
+                                {% else %}bg-secondary{% endif %} fs-6">
+                                {{ period.get_status_display }}
+                            </span>
+                        </div>
+
+                        <!-- Period Info -->
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">من:</span>
+                                <strong>{{ period.start_date|date:"Y-m-d" }}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">إلى:</span>
+                                <strong>{{ period.end_date|date:"Y-m-d" }}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">تم بواسطة:</span>
+                                <strong>{% if period.closed_by %}{{ period.closed_by.get_full_name|default:period.closed_by.username }}{% else %}-{% endif %}</strong>
+                            </div>
+                            {% if period.closed_at %}
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted">تاريخ الإقفال:</span>
+                                <strong>{{ period.closed_at|date:"Y-m-d H:i" }}</strong>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Notes -->
+                        {% if period.notes %}
+                        <div class="alert alert-info mb-3">
+                            <small><i class="fas fa-info-circle"></i> {{ period.notes }}</small>
+                        </div>
+                        {% endif %}
+
+                        <!-- Actions -->
+                        <div class="d-flex gap-2">
+                            <a href="#" class="btn btn-sm btn-primary flex-fill">
+                                <i class="fas fa-eye"></i> التفاصيل
+                            </a>
+                            {% if period.status == 'draft' %}
+                                <button class="btn btn-sm btn-success" onclick="closePeriod({{ period.pk }})">
+                                    <i class="fas fa-lock"></i> إقفال
+                                </button>
+                            {% elif period.status == 'closed' %}
+                                <button class="btn btn-sm btn-danger" onclick="lockPeriod({{ period.pk }})">
+                                    <i class="fas fa-ban"></i> حظر
+                                </button>
+                                <button class="btn btn-sm btn-warning" onclick="reopenPeriod({{ period.pk }})">
+                                    <i class="fas fa-unlock"></i> إعادة فتح
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center py-5">
+                        <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">لا توجد فترات محاسبية مقفلة حتى الآن</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newPeriodModal">
+                            <i class="fas fa-plus"></i> إقفال فترة جديدة
+                        </button>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Timeline View -->
+    {% if periods %}
+    <div class="row mt-5">
+        <div class="col-12">
+            <h4 class="mb-4">
+                <i class="fas fa-history"></i>
+                الجدول الزمني للإقفالات
+            </h4>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="timeline-vertical">
+                        {% for period in periods|dictsortreversed:"closed_at" %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker 
+                                {% if period.status == 'locked' %}danger
+                                {% elif period.status == 'closed' %}success
+                                {% else %}warning{% endif %}">
+                            </div>
+                            <div class="card border-0 bg-light">
+                                <div class="card-body">
+                                    <h6 class="mb-2">
+                                        {{ period.fiscal_year.name }}
+                                        <span class="badge 
+                                            {% if period.status == 'closed' %}bg-success
+                                            {% elif period.status == 'locked' %}bg-danger
+                                            {% else %}bg-secondary{% endif %} ms-2">
+                                            {{ period.get_status_display }}
+                                        </span>
+                                    </h6>
+                                    <p class="text-muted small mb-1">
+                                        <i class="fas fa-calendar"></i>
+                                        {{ period.start_date|date:"Y-m-d" }} - {{ period.end_date|date:"Y-m-d" }}
+                                    </p>
+                                    {% if period.closed_at %}
+                                    <p class="text-muted small mb-0">
+                                        <i class="fas fa-user"></i>
+                                        {{ period.closed_by.get_full_name }} في {{ period.closed_at|date:"Y-m-d H:i" }}
+                                    </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- New Period Modal -->
+<div class="modal fade" id="newPeriodModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-lock"></i>
+                    إقفال فترة محاسبية جديدة
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="closePeriodForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>تحذير:</strong> إقفال الفترة سيمنع إنشاء أو تعديل القيود في هذه الفترة
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">السنة المالية</label>
+                        <select name="fiscal_year" class="form-select" required>
+                            <option value="">-- اختر السنة المالية --</option>
+                            {% for fy in fiscal_years %}
+                                <option value="{{ fy.id }}">{{ fy.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">من تاريخ</label>
+                            <input type="date" name="start_date" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">إلى تاريخ</label>
+                            <input type="date" name="end_date" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">ملاحظات</label>
+                        <textarea name="notes" class="form-control" rows="3" 
+                                  placeholder="ملاحظات إضافية حول عملية الإقفال..."></textarea>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="auto_lock" id="autoLock">
+                        <label class="form-check-label" for="autoLock">
+                            <strong>حظر تلقائي بعد الإقفال</strong>
+                            <br>
+                            <small class="text-muted">منع إعادة فتح الفترة نهائياً</small>
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-lock"></i> إقفال الفترة
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// إزالة الـ backdrop المتبقي
+document.addEventListener('DOMContentLoaded', function() {
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(function(modal) {
+        modal.addEventListener('hidden.bs.modal', function() {
+            setTimeout(function() {
+                const backdrops = document.querySelectorAll('.modal-backdrop');
+                backdrops.forEach(function(backdrop) {
+                    backdrop.remove();
+                });
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+                document.body.style.paddingRight = '';
+            }, 100);
+        });
+    });
+});
+
+function closePeriod(periodId) {
+    if (confirm('هل أنت متأكد من إقفال هذه الفترة؟')) {
+        // Handle period closing
+        alert('سيتم إقفال الفترة');
+    }
+}
+
+function lockPeriod(periodId) {
+    if (confirm('هل أنت متأكد من حظر هذه الفترة نهائياً؟ لن يمكن إعادة فتحها.')) {
+        // Handle period locking
+        alert('سيتم حظر الفترة');
+    }
+}
+
+function reopenPeriod(periodId) {
+    if (confirm('هل أنت متأكد من إعادة فتح هذه الفترة؟')) {
+        // Handle period reopening
+        alert('سيتم إعادة فتح الفترة');
+    }
+}
+</script>
+{% endblock %}

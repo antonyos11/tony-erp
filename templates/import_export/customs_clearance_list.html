@@ -1,0 +1,126 @@
+{% extends 'base_templates/_list_professional.html' %}
+{% block hero_icon %}bi-building{% endblock %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">
+            <i class="bi bi-building text-warning me-2"></i>
+            {{ title }}
+        </h1>
+        <a href="{% url 'import_export:customs_clearance_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i> {% trans "إضافة مخلص جمركي" %}
+        </a>
+    </div>
+
+    <!-- الفلاتر -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label small text-muted">{% trans "بحث" %}</label>
+                    <input type="text" name="search" class="form-control" value="{{ search }}" placeholder="{% trans 'بحث بالاسم أو الكود أو رقم الترخيص...' %}">
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-secondary"><i class="bi bi-filter me-1"></i> {% trans "بحث" %}</button>
+                    <a href="{% url 'import_export:customs_clearance_list' %}" class="btn btn-outline-secondary"><i class="bi bi-x-circle me-1"></i></a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- الجدول -->
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>{% trans "الكود" %}</th>
+                        <th>{% trans "اسم المخلص" %}</th>
+                        <th>{% trans "رقم الرخصة" %}</th>
+                        <th>{% trans "الهاتف" %}</th>
+                        <th>{% trans "البريد" %}</th>
+                        <th>{% trans "انتهاء الرخصة" %}</th>
+                        <th>{% trans "الحالة" %}</th>
+                        <th class="text-center">{% trans "إجراءات" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for clearance in clearances %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td><code>{{ clearance.code }}</code></td>
+                        <td>
+                            <a href="{% url 'import_export:customs_clearance_detail' clearance.pk %}" class="fw-bold text-decoration-none">
+                                {{ clearance.name }}
+                            </a>
+                            {% if clearance.name_en %}<br><small class="text-muted">{{ clearance.name_en }}</small>{% endif %}
+                        </td>
+                        <td>{{ clearance.license_number|default:"-" }}</td>
+                        <td>{{ clearance.phone|default:clearance.mobile|default:"-" }}</td>
+                        <td>{{ clearance.email|default:"-" }}</td>
+                        <td>
+                            {% if clearance.license_expiry %}
+                            {{ clearance.license_expiry|date:"Y/m/d" }}
+                            {% else %}-{% endif %}
+                        </td>
+                        <td>
+                            {% if clearance.status == 'active' %}
+                            <span class="badge bg-success">{{ clearance.get_status_display }}</span>
+                            {% elif clearance.status == 'suspended' %}
+                            <span class="badge bg-warning">{{ clearance.get_status_display }}</span>
+                            {% else %}
+                            <span class="badge bg-danger">{{ clearance.get_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'import_export:customs_clearance_detail' clearance.pk %}" class="btn btn-outline-primary" title="{% trans 'عرض' %}"><i class="bi bi-eye"></i></a>
+                                <a href="{% url 'import_export:customs_clearance_edit' clearance.pk %}" class="btn btn-outline-success" title="{% trans 'تعديل' %}"><i class="bi bi-pencil"></i></a>
+                                <a href="{% url 'import_export:customs_clearance_delete' clearance.pk %}" class="btn btn-outline-danger" title="{% trans 'حذف' %}"><i class="bi bi-trash"></i></a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center py-5">
+                            <i class="bi bi-inbox display-4 text-muted"></i>
+                            <h5 class="mt-3 text-muted">{% trans "لا يوجد مخلصون جمركيون" %}</h5>
+                            <a href="{% url 'import_export:customs_clearance_create' %}" class="btn btn-primary mt-2">
+                                <i class="bi bi-plus-lg me-1"></i> {% trans "إضافة مخلص جمركي" %}
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if clearances.has_other_pages %}
+        <div class="card-footer d-flex justify-content-center">
+            <nav>
+                <ul class="pagination mb-0">
+                    {% if clearances.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?page={{ clearances.previous_page_number }}&search={{ search }}"><i class="bi bi-chevron-right"></i></a></li>
+                    {% endif %}
+                    {% for num in clearances.paginator.page_range %}
+                    {% if clearances.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > clearances.number|add:'-3' and num < clearances.number|add:'3' %}
+                    <li class="page-item"><a class="page-link" href="?page={{ num }}&search={{ search }}">{{ num }}</a></li>
+                    {% endif %}
+                    {% endfor %}
+                    {% if clearances.has_next %}
+                    <li class="page-item"><a class="page-link" href="?page={{ clearances.next_page_number }}&search={{ search }}"><i class="bi bi-chevron-left"></i></a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

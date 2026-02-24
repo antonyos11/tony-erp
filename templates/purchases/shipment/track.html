@@ -1,0 +1,152 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تتبع الشحنة{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tracking-timeline {
+        position: relative;
+        padding-right: 30px;
+    }
+    .tracking-timeline::before {
+        content: '';
+        position: absolute;
+        right: 10px;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: #e5e7eb;
+    }
+    .tracking-step {
+        position: relative;
+        padding-bottom: 30px;
+    }
+    .tracking-step::before {
+        content: '';
+        position: absolute;
+        right: -26px;
+        top: 0;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #e5e7eb;
+        border: 3px solid #fff;
+        box-shadow: 0 0 0 3px #e5e7eb;
+    }
+    .tracking-step.active::before {
+        background: #3b82f6;
+        box-shadow: 0 0 0 3px #93c5fd;
+    }
+    .tracking-step.completed::before {
+        background: #10b981;
+        box-shadow: 0 0 0 3px #6ee7b7;
+    }
+    .status-card {
+        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        color: white;
+        border-radius: 16px;
+        padding: 30px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- بطاقة الحالة -->
+            <div class="status-card mb-4">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h4 class="mb-2">شحنة #{{ shipment.tracking_number }}</h4>
+                        <p class="mb-0 opacity-75">{{ shipment.get_status_display }}</p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <div class="display-6 mb-1">
+                            <i class="fas fa-{% if shipment.status == 'delivered' %}check-circle{% elif shipment.status == 'in_transit' %}truck{% else %}clock{% endif %}"></i>
+                        </div>
+                        {% if shipment.expected_delivery %}
+                        <small>الوصول المتوقع: {{ shipment.expected_delivery|date:"Y/m/d" }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- معلومات الشحنة -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-primary bg-opacity-10 rounded-3 p-3 me-3">
+                                    <i class="fas fa-store fa-lg text-primary"></i>
+                                </div>
+                                <div>
+                                    <small class="text-muted">من</small>
+                                    <strong class="d-block">{{ shipment.purchase_order.vendor.name }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-success bg-opacity-10 rounded-3 p-3 me-3">
+                                    <i class="fas fa-warehouse fa-lg text-success"></i>
+                                </div>
+                                <div>
+                                    <small class="text-muted">إلى</small>
+                                    <strong class="d-block">{{ shipment.destination|default:"المستودع الرئيسي" }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- الجدول الزمني للتتبع -->
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <h5 class="mb-4">تتبع الشحنة</h5>
+                    
+                    <div class="tracking-timeline">
+                        {% for event in tracking_events %}
+                        <div class="tracking-step {% if event.is_current %}active{% elif event.is_completed %}completed{% endif %}">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>{{ event.get_status_display }}</strong>
+                                    {% if event.location %}
+                                    <div class="text-muted"><i class="fas fa-map-marker-alt me-1"></i>{{ event.location }}</div>
+                                    {% endif %}
+                                    {% if event.description %}
+                                    <div class="small text-muted mt-1">{{ event.description }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="text-muted small">
+                                    {{ event.timestamp|date:"Y/m/d" }}<br>
+                                    {{ event.timestamp|time:"H:i" }}
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p class="text-center text-muted py-4">
+                            <i class="fas fa-box fa-3x mb-3 d-block"></i>
+                            لا توجد تحديثات بعد
+                        </p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-4">
+                <a href="{% url 'purchases:shipment_detail' shipment.pk %}" class="btn btn-outline-primary">
+                    <i class="fas fa-info-circle me-1"></i> تفاصيل الشحنة
+                </a>
+                <button class="btn btn-outline-secondary" onclick="location.reload()">
+                    <i class="fas fa-sync-alt me-1"></i> تحديث
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

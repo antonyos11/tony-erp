@@ -1,0 +1,194 @@
+{% extends BASE_TEMPLATE %}
+{% load i18n static humanize %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+:root { --bi-gradient: linear-gradient(135deg, #6366f1, #8b5cf6); }
+.hero-bi { background: var(--bi-gradient); color: #fff; border-radius: 18px; padding: 1.6rem; position: relative; overflow: hidden; }
+.hero-bi::after { content:""; position:absolute; inset:0; background: radial-gradient(circle at 15% 20%, rgba(255,255,255,.12), transparent 45%); opacity:.8; }
+.hero-bi .content { position: relative; z-index: 1; }
+
+.kpi-card { border-radius: 14px; box-shadow: 0 10px 32px rgba(15,23,42,.08); transition: transform 0.2s; }
+.kpi-card:hover { transform: translateY(-4px); }
+.kpi-icon { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+.dashboard-card { border-radius: 14px; box-shadow: 0 4px 16px rgba(15,23,42,.05); transition: all 0.2s; cursor: pointer; }
+.dashboard-card:hover { box-shadow: 0 8px 24px rgba(15,23,42,.1); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <section class="hero-bi shadow-sm mb-4">
+    <div class="content d-flex justify-content-between flex-wrap gap-3 align-items-start">
+      <div>
+        <p class="small mb-1 text-white-75 d-flex gap-2 align-items-center"><i class="bi bi-graph-up-arrow"></i>{% trans "تحليلات الأعمال" %}</p>
+        <h1 class="h3 mb-1">{{ page_title }}</h1>
+        <p class="mb-0 text-white-75">{% trans "اكتشف رؤى قيمة من بياناتك باستخدام الذكاء الاصطناعي" %}</p>
+      </div>
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <a href="{% url 'business_intelligence:dashboard_create' %}" class="btn btn-light btn-sm">
+          <i class="bi bi-plus-circle me-1"></i>{% trans "لوحة جديدة" %}
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <nav aria-label="{% trans 'مسار التنقل' %}" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/">{% trans "الرئيسية" %}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{% trans "تحليلات الأعمال" %}</li>
+    </ol>
+  </nav>
+
+  <!-- KPIs -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card kpi-card h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="kpi-icon bg-primary bg-opacity-10 text-primary">
+            <i class="bi bi-grid-1x2"></i>
+          </div>
+          <div>
+            <div class="text-muted small">{% trans "لوحات المعلومات" %}</div>
+            <div class="h4 mb-0 fw-bold">{{ kpis.total_dashboards }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card kpi-card h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="kpi-icon bg-success bg-opacity-10 text-success">
+            <i class="bi bi-graph-up"></i>
+          </div>
+          <div>
+            <div class="text-muted small">{% trans "التنبؤات" %}</div>
+            <div class="h4 mb-0 fw-bold">{{ kpis.total_forecasts }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card kpi-card h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="kpi-icon bg-info bg-opacity-10 text-info">
+            <i class="bi bi-file-earmark-bar-graph"></i>
+          </div>
+          <div>
+            <div class="text-muted small">{% trans "التقارير النشطة" %}</div>
+            <div class="h4 mb-0 fw-bold">{{ kpis.total_reports }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card kpi-card h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="kpi-icon bg-warning bg-opacity-10 text-warning">
+            <i class="bi bi-bullseye"></i>
+          </div>
+          <div>
+            <div class="text-muted small">{% trans "دقة التنبؤات" %}</div>
+            <div class="h4 mb-0 fw-bold">{{ kpis.avg_accuracy }}%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <!-- لوحات المعلومات -->
+    <div class="col-lg-8">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="bi bi-grid-1x2 text-primary me-2"></i>{% trans "لوحات المعلومات" %}</h5>
+          <a href="{% url 'business_intelligence:dashboard_list' %}" class="btn btn-outline-primary btn-sm">{% trans "عرض الكل" %}</a>
+        </div>
+        <div class="card-body">
+          {% if user_dashboards %}
+          <div class="row g-3">
+            {% for db in user_dashboards %}
+            <div class="col-md-6">
+              <div class="dashboard-card p-3 border rounded" onclick="window.location='{% url 'business_intelligence:dashboard_detail' db.pk %}'">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <h6 class="mb-0">{{ db.name }}</h6>
+                  {% if db.is_public %}
+                  <span class="badge bg-success">{% trans "عام" %}</span>
+                  {% endif %}
+                </div>
+                <p class="text-muted small mb-2">{{ db.description|truncatewords:15 }}</p>
+                <div class="d-flex gap-2 small text-muted">
+                  <span><i class="bi bi-grid me-1"></i>{{ db.widgets.count }} {% trans "أداة" %}</span>
+                  <span><i class="bi bi-clock me-1"></i>{{ db.updated_at|timesince }}</span>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="text-center text-muted py-4">
+            <i class="bi bi-grid-1x2 display-4"></i>
+            <p class="mt-2">{% trans "لا توجد لوحات معلومات بعد" %}</p>
+            <a href="{% url 'business_intelligence:dashboard_create' %}" class="btn btn-primary">{% trans "إنشاء لوحة" %}</a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- التنبؤات -->
+    <div class="col-lg-4">
+      <div class="card shadow-sm mb-3">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="bi bi-graph-up text-success me-2"></i>{% trans "أحدث التنبؤات" %}</h5>
+          <a href="{% url 'business_intelligence:forecast_list' %}" class="btn btn-outline-success btn-sm">{% trans "الكل" %}</a>
+        </div>
+        <div class="list-group list-group-flush">
+          {% for forecast in recent_forecasts %}
+          <div class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <div class="fw-semibold">{{ forecast.get_forecast_type_display }}</div>
+              <small class="text-muted">{{ forecast.period_end }}</small>
+            </div>
+            <div class="text-end">
+              <div class="fw-bold">{{ forecast.predicted_value|floatformat:0|intcomma }}</div>
+              {% if forecast.confidence_level %}
+              <small class="{% if forecast.confidence_level >= 80 %}text-success{% elif forecast.confidence_level >= 60 %}text-warning{% else %}text-danger{% endif %}">
+                {{ forecast.confidence_level }}% {% trans "ثقة" %}
+              </small>
+              {% endif %}
+            </div>
+          </div>
+          {% empty %}
+          <div class="list-group-item text-center text-muted py-4">{% trans "لا توجد تنبؤات" %}</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="bi bi-file-earmark-bar-graph text-info me-2"></i>{% trans "التقارير" %}</h5>
+          <a href="{% url 'business_intelligence:report_list' %}" class="btn btn-outline-info btn-sm">{% trans "الكل" %}</a>
+        </div>
+        <div class="list-group list-group-flush">
+          {% for report in scheduled_reports %}
+          <div class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <div class="fw-semibold">{{ report.name }}</div>
+              <small class="text-muted">{{ report.get_frequency_display }}</small>
+            </div>
+            {% if report.last_generated %}
+            <small class="text-muted">{{ report.last_generated|timesince }}</small>
+            {% endif %}
+          </div>
+          {% empty %}
+          <div class="list-group-item text-center text-muted py-4">{% trans "لا توجد تقارير" %}</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

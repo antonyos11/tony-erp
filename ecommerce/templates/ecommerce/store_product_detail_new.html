@@ -1,0 +1,327 @@
+{% extends 'ecommerce/store_base_new.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ product.name }} - {{ store_settings.store_name|default:"Tony Store" }}{% endblock %}
+{% block meta_description %}{{ product.short_description|default:product.name }}. اشتري الآن بأفضل سعر مع شحن سريع وضمان حقيقي.{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="store-breadcrumb">
+    <div class="container">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'ecommerce:store_home' %}">الرئيسية</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'ecommerce:product_list' %}">المنتجات</a></li>
+                {% if product.category %}
+                <li class="breadcrumb-item"><a href="{{ product.category.get_absolute_url }}">{{ product.category.name }}</a></li>
+                {% endif %}
+                <li class="breadcrumb-item active">{{ product.name }}</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="container py-4">
+    <div class="row g-5">
+        <!-- Product Gallery -->
+        <div class="col-lg-6">
+            <div class="product-gallery">
+                {% if product.image %}
+                <img src="{{ product.image.url }}" alt="{{ product.name }}" class="main-image" id="mainImage">
+                {% else %}
+                <img src="{% static 'img/no_image.png' %}" alt="{{ product.name }}" class="main-image" id="mainImage" style="max-height: 300px; opacity: 0.5;">
+                {% endif %}
+                
+                <!-- Badges -->
+                <div class="position-absolute top-0 end-0 m-3 d-flex flex-column gap-2">
+                    {% if product.is_new %}<span class="card-badge badge-new">جديد</span>{% endif %}
+                    {% if product.is_featured %}<span class="card-badge badge-featured">مميز</span>{% endif %}
+                </div>
+                
+                <!-- Thumbnails -->
+                <div class="thumbnails">
+                    {% if product.image %}
+                    <div class="thumb active" onclick="changeImage(this, '{{ product.image.url }}')">
+                        <img src="{{ product.image.url }}" alt="الصورة الرئيسية">
+                    </div>
+                    {% endif %}
+                    {% for img in product_images %}
+                    <div class="thumb" onclick="changeImage(this, '{{ img.image.url }}')">
+                        <img src="{{ img.image.url }}" alt="{{ product.name }}">
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Product Info -->
+        <div class="col-lg-6">
+            <div class="product-info">
+                {% if product.category %}
+                <div class="card-category mb-2" style="font-size: 0.82rem;">{{ product.category.name }}</div>
+                {% endif %}
+                
+                <h1 class="product-title">{{ product.name }}</h1>
+                
+                <!-- Rating -->
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="card-rating mb-0">
+                        <span class="stars">
+                            {% for i in "12345" %}
+                            <i class="bi bi-star-fill"></i>
+                            {% endfor %}
+                        </span>
+                        <span class="count">({{ reviews_count|default:"0" }} تقييم)</span>
+                    </div>
+                    {% if product.sales_count > 0 %}
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">
+                        <i class="bi bi-bag-check ms-1"></i> {{ product.sales_count }} عملية بيع
+                    </span>
+                    {% endif %}
+                </div>
+                
+                <!-- Price -->
+                <div class="product-price-tag">
+                    <span class="price-current">{{ product.price }}</span>
+                    <span class="price-currency">ج.م</span>
+                </div>
+                
+                <!-- Stock -->
+                {% if product.stock is not None %}
+                <div class="mb-3">
+                    {% if product.stock > 10 %}
+                    <span class="stock-badge in-stock"><i class="bi bi-check-circle-fill"></i> متوفر في المخزن</span>
+                    {% elif product.stock > 0 %}
+                    <span class="stock-badge low-stock"><i class="bi bi-exclamation-triangle-fill"></i> متبقي {{ product.stock }} فقط</span>
+                    {% else %}
+                    <span class="stock-badge out-of-stock"><i class="bi bi-x-circle-fill"></i> نفد من المخزن</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                <!-- Product Meta -->
+                <div class="product-meta mb-3">
+                    {% if product.sku %}
+                    <div class="meta-item"><i class="bi bi-upc"></i> كود: {{ product.sku }}</div>
+                    {% endif %}
+                    {% if product.brand %}
+                    <div class="meta-item"><i class="bi bi-tag"></i> {{ product.brand.name }}</div>
+                    {% endif %}
+                </div>
+                
+                <!-- Description -->
+                {% if product.description or product.short_description %}
+                <div class="product-description">
+                    {{ product.short_description|default:product.description|linebreaksbr }}
+                </div>
+                {% endif %}
+                
+                <!-- Add to Cart -->
+                <form method="post" action="{% url 'ecommerce:cart_add' %}" class="mb-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="product_id" value="{{ product.id }}">
+                    
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-dark);">الكمية:</span>
+                        <div class="quantity-selector">
+                            <button type="button" onclick="updateQty(-1)">-</button>
+                            <input type="number" name="quantity" value="1" min="1" max="{{ product.stock|default:'99' }}" id="qtyInput" readonly>
+                            <button type="button" onclick="updateQty(1)">+</button>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-3">
+                        <button type="submit" class="btn-cart flex-grow-1" style="padding: 14px;">
+                            <i class="bi bi-bag-plus"></i> أضف للسلة
+                        </button>
+                        <button type="button" class="action-btn {% if product.id in wishlist_ids %}active{% endif %}" 
+                                onclick="toggleWishlist({{ product.id }}, this)" 
+                                style="width: 50px; height: 50px; font-size: 1.1rem;">
+                            <i class="bi bi-heart{% if product.id in wishlist_ids %}-fill{% endif %}"></i>
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- Guarantees -->
+                <div class="product-guarantees">
+                    <div class="guarantee-item">
+                        <i class="bi bi-truck"></i>
+                        <span>شحن سريع لجميع المحافظات</span>
+                    </div>
+                    <div class="guarantee-item">
+                        <i class="bi bi-shield-check"></i>
+                        <span>ضمان حقيقي معتمد</span>
+                    </div>
+                    <div class="guarantee-item">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                        <span>إمكانية الاستبدال خلال 14 يوم</span>
+                    </div>
+                    <div class="guarantee-item">
+                        <i class="bi bi-credit-card"></i>
+                        <span>دفع آمن - نقدي أو بطاقة</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Full Description & Reviews Tabs -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <ul class="nav nav-tabs" role="tablist" style="border-bottom: 2px solid var(--border-light);">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#descTab" style="font-weight: 600;">
+                        <i class="bi bi-file-text ms-1"></i> الوصف التفصيلي
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#reviewsTab" style="font-weight: 600;">
+                        <i class="bi bi-chat-dots ms-1"></i> التقييمات ({{ reviews_count|default:"0" }})
+                    </button>
+                </li>
+            </ul>
+            
+            <div class="tab-content py-4">
+                <!-- Description Tab -->
+                <div class="tab-pane fade show active" id="descTab">
+                    <div style="max-width: 800px; line-height: 2; color: var(--text-body);">
+                        {% if product.full_description %}
+                        {{ product.full_description|linebreaksbr }}
+                        {% elif product.description %}
+                        {{ product.description|linebreaksbr }}
+                        {% else %}
+                        <p class="text-muted">لا يوجد وصف تفصيلي لهذا المنتج.</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Reviews Tab -->
+                <div class="tab-pane fade" id="reviewsTab">
+                    {% if reviews %}
+                    <div class="row g-3" style="max-width: 800px;">
+                        {% for review in reviews %}
+                        <div class="col-12">
+                            <div class="testimonial-card">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="author">
+                                        <div class="author-avatar">{{ review.user.first_name|first|default:"?" }}</div>
+                                        <div>
+                                            <div class="author-name">{{ review.user.get_full_name|default:review.user.username }}</div>
+                                            <div class="author-label">{{ review.created_at|date:"d M Y" }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="stars" style="font-size: 0.8rem;">
+                                        {% for i in "12345" %}
+                                        <i class="bi bi-star{% if forloop.counter <= review.rating %}-fill{% endif %}"></i>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                <p class="content mb-0">{{ review.comment }}</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">لا توجد تقييمات لهذا المنتج بعد.</p>
+                    {% endif %}
+                    
+                    {% if user.is_authenticated %}
+                    <div class="mt-4 p-4" style="background: var(--bg-light); border-radius: var(--radius-lg); max-width: 600px;">
+                        <h5 style="font-size: 1rem; font-weight: 700;">أضف تقييمك</h5>
+                        <form method="post" action="{% url 'ecommerce:submit_review' product.id %}">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label class="form-label" style="font-size: 0.85rem;">التقييم</label>
+                                <div class="d-flex gap-1" id="ratingStars">
+                                    {% for i in "12345" %}
+                                    <i class="bi bi-star fs-4" data-rating="{{ forloop.counter }}" 
+                                       style="cursor: pointer; color: var(--border);"
+                                       onclick="setRating({{ forloop.counter }})"></i>
+                                    {% endfor %}
+                                </div>
+                                <input type="hidden" name="rating" id="ratingInput" value="5">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" style="font-size: 0.85rem;">تعليقك</label>
+                                <textarea name="comment" class="form-control" rows="3" placeholder="شاركنا تجربتك مع المنتج..." required></textarea>
+                            </div>
+                            <button type="submit" class="btn-primary-store" style="padding: 10px 24px; font-size: 0.9rem;">إرسال التقييم</button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Related Products -->
+    {% if related_products %}
+    <div class="mt-5 pt-4" style="border-top: 1px solid var(--border-light);">
+        <div class="d-flex justify-content-between align-items-end mb-4">
+            <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-dark);">منتجات مشابهة</h2>
+            <a href="{% url 'ecommerce:product_list' %}" class="btn-outline-store" style="padding: 8px 20px; font-size: 0.82rem;">عرض الكل</a>
+        </div>
+        
+        <div class="row g-3">
+            {% for rp in related_products|slice:":4" %}
+            <div class="col-xl-3 col-lg-4 col-md-6 col-6">
+                <div class="product-card">
+                    <div class="card-image">
+                        <a href="{{ rp.get_absolute_url }}">
+                            {% if rp.image %}
+                            <img src="{{ rp.image.url }}" alt="{{ rp.name }}">
+                            {% else %}
+                            <img src="{% static 'img/no_image.png' %}" alt="{{ rp.name }}">
+                            {% endif %}
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        <h3 class="card-title"><a href="{{ rp.get_absolute_url }}">{{ rp.name }}</a></h3>
+                        <div class="card-price">
+                            <span class="current">{{ rp.price }}</span>
+                            <span class="currency">ج.م</span>
+                        </div>
+                        <button class="btn-cart" onclick="addToCart({{ rp.id }})">
+                            <i class="bi bi-bag-plus"></i> أضف للسلة
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function changeImage(thumb, url) {
+    document.getElementById('mainImage').src = url;
+    document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
+    thumb.classList.add('active');
+}
+
+function updateQty(delta) {
+    const input = document.getElementById('qtyInput');
+    let val = parseInt(input.value) + delta;
+    const max = parseInt(input.max) || 99;
+    if (val < 1) val = 1;
+    if (val > max) val = max;
+    input.value = val;
+}
+
+function setRating(rating) {
+    document.getElementById('ratingInput').value = rating;
+    document.querySelectorAll('#ratingStars i').forEach((star, idx) => {
+        star.className = idx < rating ? 'bi bi-star-fill fs-4' : 'bi bi-star fs-4';
+        star.style.color = idx < rating ? 'var(--warning)' : 'var(--border)';
+    });
+}
+
+// Initialize rating stars
+setRating(5);
+</script>
+{% endblock %}

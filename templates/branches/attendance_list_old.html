@@ -1,0 +1,149 @@
+{% extends 'base_v2.html' %}
+{% load static i18n humanize %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-1"><i class="bi bi-clock-history me-2"></i>{{ page_title|default:"الحضور والانصراف" }}</h4>
+            <p class="text-muted mb-0">سجل حضور وانصراف موظفي الفروع</p>
+        </div>
+        <a href="{% url 'branches:attendance_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>تسجيل حضور
+        </a>
+    </div>
+
+    <!-- الإحصائيات -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="card border-0 bg-light">
+                <div class="card-body text-center">
+                    <h3 class="text-success mb-0">{{ stats.present_today|default:0 }}</h3>
+                    <small class="text-muted">حاضرين اليوم</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-0 bg-light">
+                <div class="card-body text-center">
+                    <h3 class="text-danger mb-0">{{ stats.absent_today|default:0 }}</h3>
+                    <small class="text-muted">غائبين اليوم</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-0 bg-light">
+                <div class="card-body text-center">
+                    <h3 class="text-warning mb-0">{{ stats.late_today|default:0 }}</h3>
+                    <small class="text-muted">متأخرين</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-0 bg-light">
+                <div class="card-body text-center">
+                    <h3 class="text-info mb-0">{{ stats.total_hours|floatformat:1|default:"0" }}</h3>
+                    <small class="text-muted">ساعات اليوم</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- الفلاتر -->
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <form method="get" class="row g-2 align-items-center">
+                <div class="col-md-3">
+                    <select name="branch" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">كل الفروع</option>
+                        {% for b in branches %}
+                        <option value="{{ b.pk }}" {% if request.GET.branch == b.pk|stringformat:"s" %}selected{% endif %}>{{ b.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <input type="date" name="date" class="form-control form-control-sm" value="{{ request.GET.date|default:today }}">
+                </div>
+                <div class="col-md-3">
+                    <input type="text" name="q" class="form-control form-control-sm" placeholder="بحث بالاسم..." value="{{ request.GET.q }}">
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-search"></i> بحث</button>
+                    <a href="{% url 'branches:attendance_list' %}" class="btn btn-sm btn-outline-secondary">اليوم</a>
+                    <a href="?date={{ yesterday }}" class="btn btn-sm btn-outline-secondary">أمس</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- الجدول -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>الموظف</th>
+                            <th>الفرع</th>
+                            <th>وقت الحضور</th>
+                            <th>وقت الانصراف</th>
+                            <th>ساعات العمل</th>
+                            <th>الحالة</th>
+                            <th>ملاحظات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in attendance_list %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar bg-light rounded-circle me-2" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;">
+                                        <i class="bi bi-person text-muted"></i>
+                                    </div>
+                                    {{ a.staff.get_full_name|default:a.staff.username }}
+                                </div>
+                            </td>
+                            <td>{{ a.branch.name }}</td>
+                            <td>
+                                {% if a.check_in %}
+                                <span class="text-success"><i class="bi bi-box-arrow-in-right me-1"></i>{{ a.check_in|time:"H:i" }}</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if a.check_out %}
+                                <span class="text-danger"><i class="bi bi-box-arrow-left me-1"></i>{{ a.check_out|time:"H:i" }}</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ a.work_hours|floatformat:1|default:"-" }}</td>
+                            <td>
+                                {% if a.is_late %}
+                                <span class="badge bg-warning text-dark">متأخر</span>
+                                {% elif a.check_in %}
+                                <span class="badge bg-success">حاضر</span>
+                                {% else %}
+                                <span class="badge bg-secondary">غائب</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ a.notes|truncatechars:20|default:"-" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-5">
+                                <i class="bi bi-clock-history fs-1 d-block mb-2 opacity-50"></i>
+                                لا توجد سجلات حضور
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

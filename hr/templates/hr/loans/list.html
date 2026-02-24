@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "قائمة السلف" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h3 mb-0">
+                    <i class="bi bi-list-ul me-2"></i>{% trans "قائمة السلف" %}
+                </h1>
+                <a href="{% url 'hr:loan_request' %}" class="btn btn-success">
+                    <i class="bi bi-plus-circle me-2"></i>{% trans "سلفة جديدة" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <input type="text" name="search" class="form-control" 
+                                   placeholder="{% trans 'ابحث عن رقم السلفة أو اسم الموظف' %}"
+                                   value="{{ search }}">
+                        </div>
+                        <div class="col-md-3">
+                            <select name="status" class="form-select">
+                                <option value="">{% trans "جميع الحالات" %}</option>
+                                <option value="pending" {% if status == 'pending' %}selected{% endif %}>{% trans "معلقة" %}</option>
+                                <option value="approved" {% if status == 'approved' %}selected{% endif %}>{% trans "معتمدة" %}</option>
+                                <option value="active" {% if status == 'active' %}selected{% endif %}>{% trans "نشطة" %}</option>
+                                <option value="completed" {% if status == 'completed' %}selected{% endif %}>{% trans "مسددة" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="department" class="form-select">
+                                <option value="">{% trans "جميع الأقسام" %}</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept.id }}" {% if department == dept.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ dept.arabic_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-search me-2"></i>{% trans "بحث" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loans Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    {% if loans %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>{% trans "رقم السلفة" %}</th>
+                                    <th>{% trans "الموظف" %}</th>
+                                    <th>{% trans "المبلغ الأصلي" %}</th>
+                                    <th>{% trans "المدفوع" %}</th>
+                                    <th>{% trans "المتبقي" %}</th>
+                                    <th>{% trans "الأقساط" %}</th>
+                                    <th>{% trans "السداد" %}</th>
+                                    <th>{% trans "الحالة" %}</th>
+                                    <th>{% trans "التاريخ" %}</th>
+                                    <th>{% trans "الإجراء" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for loan in loans %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ loan.loan_number }}</strong>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'hr:loan_detail' loan.pk %}">
+                                            {{ loan.employee.arabic_name }}
+                                        </a>
+                                    </td>
+                                    <td>{{ loan.amount|floatformat:2 }} ر.ع</td>
+                                    <td class="text-success">{{ loan.paid_amount|floatformat:2 }} ر.ع</td>
+                                    <td class="text-danger">{{ loan.remaining_amount|floatformat:2 }} ر.ع</td>
+                                    <td>
+                                        <small class="badge bg-secondary">
+                                            {{ loan.installments_count }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height: 20px; width: 100px;">
+                                            <div class="progress-bar bg-{{ loan.progress_percentage|add:0|divisibleby:'50'|yesno:'success,warning,danger' }}" 
+                                                 role="progressbar" 
+                                                 style="width: {{ loan.progress_percentage }}%"
+                                                 title="{{ loan.progress_percentage|floatformat:0 }}%">
+                                                {{ loan.progress_percentage|floatformat:0 }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if loan.status == 'pending' %}
+                                            <span class="badge bg-warning">{% trans "معلقة" %}</span>
+                                        {% elif loan.status == 'approved' %}
+                                            <span class="badge bg-info">{% trans "معتمدة" %}</span>
+                                        {% elif loan.status == 'active' %}
+                                            <span class="badge bg-primary">{% trans "نشطة" %}</span>
+                                        {% elif loan.status == 'completed' %}
+                                            <span class="badge bg-success">{% trans "مسددة" %}</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">{{ loan.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ loan.request_date|date:"Y-m-d" }}</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'hr:loan_detail' loan.pk %}" class="btn btn-outline-primary" title="{% trans 'عرض' %}">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            <a href="{% url 'hr:loan_receipt' loan.pk %}" class="btn btn-outline-info" title="{% trans 'طباعة' %}" target="_blank">
+                                                <i class="bi bi-printer"></i>
+                                            </a>
+                                            {% if loan.status == 'pending' and perms.hr.approve_loan %}
+                                            <a href="{% url 'hr:loan_approve' loan.pk %}" class="btn btn-outline-success" title="{% trans 'موافقة' %}">
+                                                <i class="bi bi-check-circle"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if is_paginated %}
+                    <nav class="d-flex justify-content-center mt-4">
+                        <ul class="pagination">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}">
+                                        {{ page_obj.previous_page_number }}
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_obj.number }}</span>
+                            </li>
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}">
+                                        {{ page_obj.next_page_number }}
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                    {% else %}
+                    <div class="alert alert-info m-4">
+                        <i class="bi bi-info-circle me-2"></i>
+                        {% trans "لا توجد سلف مطابقة لمعايير البحث" %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

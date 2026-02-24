@@ -1,0 +1,141 @@
+{% extends 'base_templates/_list_professional.html' %}
+{% load i18n %}
+
+{% block page_title %}وحدات الإنتاج{% endblock %}
+{% block hero_icon %}bi-boxes{% endblock %}
+{% block hero_title %}وحدات المنتجات النهائية{% endblock %}
+{% block hero_subtitle %}تتبع الوحدات المنتجة والباركود/QR{% endblock %}
+
+{# زر الإضافة في قالب القائمة الأساسي (كان افتراضياً #) #}
+{% block add_button_url %}{% url 'production:unit_create' %}{% endblock %}
+{% block add_button_text %}وحدة جديدة{% endblock %}
+
+{% block stats_cards %}
+  <div class="col-md-2 col-6">
+    <div class="stat-card">
+      <div class="stat-value">{{ stats.total|default:0 }}</div>
+      <div class="stat-label">الإجمالي</div>
+    </div>
+  </div>
+  <div class="col-md-2 col-6">
+    <div class="stat-card">
+      <div class="stat-value">{{ stats.produced|default:0 }}</div>
+      <div class="stat-label">منتج</div>
+    </div>
+  </div>
+  <div class="col-md-2 col-6">
+    <div class="stat-card">
+      <div class="stat-value">{{ stats.in_stock|default:0 }}</div>
+      <div class="stat-label">في المخزن</div>
+    </div>
+  </div>
+  <div class="col-md-2 col-6">
+    <div class="stat-card">
+      <div class="stat-value">{{ stats.sold|default:0 }}</div>
+      <div class="stat-label">مباع</div>
+    </div>
+  </div>
+  <div class="col-md-2 col-6">
+    <div class="stat-card">
+      <div class="stat-value">{{ stats.registered|default:0 }}</div>
+      <div class="stat-label">ضمان مسجل</div>
+    </div>
+  </div>
+  <div class="col-md-2 col-6">
+    <div class="stat-card">
+      <div class="stat-value">{{ stats.not_registered|default:0 }}</div>
+      <div class="stat-label">بدون ضمان</div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block filter_fields %}
+  <div class="filter-group">
+    <label>{% trans 'بحث' %}</label>
+    <input type="text" name="search" class="form-control" placeholder="Serial / Barcode" value="{{ request.GET.search|default:'' }}">
+  </div>
+
+  <div class="filter-group">
+    <label>المنتج</label>
+    <select name="product" class="form-select">
+      <option value="">الكل</option>
+      {% for p in products %}
+        <option value="{{ p.id }}" {% if request.GET.product == p.id|stringformat:'s' %}selected{% endif %}>{{ p.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label>الحالة</label>
+    <select name="status" class="form-select">
+      <option value="">الكل</option>
+      {% for key,label in status_choices %}
+        <option value="{{ key }}" {% if request.GET.status == key %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label>الضمان</label>
+    <select name="warranty" class="form-select">
+      <option value="">الكل</option>
+      {% for key,label in warranty_choices %}
+        <option value="{{ key }}" {% if request.GET.warranty == key %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+{% endblock %}
+
+{% block table_headers %}
+  <th>رقم الوحدة</th>
+  <th>المنتج</th>
+  <th>تاريخ الإنتاج</th>
+  <th>أمر الإنتاج</th>
+  <th>الحالة</th>
+  <th class="text-end">إجراءات</th>
+{% endblock %}
+
+{% block table_rows %}
+  {% for unit in units %}
+  <tr>
+    <td>
+      <a href="{% url 'production:unit_detail' unit.pk %}" class="text-decoration-none">
+        <code>{{ unit.unit_serial }}</code>
+      </a>
+      <div class="small text-muted">{{ unit.barcode }}</div>
+    </td>
+    <td>{{ unit.product.name }}</td>
+    <td>{{ unit.manufacture_date|date:"Y-m-d" }}</td>
+    <td>{% if unit.production_order %}{{ unit.production_order.number }}{% else %}-{% endif %}</td>
+    <td>
+      {% if unit.status == 'in_stock' %}
+        <span class="badge bg-success">{{ unit.get_status_display }}</span>
+      {% elif unit.status == 'produced' %}
+        <span class="badge bg-info">{{ unit.get_status_display }}</span>
+      {% elif unit.status == 'sold_to_dealer' or unit.status == 'sold_to_customer' %}
+        <span class="badge bg-warning text-dark">{{ unit.get_status_display }}</span>
+      {% elif unit.status == 'warranty_registered' %}
+        <span class="badge bg-primary">{{ unit.get_status_display }}</span>
+      {% else %}
+        <span class="badge bg-secondary">{{ unit.get_status_display }}</span>
+      {% endif %}
+    </td>
+    <td class="text-end text-nowrap">
+      <a href="{% url 'production:unit_print_label' unit.pk %}" class="btn btn-sm btn-outline-primary" target="_blank" title="طباعة">
+        <i class="bi bi-printer"></i>
+      </a>
+      <a href="{% url 'production:unit_detail' unit.pk %}" class="btn btn-sm btn-outline-secondary" title="عرض">
+        <i class="bi bi-eye"></i>
+      </a>
+    </td>
+  </tr>
+  {% empty %}
+  <tr>
+    <td colspan="6" class="text-center text-muted py-4">لا توجد وحدات</td>
+  </tr>
+  {% endfor %}
+{% endblock %}
+
+{% block pagination %}
+  {% include 'includes/pagination.html' with page_obj=units %}
+{% endblock %}

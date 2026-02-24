@@ -1,0 +1,151 @@
+﻿{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}عمولات الموظف - {{ employee.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .commission-card {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        border-radius: 15px;
+        padding: 25px;
+        color: white;
+        margin-bottom: 20px;
+    }
+    .commission-card h3 { font-size: 2.5rem; font-weight: bold; }
+    
+    .stat-box {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .stat-box h4 { font-size: 1.8rem; font-weight: bold; margin: 10px 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-1"><i class="bi bi-cash-stack text-success me-2"></i>عمولات الموظف</h3>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">الرئيسية</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'sales:crm_analytics_dashboard' %}">تحليلات العملاء</a></li>
+                    <li class="breadcrumb-item active">{{ employee.name }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <!-- الفلاتر -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">من تاريخ</label>
+                    <input type="date" name="period_start" class="form-control" value="{ period_start|date:'Y-m-d' }">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">إلى تاريخ</label>
+                    <input type="date" name="period_end" class="form-control" value="{ period_end|date:'Y-m-d' }">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-filter me-1"></i> تصفية</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- معلومات الموظف -->
+        <div class="col-md-4">
+            <div class="commission-card">
+                <h4 class="mb-3">{{ employee.name }}</h4>
+                <p><i class="bi bi-briefcase me-2"></i>{{ employee.position.title|default:"-" }}</p>
+                <p><i class="bi bi-building me-2"></i>{{ employee.department.name|default:"-" }}</p>
+                <hr style="border-color: rgba(255,255,255,0.3);">
+                <p class="mb-1">إجمالي العمولة المستحقة</p>
+                <h3>{{ commission.total_commission|floatformat:2|default:"0.00" }}</h3>
+            </div>
+        </div>
+
+        <!-- إحصائيات العمولة -->
+        <div class="col-md-8">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <div class="stat-box">
+                        <p class="text-muted mb-0">إجمالي المبيعات</p>
+                        <h4 class="text-primary">{{ commission.total_sales|floatformat:0|default:"0" }}</h4>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="stat-box">
+                        <p class="text-muted mb-0">عدد الفواتير</p>
+                        <h4 class="text-info">{{ commission.invoice_count|default:"0" }}</h4>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="stat-box">
+                        <p class="text-muted mb-0">نسبة العمولة</p>
+                        <h4 class="text-warning">{{ commission.commission_rate|floatformat:1|default:"0" }}%</h4>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="stat-box">
+                        <p class="text-muted mb-0">متوسط قيمة الفاتورة</p>
+                        <h4 class="text-success">{{ commission.avg_invoice|floatformat:0|default:"0" }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- تفاصيل العمولات -->
+    {% if commission.details %}
+    <div class="card shadow-sm mt-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>تفاصيل العمولات</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>رقم الفاتورة</th>
+                            <th>العميل</th>
+                            <th class="text-end">قيمة الفاتورة</th>
+                            <th class="text-end">العمولة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in commission.details %}
+                        <tr>
+                            <td>{{ item.date|date:"d/m/Y" }}</td>
+                            <td>{{ item.invoice_number }}</td>
+                            <td>{{ item.customer_name }}</td>
+                            <td class="text-end">{{ item.amount|floatformat:2 }}</td>
+                            <td class="text-end text-success">{{ item.commission|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <th colspan="3">الإجمالي</th>
+                            <th class="text-end">{{ commission.total_sales|floatformat:2 }}</th>
+                            <th class="text-end text-success">{{ commission.total_commission|floatformat:2 }}</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

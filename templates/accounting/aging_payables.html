@@ -1,0 +1,364 @@
+﻿{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "تقرير أعمار الذمم الدائنة" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+    }
+    
+    .page-hero {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    @media (max-width: 992px) {
+        .summary-cards { grid-template-columns: repeat(3, 1fr); }
+    }
+    
+    @media (max-width: 576px) {
+        .summary-cards { grid-template-columns: 1fr 1fr; }
+    }
+    
+    .summary-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        text-align: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        border-top: 4px solid;
+    }
+    
+    .summary-card.current { border-color: var(--success-color); }
+    .summary-card.days30 { border-color: #17a2b8; }
+    .summary-card.days60 { border-color: var(--warning-color); }
+    .summary-card.days90 { border-color: #fd7e14; }
+    .summary-card.over90 { border-color: var(--danger-color); }
+    
+    .age-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+    }
+    
+    .age-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .age-count {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .filter-bar {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        margin-bottom: 1.5rem;
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    
+    .report-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .report-header {
+        padding: 1.25rem 1.5rem;
+        background: #fafbfc;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .aging-table {
+        width: 100%;
+        margin: 0;
+    }
+    
+    .aging-table th {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        font-weight: 600;
+        color: var(--primary-color);
+        padding: 1rem;
+        border: none;
+        text-align: center;
+    }
+    
+    .aging-table th:first-child { text-align: right; }
+    
+    .aging-table td {
+        padding: 1rem;
+        border-bottom: 1px solid #eee;
+        text-align: center;
+        vertical-align: middle;
+    }
+    
+    .aging-table td:first-child { text-align: right; }
+    
+    .aging-table tbody tr:hover {
+        background: rgba(220, 53, 69, 0.03);
+    }
+    
+    .vendor-cell {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .vendor-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #dc3545, #c82333);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+    }
+    
+    .vendor-name { font-weight: 600; color: var(--primary-color); }
+    .vendor-code { font-size: 0.8rem; color: #6c757d; }
+    
+    .amount-cell { font-weight: 600; }
+    .amount-cell.has-value { background: rgba(0, 0, 0, 0.02); }
+    
+    .total-cell {
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: var(--danger-color);
+    }
+    
+    .aging-table tfoot td {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        font-weight: 700;
+        border-top: 2px solid var(--danger-color);
+    }
+    
+    .priority-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .priority-high { background: rgba(220, 53, 69, 0.15); color: var(--danger-color); }
+    .priority-medium { background: rgba(255, 193, 7, 0.15); color: #b38600; }
+    .priority-low { background: rgba(40, 167, 69, 0.15); color: var(--success-color); }
+    
+    .btn-export {
+        background: linear-gradient(135deg, var(--accent-color), #00b894);
+        border: none;
+        color: white;
+        padding: 0.6rem 1.25rem;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+    
+    [data-bs-theme="dark"] .summary-card,
+    [data-bs-theme="dark"] .filter-bar,
+    [data-bs-theme="dark"] .report-card {
+        background: #1a1d21;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Hero Section -->
+    <div class="page-hero">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="h2 mb-2">
+                    <i class="fas fa-file-invoice-dollar me-2"></i>
+                    {% trans "تقرير أعمار الذمم الدائنة" %}
+                </h1>
+                <p class="mb-0 opacity-75">
+                    {% trans "تحليل المستحقات للموردين حسب فترات الاستحقاق لإدارة التدفق النقدي" %}
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <button class="btn btn-export">
+                    <i class="fas fa-file-excel me-1"></i>
+                    {% trans "تصدير Excel" %}
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="summary-cards">
+        <div class="summary-card current">
+            <div class="age-label">{% trans "جاري" %}</div>
+            <div class="age-value">{{ current_amount|default:"95,000"|intcomma }}</div>
+            <div class="age-count">8 {% trans "موردين" %}</div>
+        </div>
+        <div class="summary-card days30">
+            <div class="age-label">1-30 {% trans "يوم" %}</div>
+            <div class="age-value">{{ days30_amount|default:"65,000"|intcomma }}</div>
+            <div class="age-count">6 {% trans "موردين" %}</div>
+        </div>
+        <div class="summary-card days60">
+            <div class="age-label">31-60 {% trans "يوم" %}</div>
+            <div class="age-value">{{ days60_amount|default:"40,000"|intcomma }}</div>
+            <div class="age-count">4 {% trans "موردين" %}</div>
+        </div>
+        <div class="summary-card days90">
+            <div class="age-label">61-90 {% trans "يوم" %}</div>
+            <div class="age-value">{{ days90_amount|default:"22,000"|intcomma }}</div>
+            <div class="age-count">2 {% trans "مورد" %}</div>
+        </div>
+        <div class="summary-card over90">
+            <div class="age-label">+90 {% trans "يوم" %}</div>
+            <div class="age-value">{{ over90_amount|default:"18,000"|intcomma }}</div>
+            <div class="age-count">1 {% trans "مورد" %}</div>
+        </div>
+    </div>
+    
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+        <label class="fw-bold">{% trans "كما في:" %}</label>
+        <input type="date" class="form-control" style="width: auto;" value="{% now 'Y-m-d' %}">
+        <select class="form-select" style="width: auto;">
+            <option value="">{% trans "كل الموردين" %}</option>
+        </select>
+        <select class="form-select" style="width: auto;">
+            <option value="">{% trans "الأولوية" %}</option>
+            <option value="high">{% trans "عالية" %}</option>
+            <option value="medium">{% trans "متوسطة" %}</option>
+            <option value="low">{% trans "منخفضة" %}</option>
+        </select>
+        <button class="btn btn-primary">
+            <i class="fas fa-sync me-1"></i>
+            {% trans "تحديث" %}
+        </button>
+    </div>
+    
+    <!-- Report Table -->
+    <div class="report-card">
+        <div class="report-header">
+            <h5 class="mb-0">
+                <i class="fas fa-table me-2"></i>
+                {% trans "تفاصيل الذمم الدائنة" %}
+            </h5>
+            <span class="badge bg-danger">{% trans "الإجمالي المستحق:" %} 240,000 ج.م</span>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table aging-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "المورد" %}</th>
+                        <th>{% trans "الأولوية" %}</th>
+                        <th>{% trans "جاري" %}</th>
+                        <th>1-30</th>
+                        <th>31-60</th>
+                        <th>61-90</th>
+                        <th>+90</th>
+                        <th>{% trans "الإجمالي" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <div class="vendor-cell">
+                                <div class="vendor-avatar">م</div>
+                                <div>
+                                    <div class="vendor-name">{% trans "مصنع المستقبل" %}</div>
+                                    <div class="vendor-code">VND-001</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="priority-badge priority-high"><i class="fas fa-exclamation-circle"></i> {% trans "عالية" %}</span></td>
+                        <td class="amount-cell has-value">30,000</td>
+                        <td class="amount-cell has-value">20,000</td>
+                        <td class="amount-cell has-value">15,000</td>
+                        <td class="amount-cell has-value">12,000</td>
+                        <td class="amount-cell has-value">18,000</td>
+                        <td class="total-cell">95,000</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="vendor-cell">
+                                <div class="vendor-avatar">ش</div>
+                                <div>
+                                    <div class="vendor-name">{% trans "شركة التوريدات" %}</div>
+                                    <div class="vendor-code">VND-002</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="priority-badge priority-medium"><i class="fas fa-clock"></i> {% trans "متوسطة" %}</span></td>
+                        <td class="amount-cell has-value">25,000</td>
+                        <td class="amount-cell has-value">18,000</td>
+                        <td class="amount-cell has-value">12,000</td>
+                        <td class="amount-cell">-</td>
+                        <td class="amount-cell">-</td>
+                        <td class="total-cell">55,000</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="vendor-cell">
+                                <div class="vendor-avatar">خ</div>
+                                <div>
+                                    <div class="vendor-name">{% trans "خدمات الصيانة" %}</div>
+                                    <div class="vendor-code">VND-003</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="priority-badge priority-low"><i class="fas fa-check-circle"></i> {% trans "منخفضة" %}</span></td>
+                        <td class="amount-cell has-value">20,000</td>
+                        <td class="amount-cell has-value">15,000</td>
+                        <td class="amount-cell">-</td>
+                        <td class="amount-cell">-</td>
+                        <td class="amount-cell">-</td>
+                        <td class="total-cell">35,000</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="2"><strong>{% trans "الإجمالي" %}</strong></td>
+                        <td>95,000</td>
+                        <td>65,000</td>
+                        <td>40,000</td>
+                        <td>22,000</td>
+                        <td>18,000</td>
+                        <td class="total-cell">240,000</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,148 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "سجل المزامنة" %} - {{ SYSTEM_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="bi bi-journal-text me-2"></i>{% trans "سجل المزامنة" %}</h2>
+            <p class="text-muted mb-0">{% trans "تتبع عمليات المزامنة مع WooCommerce" %}</p>
+        </div>
+        <a href="{% url 'woocommerce_integration:dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i>{% trans "العودة" %}
+        </a>
+    </div>
+    
+    <!-- Filters -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "نوع العملية" %}</label>
+                    <select name="type" class="form-select">
+                        <option value="">{% trans "الكل" %}</option>
+                        <option value="products" {% if request.GET.type == 'products' %}selected{% endif %}>{% trans "منتجات" %}</option>
+                        <option value="orders" {% if request.GET.type == 'orders' %}selected{% endif %}>{% trans "طلبات" %}</option>
+                        <option value="inventory" {% if request.GET.type == 'inventory' %}selected{% endif %}>{% trans "مخزون" %}</option>
+                        <option value="customers" {% if request.GET.type == 'customers' %}selected{% endif %}>{% trans "عملاء" %}</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "الحالة" %}</label>
+                    <select name="status" class="form-select">
+                        <option value="">{% trans "الكل" %}</option>
+                        <option value="success" {% if request.GET.status == 'success' %}selected{% endif %}>{% trans "نجح" %}</option>
+                        <option value="failed" {% if request.GET.status == 'failed' %}selected{% endif %}>{% trans "فشل" %}</option>
+                        <option value="partial" {% if request.GET.status == 'partial' %}selected{% endif %}>{% trans "جزئي" %}</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "التاريخ" %}</label>
+                    <input type="date" name="date" class="form-control" value="{{ request.GET.date }}">
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search me-1"></i>{% trans "بحث" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Logs Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>{% trans "التاريخ" %}</th>
+                            <th>{% trans "النوع" %}</th>
+                            <th>{% trans "الاتجاه" %}</th>
+                            <th>{% trans "العناصر" %}</th>
+                            <th>{% trans "نجح" %}</th>
+                            <th>{% trans "فشل" %}</th>
+                            <th>{% trans "الحالة" %}</th>
+                            <th>{% trans "الرسالة" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td>
+                                <small>{{ log.created_at }}</small>
+                            </td>
+                            <td>
+                                {% if log.sync_type == 'products' %}
+                                <span class="badge bg-primary">{% trans "منتجات" %}</span>
+                                {% elif log.sync_type == 'orders' %}
+                                <span class="badge bg-warning text-dark">{% trans "طلبات" %}</span>
+                                {% elif log.sync_type == 'inventory' %}
+                                <span class="badge bg-info">{% trans "مخزون" %}</span>
+                                {% elif log.sync_type == 'customers' %}
+                                <span class="badge bg-secondary">{% trans "عملاء" %}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.direction == 'push' %}
+                                <i class="bi bi-cloud-upload text-success"></i> {% trans "رفع" %}
+                                {% else %}
+                                <i class="bi bi-cloud-download text-primary"></i> {% trans "استيراد" %}
+                                {% endif %}
+                            </td>
+                            <td>{{ log.total_items|default:0 }}</td>
+                            <td class="text-success">{{ log.success_count|default:0 }}</td>
+                            <td class="text-danger">{{ log.error_count|default:0 }}</td>
+                            <td>
+                                {% if log.status == 'success' %}
+                                <span class="badge bg-success">{% trans "نجح" %}</span>
+                                {% elif log.status == 'failed' %}
+                                <span class="badge bg-danger">{% trans "فشل" %}</span>
+                                {% else %}
+                                <span class="badge bg-warning text-dark">{% trans "جزئي" %}</span>
+                                {% endif %}
+                            </td>
+                            <td><small class="text-muted">{{ log.message|truncatechars:50 }}</small></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                {% trans "لا توجد سجلات مزامنة" %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pagination -->
+    {% if logs.has_other_pages %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if logs.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ logs.previous_page_number }}">{% trans "السابق" %}</a>
+            </li>
+            {% endif %}
+            {% for num in logs.paginator.page_range %}
+            <li class="page-item {% if logs.number == num %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+            </li>
+            {% endfor %}
+            {% if logs.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ logs.next_page_number }}">{% trans "التالي" %}</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

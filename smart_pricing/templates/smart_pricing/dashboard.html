@@ -1,0 +1,421 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "لوحة تحكم التسعير الذكي" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        border-radius: 15px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border: none;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    }
+    .stat-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+    }
+    .alert-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        min-width: 20px;
+        height: 20px;
+        border-radius: 10px;
+        font-size: 11px;
+    }
+    .progress-ring {
+        width: 80px;
+        height: 80px;
+    }
+    .quick-action-btn {
+        padding: 15px 25px;
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    .quick-action-btn:hover {
+        transform: scale(1.05);
+    }
+    .season-badge {
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان الرئيسي -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="fas fa-brain text-primary"></i>
+                        {% trans "لوحة تحكم التسعير الذكي" %}
+                    </h2>
+                    <p class="text-muted mb-0">{% trans "إدارة وتحليل الأسعار بالذكاء الاصطناعي" %}</p>
+                </div>
+                <div>
+                    <a href="{% url 'smart_pricing:auto_pricing' %}" class="btn btn-primary me-2">
+                        <i class="fas fa-magic"></i> {% trans "تسعير تلقائي" %}
+                    </a>
+                    <a href="{% url 'smart_pricing:create_quote' %}" class="btn btn-success">
+                        <i class="fas fa-plus"></i> {% trans "عرض سعر جديد" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- بطاقات الإحصائيات -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stat-card bg-primary text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50 mb-1">{% trans "المنتجات" %}</h6>
+                            <h2 class="mb-0">{{ dashboard.total_products|default:0 }}</h2>
+                        </div>
+                        <div class="stat-icon bg-white bg-opacity-25">
+                            <i class="fas fa-box text-white"></i>
+                        </div>
+                    </div>
+                    <small class="text-white-50">
+                        <i class="fas fa-chart-line"></i> {% trans "منتجات نشطة" %}
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stat-card bg-success text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50 mb-1">{% trans "تغييرات الأسعار" %}</h6>
+                            <h2 class="mb-0">{{ dashboard.price_changes_30_days|default:0 }}</h2>
+                        </div>
+                        <div class="stat-icon bg-white bg-opacity-25">
+                            <i class="fas fa-exchange-alt text-white"></i>
+                        </div>
+                    </div>
+                    <small class="text-white-50">
+                        <i class="fas fa-calendar"></i> {% trans "آخر 30 يوم" %}
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stat-card bg-warning text-dark h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">{% trans "التنبيهات" %}</h6>
+                            <h2 class="mb-0">{{ dashboard.pending_alerts|default:0 }}</h2>
+                        </div>
+                        <div class="stat-icon bg-dark bg-opacity-10 position-relative">
+                            <i class="fas fa-bell text-dark"></i>
+                            {% if dashboard.urgent_alerts %}
+                            <span class="badge bg-danger alert-badge">{{ dashboard.urgent_alerts }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <a href="{% url 'smart_pricing:alerts_list' %}" class="text-dark">
+                        <i class="fas fa-eye"></i> {% trans "عرض التنبيهات" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stat-card bg-info text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50 mb-1">{% trans "المنافسين" %}</h6>
+                            <h2 class="mb-0">{{ dashboard.competitors_count|default:0 }}</h2>
+                        </div>
+                        <div class="stat-icon bg-white bg-opacity-25">
+                            <i class="fas fa-users text-white"></i>
+                        </div>
+                    </div>
+                    <small class="text-white-50">
+                        <i class="fas fa-chart-bar"></i> {{ dashboard.competitor_prices_30_days|default:0 }} {% trans "سعر مسجل" %}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- التنبيهات العاجلة -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle text-warning"></i>
+                        {% trans "التنبيهات المعلقة" %}
+                    </h5>
+                    <a href="{% url 'smart_pricing:alerts_list' %}" class="btn btn-sm btn-outline-primary">
+                        {% trans "عرض الكل" %}
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    {% if pending_alerts %}
+                    <div class="list-group list-group-flush">
+                        {% for alert in pending_alerts %}
+                        <div class="list-group-item d-flex justify-content-between align-items-start">
+                            <div class="ms-2 me-auto">
+                                <div class="d-flex align-items-center">
+                                    {% if alert.priority == 'urgent' %}
+                                    <span class="badge bg-danger me-2">{% trans "عاجل" %}</span>
+                                    {% elif alert.priority == 'high' %}
+                                    <span class="badge bg-warning text-dark me-2">{% trans "مهم" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-info me-2">{% trans "معلومة" %}</span>
+                                    {% endif %}
+                                    <strong>{{ alert.title }}</strong>
+                                </div>
+                                <small class="text-muted">{{ alert.message|truncatewords:15 }}</small>
+                            </div>
+                            {% if alert.recommended_price %}
+                            <span class="badge bg-success rounded-pill">{{ alert.recommended_price }} ج.م</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-check-circle fa-3x mb-3 text-success"></i>
+                        <p>{% trans "لا توجد تنبيهات معلقة" %}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- المواسم النشطة -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-alt text-success"></i>
+                        {% trans "المواسم والعروض النشطة" %}
+                    </h5>
+                    <a href="{% url 'smart_pricing:seasonal_list' %}" class="btn btn-sm btn-outline-success">
+                        {% trans "إدارة المواسم" %}
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if active_seasons %}
+                    <div class="row">
+                        {% for season in active_seasons %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card border-success">
+                                <div class="card-body py-3">
+                                    <div class="d-flex align-items-center">
+                                        <span class="badge bg-success season-badge me-2">{% trans "نشط" %}</span>
+                                        <strong>{{ season.name }}</strong>
+                                    </div>
+                                    <small class="text-muted d-block mt-1">
+                                        {% if season.adjustment_type == 'percentage' %}
+                                        {% if season.adjustment_value > 0 %}
+                                        <i class="fas fa-arrow-up text-success"></i>
+                                        {% else %}
+                                        <i class="fas fa-arrow-down text-danger"></i>
+                                        {% endif %}
+                                        {{ season.adjustment_value }}%
+                                        {% else %}
+                                        {{ season.adjustment_value }} ج.م
+                                        {% endif %}
+                                    </small>
+                                    <small class="text-muted d-block">
+                                        {% trans "حتى" %}: {{ season.end_date }}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-snowflake fa-2x mb-2"></i>
+                        <p>{% trans "لا توجد مواسم نشطة حالياً" %}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- أحدث تغييرات الأسعار -->
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history text-primary"></i>
+                        {% trans "أحدث تغييرات الأسعار" %}
+                    </h5>
+                    <a href="{% url 'smart_pricing:price_history' %}" class="btn btn-sm btn-outline-primary">
+                        {% trans "عرض التاريخ" %}
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{% trans "المنتج" %}</th>
+                                    <th>{% trans "السعر القديم" %}</th>
+                                    <th>{% trans "السعر الجديد" %}</th>
+                                    <th>{% trans "التغيير" %}</th>
+                                    <th>{% trans "السبب" %}</th>
+                                    <th>{% trans "التاريخ" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for change in recent_changes %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ change.product.name|truncatewords:3 }}</strong>
+                                    </td>
+                                    <td>{{ change.old_price }} ج.م</td>
+                                    <td>{{ change.new_price }} ج.م</td>
+                                    <td>
+                                        {% if change.price_change_percentage > 0 %}
+                                        <span class="text-success">
+                                            <i class="fas fa-arrow-up"></i>
+                                            +{{ change.price_change_percentage|floatformat:1 }}%
+                                        </span>
+                                        {% elif change.price_change_percentage < 0 %}
+                                        <span class="text-danger">
+                                            <i class="fas fa-arrow-down"></i>
+                                            {{ change.price_change_percentage|floatformat:1 }}%
+                                        </span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ change.get_reason_display }}</span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ change.changed_at|date:"d/m H:i" }}</small>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">
+                                        {% trans "لا توجد تغييرات حديثة" %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- الإجراءات السريعة وأهداف التسعير -->
+        <div class="col-lg-4 mb-4">
+            <!-- الإجراءات السريعة -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bolt text-warning"></i>
+                        {% trans "إجراءات سريعة" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'smart_pricing:optimizer' %}" class="btn btn-outline-primary quick-action-btn">
+                            <i class="fas fa-chart-line me-2"></i>
+                            {% trans "تحسين الأسعار" %}
+                        </a>
+                        <a href="{% url 'smart_pricing:simulation' %}" class="btn btn-outline-info quick-action-btn">
+                            <i class="fas fa-flask me-2"></i>
+                            {% trans "محاكاة التسعير" %}
+                        </a>
+                        <a href="{% url 'smart_pricing:competitors_list' %}" class="btn btn-outline-secondary quick-action-btn">
+                            <i class="fas fa-user-friends me-2"></i>
+                            {% trans "تحليل المنافسين" %}
+                        </a>
+                        <a href="{% url 'smart_pricing:reports' %}" class="btn btn-outline-dark quick-action-btn">
+                            <i class="fas fa-file-alt me-2"></i>
+                            {% trans "التقارير" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- أهداف التسعير -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bullseye text-danger"></i>
+                        {% trans "أهداف التسعير" %}
+                    </h5>
+                    <a href="{% url 'smart_pricing:goals_list' %}" class="btn btn-sm btn-outline-danger">
+                        {% trans "الكل" %}
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% for goal in goals %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>{{ goal.name|truncatewords:4 }}</span>
+                            <span class="text-muted">{{ goal.progress|floatformat:0 }}%</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar 
+                                {% if goal.progress >= 80 %}bg-success
+                                {% elif goal.progress >= 50 %}bg-info
+                                {% elif goal.progress >= 25 %}bg-warning
+                                {% else %}bg-danger{% endif %}"
+                                role="progressbar" 
+                                style="width: {{ goal.progress }}%">
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted text-center">{% trans "لا توجد أهداف نشطة" %}</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // تحديث الإحصائيات تلقائياً كل دقيقة
+    setInterval(function() {
+        fetch('{% url "smart_pricing:api_dashboard_stats" %}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('Stats updated:', data.data);
+                }
+            });
+    }, 60000);
+</script>
+{% endblock %}

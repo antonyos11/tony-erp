@@ -1,0 +1,440 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static currency_tags %}
+{% block title %}فاتورة مبيعات #{{ invoice.number }}{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<style>
+    .invoice-container {
+        max-width: 900px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    .invoice-header-section {
+        background: linear-gradient(135deg, #6f42c1 0%, #8b5cf6 100%);
+        color: white;
+        padding: 2rem;
+        position: relative;
+    }
+    .invoice-header-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    .company-logo {
+        width: 80px;
+        height: 80px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .company-logo img {
+        max-width: 60px;
+        max-height: 60px;
+    }
+    .company-name {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    .company-info {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    .invoice-badge {
+        background: rgba(255,255,255,0.2);
+        padding: 0.75rem 1.5rem;
+        border-radius: 25px;
+        display: inline-block;
+        margin-top: 1rem;
+    }
+    .invoice-body {
+        padding: 2rem;
+    }
+    .info-section {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+    .info-card {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 1.25rem;
+    }
+    .info-card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        font-weight: 600;
+        color: #495057;
+    }
+    .info-card-header i {
+        color: #6f42c1;
+    }
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .info-row:last-child {
+        border-bottom: none;
+    }
+    .info-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    .info-value {
+        font-weight: 500;
+        color: #212529;
+    }
+    .badge-status {
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    .badge-cash { background: #d4edda; color: #155724; }
+    .badge-credit { background: #fff3cd; color: #856404; }
+    .items-table-wrapper {
+        margin-bottom: 2rem;
+    }
+    .items-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .items-table thead {
+        background: linear-gradient(135deg, #6f42c1 0%, #8b5cf6 100%);
+        color: white;
+    }
+    .items-table th {
+        padding: 0.875rem 1rem;
+        font-weight: 600;
+        text-align: center;
+    }
+    .items-table td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #e9ecef;
+        text-align: center;
+        vertical-align: middle;
+    }
+    .items-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+    .summary-section {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 2rem;
+    }
+    .summary-table-wrapper {
+        width: 350px;
+    }
+    .summary-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .summary-table td {
+        padding: 0.6rem 1rem;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .summary-table .label-col {
+        color: #6c757d;
+        text-align: right;
+    }
+    .summary-table .value-col {
+        text-align: left;
+        font-weight: 500;
+    }
+    .summary-table .highlight-row {
+        background: #fff3cd;
+    }
+    .summary-table .success-row {
+        background: #d4edda;
+    }
+    .summary-table .danger-row {
+        background: #f8d7da;
+    }
+    .summary-table .total-row {
+        background: linear-gradient(135deg, #6f42c1 0%, #8b5cf6 100%);
+        color: white;
+    }
+    .summary-table .total-row td {
+        padding: 0.875rem 1rem;
+        font-weight: 600;
+        border-bottom: none;
+    }
+    .invoice-footer {
+        background: linear-gradient(135deg, #6f42c1 0%, #8b5cf6 100%);
+        color: white;
+        padding: 1.5rem 2rem;
+        text-align: center;
+    }
+    .footer-note {
+        font-size: 0.9rem;
+        opacity: 0.9;
+        margin-bottom: 1rem;
+    }
+    .print-buttons {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    .btn-print {
+        padding: 0.5rem 1.25rem;
+        border-radius: 8px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    .btn-print:hover {
+        transform: translateY(-2px);
+    }
+    .btn-a4 {
+        background: white;
+        color: #6f42c1;
+    }
+    .btn-receipt {
+        background: #17a2b8;
+        color: white;
+        border: none;
+    }
+    .btn-back {
+        background: transparent;
+        color: white;
+        border: 1px solid rgba(255,255,255,0.5);
+    }
+    
+    @media print {
+        body { background: white !important; }
+        .invoice-container { box-shadow: none; max-width: 100%; }
+        .print-buttons, .no-print { display: none !important; }
+        .invoice-header-section, .invoice-footer { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="invoice-container">
+    <!-- Invoice Header -->
+    <div class="invoice-header-section">
+        <div class="d-flex justify-content-between align-items-start position-relative" style="z-index: 1;">
+            <div class="d-flex align-items-center gap-3">
+                <div class="company-logo">
+                    {% if company.logo %}
+                    <img src="{{ company.logo.url }}" alt="Logo">
+                    {% else %}
+                    <i class="bi bi-building fs-2"></i>
+                    {% endif %}
+                </div>
+                <div>
+                    <h2 class="company-name mb-1">{{ company.name|default:'شركة بيئلو للتشطيبات' }}</h2>
+                    <div class="company-info">
+                        <div><i class="bi bi-geo-alt me-1"></i> {{ company.address|default:'العنوان' }}</div>
+                        <div><i class="bi bi-telephone me-1"></i> {{ company.phone|default:'0000000000' }}</div>
+                        <div><i class="bi bi-card-text me-1"></i> الرقم الضريبي: {{ company.tax_number|default:'000000000' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="text-center">
+            <div class="invoice-badge">
+                <strong>فاتورة مبيعات #{{ invoice.number }}</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invoice Body -->
+    <div class="invoice-body">
+        <!-- Info Section -->
+        <div class="info-section">
+            <!-- Invoice Details -->
+            <div class="info-card">
+                <div class="info-card-header">
+                    <i class="bi bi-file-text"></i> تفاصيل الفاتورة
+                </div>
+                <div class="info-row">
+                    <span class="info-label">رقم الفاتورة:</span>
+                    <span class="info-value">#{{ invoice.number }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">التاريخ:</span>
+                    <span class="info-value">{{ invoice.date|date:'Y-m-d' }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">طريقة الدفع:</span>
+                    <span class="info-value">
+                        <span class="badge-status {% if invoice.paid >= invoice.total %}badge-cash{% else %}badge-credit{% endif %}">
+                            {% if invoice.paid >= invoice.total %}كاش{% else %}آجل{% endif %}
+                        </span>
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">نوع الدفع:</span>
+                    <span class="info-value">
+                        {% if invoice.payment_method %}{{ invoice.payment_method.name }}{% else %}<i class="bi bi-cash text-success"></i> نقدية{% endif %}
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">الضريبة:</span>
+                    <span class="info-value">{% if invoice.is_tax_inclusive %}شاملة{% else %}غير شاملة{% endif %}</span>
+                </div>
+            </div>
+
+            <!-- Customer Details -->
+            <div class="info-card">
+                <div class="info-card-header">
+                    <i class="bi bi-person"></i> بيانات العميل
+                </div>
+                <div class="info-row">
+                    <span class="info-label">اسم العميل:</span>
+                    <span class="info-value">{{ invoice.customer.name }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">رقم الهاتف:</span>
+                    <span class="info-value">{{ invoice.customer.phone|default:'---' }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">المندوب:</span>
+                    <span class="info-value">{{ invoice.salesman.get_full_name|default:'لك كوين صالح جامع الرحمن' }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">عبارة الحركة:</span>
+                    <span class="info-value">admin</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Items Table -->
+        <div class="items-table-wrapper">
+            <div class="table-responsive"><table class="items-table">
+                <thead>
+                    <tr>
+                        <th>المخزن</th>
+                        <th>المنتج</th>
+                        <th>الكمية</th>
+                        <th>السعر</th>
+                        <th>الخصم %</th>
+                        <th>الإجمالي</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in invoice.items.all %}
+                    <tr>
+                        <td>{{ item.location.name|default:'مخزن الدور الرابع' }}</td>
+                        <td>{{ item.product.name }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>{{ item.price|floatformat:2 }}</td>
+                        <td>0%</td>
+                        <td>{{ item.total|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">لا توجد بنود</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table></div>
+        </div>
+
+        <!-- Summary Section -->
+        <div class="summary-section">
+            <div class="summary-table-wrapper">
+                <div class="table-responsive"><table class="summary-table">
+                    <tr>
+                        <td class="label-col">إجمالي الضريبة:</td>
+                        <td class="value-col">{% currency_symbol %} {{ invoice.tax_amount|default:0|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">الرصيد السابق:</td>
+                        <td class="value-col">{% currency_symbol %} 0.00</td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">قيمة الشحن:</td>
+                        <td class="value-col">{% currency_symbol %} 0.00</td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">الإجمالي قبل الخصم:</td>
+                        <td class="value-col">{% currency_symbol %} {{ invoice.subtotal|default:invoice.total|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">خصم الأصناف:</td>
+                        <td class="value-col">{% currency_symbol %} 0.00</td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">الخصم الإضافي:</td>
+                        <td class="value-col">{% currency_symbol %} {{ invoice.discount|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">نسبة الخصم:</td>
+                        <td class="value-col"></td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">المبلغ المدفوع:</td>
+                        <td class="value-col">{% currency_symbol %} {{ invoice.paid|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">المبلغ المتبقي:</td>
+                        <td class="value-col">{% currency_symbol %} {{ invoice.remaining|floatformat:2 }}</td>
+                    </tr>
+                    <tr class="highlight-row">
+                        <td class="label-col"><strong>رصيد العميل قبل الفاتورة:</strong></td>
+                        <td class="value-col text-danger">{% currency_symbol %} 0.00</td>
+                    </tr>
+                    <tr class="success-row">
+                        <td class="label-col"><strong>المبلغ المدفوع:</strong></td>
+                        <td class="value-col">{% currency_symbol %} {{ invoice.paid|floatformat:2 }}</td>
+                    </tr>
+                    <tr class="danger-row">
+                        <td class="label-col"><strong>رصيد العميل بعد الفاتورة:</strong></td>
+                        <td class="value-col text-danger">{% currency_symbol %} {{ invoice.remaining|floatformat:2 }}</td>
+                    </tr>
+                    <tr class="total-row">
+                        <td class="label-col"><strong>القيمة الإجمالية:</strong></td>
+                        <td class="value-col">{% currency_symbol %} {{ invoice.total|floatformat:2 }}</td>
+                    </tr>
+                </table></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invoice Footer -->
+    <div class="invoice-footer">
+        <div class="footer-note">
+            <i class="bi bi-tag me-1"></i> ملاحظات
+        </div>
+        <p class="mb-3">شكراً لتعاملكم معنا</p>
+        <p class="small opacity-75 mb-3">هذا المستند تم إنشاؤه بواسطة منظومة Tony ERP المحاسبية</p>
+        
+        <div class="print-buttons no-print">
+            {% include 'sales/invoice_remote_print.html' with invoice=invoice %}
+            <a href="{% url 'sales:invoice_direct_print_a4' invoice.pk %}" class="btn-print btn-a4" target="_blank" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;">
+                <i class="bi bi-printer-fill"></i> 🖨️ طباعة مباشرة A4
+            </a>
+            <a href="{% url 'sales:invoice_print' invoice.pk %}?size=a4" class="btn-print btn-a4" target="_blank">
+                <i class="bi bi-file-earmark"></i> عرض الطباعة A4
+            </a>
+            <a href="{% url 'sales:invoice_print' invoice.pk %}?size=pos" class="btn-print btn-receipt" target="_blank">
+                <i class="bi bi-receipt"></i> Receipt 80mm
+            </a>
+            <a href="{% url 'sales:invoice_list' %}" class="btn-print btn-back">
+                <i class="bi bi-arrow-right"></i> رجوع للمبيعات
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

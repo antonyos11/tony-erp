@@ -1,0 +1,281 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .upload-area {
+        border: 2px dashed #007bff;
+        border-radius: 8px;
+        padding: 40px;
+        text-align: center;
+        background: #f8f9fa;
+        transition: all 0.3s;
+    }
+    
+    .upload-area:hover {
+        background: #e9ecef;
+        border-color: #0056b3;
+    }
+    
+    .upload-icon {
+        font-size: 48px;
+        color: #007bff;
+        margin-bottom: 20px;
+    }
+    
+    .instruction-card {
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        margin-top: 20px;
+    }
+    
+    .instruction-card h5 {
+        color: #28a745;
+        margin-bottom: 15px;
+    }
+    
+    .instruction-card ul {
+        list-style: none;
+        padding-right: 0;
+    }
+    
+    .instruction-card li {
+        padding: 8px 0;
+        border-bottom: 1px solid #f8f9fa;
+    }
+    
+    .instruction-card li:last-child {
+        border-bottom: none;
+    }
+    
+    .instruction-card li i {
+        color: #007bff;
+        margin-left: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-file-excel"></i> {{ title }}</h2>
+                    <p class="text-muted">استيراد منتجات متعددة دفعة واحدة من ملف Excel أو CSV</p>
+                </div>
+                <div>
+                    <a href="{% url 'inventory:download_import_template' %}" class="btn btn-success">
+                        <i class="fas fa-download"></i> تحميل القالب
+                    </a>
+                    <a href="{% url 'inventory:product_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-right"></i> رجوع
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-upload"></i> رفع الملف</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data" id="importForm">
+                        {% csrf_token %}
+                        
+                        <div class="upload-area" id="uploadArea">
+                            <div class="upload-icon">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                            </div>
+                            <h5>اسحب الملف هنا أو انقر للاختيار</h5>
+                            <p class="text-muted">يدعم ملفات Excel (.xlsx) و CSV (.csv)</p>
+                            <input type="file" 
+                                   name="import_file" 
+                                   id="fileInput" 
+                                   accept=".xlsx,.xls,.csv"
+                                   style="display: none;"
+                                   required>
+                            <button type="button" class="btn btn-primary mt-3" onclick="document.getElementById('fileInput').click()">
+                                <i class="fas fa-folder-open"></i> اختر الملف
+                            </button>
+                        </div>
+                        
+                        <div id="fileInfo" class="mt-3" style="display: none;">
+                            <div class="alert alert-info">
+                                <i class="fas fa-file"></i> 
+                                <strong>الملف المحدد:</strong> <span id="fileName"></span>
+                                <button type="button" class="btn btn-sm btn-danger float-left" onclick="clearFile()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-success btn-lg btn-block" id="submitBtn" disabled>
+                                <i class="fas fa-upload"></i> رفع واستيراد المنتجات
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="instruction-card">
+                <h5><i class="fas fa-info-circle"></i> خطوات الاستيراد</h5>
+                <ul>
+                    <li><i class="fas fa-check"></i> قم بتحميل قالب Excel</li>
+                    <li><i class="fas fa-check"></i> املأ بيانات المنتجات في القالب</li>
+                    <li><i class="fas fa-check"></i> احذف صف المثال قبل الرفع</li>
+                    <li><i class="fas fa-check"></i> ارفع الملف المكتمل</li>
+                    <li><i class="fas fa-check"></i> راجع النتائج والأخطاء</li>
+                </ul>
+            </div>
+            
+            <div class="instruction-card">
+                <h5><i class="fas fa-exclamation-triangle text-warning"></i> ملاحظات هامة</h5>
+                <ul>
+                    <li><i class="fas fa-star"></i> اسم المنتج مطلوب</li>
+                    <li><i class="fas fa-star"></i> SKU سيتم توليده تلقائياً إذا ترك فارغاً</li>
+                    <li><i class="fas fa-star"></i> تأكد من وجود الفئات والموردين في النظام</li>
+                    <li><i class="fas fa-star"></i> سيتم تجاهل الصفوف التي تحتوي على أخطاء</li>
+                    <li><i class="fas fa-star"></i> يمكن استيراد آلاف المنتجات دفعة واحدة</li>
+                </ul>
+            </div>
+            
+            <div class="instruction-card">
+                <h5><i class="fas fa-table text-info"></i> الأعمدة المدعومة</h5>
+                <ul style="font-size: 0.9em;">
+                    <li>اسم المنتج (مطلوب)</li>
+                    <li>SKU</li>
+                    <li>نوع المنتج</li>
+                    <li>نوع المادة الخام</li>
+                    <li>الفئة</li>
+                    <li>وحدة الشراء</li>
+                    <li>وحدة الاستخدام</li>
+                    <li>معامل التحويل</li>
+                    <li>سعر الشراء</li>
+                    <li>الحد الأدنى للمخزون</li>
+                    <li>المورد</li>
+                    <li>الباركود</li>
+                    <li>الوصف</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    // إضافة دعم السحب والإفلات
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#0056b3';
+        uploadArea.style.background = '#e7f3ff';
+    });
+    
+    uploadArea.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#007bff';
+        uploadArea.style.background = '#f8f9fa';
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#007bff';
+        uploadArea.style.background = '#f8f9fa';
+        
+        if (e.dataTransfer.files.length > 0) {
+            fileInput.files = e.dataTransfer.files;
+            handleFileSelect();
+        }
+    });
+    
+    fileInput.addEventListener('change', handleFileSelect);
+    
+    function handleFileSelect() {
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            fileName.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
+            fileInfo.style.display = 'block';
+            submitBtn.disabled = false;
+        }
+    }
+    
+    function clearFile() {
+        fileInput.value = '';
+        fileInfo.style.display = 'none';
+        submitBtn.disabled = true;
+    }
+    
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+    
+    // تحذير قبل مغادرة الصفحة إذا كان هناك ملف محدد
+    window.addEventListener('beforeunload', (e) => {
+        if (fileInput.files.length > 0 && !document.getElementById('importForm').submitted) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+    
+    document.getElementById('importForm').addEventListener('submit', function() {
+        this.submitted = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الاستيراد...';
+        submitBtn.disabled = true;
+        
+        // إظهار شريط التقدم
+        var progressDiv = document.createElement('div');
+        progressDiv.id = 'importProgress';
+        progressDiv.className = 'mt-3';
+        progressDiv.innerHTML = '<div class="alert alert-info">' +
+            '<h6><i class="fas fa-cog fa-spin me-2"></i>جاري معالجة الملف...</h6>' +
+            '<div class="progress mb-2" style="height: 20px;">' +
+            '<div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="importProgressBar" style="width: 0%">0%</div>' +
+            '</div>' +
+            '<small class="text-muted" id="importProgressText">جاري رفع الملف وتحليل البيانات. قد يستغرق ذلك بضع دقائق للملفات الكبيرة...</small>' +
+            '</div>';
+        submitBtn.parentNode.appendChild(progressDiv);
+        
+        // تحريك شريط التقدم تدريجياً
+        var progress = 0;
+        var steps = [
+            {pct: 15, text: 'جاري رفع الملف...', time: 2000},
+            {pct: 30, text: 'جاري قراءة البيانات من الملف...', time: 4000},
+            {pct: 50, text: 'جاري التحقق من صحة البيانات...', time: 8000},
+            {pct: 70, text: 'جاري إنشاء المنتجات...', time: 15000},
+            {pct: 85, text: 'جاري حفظ البيانات في قاعدة البيانات...', time: 25000},
+            {pct: 95, text: 'جاري إعداد تقرير النتائج...', time: 40000}
+        ];
+        steps.forEach(function(step) {
+            setTimeout(function() {
+                var bar = document.getElementById('importProgressBar');
+                var txt = document.getElementById('importProgressText');
+                if (bar && txt) {
+                    bar.style.width = step.pct + '%';
+                    bar.textContent = step.pct + '%';
+                    txt.textContent = step.text;
+                }
+            }, step.time);
+        });
+    });
+</script>
+{% endblock %}

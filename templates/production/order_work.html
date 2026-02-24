@@ -1,0 +1,133 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% block title %}تنفيذ أمر الإنتاج {{ order.number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="row mb-3">
+    <div class="col">
+      <h3 class="mb-0">تنفيذ أمر الإنتاج <span class="badge bg-primary">{{ order.number }}</span></h3>
+      <div class="text-muted">المنتج: {{ order.product.name }} — الكمية المخطط لها: {{ order.planned_quantity }}</div>
+    </div>
+    <div class="col-auto">
+      <form method="post" class="d-flex align-items-center gap-2">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_order_status">
+        <select name="status" class="form-select form-select-sm">
+          {% for value,label in status_choices %}
+            <option value="{{ value }}" {% if order.status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn btn-sm btn-primary" type="submit">تحديث حالة الأمر</button>
+        <a href="{% url 'production:order_detail' order.id %}" class="btn btn-sm btn-outline-secondary">تفاصيل متقدمة</a>
+      </form>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <strong>مراحل التنفيذ</strong>
+          <span class="text-muted small">رتب حسب التسلسل</span>
+        </div>
+        <div class="list-group list-group-flush">
+          {% for pos in stages %}
+          <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div>
+                <div class="fw-semibold">{{ pos.stage.sequence }} — {{ pos.stage.name }}</div>
+                <div class="text-muted small">مركز العمل: {{ pos.stage.work_center.name }}</div>
+              </div>
+              <span class="badge bg-secondary">الحالة: {{ pos.get_status_display }}</span>
+            </div>
+            <form method="post" class="row gy-2 gx-2 align-items-center">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="update_stage">
+              <input type="hidden" name="stage_id" value="{{ pos.id }}">
+              <div class="col-md-3">
+                <label class="form-label small">حالة المرحلة</label>
+                <select name="stage_status" class="form-select form-select-sm">
+                  {% for value,label in stage_status_choices %}
+                    <option value="{{ value }}" {% if pos.status == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small">الكمية المنجزة</label>
+                <input type="number" step="0.001" name="completed_quantity" value="{{ pos.completed_quantity }}" class="form-control form-control-sm">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">ملاحظات</label>
+                <input type="text" name="notes" class="form-control form-control-sm" placeholder="ملاحظة اختيارية">
+              </div>
+              <div class="col-md-2 d-grid">
+                <button class="btn btn-sm btn-success" type="submit">حفظ</button>
+              </div>
+            </form>
+          </div>
+          {% empty %}
+          <div class="list-group-item text-muted">لا توجد مراحل لهذا الأمر.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card mb-3">
+        <div class="card-header"><strong>الإجراءات السريعة</strong></div>
+        <div class="card-body">
+          <form method="post" class="vstack gap-2">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="report_issue">
+            <div>
+              <label class="form-label">عنوان المشكلة</label>
+              <input name="title" class="form-control" placeholder="مثال: نقص خامات / عطل ماكينة">
+            </div>
+            <div>
+              <label class="form-label">اختر المرحلة (اختياري)</label>
+              <select name="stage_id" class="form-select">
+                <option value="">— بدون —</option>
+                {% for pos in stages %}
+                  <option value="{{ pos.id }}">{{ pos.stage.sequence }} — {{ pos.stage.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label class="form-label">الأولوية</label>
+              <select name="priority" class="form-select">
+                {% for value,label in priority_levels %}
+                  <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label class="form-label">الوصف</label>
+              <textarea name="description" rows="3" class="form-control" placeholder="صف المشكلة بإيجاز"></textarea>
+            </div>
+            <div class="d-grid">
+              <button class="btn btn-danger" type="submit"><i class="bi bi-flag"></i> تسجيل مشكلة</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><strong>معلومات الأمر</strong></div>
+        <div class="card-body">
+          <div class="row g-2 small">
+            <div class="col-6"><span class="text-muted">الحالة الحالية:</span></div>
+            <div class="col-6">{{ order.get_status_display }}</div>
+            <div class="col-6"><span class="text-muted">الأولوية:</span></div>
+            <div class="col-6">{{ order.get_priority_display }}</div>
+            <div class="col-6"><span class="text-muted">بداية مخطط:</span></div>
+            <div class="col-6">{{ order.planned_start_date }}</div>
+            <div class="col-6"><span class="text-muted">نهاية مخطط:</span></div>
+            <div class="col-6">{{ order.planned_end_date }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

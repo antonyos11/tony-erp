@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<style>
+.table thead.table-dark { display: table-header-group !important; }
+.table thead.table-dark th { 
+    background-color: #212529 !important; 
+    color: #fff !important; 
+    font-weight: bold !important;
+    padding: 12px !important;
+    border: 1px solid #dee2e6 !important;
+}
+</style>
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-file-earmark-bar-graph me-2"></i>
+                        {{ title }}
+                    </h4>
+                </div>
+                
+                <div class="card-body">
+                    <!-- نموذج الفلترة -->
+                    <form method="get" class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">التحليل المالي 1</label>
+                            <select name="analysis_1" class="form-select">
+                                <option value="">-- جميع التحليلات --</option>
+                                {% for item in analysis_list %}
+                                <option value="{{ item.id }}" {% if filters.analysis_1_id == item.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ item.code }} - {{ item.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">نوع القيد</label>
+                            <select name="entry_type" class="form-select">
+                                <option value="">-- الكل --</option>
+                                <option value="revenue" {% if filters.entry_type == 'revenue' %}selected{% endif %}>إيراد</option>
+                                <option value="expense" {% if filters.entry_type == 'expense' %}selected{% endif %}>منصرف</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">من تاريخ</label>
+                            <input type="date" name="date_from" class="form-control" value="{{ filters.date_from }}">
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">إلى تاريخ</label>
+                            <input type="date" name="date_to" class="form-control" value="{{ filters.date_to }}">
+                        </div>
+                        
+                        <div class="col-md-3 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-search me-1"></i> بحث
+                            </button>
+                            <a href="{% url 'accounting:financial_analysis_1_report' %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle me-1"></i> إعادة تعيين
+                            </a>
+                            <button type="button" class="btn btn-success" onclick="window.print()">
+                                <i class="bi bi-printer me-1"></i> طباعة
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <!-- الإحصائيات -->
+                    {% if stats %}
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body">
+                                    <h6>إجمالي الإيرادات</h6>
+                                    <h3>{{ stats.total_revenue|default:0|floatformat:2 }}</h3>
+                                    <small>عدد: {{ stats.count_revenue|default:0 }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body">
+                                    <h6>إجمالي المنصرفات</h6>
+                                    <h3>{{ stats.total_expense|default:0|floatformat:2 }}</h3>
+                                    <small>عدد: {{ stats.count_expense|default:0 }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body">
+                                    <h6>الصافي</h6>
+                                    <h3>{{ stats.total_revenue|default:0|add:stats.total_expense|default:0|floatformat:2 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body">
+                                    <h6>إجمالي العمليات</h6>
+                                    <h3>{{ entries|length }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- جدول البيانات -->
+                    <div class="table-responsive">
+                        <table class="table table-hover table-bordered">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>التاريخ</th>
+                                    <th>النوع</th>
+                                    <th>حساب الأستاذ</th>
+                                    <th>المبلغ</th>
+                                    <th>تحليل مالي 1</th>
+                                    <th>تحليل مالي 2</th>
+                                    <th>مركز التكلفة</th>
+                                    <th>وجهة الدخول/الخروج</th>
+                                    <th>البيان</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in entries %}
+                                <tr>
+                                    <td>{{ entry.date }}</td>
+                                    <td>
+                                        <span class="badge {% if entry.entry_type == 'revenue' %}bg-success{% else %}bg-danger{% endif %}">
+                                            {{ entry.get_entry_type_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ entry.ledger_account.code }} - {{ entry.ledger_account.name }}</td>
+                                    <td class="text-end fw-bold">{{ entry.amount|floatformat:2 }}</td>
+                                    <td>{{ entry.financial_analysis_1|default:"-" }}</td>
+                                    <td>{{ entry.financial_analysis_2|default:"-" }}</td>
+                                    <td>{{ entry.cost_center|default:"-" }}</td>
+                                    <td>
+                                        {% if entry.destination_name %}
+                                            <small class="text-muted">{{ entry.get_destination_type_display }}:</small>
+                                            {{ entry.destination_name }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ entry.description|truncatewords:10 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted">لا توجد بيانات</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .card-header, .btn, form { display: none !important; }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,450 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}إدارة الملكية والعقود - المعارض{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mb-0">
+                <i class="bi bi-building-gear"></i>
+                إدارة الملكية والعقود
+            </h2>
+            <p class="text-muted">إدارة شاملة للمعارض حسب نوع الملكية</p>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6 class="card-title">معارض مملوكة</h6>
+                    <h3 class="mb-0" id="owned-count">-</h3>
+                    <small>أصول ثابتة</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h6 class="card-title">معارض مستأجرة</h6>
+                    <h3 class="mb-0" id="rented-count">-</h3>
+                    <small>إيجار شهري</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h6 class="card-title">معارض مؤقتة</h6>
+                    <h3 class="mb-0" id="temporary-count">-</h3>
+                    <small>موسمية</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h6 class="card-title">عقود منتهية قريباً</h6>
+                    <h3 class="mb-0" id="expiring-count">-</h3>
+                    <small>خلال 30 يوم</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-4" id="propertyTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="showrooms-tab" data-bs-toggle="tab" data-bs-target="#showrooms" type="button">
+                <i class="bi bi-building"></i> المعارض
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="rent-tab" data-bs-toggle="tab" data-bs-target="#rent-payments" type="button">
+                <i class="bi bi-cash-stack"></i> دفعات الإيجار
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="workers-tab" data-bs-toggle="tab" data-bs-target="#workers" type="button">
+                <i class="bi bi-people"></i> العمالة المؤقتة
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="propertyTabContent">
+        <!-- Showrooms Tab -->
+        <div class="tab-pane fade show active" id="showrooms" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h5 class="mb-0">قائمة المعارض</h5>
+                        </div>
+                        <div class="col-auto">
+                            <select class="form-select form-select-sm" id="property-filter">
+                                <option value="">جميع الأنواع</option>
+                                <option value="owned">مملوكة</option>
+                                <option value="rented">مستأجرة</option>
+                                <option value="temporary">مؤقتة</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="showrooms-table">
+                            <thead>
+                                <tr>
+                                    <th>الكود</th>
+                                    <th>الاسم</th>
+                                    <th>النوع</th>
+                                    <th>الملكية</th>
+                                    <th>القيمة/الإيجار</th>
+                                    <th>العقد</th>
+                                    <th>الحالة</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="showrooms-tbody">
+                                <tr>
+                                    <td colspan="8" class="text-center">
+                                        <div class="spinner-border" role="status">
+                                            <span class="visually-hidden">جاري التحميل...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rent Payments Tab -->
+        <div class="tab-pane fade" id="rent-payments" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h5 class="mb-0">دفعات الإيجار</h5>
+                        </div>
+                        <div class="col-auto">
+                            <button class="btn btn-sm btn-warning" onclick="checkOverduePayments()">
+                                <i class="bi bi-exclamation-triangle"></i> فحص المتأخرات
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="payments-table">
+                            <thead>
+                                <tr>
+                                    <th>المعرض</th>
+                                    <th>تاريخ الدفعة</th>
+                                    <th>المبلغ</th>
+                                    <th>الحالة</th>
+                                    <th>تاريخ السداد</th>
+                                    <th>المرجع</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payments-tbody">
+                                <tr>
+                                    <td colspan="7" class="text-center">
+                                        <div class="spinner-border" role="status"></div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Workers Tab -->
+        <div class="tab-pane fade" id="workers" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h5 class="mb-0">العمالة المؤقتة</h5>
+                        </div>
+                        <div class="col-auto">
+                            <select class="form-select form-select-sm" id="worker-filter">
+                                <option value="">الكل</option>
+                                <option value="active">نشط</option>
+                                <option value="paid">مدفوع</option>
+                                <option value="unpaid">غير مدفوع</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="workers-table">
+                            <thead>
+                                <tr>
+                                    <th>الاسم</th>
+                                    <th>المعرض</th>
+                                    <th>الوظيفة</th>
+                                    <th>النوع</th>
+                                    <th>الفترة</th>
+                                    <th>الإجمالي</th>
+                                    <th>الحالة</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="workers-tbody">
+                                <tr>
+                                    <td colspan="8" class="text-center">
+                                        <div class="spinner-border" role="status"></div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Payment Modal -->
+<div class="modal fade" id="paymentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تأكيد السداد</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">مرجع الدفع</label>
+                    <input type="text" class="form-control" id="payment-reference" placeholder="رقم الشيك أو الإيصال">
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="create-journal" checked>
+                    <label class="form-check-label" for="create-journal">
+                        إنشاء قيد محاسبي تلقائياً
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-success" onclick="confirmPayment()">تأكيد السداد</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentPaymentId = null;
+let currentPaymentType = null; // 'rent' or 'worker'
+
+// Load initial data
+document.addEventListener('DOMContentLoaded', function() {
+    loadShowrooms();
+    loadRentPayments();
+    loadWorkers();
+    loadStats();
+});
+
+// Load Statistics
+function loadStats() {
+    fetch('/api/showrooms/showrooms/')
+        .then(r => r.json())
+        .then(data => {
+            const owned = data.filter(s => s.property_type === 'owned').length;
+            const rented = data.filter(s => s.property_type === 'rented').length;
+            const temporary = data.filter(s => s.property_type === 'temporary').length;
+            const expiring = data.filter(s => s.is_contract_expiring_soon).length;
+            
+            document.getElementById('owned-count').textContent = owned;
+            document.getElementById('rented-count').textContent = rented;
+            document.getElementById('temporary-count').textContent = temporary;
+            document.getElementById('expiring-count').textContent = expiring;
+        });
+}
+
+// Load Showrooms
+function loadShowrooms(filter = '') {
+    let url = '/api/showrooms/showrooms/';
+    if (filter) url += `?property_type=${filter}`;
+    
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.getElementById('showrooms-tbody');
+            tbody.innerHTML = '';
+            
+            data.forEach(s => {
+                const badge = getBadge(s.property_type, s.property_type_display);
+                const statusBadge = s.is_active ? '<span class="badge bg-success">نشط</span>' : '<span class="badge bg-secondary">غير نشط</span>';
+                const expiring = s.is_contract_expiring_soon ? '<span class="badge bg-danger">قارب على الانتهاء</span>' : '';
+                const value = s.property_type === 'owned' ? `${parseFloat(s.property_value || 0).toLocaleString()} جنيه` : 
+                             `${parseFloat(s.monthly_rent || 0).toLocaleString()} جنيه/شهر`;
+                const contract = s.contract_days_remaining ? `${s.contract_days_remaining} يوم متبقي` : '-';
+                
+                const row = `
+                    <tr>
+                        <td>${s.code}</td>
+                        <td>${s.name_ar || s.name}</td>
+                        <td>${s.showroom_type_display}</td>
+                        <td>${badge}</td>
+                        <td>${value}</td>
+                        <td>${contract} ${expiring}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <a href="/admin/showrooms/showroom/${s.id}/change/" class="btn btn-sm btn-primary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        });
+}
+
+// Load Rent Payments
+function loadRentPayments() {
+    fetch('/api/showrooms/rent-payments/')
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.getElementById('payments-tbody');
+            tbody.innerHTML = '';
+            
+            data.forEach(p => {
+                const statusBadge = getPaymentStatusBadge(p.status, p.status_display);
+                const actionBtn = p.status === 'pending' || p.status === 'overdue' ? 
+                    `<button class="btn btn-sm btn-success" onclick="showPaymentModal(${p.id}, 'rent')">
+                        <i class="bi bi-check-circle"></i> سداد
+                    </button>` : '-';
+                
+                const row = `
+                    <tr>
+                        <td>${p.showroom_name}</td>
+                        <td>${p.payment_date}</td>
+                        <td>${parseFloat(p.amount).toLocaleString()} جنيه</td>
+                        <td>${statusBadge}</td>
+                        <td>${p.actual_payment_date || '-'}</td>
+                        <td>${p.payment_reference || '-'}</td>
+                        <td>${actionBtn}</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        });
+}
+
+// Load Workers
+function loadWorkers() {
+    fetch('/api/showrooms/temporary-workers/')
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.getElementById('workers-tbody');
+            tbody.innerHTML = '';
+            
+            data.forEach(w => {
+                const statusBadge = w.is_paid ? '<span class="badge bg-success">مدفوع</span>' : '<span class="badge bg-warning">غير مدفوع</span>';
+                const actionBtn = !w.is_paid ? 
+                    `<button class="btn btn-sm btn-success" onclick="showPaymentModal(${w.id}, 'worker')">
+                        <i class="bi bi-cash"></i> سداد
+                    </button>` : '-';
+                
+                const row = `
+                    <tr>
+                        <td>${w.worker_name}</td>
+                        <td>${w.showroom_name}</td>
+                        <td>${w.job_title}</td>
+                        <td>${w.worker_type_display}</td>
+                        <td>${w.start_date} - ${w.end_date || 'مفتوح'}</td>
+                        <td>${parseFloat(w.total_amount).toLocaleString()} جنيه</td>
+                        <td>${statusBadge}</td>
+                        <td>${actionBtn}</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        });
+}
+
+// Helpers
+function getBadge(type, label) {
+    const colors = {owned: 'primary', rented: 'info', temporary: 'warning'};
+    return `<span class="badge bg-${colors[type]}">${label}</span>`;
+}
+
+function getPaymentStatusBadge(status, label) {
+    const colors = {pending: 'warning', paid: 'success', overdue: 'danger', cancelled: 'secondary'};
+    return `<span class="badge bg-${colors[status]}">${label}</span>`;
+}
+
+function showPaymentModal(id, type) {
+    currentPaymentId = id;
+    currentPaymentType = type;
+    new bootstrap.Modal(document.getElementById('paymentModal')).show();
+}
+
+function confirmPayment() {
+    const reference = document.getElementById('payment-reference').value;
+    const createJournal = document.getElementById('create-journal').checked;
+    const url = currentPaymentType === 'rent' ? 
+        `/api/showrooms/rent-payments/${currentPaymentId}/mark_paid/` :
+        `/api/showrooms/temporary-workers/${currentPaymentId}/mark_paid/`;
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')},
+        body: JSON.stringify({payment_reference: reference, create_journal_entry: createJournal})
+    })
+    .then(r => r.json())
+    .then(data => {
+        alert(data.message);
+        bootstrap.Modal.getInstance(document.getElementById('paymentModal')).hide();
+        if (currentPaymentType === 'rent') loadRentPayments();
+        else loadWorkers();
+    });
+}
+
+function checkOverduePayments() {
+    fetch('/api/showrooms/rent-payments/check_overdue/', {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCookie('csrftoken')}
+    })
+    .then(r => r.json())
+    .then(data => {
+        alert(data.message);
+        loadRentPayments();
+        loadStats();
+    });
+}
+
+// Filter handlers
+document.getElementById('property-filter').addEventListener('change', e => loadShowrooms(e.target.value));
+
+function getCookie(name) {
+    let value = `; ${document.cookie}`;
+    let parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+}
+</script>
+
+<style>
+.card {
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+.badge {
+    padding: 0.5em 0.75em;
+}
+</style>
+{% endblock %}

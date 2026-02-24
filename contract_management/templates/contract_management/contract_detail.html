@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+{% load static i18n humanize %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" dir="rtl">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'contract_management:dashboard' %}">{% trans "لوحة التحكم" %}</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'contract_management:contracts_list' %}">{% trans "العقود" %}</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ contract.contract_number }}</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h3 mb-0 text-gray-800">{{ contract.title }}</h1>
+                <div class="actions">
+                    <a href="#" class="btn btn-primary"><i class="fas fa-edit me-2"></i>{% trans "تعديل" %}</a>
+                    <a href="#" class="btn btn-success"><i class="fas fa-file-pdf me-2"></i>{% trans "تصدير PDF" %}</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Main Info -->
+        <div class="col-xl-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "تفاصيل العقد" %}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="text-muted small d-block">{% trans "رقم العقد" %}</label>
+                            <span class="h5 font-weight-bold">{{ contract.contract_number }}</span>
+                        </div>
+                        <div class="col-md-6 text-md-left text-right">
+                            <span class="badge badge-lg badge-{% if contract.status == 'active' %}success{% else %}info{% endif %} p-2">
+                                {{ contract.get_status_display }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="text-muted small d-block">{% trans "الطرف الأول" %}</label>
+                            <span class="font-weight-bold">{{ contract.party_a }}</span>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small d-block">{% trans "الطرف الثاني" %}</label>
+                            <span class="font-weight-bold">{{ contract.party_b }}</span>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <label class="text-muted small d-block">{% trans "تاريخ البداية" %}</label>
+                            <span class="font-weight-bold">{{ contract.start_date|date:"Y-m-d" }}</span>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="text-muted small d-block">{% trans "تاريخ النهاية" %}</label>
+                            <span class="font-weight-bold text-{% if days_remaining < 30 %}danger{% else %}dark{% endif %}">
+                                {{ contract.end_date|date:"Y-m-d" }}
+                            </span>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="text-muted small d-block">{% trans "الأيام المتبقية" %}</label>
+                            <span class="h4 font-weight-bold">{{ days_remaining|default:0 }}</span>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <label class="text-muted small d-block">{% trans "قيمة العقد" %}</label>
+                            <span class="h3 font-weight-bold text-success">{{ contract.contract_value|floatformat:2|intcomma }} {{ contract.currency }}</span>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="row">
+                        <div class="col-12">
+                            <label class="text-muted small d-block">{% trans "الوصف" %}</label>
+                            <p class="lead">{{ contract.description|linebreaks }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar Info -->
+        <div class="col-xl-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "معلومات إضافية" %}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="text-muted small d-block">{% trans "نوع العقد" %}</label>
+                        <span class="font-weight-bold">{{ contract.get_contract_type_display }}</span>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-muted small d-block">{% trans "موقع رقمياً" %}</label>
+                        {% if contract.is_digitally_signed %}
+                            <span class="text-success"><i class="fas fa-check-circle me-1"></i> {% trans "نعم" %}</span>
+                            <small class="d-block text-muted">{{ contract.signature_date|date:"Y-m-d" }} ({{ contract.signed_by }})</small>
+                        {% else %}
+                            <span class="text-muted"><i class="fas fa-times-circle me-1"></i> {% trans "لا" %}</span>
+                        {% endif %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-muted small d-block">{% trans "المسؤول" %}</label>
+                        <span>{{ contract.owner.get_full_name|default:contract.owner.username }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "الوثائق" %}</h6>
+                </div>
+                <div class="card-body">
+                    {% if contract.document %}
+                    <div class="d-flex align-items-center mb-3 p-2 bg-light rounded">
+                        <i class="fas fa-file-pdf fa-2x text-danger me-3"></i>
+                        <div class="flex-grow-1">
+                            <span class="d-block small text-truncate">{% trans "ملف العقد الرئيسي" %}</span>
+                            <a href="{{ contract.document.url }}" target="_blank" class="small">{% trans "فتح الملف" %}</a>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if contract.attachments %}
+                    <div class="d-flex align-items-center p-2 bg-light rounded">
+                        <i class="fas fa-paperclip fa-2x text-primary me-3"></i>
+                        <div class="flex-grow-1">
+                            <span class="d-block small text-truncate">{% trans "مرفقات إضافية" %}</span>
+                            <a href="{{ contract.attachments.url }}" target="_blank" class="small">{% trans "تحميل" %}</a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

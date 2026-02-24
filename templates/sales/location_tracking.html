@@ -1,0 +1,374 @@
+﻿{% extends 'base_templates/_dashboard_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'تتبع الموقع' %}{% endblock %}
+{% block dashboard_hero_icon %}bi-geo-alt-fill{% endblock %}
+{% block dashboard_hero_title %}{% trans 'تتبع موقع المندوبين' %}{% endblock %}
+{% block dashboard_hero_subtitle %}{% trans 'متابعة مواقع فريق المبيعات الميدانية في الوقت الفعلي' %}{% endblock %}
+
+{% block dashboard_actions %}
+<button class="btn btn-primary" onclick="refreshLocations()">
+  <i class="bi bi-arrow-clockwise me-1"></i>{% trans 'تحديث' %}
+</button>
+<button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#historyModal">
+  <i class="bi bi-clock-history me-1"></i>{% trans 'السجل' %}
+</button>
+{% endblock %}
+
+{% block kpi_cards %}
+<style>
+  .map-container {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    height: 500px;
+    position: relative;
+  }
+  .map-placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+  .map-placeholder i {
+    font-size: 5rem;
+    color: var(--primary);
+    opacity: 0.5;
+    margin-bottom: 1rem;
+  }
+  .map-controls {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .map-controls button {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .map-controls button:hover {
+    background: var(--primary);
+    color: white;
+  }
+  .reps-sidebar {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    height: 500px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .sidebar-header {
+    padding: 1rem;
+    background: var(--bg-light);
+    border-bottom: 1px solid var(--border-color);
+  }
+  .sidebar-body {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .rep-location-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .rep-location-item:hover {
+    background: var(--bg-light);
+  }
+  .rep-location-item.active {
+    background: rgba(var(--primary-rgb), 0.1);
+    border-right: 3px solid var(--primary);
+  }
+  .rep-marker {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+    position: relative;
+  }
+  .rep-status-dot {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--success);
+    border: 2px solid white;
+  }
+  .rep-status-dot.moving { background: #3b82f6; }
+  .rep-status-dot.stopped { background: #f59e0b; }
+  .rep-status-dot.offline { background: var(--text-muted); }
+  .rep-location-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .rep-location-info h6 {
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+  }
+  .rep-location-address {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .rep-location-time {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+  .location-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  .location-stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .location-stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+  }
+  .stat-icon-blue { background: rgba(59,130,246,0.1); color: #3b82f6; }
+  .stat-icon-green { background: rgba(16,185,129,0.1); color: #10b981; }
+  .stat-icon-purple { background: rgba(139,92,246,0.1); color: #8b5cf6; }
+  .stat-icon-orange { background: rgba(245,158,11,0.1); color: #f59e0b; }
+</style>
+
+<!-- Quick Stats -->
+<div class="kpi-card">
+  <div class="kpi-icon text-success"><i class="bi bi-person-check"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ online_count|default:"6" }}</div>
+    <div class="kpi-label">{% trans 'متصل الآن' %}</div>
+  </div>
+</div>
+
+<div class="kpi-card">
+  <div class="kpi-icon text-info"><i class="bi bi-arrow-left-right"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ moving_count|default:"4" }}</div>
+    <div class="kpi-label">{% trans 'في حركة' %}</div>
+  </div>
+</div>
+
+<div class="kpi-card">
+  <div class="kpi-icon text-warning"><i class="bi bi-geo-alt"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ at_customer_count|default:"2" }}</div>
+    <div class="kpi-label">{% trans 'عند عميل' %}</div>
+  </div>
+</div>
+
+<div class="kpi-card">
+  <div class="kpi-icon text-secondary"><i class="bi bi-person-x"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ offline_count|default:"1" }}</div>
+    <div class="kpi-label">{% trans 'غير متصل' %}</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="row g-4">
+  <!-- Map -->
+  <div class="col-lg-8">
+    <div class="map-container">
+      <div class="map-controls">
+        <button title="تكبير"><i class="bi bi-plus"></i></button>
+        <button title="تصغير"><i class="bi bi-dash"></i></button>
+        <button title="موقعي"><i class="bi bi-crosshair"></i></button>
+        <button title="طبقات"><i class="bi bi-layers"></i></button>
+      </div>
+      <div class="map-placeholder" id="map">
+        <i class="bi bi-map"></i>
+        <div class="text-muted">{% trans 'خريطة التتبع' %}</div>
+        <small class="text-muted">{% trans 'سيتم تحميل الخريطة هنا' %}</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reps Sidebar -->
+  <div class="col-lg-4">
+    <div class="reps-sidebar">
+      <div class="sidebar-header">
+        <div class="d-flex justify-content-between align-items-center">
+          <h6 class="mb-0 fw-bold"><i class="bi bi-people me-2"></i>{% trans 'المندوبين' %}</h6>
+          <input type="text" class="form-control form-control-sm" placeholder="{% trans 'بحث...' %}" style="width: 120px;">
+        </div>
+      </div>
+      <div class="sidebar-body">
+        {% for rep in reps %}
+        <div class="rep-location-item {{ rep.status }}" onclick="focusOnRep('{ rep.id }')">
+          <div class="rep-marker">
+            {{ rep.initials }}
+            <span class="rep-status-dot { rep.movement_status }"></span>
+          </div>
+          <div class="rep-location-info">
+            <h6>{{ rep.name }}</h6>
+            <div class="rep-location-address">{{ rep.location }}</div>
+            <div class="rep-location-time"><i class="bi bi-clock me-1"></i>{{ rep.last_update }}</div>
+          </div>
+        </div>
+        {% empty %}
+        <!-- Sample Data -->
+        <div class="rep-location-item active">
+          <div class="rep-marker">
+            أم
+            <span class="rep-status-dot moving"></span>
+          </div>
+          <div class="rep-location-info">
+            <h6>أحمد محمد</h6>
+            <div class="rep-location-address">طريق الملك فهد، الرياض</div>
+            <div class="rep-location-time"><i class="bi bi-clock me-1"></i>منذ دقيقتين</div>
+          </div>
+        </div>
+        <div class="rep-location-item">
+          <div class="rep-marker">
+            سح
+            <span class="rep-status-dot"></span>
+          </div>
+          <div class="rep-location-info">
+            <h6>سارة حسن</h6>
+            <div class="rep-location-address">شركة الفجر للتجارة</div>
+            <div class="rep-location-time"><i class="bi bi-clock me-1"></i>منذ 5 دقائق</div>
+          </div>
+        </div>
+        <div class="rep-location-item">
+          <div class="rep-marker">
+            خع
+            <span class="rep-status-dot stopped"></span>
+          </div>
+          <div class="rep-location-info">
+            <h6>خالد علي</h6>
+            <div class="rep-location-address">مؤسسة النور التجارية</div>
+            <div class="rep-location-time"><i class="bi bi-clock me-1"></i>منذ 15 دقيقة</div>
+          </div>
+        </div>
+        <div class="rep-location-item">
+          <div class="rep-marker">
+            نف
+            <span class="rep-status-dot moving"></span>
+          </div>
+          <div class="rep-location-info">
+            <h6>نورة فهد</h6>
+            <div class="rep-location-address">شارع التحلية، جدة</div>
+            <div class="rep-location-time"><i class="bi bi-clock me-1"></i>منذ 8 دقائق</div>
+          </div>
+        </div>
+        <div class="rep-location-item">
+          <div class="rep-marker">
+            يم
+            <span class="rep-status-dot offline"></span>
+          </div>
+          <div class="rep-location-info">
+            <h6>ياسر محمود</h6>
+            <div class="rep-location-address">آخر موقع: الدمام</div>
+            <div class="rep-location-time text-danger"><i class="bi bi-wifi-off me-1"></i>غير متصل</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Location Statistics -->
+<div class="location-stats">
+  <div class="location-stat-card">
+    <div class="location-stat-icon stat-icon-blue">
+      <i class="bi bi-speedometer2"></i>
+    </div>
+    <div>
+      <div class="fs-4 fw-bold">{{ total_distance|default:"234" }} كم</div>
+      <div class="small text-muted">{% trans 'إجمالي المسافة اليوم' %}</div>
+    </div>
+  </div>
+  
+  <div class="location-stat-card">
+    <div class="location-stat-icon stat-icon-green">
+      <i class="bi bi-building"></i>
+    </div>
+    <div>
+      <div class="fs-4 fw-bold">{{ visits_completed|default:"18" }}</div>
+      <div class="small text-muted">{% trans 'زيارات منجزة' %}</div>
+    </div>
+  </div>
+  
+  <div class="location-stat-card">
+    <div class="location-stat-icon stat-icon-purple">
+      <i class="bi bi-clock"></i>
+    </div>
+    <div>
+      <div class="fs-4 fw-bold">{{ avg_visit_time|default:"23" }} {% trans 'دقيقة' %}</div>
+      <div class="small text-muted">{% trans 'متوسط وقت الزيارة' %}</div>
+    </div>
+  </div>
+  
+  <div class="location-stat-card">
+    <div class="location-stat-icon stat-icon-orange">
+      <i class="bi bi-calendar-check"></i>
+    </div>
+    <div>
+      <div class="fs-4 fw-bold">{{ planned_visits|default:"8" }}</div>
+      <div class="small text-muted">{% trans 'زيارات متبقية' %}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function refreshLocations() {
+    // Refresh map and rep locations
+    location.reload();
+  }
+
+  function focusOnRep(repId) {
+    // Focus map on selected rep
+    document.querySelectorAll('.rep-location-item').forEach(item => item.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+  }
+</script>
+{% endblock %}
+

@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">
+                <i class="bi bi-person-badge me-2"></i>
+                {{ title }}
+            </h4>
+            <a href="{% url 'accounting:account_entries_list' %}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-right me-2"></i> العودة للقيود
+            </a>
+        </div>
+        <div class="card-body">
+            <!-- فلاتر التاريخ -->
+            <form method="get" class="row g-3 mb-4 p-3 bg-light rounded">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">من تاريخ</label>
+                    <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">إلى تاريخ</label>
+                    <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-funnel me-2"></i> فلترة
+                    </button>
+                </div>
+            </form>
+
+            <!-- ملخص إجمالي -->
+            <div class="alert alert-success text-center mb-4">
+                <h5 class="mb-0">
+                    <i class="bi bi-cash-stack me-2"></i>
+                    إجمالي الإيرادات: <strong>{{ total_all|floatformat:2 }}</strong>
+                </h5>
+                <small>من {{ suppliers_data|length }} مورد</small>
+            </div>
+
+            <!-- جدول الموردين -->
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>اسم المورد</th>
+                            <th>عدد القيود</th>
+                            <th>إجمالي الإيراد</th>
+                            <th>النسبة من الإجمالي</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in suppliers_data %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <strong>{{ item.supplier.name }}</strong>
+                                {% if item.supplier.supply_type %}
+                                <br><small class="text-muted">{{ item.supplier.get_supply_type_display }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ item.entries_count }}</span>
+                            </td>
+                            <td class="fw-bold text-success">
+                                {{ item.total_revenue|floatformat:2 }}
+                            </td>
+                            <td>
+                                {% if total_all > 0 %}
+                                {% widthratio item.total_revenue total_all 100 as percentage %}
+                                <div class="progress" style="height: 25px;">
+                                    <div class="progress-bar bg-success" role="progressbar" 
+                                         style="width: {{ percentage }}%;" 
+                                         aria-valuenow="{{ percentage }}" aria-valuemin="0" aria-valuemax="100">
+                                        {{ percentage }}%
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'accounting:supplier_revenue_detail' item.supplier.id %}?date_from={{ date_from }}&date_to={{ date_to }}" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye me-1"></i> التفاصيل
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-5">
+                                <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                                لا توجد إيرادات مسجلة للموردين في الفترة المحددة
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.progress {
+    border-radius: 8px;
+}
+</style>
+{% endblock %}

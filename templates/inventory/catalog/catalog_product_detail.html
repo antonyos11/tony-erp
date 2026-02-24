@@ -1,0 +1,347 @@
+﻿{% extends 'base_templates/_detail_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{{ product.name|default:'تفاصيل المنتج' }}{% endblock %}
+{% block page_hero_icon %}bi-box-seam{% endblock %}
+{% block page_hero_title %}{{ product.name|default:'منتج تجريبي' }}{% endblock %}
+{% block page_hero_subtitle %}{{ product.category.name|default:'فئة عامة' }} | {{ product.sku|default:'PRD-001' }}{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .product-gallery {
+    background: var(--bg-light);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .main-image {
+    width: 100%;
+    aspect-ratio: 1;
+    background: white;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+  }
+  .main-image img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .main-image .placeholder { font-size: 5rem; color: var(--border-color); }
+  .thumbnail-row {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+  }
+  .thumbnail {
+    width: 60px;
+    height: 60px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    transition: var(--transition);
+  }
+  .thumbnail:hover, .thumbnail.active { border-color: var(--primary); }
+  
+  .info-card {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+  }
+  .info-card .header {
+    background: var(--bg-light);
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+  }
+  .info-card .body { padding: 1rem; }
+  
+  .price-display {
+    text-align: center;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    border-radius: var(--radius);
+    margin-bottom: 1.5rem;
+  }
+  .price-display .label { font-size: 0.85rem; opacity: 0.8; }
+  .price-display .price { font-size: 2rem; font-weight: 700; }
+  .price-display .unit { font-size: 0.9rem; opacity: 0.9; }
+  
+  .stock-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    border-radius: var(--radius);
+    font-weight: 600;
+  }
+  .stock-indicator.in-stock { background: #d1fae5; color: #065f46; }
+  .stock-indicator.low-stock { background: #fef3c7; color: #92400e; }
+  .stock-indicator.out-of-stock { background: #fee2e2; color: #991b1b; }
+  
+  .specs-list { list-style: none; padding: 0; margin: 0; }
+  .specs-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .specs-list li:last-child { border-bottom: none; }
+  .specs-list li .label { color: var(--text-secondary); }
+  .specs-list li .value { font-weight: 600; }
+  
+  .barcode-section {
+    text-align: center;
+    padding: 1rem;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+  }
+  .barcode-image {
+    background: white;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    display: inline-block;
+  }
+  .barcode-placeholder {
+    width: 200px;
+    height: 60px;
+    background: repeating-linear-gradient(90deg, #000 0px, #000 2px, #fff 2px, #fff 4px);
+    display: inline-block;
+  }
+  
+  .related-products {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+  }
+  .related-product {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 0.75rem;
+    text-align: center;
+    transition: var(--transition);
+    text-decoration: none;
+    color: inherit;
+  }
+  .related-product:hover { box-shadow: var(--shadow-md); }
+  .related-product .image {
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+  }
+  .related-product .name { font-weight: 600; font-size: 0.85rem; }
+  .related-product .price { color: var(--primary); font-weight: 600; font-size: 0.9rem; }
+</style>
+{% endblock %}
+
+{% block detail_header %}
+<div class="d-flex justify-content-between align-items-center">
+  <div class="d-flex gap-2">
+    <span class="badge bg-primary fs-6 px-3 py-2">{{ product.category.name|default:'عام' }}</span>
+    {% if product.is_active %}
+    <span class="badge bg-success fs-6 px-3 py-2"><i class="bi bi-check-circle me-1"></i>{% trans 'نشط' %}</span>
+    {% endif %}
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'inventory:catalog_list' %}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-right me-1"></i>{% trans 'العودة' %}
+    </a>
+    <button class="btn btn-outline-primary" onclick="window.print()">
+      <i class="bi bi-printer me-1"></i>{% trans 'طباعة' %}
+    </button>
+    <a href="{% url 'inventory:product_edit' product.pk %}" class="btn btn-primary">
+      <i class="bi bi-pencil me-1"></i>{% trans 'تعديل' %}
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block detail_content %}
+<div class="row">
+  <div class="col-lg-5">
+    <!-- Product Gallery -->
+    <div class="product-gallery">
+      <div class="main-image">
+        {% if product.image %}
+        <img src="{{ product.image.url }}" alt="{ product.name }}" id="mainImage">
+        {% else %}
+        <i class="bi bi-box placeholder"></i>
+        {% endif %}
+      </div>
+      <div class="thumbnail-row">
+        <div class="thumbnail active"><i class="bi bi-box"></i></div>
+        <div class="thumbnail"><i class="bi bi-box"></i></div>
+        <div class="thumbnail"><i class="bi bi-box"></i></div>
+      </div>
+    </div>
+    
+    <!-- Barcode -->
+    <div class="barcode-section">
+      <div class="barcode-image">
+        <div class="barcode-placeholder"></div>
+      </div>
+      <div class="mt-2">
+        <code style="font-size: 1.1rem;">{{ product.barcode|default:'6281000000001' }}</code>
+      </div>
+      <button class="btn btn-sm btn-outline-primary mt-2">
+        <i class="bi bi-printer me-1"></i>{% trans 'طباعة الباركود' %}
+      </button>
+    </div>
+  </div>
+  
+  <div class="col-lg-7">
+    <!-- Price -->
+    <div class="price-display">
+      <div class="label">{% trans 'سعر البيع' %}</div>
+      <div class="price">{{ product.sale_price|default:'350.00' }} <small>{% trans 'ج.م' %}</small></div>
+      <div class="unit">{% trans 'لكل' %} {{ product.unit|default:'قطعة' }}</div>
+    </div>
+    
+    <!-- Stock Status -->
+    <div class="stock-indicator in-stock mb-4">
+      <i class="bi bi-check-circle"></i>
+      <span>{% trans 'متوفر في المخزون' %} - {{ product.stock_quantity|default:'150' }} {{ product.unit|default:'قطعة' }}</span>
+    </div>
+    
+    <!-- Quick Info -->
+    <div class="info-card">
+      <div class="header"><i class="bi bi-info-circle me-2"></i>{% trans 'معلومات أساسية' %}</div>
+      <div class="body">
+        <ul class="specs-list">
+          <li>
+            <span class="label">{% trans 'كود المنتج' %}</span>
+            <span class="value">{{ product.sku|default:'PRD-001' }}</span>
+          </li>
+          <li>
+            <span class="label">{% trans 'الفئة' %}</span>
+            <span class="value">{{ product.category.name|default:'مواد خام' }}</span>
+          </li>
+          <li>
+            <span class="label">{% trans 'الوحدة' %}</span>
+            <span class="value">{{ product.unit|default:'قطعة' }}</span>
+          </li>
+          <li>
+            <span class="label">{% trans 'المستودع' %}</span>
+            <span class="value">{{ product.warehouse.name|default:'المستودع الرئيسي' }}</span>
+          </li>
+          <li>
+            <span class="label">{% trans 'الموقع' %}</span>
+            <span class="value">{{ product.location|default:'رف A-01' }}</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+    
+    <!-- Pricing Details -->
+    <div class="info-card">
+      <div class="header"><i class="bi bi-currency-dollar me-2"></i>{% trans 'تفاصيل الأسعار' %}</div>
+      <div class="body">
+        <ul class="specs-list">
+          <li>
+            <span class="label">{% trans 'سعر التكلفة' %}</span>
+            <span class="value">{{ product.cost_price|default:'250.00' }} {% trans 'ج.م' %}</span>
+          </li>
+          <li>
+            <span class="label">{% trans 'سعر البيع' %}</span>
+            <span class="value text-primary">{{ product.sale_price|default:'350.00' }} {% trans 'ج.م' %}</span>
+          </li>
+          <li>
+            <span class="label">{% trans 'سعر الجملة' %}</span>
+            <span class="value">{{ product.wholesale_price|default:'320.00' }} {% trans 'ج.م' %}</span>
+          </li>
+          <li>
+            <span class="label">{% trans 'هامش الربح' %}</span>
+            <span class="value text-success">{{ product.profit_margin|default:'40' }}%</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+    
+    <!-- Stock Details -->
+    <div class="info-card">
+      <div class="header"><i class="bi bi-box-seam me-2"></i>{% trans 'بيانات المخزون' %}</div>
+      <div class="body">
+        <ul class="specs-list">
+          <li>
+            <span class="label">{% trans 'الكمية الحالية' %}</span>
+            <span class="value">{{ product.stock_quantity|default:'150' }}</span>
+          </li>
+          <li>
+            <span class="label">{% trans 'الحد الأدنى' %}</span>
+            <span class="value">{{ product.min_stock|default:'20' }}</span>
+          </li>
+          <li>
+            <span class="label">{% trans 'الحد الأقصى' %}</span>
+            <span class="value">{{ product.max_stock|default:'500' }}</span>
+          </li>
+          <li>
+            <span class="label">{% trans 'نقطة إعادة الطلب' %}</span>
+            <span class="value">{{ product.reorder_point|default:'50' }}</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Description -->
+{% if product.description %}
+<div class="info-card mt-4">
+  <div class="header"><i class="bi bi-text-paragraph me-2"></i>{% trans 'الوصف' %}</div>
+  <div class="body">
+    <p class="mb-0">{{ product.description }}</p>
+  </div>
+</div>
+{% endif %}
+
+<!-- Related Products -->
+<div class="info-card mt-4">
+  <div class="header"><i class="bi bi-collection me-2"></i>{% trans 'منتجات مشابهة' %}</div>
+  <div class="body">
+    <div class="related-products">
+      {% for related in related_products %}
+      <a href="{% url 'inventory:catalog_product_detail' related.pk %}" class="related-product">
+        <div class="image"><i class="bi bi-box" style="font-size: 2rem; color: #ccc;"></i></div>
+        <div class="name">{{ related.name }}</div>
+        <div class="price">{{ related.price }} {% trans 'ج.م' %}</div>
+      </a>
+      {% empty %}
+      <a href="#" class="related-product">
+        <div class="image"><i class="bi bi-box" style="font-size: 2rem; color: #ccc;"></i></div>
+        <div class="name">{% trans 'منتج مشابه 1' %}</div>
+        <div class="price">280 {% trans 'ج.م' %}</div>
+      </a>
+      <a href="#" class="related-product">
+        <div class="image"><i class="bi bi-box" style="font-size: 2rem; color: #ccc;"></i></div>
+        <div class="name">{% trans 'منتج مشابه 2' %}</div>
+        <div class="price">315 {% trans 'ج.م' %}</div>
+      </a>
+      <a href="#" class="related-product">
+        <div class="image"><i class="bi bi-box" style="font-size: 2rem; color: #ccc;"></i></div>
+        <div class="name">{% trans 'منتج مشابه 3' %}</div>
+        <div class="price">390 {% trans 'ج.م' %}</div>
+      </a>
+      <a href="#" class="related-product">
+        <div class="image"><i class="bi bi-box" style="font-size: 2rem; color: #ccc;"></i></div>
+        <div class="name">{% trans 'منتج مشابه 4' %}</div>
+        <div class="price">425 {% trans 'ج.م' %}</div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+

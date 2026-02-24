@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+{% load static i18n %}
+
+{% block title %}قائمة الطلبات{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-1">
+                <i class="bi bi-list-ul text-primary me-2"></i>
+                قائمة طلبات الخدمات
+            </h4>
+        </div>
+        <div>
+            <a href="{% url 'home_services:dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-right me-1"></i>
+                لوحة التحكم
+            </a>
+        </div>
+    </div>
+
+    <!-- فلاتر البحث -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">نوع الطلب</label>
+                    <select name="type" class="form-select">
+                        <option value="">-- الكل --</option>
+                        <option value="maintenance" {% if request_type == 'maintenance' %}selected{% endif %}>صيانة</option>
+                        <option value="cleaning" {% if request_type == 'cleaning' %}selected{% endif %}>نظافة</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">الحالة</label>
+                    <select name="status" class="form-select">
+                        <option value="">-- الكل --</option>
+                        <option value="pending" {% if status == 'pending' %}selected{% endif %}>قيد الانتظار</option>
+                        <option value="confirmed" {% if status == 'confirmed' %}selected{% endif %}>مؤكد</option>
+                        <option value="assigned" {% if status == 'assigned' %}selected{% endif %}>تم التعيين</option>
+                        <option value="in_progress" {% if status == 'in_progress' %}selected{% endif %}>قيد التنفيذ</option>
+                        <option value="completed" {% if status == 'completed' %}selected{% endif %}>مكتمل</option>
+                        <option value="cancelled" {% if status == 'cancelled' %}selected{% endif %}>ملغي</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">بحث</label>
+                    <input type="text" name="search" class="form-control" 
+                           placeholder="رقم الطلب، اسم العميل، الهاتف..."
+                           value="{{ search }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search me-1"></i> بحث
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- جدول الطلبات -->
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>رقم الطلب</th>
+                        <th>النوع</th>
+                        <th>العميل</th>
+                        <th>الهاتف</th>
+                        <th>الموعد المفضل</th>
+                        <th>الاستعجال</th>
+                        <th>الحالة</th>
+                        <th>تاريخ الطلب</th>
+                        <th>إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in requests %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'home_services:request_detail' pk=req.pk %}">
+                                <code>{{ req.request_number }}</code>
+                            </a>
+                        </td>
+                        <td>
+                            {% if req.request_type == 'maintenance' %}
+                            <span class="badge bg-warning text-dark">
+                                <i class="bi bi-tools me-1"></i> صيانة
+                            </span>
+                            {% else %}
+                            <span class="badge bg-info">
+                                <i class="bi bi-stars me-1"></i> نظافة
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>{{ req.customer_name }}</td>
+                        <td dir="ltr">{{ req.customer_phone }}</td>
+                        <td>{{ req.preferred_date }}</td>
+                        <td>
+                            {% if req.urgency == 'emergency' %}
+                            <span class="badge bg-danger">طوارئ</span>
+                            {% elif req.urgency == 'urgent' %}
+                            <span class="badge bg-warning text-dark">عاجل</span>
+                            {% else %}
+                            <span class="badge bg-secondary">عادي</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge 
+                                {% if req.status == 'completed' %}bg-success
+                                {% elif req.status == 'cancelled' or req.status == 'rejected' %}bg-danger
+                                {% elif req.status == 'in_progress' %}bg-info
+                                {% elif req.status == 'pending' %}bg-warning text-dark
+                                {% else %}bg-secondary{% endif %}">
+                                {{ req.get_status_display }}
+                            </span>
+                        </td>
+                        <td>{{ req.created_at|date:"Y/m/d H:i" }}</td>
+                        <td>
+                            <a href="{% url 'home_services:request_detail' pk=req.pk %}" 
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                            لا توجد طلبات مطابقة
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- الترقيم -->
+        {% if requests.has_other_pages %}
+        <div class="card-footer bg-white">
+            <nav>
+                <ul class="pagination justify-content-center mb-0">
+                    {% if requests.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ requests.previous_page_number }}{% if request_type %}&type={{ request_type }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if search %}&search={{ search }}{% endif %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in requests.paginator.page_range %}
+                    {% if requests.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > requests.number|add:'-3' and num < requests.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% if request_type %}&type={{ request_type }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if search %}&search={{ search }}{% endif %}">
+                            {{ num }}
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+                    
+                    {% if requests.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ requests.next_page_number }}{% if request_type %}&type={{ request_type }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if search %}&search={{ search }}{% endif %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

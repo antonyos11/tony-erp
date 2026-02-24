@@ -1,0 +1,515 @@
+{% extends 'base_templates/_form_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% if form.instance.pk %}{% trans 'تعديل المنتج' %}{% else %}{% trans 'منتج جديد' %}{% endif %}{% endblock %}
+{% block page_hero_icon %}bi-box-seam{% endblock %}
+{% block page_hero_title %}{% if form.instance.pk %}{% trans 'تعديل المنتج' %}: {{ form.instance.name }}{% else %}{% trans 'إضافة منتج جديد' %}{% endif %}{% endblock %}
+{% block page_hero_subtitle %}{% trans 'إدارة بيانات المنتجات والمخزون' %}{% endblock %}
+
+{% block form_id %}productForm{% endblock %}
+{% block form_action %}{% if form.instance.pk %}{% url 'inventory:product_edit' form.instance.pk %}{% else %}{% url 'inventory:product_add' %}{% endif %}{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .product-image-upload {
+    text-align: center;
+    padding: 1.5rem;
+    background: var(--bg-light);
+    border-radius: var(--radius-lg);
+  }
+  .image-preview {
+    width: 200px;
+    height: 200px;
+    margin: 0 auto 1rem;
+    border-radius: var(--radius-lg);
+    border: 2px dashed var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-card);
+    cursor: pointer;
+    overflow: hidden;
+    transition: var(--transition);
+  }
+  .image-preview:hover { border-color: var(--primary); }
+  .image-preview img { width: 100%; height: 100%; object-fit: cover; }
+  .image-preview .placeholder {
+    text-align: center;
+    color: var(--text-muted);
+  }
+  .image-preview .placeholder i { font-size: 3rem; margin-bottom: 0.5rem; }
+  
+  .sku-generator {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .sku-generator input { flex: 1; }
+  
+  .pricing-card {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .pricing-card .label { font-size: 0.85rem; opacity: 0.9; }
+  .pricing-card .value { font-size: 2rem; font-weight: 700; }
+  
+  .stock-levels {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+  }
+  .stock-level {
+    text-align: center;
+    padding: 0.75rem;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+  }
+  .stock-level .value { font-size: 1.25rem; font-weight: 700; }
+  .stock-level .label { font-size: 0.75rem; color: var(--text-muted); }
+  
+  .variant-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr auto;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.75rem;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    margin-bottom: 0.5rem;
+  }
+</style>
+{% endblock %}
+
+{% block form_fields %}
+<div class="row">
+  <div class="col-lg-8">
+    <!-- Basic Info -->
+    <div class="form-section">
+      <div class="section-header">
+        <h4><i class="bi bi-info-circle me-2"></i>{% trans 'المعلومات الأساسية' %}</h4>
+      </div>
+      <div class="section-body">
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label">{% trans 'اسم المنتج' %} <span class="text-danger">*</span></label>
+            <input type="text" class="form-control form-control-lg" name="name" 
+                   value="{{ form.instance.name }}" required
+                   placeholder="{% trans 'أدخل اسم المنتج' %}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">{% trans 'رمز المنتج (SKU)' %} <span class="text-danger">*</span></label>
+            <div class="sku-generator">
+              <input type="text" class="form-control" name="sku" 
+                     value="{{ form.instance.sku }}" required
+                     placeholder="{% trans 'PRD-001' %}">
+              <button type="button" class="btn btn-outline-secondary" onclick="generateSKU()">
+                <i class="bi bi-magic"></i>
+              </button>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">{% trans 'الباركود' %}</label>
+            <input type="text" class="form-control" name="barcode" 
+                   value="{{ form.instance.barcode }}"
+                   placeholder="{% trans 'رقم الباركود' %}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'الفئة' %}</label>
+            <div class="input-group">
+              <select class="form-select" name="category">
+                <option value="">{% trans 'اختر الفئة' %}</option>
+                {% for category in categories %}
+                <option value="{{ category.pk }}">{{ category.name }}</option>
+                {% endfor %}
+              </select>
+              <a href="/inventory/categories/add/" target="_blank" class="btn btn-outline-primary" title="إضافة فئة جديدة" style="border-radius:0 6px 6px 0;">
+                <i class="bi bi-plus-circle"></i>
+              </a>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'العلامة التجارية' %}</label>
+            <select class="form-select" name="brand">
+              <option value="">{% trans 'اختر العلامة' %}</option>
+              {% for brand in brands %}
+              <option value="{{ brand.pk }}">{{ brand.name }}</option>
+              {% empty %}
+              <option value="1">{% trans 'علامة تجارية 1' %}</option>
+              <option value="2">{% trans 'علامة تجارية 2' %}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'الموقع/المخزن' %}</label>
+            <div class="input-group">
+              <select class="form-select" name="location">
+                <option value="">{% trans 'اختر الموقع' %}</option>
+                {% for location in locations %}
+                <option value="{{ location.pk }}">{{ location.name }}</option>
+                {% endfor %}
+              </select>
+              <a href="/inventory/locations/add/" target="_blank" class="btn btn-outline-warning" title="إضافة مخزن جديد" style="border-radius:0 6px 6px 0;">
+                <i class="bi bi-plus-circle"></i>
+              </a>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'العميل الافتراضي' %}</label>
+            <div class="input-group">
+              <select class="form-select" name="default_customer">
+                <option value="">{% trans 'اختر العميل' %}</option>
+                {% for customer in customers %}
+                <option value="{{ customer.pk }}">{{ customer.name }}</option>
+                {% endfor %}
+              </select>
+              <a href="/partners/customers/add/" target="_blank" class="btn btn-outline-info" title="إضافة عميل جديد" style="border-radius:0 6px 6px 0;">
+                <i class="bi bi-plus-circle"></i>
+              </a>
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label">{% trans 'الوصف' %}</label>
+            <textarea class="form-control" name="description" rows="3"
+                      placeholder="{% trans 'وصف المنتج...' %}">{{ form.instance.description }}</textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Pricing -->
+    <div class="form-section">
+      <div class="section-header">
+        <h4><i class="bi bi-currency-dollar me-2"></i>{% trans 'التسعير' %}</h4>
+      </div>
+      <div class="section-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'سعر التكلفة' %} <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <input type="number" class="form-control" name="cost_price" 
+                     value="{{ form.instance.cost_price }}" required min="0" step="0.01"
+                     oninput="calculateProfit()">
+              <span class="input-group-text">ج.م</span>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'سعر البيع' %} <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <input type="number" class="form-control" name="selling_price" 
+                     value="{{ form.instance.selling_price }}" required min="0" step="0.01"
+                     oninput="calculateProfit()">
+              <span class="input-group-text">ج.م</span>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'هامش الربح' %}</label>
+            <div class="input-group">
+              <input type="text" class="form-control" id="profitMargin" readonly 
+                     style="background: var(--bg-light);">
+              <span class="input-group-text">%</span>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'سعر الجملة' %}</label>
+            <div class="input-group">
+              <input type="number" class="form-control" name="wholesale_price" 
+                     value="{{ form.instance.wholesale_price }}" min="0" step="0.01">
+              <span class="input-group-text">ج.م</span>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'الحد الأدنى للجملة' %}</label>
+            <input type="number" class="form-control" name="wholesale_min_qty" 
+                   value="{{ form.instance.wholesale_min_qty }}" min="1">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'نسبة الضريبة' %}</label>
+            <select class="form-select" name="tax_rate">
+              <option value="0">{% trans 'بدون ضريبة' %}</option>
+              <option value="5">5%</option>
+              <option value="15" selected>15%</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Stock Settings -->
+    <div class="form-section">
+      <div class="section-header">
+        <h4><i class="bi bi-box-seam me-2"></i>{% trans 'إعدادات المخزون' %}</h4>
+      </div>
+      <div class="section-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'الوحدة' %} <span class="text-danger">*</span></label>
+            <select class="form-select" name="unit" required>
+              <option value="piece">{% trans 'قطعة' %}</option>
+              <option value="box">{% trans 'كرتون' %}</option>
+              <option value="kg">{% trans 'كيلوجرام' %}</option>
+              <option value="liter">{% trans 'لتر' %}</option>
+              <option value="meter">{% trans 'متر' %}</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'الحد الأدنى' %} <span class="text-danger">*</span></label>
+            <input type="number" class="form-control" name="min_stock" 
+                   value="{{ form.instance.min_stock|default:10 }}" required min="0">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'نقطة إعادة الطلب' %}</label>
+            <input type="number" class="form-control" name="reorder_point" 
+                   value="{{ form.instance.reorder_point|default:20 }}" min="0">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'الكمية الافتتاحية' %}</label>
+            <input type="number" class="form-control" name="opening_stock" 
+                   value="{{ form.instance.opening_stock|default:0 }}" min="0">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'المستودع الافتراضي' %}</label>
+            <select class="form-select" name="default_warehouse">
+              <option value="">{% trans 'اختر المستودع' %}</option>
+              {% for loc in locations %}
+              <option value="{{ loc.pk }}" {% if selected_location_id == loc.pk %}selected{% endif %}>
+                {% if loc.type == 'finished' %}🏭{% elif loc.type == 'wip' %}⚙️{% elif loc.type == 'raw' %}💧{% elif loc.type == 'spare' %}🔧{% elif loc.type == 'store' %}🏪{% else %}📦{% endif %}
+                {{ loc.name }} ({{ loc.code }})
+              </option>
+              {% empty %}
+              <option value="" disabled>{% trans 'لا توجد مخازن - أضف مخزن أولاً' %}</option>
+              {% endfor %}
+            </select>
+            <div class="form-text">
+              <a href="{% url 'inventory:location_add' %}" class="text-primary"><i class="bi bi-plus-circle"></i> إضافة مخزن جديد</a>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'الموقع' %}</label>
+            <input type="text" class="form-control" name="location" 
+                   value="{{ form.instance.location }}"
+                   placeholder="{% trans 'رف A-1' %}">
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Additional Info -->
+    <div class="form-section">
+      <div class="section-header">
+        <h4><i class="bi bi-card-text me-2"></i>{% trans 'معلومات إضافية' %}</h4>
+      </div>
+      <div class="section-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'الوزن (كجم)' %}</label>
+            <input type="number" class="form-control" name="weight" 
+                   value="{{ form.instance.weight }}" min="0" step="0.01">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'الأبعاد (سم)' %}</label>
+            <input type="text" class="form-control" name="dimensions" 
+                   value="{{ form.instance.dimensions }}"
+                   placeholder="{% trans 'الطول × العرض × الارتفاع' %}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'المورد الافتراضي' %}</label>
+            <div class="input-group">
+              <select class="form-select" name="default_supplier">
+                <option value="">{% trans 'اختر المورد' %}</option>
+                {% for supplier in suppliers %}
+                <option value="{{ supplier.pk }}">{{ supplier.name }}</option>
+                {% empty %}
+                <option value="1">{% trans 'مورد 1' %}</option>
+                <option value="2">{% trans 'مورد 2' %}</option>
+                {% endfor %}
+              </select>
+              <a href="/partners/suppliers/add/" target="_blank" class="btn btn-outline-success" title="إضافة مورد جديد" style="border-radius:0 6px 6px 0;">
+                <i class="bi bi-plus-circle"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Sidebar -->
+  <div class="col-lg-4">
+    <!-- Image Upload -->
+    <div class="form-section">
+      <div class="section-header">
+        <h4><i class="bi bi-image me-2"></i>{% trans 'صورة المنتج' %}</h4>
+      </div>
+      <div class="section-body p-0">
+        <div class="product-image-upload">
+          <label class="image-preview" for="productImage">
+            <input type="file" id="productImage" name="image" accept="image/*" hidden onchange="previewImage(this)">
+            <div class="placeholder" id="imagePlaceholder">
+              <i class="bi bi-cloud-upload d-block"></i>
+              <span>{% trans 'انقر لرفع الصورة' %}</span>
+            </div>
+            <img src="" alt="" id="imagePreviewImg" style="display: none;">
+          </label>
+          <small class="text-muted">{% trans 'PNG, JPG حتى 2MB' %}</small>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Profit Preview -->
+    <div class="pricing-card">
+      <div class="label">{% trans 'الربح المتوقع' %}</div>
+      <div class="value" id="profitAmount">0 ج.م</div>
+    </div>
+    
+    <!-- Stock Status -->
+    {% if form.instance.pk %}
+    <div class="form-section">
+      <div class="section-header">
+        <h4><i class="bi bi-box me-2"></i>{% trans 'حالة المخزون' %}</h4>
+      </div>
+      <div class="section-body">
+        <div class="stock-levels">
+          <div class="stock-level">
+            <div class="value text-success">{{ form.instance.stock_quantity|default:0 }}</div>
+            <div class="label">{% trans 'المتوفر' %}</div>
+          </div>
+          <div class="stock-level">
+            <div class="value text-warning">{{ form.instance.reserved|default:0 }}</div>
+            <div class="label">{% trans 'محجوز' %}</div>
+          </div>
+          <div class="stock-level">
+            <div class="value text-primary">{{ form.instance.available|default:0 }}</div>
+            <div class="label">{% trans 'المتاح' %}</div>
+          </div>
+        </div>
+        
+        <div class="mt-3">
+          <h6 class="mb-2"><i class="bi bi-geo-alt me-1"></i>{% trans 'المخزون حسب الموقع' %}</h6>
+          {% if stock_by_location %}
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0" style="font-size: 0.85rem;">
+              <thead class="table-light">
+                <tr>
+                  <th>{% trans 'الموقع' %}</th>
+                  <th>{% trans 'الكود' %}</th>
+                  <th>{% trans 'النوع' %}</th>
+                  <th class="text-center">{% trans 'الكمية' %}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for stock in stock_by_location %}
+                <tr>
+                  <td><i class="bi bi-building me-1 text-muted"></i>{{ stock.location__name }}</td>
+                  <td><code>{{ stock.location__code }}</code></td>
+                  <td><span class="badge bg-secondary">{{ stock.location__type }}</span></td>
+                  <td class="text-center fw-bold {% if stock.quantity > 0 %}text-success{% elif stock.quantity == 0 %}text-muted{% else %}text-danger{% endif %}">
+                    {{ stock.quantity }}
+                  </td>
+                </tr>
+                {% endfor %}
+                <tr class="table-info fw-bold">
+                  <td colspan="3"><i class="bi bi-calculator me-1"></i>{% trans 'الإجمالي' %}</td>
+                  <td class="text-center">{{ form.instance.stock_quantity|default:0 }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center text-muted py-3">
+            <i class="bi bi-inbox d-block mb-1" style="font-size: 1.5rem;"></i>
+            <small>{% trans 'لا توجد أرصدة مخزنية لهذا المنتج بعد' %}</small>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    
+    <!-- Settings -->
+    <div class="form-section">
+      <div class="section-header">
+        <h4><i class="bi bi-gear me-2"></i>{% trans 'إعدادات' %}</h4>
+      </div>
+      <div class="section-body">
+        <div class="form-check form-switch mb-3">
+          <input type="hidden" name="is_active_hidden" value="0">
+          <input class="form-check-input" type="checkbox" id="isActive" name="is_active" value="on" {% if not product or product.is_active %}checked{% endif %}>
+          <label class="form-check-label" for="isActive">{% trans 'منتج نشط' %}</label>
+        </div>
+        <div class="form-check form-switch mb-3">
+          <input class="form-check-input" type="checkbox" id="trackStock" name="track_stock" checked>
+          <label class="form-check-label" for="trackStock">{% trans 'تتبع المخزون' %}</label>
+        </div>
+        <div class="form-check form-switch mb-3">
+          <input class="form-check-input" type="checkbox" id="allowNegative" name="allow_negative_stock">
+          <label class="form-check-label" for="allowNegative">{% trans 'السماح بالمخزون السالب' %}</label>
+        </div>
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="forSale" name="for_sale" checked>
+          <label class="form-check-label" for="forSale">{% trans 'متاح للبيع' %}</label>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block form_actions %}
+<button type="button" class="btn btn-outline-secondary" onclick="window.history.back()">
+  <i class="bi bi-x-lg me-1"></i>{% trans 'إلغاء' %}
+</button>
+{% if form.instance.pk %}
+<a href="{% url 'inventory:product_duplicate' form.instance.pk %}" class="btn btn-outline-info">
+  <i class="bi bi-files me-1"></i> نسخ المنتج
+</a>
+<a href="{% url 'inventory:save_product_as_template' form.instance.pk %}" class="btn btn-outline-success">
+  <i class="bi bi-bookmark me-1"></i> حفظ كقالب
+</a>
+<button type="submit" name="action" value="save_continue" class="btn btn-outline-primary">
+  <i class="bi bi-arrow-repeat me-1"></i>{% trans 'حفظ ومتابعة' %}
+</button>
+{% endif %}
+<button type="submit" class="btn btn-primary">
+  <i class="bi bi-check-lg me-1"></i>{% if form.instance.pk %}{% trans 'حفظ التغييرات' %}{% else %}{% trans 'إضافة المنتج' %}{% endif %}
+</button>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function generateSKU() {
+    const prefix = 'PRD';
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    document.querySelector('input[name="sku"]').value = prefix + '-' + random;
+  }
+  
+  function calculateProfit() {
+    const cost = parseFloat(document.querySelector('input[name="cost_price"]').value) || 0;
+    const sell = parseFloat(document.querySelector('input[name="selling_price"]').value) || 0;
+    const profit = sell - cost;
+    const margin = cost > 0 ? ((profit / cost) * 100).toFixed(1) : 0;
+    
+    document.getElementById('profitMargin').value = margin;
+    document.getElementById('profitAmount').textContent = profit.toFixed(2) + ' ج.م';
+  }
+  
+  function previewImage(input) {
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('imagePreviewImg').src = e.target.result;
+        document.getElementById('imagePreviewImg').style.display = 'block';
+        document.getElementById('imagePlaceholder').style.display = 'none';
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+  
+  // Initial calculation
+  calculateProfit();
+</script>
+{% endblock %}
+

@@ -1,0 +1,326 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تقرير الأداء{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="mb-0"><i class="fas fa-chart-line text-success"></i> تقرير الأداء</h4>
+            </div>
+            <div class="d-flex gap-2">
+                <select class="form-select" style="width: auto;" id="period">
+                    <option value="7">آخر 7 أيام</option>
+                    <option value="30" selected>آخر 30 يوم</option>
+                    <option value="90">آخر 3 أشهر</option>
+                    <option value="365">آخر سنة</option>
+                </select>
+                <button type="button" class="btn btn-outline-primary">
+                    <i class="fas fa-download"></i> تصدير
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="text-primary mb-2">
+                        <i class="fas fa-users fa-2x"></i>
+                    </div>
+                    <h3 class="mb-0">{{ stats.new_customers|default:0 }}</h3>
+                    <small class="text-muted">عملاء جدد</small>
+                    <div class="mt-2">
+                        {% if stats.customers_growth >= 0 %}
+                        <span class="text-success"><i class="fas fa-arrow-up"></i> {{ stats.customers_growth }}%</span>
+                        {% else %}
+                        <span class="text-danger"><i class="fas fa-arrow-down"></i> {{ stats.customers_growth }}%</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="text-success mb-2">
+                        <i class="fas fa-file-contract fa-2x"></i>
+                    </div>
+                    <h3 class="mb-0">{{ stats.new_contracts|default:0 }}</h3>
+                    <small class="text-muted">عقود جديدة</small>
+                    <div class="mt-2">
+                        {% if stats.contracts_growth >= 0 %}
+                        <span class="text-success"><i class="fas fa-arrow-up"></i> {{ stats.contracts_growth }}%</span>
+                        {% else %}
+                        <span class="text-danger"><i class="fas fa-arrow-down"></i> {{ stats.contracts_growth }}%</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="text-warning mb-2">
+                        <i class="fas fa-dollar-sign fa-2x"></i>
+                    </div>
+                    <h3 class="mb-0">{{ stats.revenue|floatformat:0|default:0 }}</h3>
+                    <small class="text-muted">الإيرادات</small>
+                    <div class="mt-2">
+                        {% if stats.revenue_growth >= 0 %}
+                        <span class="text-success"><i class="fas fa-arrow-up"></i> {{ stats.revenue_growth }}%</span>
+                        {% else %}
+                        <span class="text-danger"><i class="fas fa-arrow-down"></i> {{ stats.revenue_growth }}%</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="text-info mb-2">
+                        <i class="fas fa-check-circle fa-2x"></i>
+                    </div>
+                    <h3 class="mb-0">{{ stats.conversion_rate|default:"0" }}%</h3>
+                    <small class="text-muted">معدل التحويل</small>
+                    <div class="mt-2">
+                        {% if stats.conversion_growth >= 0 %}
+                        <span class="text-success"><i class="fas fa-arrow-up"></i> {{ stats.conversion_growth }}%</span>
+                        {% else %}
+                        <span class="text-danger"><i class="fas fa-arrow-down"></i> {{ stats.conversion_growth }}%</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0"><i class="fas fa-chart-area text-primary"></i> الإيرادات والعقود</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="performanceChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0"><i class="fas fa-funnel-dollar text-success"></i> قمع المبيعات</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>عملاء محتملين</span>
+                            <span>{{ stats.leads|default:100 }}</span>
+                        </div>
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar bg-info" style="width: 100%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>تم التواصل</span>
+                            <span>{{ stats.contacted|default:75 }}</span>
+                        </div>
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar bg-primary" style="width: 75%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>عروض مقدمة</span>
+                            <span>{{ stats.proposals|default:45 }}</span>
+                        </div>
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar bg-warning" style="width: 45%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>تفاوض</span>
+                            <span>{{ stats.negotiating|default:25 }}</span>
+                        </div>
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar bg-orange" style="width: 25%; background-color: #fd7e14;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>إغلاق ناجح</span>
+                            <span>{{ stats.closed|default:15 }}</span>
+                        </div>
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar bg-success" style="width: 15%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0"><i class="fas fa-trophy text-warning"></i> أفضل مندوبي المبيعات</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive"><table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>المندوب</th>
+                                <th>العقود</th>
+                                <th>القيمة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rep in top_sales_reps %}
+                            <tr>
+                                <td>
+                                    {% if forloop.counter == 1 %}
+                                    <i class="fas fa-trophy text-warning"></i>
+                                    {% elif forloop.counter == 2 %}
+                                    <i class="fas fa-medal text-secondary"></i>
+                                    {% elif forloop.counter == 3 %}
+                                    <i class="fas fa-award text-danger"></i>
+                                    {% else %}
+                                    {{ forloop.counter }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" 
+                                             style="width: 35px; height: 35px;">
+                                            {{ rep.first_name|slice:":1" }}
+                                        </div>
+                                        {{ rep.get_full_name }}
+                                    </div>
+                                </td>
+                                <td>{{ rep.contracts_count }}</td>
+                                <td class="text-success">{{ rep.total_value|floatformat:0 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="4" class="text-center text-muted">لا توجد بيانات</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0"><i class="fas fa-building text-info"></i> أهم العملاء</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive"><table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>العميل</th>
+                                <th>العقود</th>
+                                <th>القيمة الإجمالية</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for customer in top_customers %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'crm:customer_detail' customer.id %}">
+                                        {{ customer.name }}
+                                    </a>
+                                </td>
+                                <td>{{ customer.contracts_count }}</td>
+                                <td class="text-success">{{ customer.total_value|floatformat:0 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3" class="text-center text-muted">لا توجد بيانات</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0"><i class="fas fa-tasks text-primary"></i> أداء المهام والمتابعات</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <h4 class="text-primary">{{ stats.total_tasks|default:0 }}</h4>
+                            <p class="text-muted mb-0">إجمالي المهام</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h4 class="text-success">{{ stats.completed_tasks|default:0 }}</h4>
+                            <p class="text-muted mb-0">مكتملة</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h4 class="text-warning">{{ stats.pending_tasks|default:0 }}</h4>
+                            <p class="text-muted mb-0">قيد التنفيذ</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h4 class="text-danger">{{ stats.overdue_tasks|default:0 }}</h4>
+                            <p class="text-muted mb-0">متأخرة</p>
+                        </div>
+                    </div>
+                    <div class="progress mt-4" style="height: 30px;">
+                        <div class="progress-bar bg-success" style="width: 60%">مكتملة 60%</div>
+                        <div class="progress-bar bg-warning" style="width: 25%">قيد التنفيذ 25%</div>
+                        <div class="progress-bar bg-danger" style="width: 15%">متأخرة 15%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+new Chart(document.getElementById('performanceChart'), {
+    type: 'line',
+    data: {
+        labels: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو'],
+        datasets: [{
+            label: 'الإيرادات',
+            data: [12000, 19000, 15000, 25000, 22000, 30000],
+            borderColor: 'rgb(75, 192, 192)',
+            fill: true,
+            backgroundColor: 'rgba(75, 192, 192, 0.1)',
+            tension: 0.4
+        }, {
+            label: 'العقود',
+            data: [5, 8, 6, 12, 10, 15],
+            borderColor: 'rgb(54, 162, 235)',
+            fill: false,
+            tension: 0.4,
+            yAxisID: 'y1'
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { position: 'bottom' }
+        },
+        scales: {
+            y: { beginAtZero: true },
+            y1: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false } }
+        }
+    }
+});
+</script>
+{% endblock %}

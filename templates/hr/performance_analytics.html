@@ -1,0 +1,330 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تحليلات الأداء المتقدمة{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<style>
+    .analytics-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    
+    .metric-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border: 1px solid #e0e0e0;
+        transition: all 0.3s ease;
+    }
+    
+    .metric-card:hover {
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    
+    .stat-number {
+        font-size: 2.2rem;
+        font-weight: bold;
+        color: #4e73df;
+    }
+    
+    .progress-bar-custom {
+        height: 15px;
+        border-radius: 10px;
+    }
+    
+    .category-badge {
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: bold;
+    }
+    
+    .badge-sales { background-color: #1cc88a; color: white; }
+    .badge-production { background-color: #36b9cc; color: white; }
+    .badge-quality { background-color: #f6c23e; color: #333; }
+    .badge-other { background-color: #858796; color: white; }
+    
+    .employee-rank {
+        background: linear-gradient(45deg, #ffd700, #ffed4e);
+        color: #333;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 10px;
+    }
+    
+    .chart-container {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #e0e0e0;
+    }
+    
+    .month-trend {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        margin: 5px 0;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="analytics-card">
+                <h2><i class="fas fa-chart-line me-3"></i>تحليلات الأداء المتقدمة</h2>
+                <p class="mb-0">نظرة شاملة على أداء الموظفين والأهداف</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="metric-card text-center">
+                <div class="stat-number">{{ total_metrics }}</div>
+                <div class="text-muted">مقاييس الأداء النشطة</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- إحصائيات الفئات -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="chart-container">
+                <h4><i class="fas fa-tags me-2"></i>تحليل الأهداف حسب الفئات</h4>
+                <div class="row">
+                    {% for stat in category_stats %}
+                    <div class="col-md-4 mb-3">
+                        <div class="metric-card">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0">{{ stat.category.name }}</h6>
+                                <span class="category-badge badge-{ stat.category.category_type }">
+                                    {{ stat.category.get_category_type_display }}
+                                </span>
+                            </div>
+                            
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <div class="small text-muted">إجمالي الأهداف</div>
+                                    <div class="h5 text-primary">{{ stat.total_targets }}</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="small text-muted">المكتملة</div>
+                                    <div class="h5 text-success">{{ stat.completed_count }}</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="small text-muted">متوسط الإنجاز</div>
+                                    <div class="h5 text-info">{{ stat.avg_achievement }}%</div>
+                                </div>
+                            </div>
+                            
+                            <div class="progress progress-bar-custom mt-3">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: { stat.avg_achievement }%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>لا توجد بيانات فئات متاحة حالياً
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- أفضل الموظفين -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="chart-container">
+                <h4><i class="fas fa-trophy me-2"></i>أفضل الموظفين أداءً</h4>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>الترتيب</th>
+                                <th>الموظف</th>
+                                <th>متوسط الإنجاز</th>
+                                <th>إجمالي الأهداف</th>
+                                <th>المكتملة</th>
+                                <th>معدل النجاح</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for performer in top_performers %}
+                            <tr>
+                                <td>
+                                    <div class="employee-rank">{{ forloop.counter }}</div>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div>
+                                            <div class="fw-bold">{{ performer.employee.arabic_name }}</div>
+                                            <small class="text-muted">{{ performer.employee.department.name }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary fs-6">{{ performer.avg_achievement }}%</span>
+                                </td>
+                                <td>{{ performer.total_targets }}</td>
+                                <td>{{ performer.completed_targets }}</td>
+                                <td>
+                                    {% widthratio performer.completed_targets performer.total_targets 100 as success_rate %}
+                                    <div class="progress progress-bar-custom">
+                                        <div class="progress-bar" style="width: { success_rate }%"></div>
+                                    </div>
+                                    <small>{{ success_rate }}%</small>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted">
+                                    <i class="fas fa-users-slash fa-2x mb-2"></i>
+                                    <div>لا توجد بيانات موظفين متاحة</div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="chart-container">
+                <h5><i class="fas fa-chart-pie me-2"></i>إحصائيات عامة</h5>
+                <div class="metric-card text-center mb-3">
+                    <div class="stat-number">{{ total_measurements }}</div>
+                    <div class="text-muted">إجمالي القياسات</div>
+                </div>
+                
+                {% if category_stats %}
+                <div class="mb-3">
+                    <h6>أفضل فئة أداءً</h6>
+                    {% for stat in category_stats %}
+                    {% if forloop.first %}
+                    <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded">
+                        <span class="fw-bold">{{ stat.category.name }}</span>
+                        <span class="badge bg-success">{{ stat.avg_achievement }}%</span>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- الاتجاهات الشهرية -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="chart-container">
+                <h4><i class="fas fa-calendar-alt me-2"></i>الاتجاهات الشهرية</h4>
+                <div class="row">
+                    {% for month in monthly_stats %}
+                    <div class="col-md-2 mb-3">
+                        <div class="month-trend">
+                            <div class="flex-grow-1">
+                                <div class="fw-bold">{{ month.month }}</div>
+                                <div class="small text-muted">
+                                    {{ month.total_targets }} هدف | {{ month.completed_targets }} مكتمل
+                                </div>
+                                <div class="small text-primary">{{ month.avg_achievement }}% متوسط</div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            <i class="fas fa-calendar-times me-2"></i>لا توجد بيانات شهرية متاحة
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- رسم بياني للاتجاهات -->
+                <div class="mt-4">
+                    <canvas id="monthlyChart" width="400" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- أزرار التنقل -->
+    <div class="row">
+        <div class="col-md-12 text-center">
+            <a href="{% url 'hr:targets_dashboard' %}" class="btn btn-primary me-2">
+                <i class="fas fa-bullseye me-2"></i>لوحة تحكم الأهداف
+            </a>
+            <a href="{% url 'hr:targets_list' %}" class="btn btn-secondary me-2">
+                <i class="fas fa-list me-2"></i>قائمة الأهداف
+            </a>
+            <a href="{% url 'hr:dashboard' %}" class="btn btn-outline-primary">
+                <i class="fas fa-home me-2"></i>العودة للوحة الرئيسية
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+// رسم الاتجاهات الشهرية
+const ctx = document.getElementById('monthlyChart').getContext('2d');
+const monthlyChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: [{% for month in monthly_stats %}'{{ month.month }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+        datasets: [{
+            label: 'متوسط الإنجاز %',
+            data: [{% for month in monthly_stats %}{{ month.avg_achievement }}{% if not forloop.last %},{% endif %}{% endfor %}],
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            tension: 0.1
+        }, {
+            label: 'إجمالي الأهداف',
+            data: [{% for month in monthly_stats %}{{ month.total_targets }}{% if not forloop.last %},{% endif %}{% endfor %}],
+            borderColor: 'rgb(255, 99, 132)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            tension: 0.1
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            title: {
+                display: true,
+                text: 'اتجاهات الأداء الشهرية'
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

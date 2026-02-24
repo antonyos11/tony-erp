@@ -1,0 +1,247 @@
+{% extends 'base_templates/_dashboard_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'التحليلات المتقدمة للمخزون' %}{% endblock %}
+{% block page_hero_icon %}bi-graph-up-arrow{% endblock %}
+{% block page_hero_title %}{% trans 'التحليلات المتقدمة' %}{% endblock %}
+{% block page_hero_subtitle %}{% trans 'رؤى متعمقة وتحليلات ذكية للمخزون' %}{% endblock %}
+
+{% block page_actions %}
+<div class="btn-group">
+  <button class="btn btn-outline-light" data-range="week">{% trans 'أسبوع' %}</button>
+  <button class="btn btn-light" data-range="month">{% trans 'شهر' %}</button>
+  <button class="btn btn-outline-light" data-range="quarter">{% trans 'ربع سنة' %}</button>
+  <button class="btn btn-outline-light" data-range="year">{% trans 'سنة' %}</button>
+</div>
+<button class="btn btn-light me-2">
+  <i class="bi bi-download me-1"></i>{% trans 'تصدير التقرير' %}
+</button>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .analytics-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    height: 100%;
+  }
+  .analytics-card .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .analytics-card h5 {
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .chart-container {
+    height: 250px;
+    position: relative;
+  }
+  .chart-placeholder {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+  }
+  
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .metric-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .metric-box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 4px;
+  }
+  .metric-box.turnover::before { background: var(--primary); }
+  .metric-box.accuracy::before { background: #10b981; }
+  .metric-box.dead::before { background: #ef4444; }
+  .metric-box.fill::before { background: #f59e0b; }
+  .metric-box .icon {
+    width: 50px;
+    height: 50px;
+    margin: 0 auto 1rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+  }
+  .metric-box.turnover .icon { background: rgba(30, 58, 95, 0.1); color: var(--primary); }
+  .metric-box.accuracy .icon { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+  .metric-box.dead .icon { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+  .metric-box.fill .icon { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+  .metric-box .value { font-size: 2rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .metric-box .label { font-size: 0.85rem; color: var(--text-muted); }
+  .metric-box .trend { font-size: 0.8rem; margin-top: 0.5rem; }
+  .metric-box .trend.up { color: #10b981; }
+  .metric-box .trend.down { color: #ef4444; }
+  
+  .abc-analysis {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .abc-segment {
+    flex: 1;
+    padding: 1rem;
+    border-radius: var(--radius);
+    text-align: center;
+  }
+  .abc-segment.a { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; }
+  .abc-segment.b { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; }
+  .abc-segment.c { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; }
+  .abc-segment .letter { font-size: 2rem; font-weight: 700; }
+  .abc-segment .percentage { font-size: 1.25rem; font-weight: 600; }
+  .abc-segment .desc { font-size: 0.8rem; opacity: 0.9; }
+  
+  .trend-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    margin-bottom: 0.5rem;
+  }
+  .trend-item .product-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0.75rem;
+  }
+  .trend-item .product-info { flex: 1; }
+  .trend-item .product-name { font-weight: 600; font-size: 0.9rem; }
+  .trend-item .product-sku { font-size: 0.75rem; color: var(--text-muted); }
+  .trend-item .trend-value { text-align: left; }
+  .trend-item .trend-value .value { font-weight: 700; }
+  .trend-item .trend-value .change { font-size: 0.75rem; }
+  .trend-item .trend-value .change.up { color: #10b981; }
+  .trend-item .trend-value .change.down { color: #ef4444; }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<!-- Key Metrics -->
+<div class="metric-grid">
+  <div class="metric-box turnover">
+    <div class="icon"><i class="bi bi-box-seam"></i></div>
+    <div class="value">{{ analytics_data.total_products|default:0 }}</div>
+    <div class="label">{% trans 'إجمالي المنتجات' %}</div>
+  </div>
+  <div class="metric-box accuracy">
+    <div class="icon"><i class="bi bi-cash-stack"></i></div>
+    <div class="value">{{ analytics_data.total_stock_value|floatformat:0|default:0 }}</div>
+    <div class="label">{% trans 'إجمالي قيمة المخزون' %}</div>
+  </div>
+  <div class="metric-box dead">
+    <div class="icon"><i class="bi bi-bar-chart"></i></div>
+    <div class="value">{{ analytics_data.avg_stock_per_product|floatformat:0|default:0 }}</div>
+    <div class="label">{% trans 'متوسط المخزون لكل منتج' %}</div>
+  </div>
+  <div class="metric-box fill">
+    <div class="icon"><i class="bi bi-exclamation-triangle"></i></div>
+    <div class="value">{{ analytics_data.low_stock_percentage|floatformat:1|default:"0" }}%</div>
+    <div class="label">{% trans 'نسبة المخزون المنخفض' %}</div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Chart -->
+  <div class="col-lg-12">
+    {% if chart_html %}
+    <div class="analytics-card">
+      <div class="header">
+        <h5><i class="bi bi-graph-up text-primary"></i>{% trans 'الرسم البياني' %}</h5>
+      </div>
+      {{ chart_html|safe }}
+    </div>
+    {% endif %}
+  </div>
+  
+  <!-- Top Products by Value -->
+  <div class="col-lg-6">
+    <div class="analytics-card">
+      <div class="header">
+        <h5><i class="bi bi-lightning text-warning"></i>{% trans 'أعلى المنتجات قيمة' %}</h5>
+      </div>
+      {% for product in top_by_value %}
+      <div class="trend-item">
+        <div class="product-icon"><i class="bi bi-box text-primary"></i></div>
+        <div class="product-info">
+          <div class="product-name">{{ product.0 }}</div>
+          <div class="product-sku">{{ product.1|default:"" }}</div>
+        </div>
+        <div class="trend-value">
+          <div class="value">{{ product.2|floatformat:0|default:0 }}</div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="text-center text-muted py-4">
+        <i class="bi bi-box fa-2x mb-2"></i>
+        <p>{% trans 'لا توجد بيانات منتجات بعد' %}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  
+  <!-- Top Products by Quantity -->
+  <div class="col-lg-6">
+    <div class="analytics-card">
+      <div class="header">
+        <h5><i class="bi bi-stack text-success"></i>{% trans 'أعلى المنتجات كمية' %}</h5>
+      </div>
+      {% for product in top_by_quantity %}
+      <div class="trend-item">
+        <div class="product-icon"><i class="bi bi-box text-success"></i></div>
+        <div class="product-info">
+          <div class="product-name">{{ product.0 }}</div>
+          <div class="product-sku">{{ product.1|default:"" }}</div>
+        </div>
+        <div class="trend-value">
+          <div class="value">{{ product.2|floatformat:0|default:0 }}</div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="text-center text-muted py-4">
+        <i class="bi bi-box fa-2x mb-2"></i>
+        <p>{% trans 'لا توجد بيانات منتجات بعد' %}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- No hardcoded chart data - charts use real data from context -->
+{% endblock %}

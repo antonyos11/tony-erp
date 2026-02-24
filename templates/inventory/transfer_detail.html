@@ -1,0 +1,236 @@
+{% extends BASE_TEMPLATE %}
+{% load i18n %}
+
+{% block title %}{% trans 'تفاصيل التحويل' %} - {{ transfer.number }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    .page-header h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 0;
+    }
+    .info-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .status-badge {
+        padding: 0.35rem 1rem;
+        border-radius: 50px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    .status-draft { background: #f3f4f6; color: #6b7280; }
+    .status-pending { background: #fef3c7; color: #d97706; }
+    .status-confirmed { background: #dbeafe; color: #1d4ed8; }
+    .data-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+    .data-card-header {
+        background: #f8fafc;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        font-weight: 600;
+    }
+    .transfer-visual {
+        background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+    }
+    .transfer-visual-inner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 2rem;
+    }
+    .warehouse-box {
+        flex: 1;
+        max-width: 250px;
+        background: white;
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+    }
+    .warehouse-box.source { border-color: #ef4444; }
+    .warehouse-box.destination { border-color: #10b981; }
+    .warehouse-box .icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin: 0 auto 1rem;
+    }
+    .warehouse-box.source .icon { background: #fee2e2; color: #ef4444; }
+    .warehouse-box.destination .icon { background: #d1fae5; color: #10b981; }
+    .warehouse-box .name { font-size: 1.1rem; font-weight: 600; }
+    .transfer-arrow {
+        display: flex;
+        align-items: center;
+        padding: 0 1rem;
+    }
+    .transfer-arrow i {
+        font-size: 2rem;
+        color: #3b82f6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-arrow-left-right text-primary me-2"></i>{{ title }}</h1>
+        </div>
+        <a href="{% url 'inventory:transfer_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i> {% trans 'العودة للقائمة' %}
+        </a>
+    </div>
+
+    <!-- رسم توضيحي للتحويل -->
+    <div class="transfer-visual">
+        <div class="transfer-visual-inner">
+            <div class="warehouse-box source">
+                <div class="icon"><i class="bi bi-box-arrow-right"></i></div>
+                <div class="name">{{ transfer.source.name }}</div>
+                <small class="text-danger">{% trans 'المصدر' %}</small>
+            </div>
+            <div class="transfer-arrow">
+                <i class="bi bi-arrow-left-right"></i>
+            </div>
+            <div class="warehouse-box destination">
+                <div class="icon"><i class="bi bi-box-arrow-in-left"></i></div>
+                <div class="name">{{ transfer.destination.name }}</div>
+                <small class="text-success">{% trans 'الوجهة' %}</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- معلومات المستند -->
+    <div class="info-card">
+        <div class="row">
+            <div class="col-md-3">
+                <small class="text-muted d-block">{% trans 'رقم التحويل' %}</small>
+                <strong>{{ transfer.number }}</strong>
+            </div>
+            <div class="col-md-3">
+                <small class="text-muted d-block">{% trans 'التاريخ' %}</small>
+                <strong>{{ transfer.date|date:"Y/m/d" }}</strong>
+            </div>
+            <div class="col-md-3">
+                <small class="text-muted d-block">{% trans 'الحالة' %}</small>
+                <span class="status-badge {% if transfer.status == 'confirmed' %}status-confirmed{% else %}status-draft{% endif %}">
+                    {{ transfer.get_status_display }}
+                </span>
+            </div>
+            <div class="col-md-3">
+                <small class="text-muted d-block">{% trans 'عدد الأصناف' %}</small>
+                <strong>{{ transfer.items.count }}</strong>
+            </div>
+        </div>
+        {% if transfer.notes %}
+        <hr>
+        <p class="mb-0"><strong>{% trans 'ملاحظات' %}:</strong> {{ transfer.notes }}</p>
+        {% endif %}
+    </div>
+
+    {% if transfer.is_editable %}
+    <!-- نموذج إضافة بند -->
+    <div class="data-card">
+        <div class="data-card-header">
+            <i class="bi bi-plus-circle me-2"></i>{% trans 'إضافة صنف للتحويل' %}
+        </div>
+        <div class="p-3">
+            <form method="post" class="row g-3 align-items-end">
+                {% csrf_token %}
+                <div class="col-md-6">
+                    <label class="form-label">{% trans 'المنتج' %}</label>
+                    <select class="form-select" name="product" required>
+                        <option value="">{% trans '-- اختر المنتج --' %}</option>
+                        {% for p in products %}
+                        <option value="{{ p.id }}">{{ p.sku }} - {{ p.name }} {% if p.available_qty %}({% trans 'متاح' %}: {{ p.available_qty }}){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted">{% trans 'يتم عرض المنتجات المتوفرة في المخزن المصدر فقط' %}</small>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">{% trans 'الكمية' %}</label>
+                    <input class="form-control" type="number" name="quantity" value="1" min="1" required>
+                </div>
+                <div class="col-md-3 d-flex gap-2">
+                    <button class="btn btn-primary" type="submit">
+                        <i class="bi bi-plus-lg me-1"></i> {% trans 'إضافة' %}
+                    </button>
+                    {% if transfer.status == 'draft' %}
+                    <a class="btn btn-warning" href="{% url 'inventory:transfer_submit' transfer.id %}" onclick="return confirm('هل تريد تقديم هذا التحويل للمراجعة؟')">
+                        <i class="bi bi-send me-1"></i> {% trans 'تقديم للمراجعة' %}
+                    </a>
+                    {% endif %}
+                    {% if transfer.status == 'draft' or transfer.status == 'pending' %}
+                    <a class="btn btn-success" href="{% url 'inventory:transfer_confirm' transfer.id %}" onclick="return confirm('هل أنت متأكد من تأكيد التحويل وتحديث الأرصدة؟')">
+                        <i class="bi bi-check-lg me-1"></i> {% trans 'تأكيد التحويل' %}
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- البنود -->
+    <div class="data-card">
+        <div class="data-card-header d-flex justify-content-between">
+            <span><i class="bi bi-list-check me-2"></i>{% trans 'الأصناف المحولة' %}</span>
+            <span class="badge bg-primary">{{ transfer.items.count }} {% trans 'صنف' %}</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>{% trans 'المنتج' %}</th>
+                        <th class="text-center">{% trans 'الكمية' %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for i in transfer.items.all %}
+                    <tr>
+                        <td>
+                            <strong>{{ i.product.name }}</strong>
+                            <small class="d-block text-muted">{{ i.product.sku }}</small>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-light text-dark fs-6">{{ i.quantity }}</span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="2" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                            {% trans 'لا توجد بنود بعد' %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,324 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load i18n %}
+
+{% block title %}{% trans 'تفاصيل الجرد' %} - {{ count.number }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    .page-header h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 0;
+    }
+    .info-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .status-badge {
+        padding: 0.35rem 1rem;
+        border-radius: 50px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    .status-draft { background: #fef3c7; color: #d97706; }
+    .status-counted { background: #dbeafe; color: #2563eb; }
+    .status-applied { background: #d1fae5; color: #065f46; }
+    .data-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+    .data-card-header {
+        background: #f8fafc;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        font-weight: 600;
+    }
+    .qty-diff {
+        font-weight: 600;
+    }
+    .qty-diff.positive { color: #059669; }
+    .qty-diff.negative { color: #dc2626; }
+    .qty-diff.zero { color: #6b7280; }
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .summary-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        padding: 1.25rem;
+        text-align: center;
+    }
+    .summary-card .icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        margin: 0 auto 0.75rem;
+    }
+    .summary-card .value {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    .summary-card .label {
+        font-size: 0.8rem;
+        color: #6b7280;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-clipboard-check text-purple me-2"></i>{{ title }}</h1>
+        </div>
+        <div class="d-flex gap-2">
+            {% if count.status != 'applied' %}
+            <a href="{% url 'inventory:count_scan_barcode' count.id %}" class="btn btn-outline-primary">
+                <i class="bi bi-upc-scan me-1"></i> {% trans 'جرد بالباركود' %}
+            </a>
+            {% endif %}
+            <a href="{% url 'inventory:count_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-right me-1"></i> {% trans 'العودة للقائمة' %}
+            </a>
+        </div>
+    </div>
+
+    <!-- معلومات المستند -->
+    <div class="info-card">
+        <div class="row">
+            <div class="col-md-3">
+                <small class="text-muted d-block">{% trans 'رقم الجرد' %}</small>
+                <strong>{{ count.number }}</strong>
+            </div>
+            <div class="col-md-3">
+                <small class="text-muted d-block">{% trans 'الموقع' %}</small>
+                <strong>{{ count.location }}</strong>
+            </div>
+            <div class="col-md-3">
+                <small class="text-muted d-block">{% trans 'التاريخ' %}</small>
+                <strong>{{ count.count_date|date:"Y/m/d" }}</strong>
+            </div>
+            <div class="col-md-3">
+                <small class="text-muted d-block">{% trans 'الحالة' %}</small>
+                <span class="status-badge status-{{ count.status }}">
+                    {{ count.get_status_display }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ملخص -->
+    <div class="summary-cards">
+        <div class="summary-card">
+            <div class="icon" style="background: #dbeafe; color: #2563eb;">
+                <i class="bi bi-box-seam"></i>
+            </div>
+            <div class="value">{{ count.items.count }}</div>
+            <div class="label">{% trans 'إجمالي الأصناف' %}</div>
+        </div>
+        <div class="summary-card">
+            <div class="icon" style="background: #d1fae5; color: #059669;">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="value" id="matchCount">0</div>
+            <div class="label">{% trans 'مطابق' %}</div>
+        </div>
+        <div class="summary-card">
+            <div class="icon" style="background: #fee2e2; color: #dc2626;">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="value" id="diffCount">0</div>
+            <div class="label">{% trans 'يوجد فرق' %}</div>
+        </div>
+        <div class="summary-card">
+            <div class="icon" style="background: #fef3c7; color: #d97706;">
+                <i class="bi bi-arrow-left-right"></i>
+            </div>
+            <div class="value" id="totalDiff">0</div>
+            <div class="label">{% trans 'إجمالي الفروقات' %}</div>
+        </div>
+    </div>
+
+    {% if count.is_editable %}
+    <!-- نموذج تعديل الكميات -->
+    <div class="data-card">
+        <div class="data-card-header">
+            <i class="bi bi-pencil-square me-2"></i>{% trans 'تعديل الكميات المعدودة' %}
+        </div>
+        <form method="post">
+            {% csrf_token %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% trans 'المنتج' %}</th>
+                            <th class="text-center">{% trans 'الكمية النظامية' %}</th>
+                            <th class="text-center">{% trans 'الكمية المعدودة' %}</th>
+                            <th class="text-center">{% trans 'الفرق' %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in count.items.all %}
+                        <tr>
+                            <td>
+                                <strong>{{ item.product.name }}</strong>
+                                <small class="d-block text-muted">{{ item.product.sku }}</small>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-light text-dark">{{ item.system_qty }}</span>
+                            </td>
+                            <td class="text-center">
+                                <input type="number" class="form-control form-control-sm text-center counted-input" 
+                                       name="item_{{ item.id }}" value="{{ item.counted_qty }}" 
+                                       style="width: 100px; margin: 0 auto;"
+                                       data-system="{{ item.system_qty }}">
+                            </td>
+                            <td class="text-center">
+                                <span class="qty-diff diff-display" data-item="{{ item.id }}">
+                                    {% with diff=item.counted_qty|add:item.system_qty|make_list %}0{% endwith %}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                {% trans 'لا توجد بنود' %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i> {% trans 'حفظ الكميات' %}
+                </button>
+                <a href="{% url 'inventory:count_apply' count.id %}" class="btn btn-success"
+                   onclick="return confirm('{% trans "هل أنت متأكد من ترحيل الجرد؟ سيتم تحديث الأرصدة." %}')">
+                    <i class="bi bi-check-all me-1"></i> {% trans 'ترحيل الجرد' %}
+                </a>
+            </div>
+        </form>
+    </div>
+    {% else %}
+    <!-- عرض النتائج للجرد المُرحل -->
+    <div class="data-card">
+        <div class="data-card-header">
+            <i class="bi bi-list-check me-2"></i>{% trans 'نتائج الجرد' %}
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>{% trans 'المنتج' %}</th>
+                        <th class="text-center">{% trans 'الكمية النظامية' %}</th>
+                        <th class="text-center">{% trans 'الكمية المعدودة' %}</th>
+                        <th class="text-center">{% trans 'الفرق' %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in count.items.all %}
+                    {% with diff=item.counted_qty|add:"-"|add:item.system_qty %}
+                    <tr>
+                        <td>
+                            <strong>{{ item.product.name }}</strong>
+                            <small class="d-block text-muted">{{ item.product.sku }}</small>
+                        </td>
+                        <td class="text-center">{{ item.system_qty }}</td>
+                        <td class="text-center">{{ item.counted_qty }}</td>
+                        <td class="text-center">
+                            {% if item.counted_qty > item.system_qty %}
+                            <span class="qty-diff positive">+{{ item.counted_qty|add:item.system_qty|default:0 }}</span>
+                            {% elif item.counted_qty < item.system_qty %}
+                            <span class="qty-diff negative">{{ item.counted_qty|add:item.system_qty|default:0 }}</span>
+                            {% else %}
+                            <span class="qty-diff zero">0</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endwith %}
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">
+                            {% trans 'لا توجد بنود' %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if count.notes %}
+    <!-- ملاحظات -->
+    <div class="info-card">
+        <h6><i class="bi bi-sticky me-2"></i>{% trans 'ملاحظات' %}</h6>
+        <p class="mb-0">{{ count.notes }}</p>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const inputs = document.querySelectorAll('.counted-input');
+    let matchCount = 0;
+    let diffCount = 0;
+    let totalDiff = 0;
+
+    function updateSummary() {
+        matchCount = 0;
+        diffCount = 0;
+        totalDiff = 0;
+        
+        inputs.forEach(function(input) {
+            const systemQty = parseInt(input.dataset.system) || 0;
+            const countedQty = parseInt(input.value) || 0;
+            const diff = countedQty - systemQty;
+            
+            if (diff === 0) {
+                matchCount++;
+            } else {
+                diffCount++;
+            }
+            totalDiff += diff;
+        });
+        
+        document.getElementById('matchCount').textContent = matchCount;
+        document.getElementById('diffCount').textContent = diffCount;
+        document.getElementById('totalDiff').textContent = totalDiff >= 0 ? '+' + totalDiff : totalDiff;
+    }
+
+    inputs.forEach(function(input) {
+        input.addEventListener('input', updateSummary);
+    });
+
+    updateSummary();
+});
+</script>
+{% endblock %}
+

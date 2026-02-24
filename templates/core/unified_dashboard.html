@@ -1,0 +1,728 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "لوحة التحكم الموحدة" %} - Tony ERP{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-card {
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .dashboard-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+    }
+    .stat-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #2c3e50;
+    }
+    .stat-label {
+        color: #7f8c8d;
+        font-size: 0.875rem;
+    }
+    .trend-up { color: #27ae60; }
+    .trend-down { color: #e74c3c; }
+    .trend-same { color: #95a5a6; }
+    
+    .alert-card {
+        border-right: 4px solid;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        background: white;
+        border-radius: 8px;
+    }
+    .alert-danger { border-color: #e74c3c; }
+    .alert-warning { border-color: #f39c12; }
+    .alert-info { border-color: #3498db; }
+    .alert-success { border-color: #27ae60; }
+    
+    .branch-row {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #ecf0f1;
+        transition: background 0.2s;
+    }
+    .branch-row:hover {
+        background: #f8f9fa;
+    }
+    .branch-rank {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 0.875rem;
+    }
+    .rank-1 { background: #f1c40f; color: #2c3e50; }
+    .rank-2 { background: #bdc3c7; color: #2c3e50; }
+    .rank-3 { background: #cd6133; color: white; }
+    .rank-other { background: #ecf0f1; color: #7f8c8d; }
+    
+    .production-status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    .status-in-progress { background: #3498db20; color: #3498db; }
+    .status-pending { background: #f39c1220; color: #f39c12; }
+    .status-completed { background: #27ae6020; color: #27ae60; }
+    
+    .chart-container {
+        height: 300px;
+        position: relative;
+    }
+    
+    .refresh-btn {
+        position: fixed;
+        bottom: 30px;
+        left: 30px;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: #3498db;
+        color: white;
+        border: none;
+        box-shadow: 0 4px 10px rgba(52, 152, 219, 0.4);
+        cursor: pointer;
+        z-index: 1000;
+        transition: transform 0.2s;
+    }
+    .refresh-btn:hover {
+        transform: scale(1.1);
+    }
+    .refresh-btn.loading i {
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="fas fa-tachometer-alt text-primary me-2"></i>
+                        {% trans "لوحة التحكم الموحدة" %}
+                    </h2>
+                    <p class="text-muted mb-0" id="lastUpdated">
+                        {% trans "آخر تحديث" %}: <span>--</span>
+                    </p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-secondary" onclick="exportDashboard()">
+                        <i class="fas fa-download me-1"></i> {% trans "تصدير" %}
+                    </button>
+                    <button class="btn btn-primary" onclick="refreshDashboard()">
+                        <i class="fas fa-sync-alt me-1"></i> {% trans "تحديث" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats Row -->
+    <div class="row mb-4" id="quickStats">
+        <!-- Sales Today -->
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card dashboard-card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-primary-subtle text-primary">
+                            <i class="fas fa-coins"></i>
+                        </div>
+                        <div class="me-3 flex-grow-1">
+                            <div class="stat-value" id="salesToday">--</div>
+                            <div class="stat-label">{% trans "مبيعات اليوم" %}</div>
+                        </div>
+                        <div class="text-end">
+                            <span class="trend-indicator" id="salesTrend">
+                                <i class="fas fa-minus"></i> 0%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Orders Today -->
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card dashboard-card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-success-subtle text-success">
+                            <i class="fas fa-shopping-cart"></i>
+                        </div>
+                        <div class="me-3 flex-grow-1">
+                            <div class="stat-value" id="ordersToday">--</div>
+                            <div class="stat-label">{% trans "طلبات اليوم" %}</div>
+                        </div>
+                        <div class="text-end">
+                            <span class="trend-indicator" id="ordersTrend">
+                                <i class="fas fa-minus"></i> 0%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Production Today -->
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card dashboard-card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-warning-subtle text-warning">
+                            <i class="fas fa-industry"></i>
+                        </div>
+                        <div class="me-3 flex-grow-1">
+                            <div class="stat-value" id="productionToday">--</div>
+                            <div class="stat-label">{% trans "الإنتاج اليوم" %}</div>
+                        </div>
+                        <div class="text-end">
+                            <span class="trend-indicator" id="productionTrend">
+                                <i class="fas fa-minus"></i> 0%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Stock Value -->
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card dashboard-card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-info-subtle text-info">
+                            <i class="fas fa-warehouse"></i>
+                        </div>
+                        <div class="me-3 flex-grow-1">
+                            <div class="stat-value" id="stockValue">--</div>
+                            <div class="stat-label">{% trans "قيمة المخزون" %}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Row -->
+    <div class="row">
+        <!-- Left Column - Branches Performance -->
+        <div class="col-xl-8 mb-4">
+            <!-- Branches Performance Table -->
+            <div class="card dashboard-card mb-4">
+                <div class="card-header bg-white py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-store text-primary me-2"></i>
+                            {% trans "أداء المعارض" %}
+                        </h5>
+                        <a href="{% url 'branches:branch_list' %}" class="btn btn-sm btn-outline-primary">
+                            {% trans "عرض الكل" %}
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>{% trans "المعرض" %}</th>
+                                    <th class="text-end">{% trans "مبيعات اليوم" %}</th>
+                                    <th class="text-end">{% trans "هذا الشهر" %}</th>
+                                    <th>{% trans "تحقيق الهدف" %}</th>
+                                    <th class="text-center">{% trans "المخزون" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody id="branchesTable">
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Charts Row -->
+            <div class="row">
+                <!-- Sales Chart -->
+                <div class="col-md-6 mb-4">
+                    <div class="card dashboard-card h-100">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="mb-0">
+                                <i class="fas fa-chart-line text-success me-2"></i>
+                                {% trans "مبيعات آخر 7 أيام" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="salesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Production Chart -->
+                <div class="col-md-6 mb-4">
+                    <div class="card dashboard-card h-100">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="mb-0">
+                                <i class="fas fa-chart-bar text-warning me-2"></i>
+                                {% trans "الإنتاج آخر 7 أيام" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="productionChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Column - Alerts & Production Status -->
+        <div class="col-xl-4">
+            <!-- Alerts -->
+            <div class="card dashboard-card mb-4">
+                <div class="card-header bg-white py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-bell text-danger me-2"></i>
+                            {% trans "التنبيهات" %}
+                            <span class="badge bg-danger ms-2" id="alertsCount">0</span>
+                        </h5>
+                    </div>
+                </div>
+                <div class="card-body" id="alertsContainer" style="max-height: 300px; overflow-y: auto;">
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-check-circle fa-2x mb-2"></i>
+                        <p class="mb-0">{% trans "لا توجد تنبيهات" %}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Production Status -->
+            <div class="card dashboard-card mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cogs text-primary me-2"></i>
+                        {% trans "حالة الإنتاج" %}
+                    </h5>
+                </div>
+                <div class="card-body" id="productionStatus">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-primary-subtle rounded">
+                                <div class="fs-3 fw-bold text-primary" id="prodInProgress">0</div>
+                                <small class="text-muted">{% trans "قيد التنفيذ" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-warning-subtle rounded">
+                                <div class="fs-3 fw-bold text-warning" id="prodPending">0</div>
+                                <small class="text-muted">{% trans "معلق" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-success-subtle rounded">
+                                <div class="fs-3 fw-bold text-success" id="prodCompleted">0</div>
+                                <small class="text-muted">{% trans "مكتمل اليوم" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-danger-subtle rounded">
+                                <div class="fs-3 fw-bold text-danger" id="prodOverdue">0</div>
+                                <small class="text-muted">{% trans "متأخر" %}</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">{% trans "استخدام الطاقة" %}</span>
+                            <span class="fw-bold" id="capacityPct">0%</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-primary" role="progressbar" 
+                                 id="capacityBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Inventory Overview -->
+            <div class="card dashboard-card">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-boxes text-info me-2"></i>
+                        {% trans "نظرة على المخزون" %}
+                    </h5>
+                </div>
+                <div class="card-body" id="inventoryOverview">
+                    <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                        <span>{% trans "منتجات منخفضة" %}</span>
+                        <span class="badge bg-warning" id="lowStockCount">0</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                        <span>{% trans "نفدت من المخزون" %}</span>
+                        <span class="badge bg-danger" id="outOfStockCount">0</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                        <span>{% trans "تحويلات معلقة" %}</span>
+                        <span class="badge bg-info" id="pendingTransfers">0</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center py-2">
+                        <span>{% trans "قيمة البضائع في الطريق" %}</span>
+                        <span class="fw-bold text-primary" id="inTransitValue">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Refresh Button -->
+<button class="refresh-btn" onclick="refreshDashboard()" title="{% trans 'تحديث' %}">
+    <i class="fas fa-sync-alt"></i>
+</button>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let salesChart, productionChart;
+let refreshInterval;
+
+// Format currency
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('ar-SA', {
+        style: 'currency',
+        currency: 'SAR',
+        minimumFractionDigits: 0
+    }).format(amount);
+}
+
+// Format number
+function formatNumber(num) {
+    return new Intl.NumberFormat('ar-SA').format(num);
+}
+
+// Update trend indicator
+function updateTrend(elementId, change) {
+    const el = document.getElementById(elementId);
+    let icon, cssClass;
+    
+    if (change > 0) {
+        icon = 'fa-arrow-up';
+        cssClass = 'trend-up';
+    } else if (change < 0) {
+        icon = 'fa-arrow-down';
+        cssClass = 'trend-down';
+    } else {
+        icon = 'fa-minus';
+        cssClass = 'trend-same';
+    }
+    
+    el.innerHTML = `<i class="fas ${icon}"></i> ${Math.abs(change).toFixed(1)}%`;
+    el.className = `trend-indicator ${cssClass}`;
+}
+
+// Load dashboard data
+async function loadDashboard() {
+    try {
+        const response = await fetch('/api/enterprise/dashboard/unified/');
+        if (!response.ok) throw new Error('Failed to load dashboard');
+        
+        const data = await response.json();
+        updateDashboard(data);
+    } catch (error) {
+        console.warn('Dashboard API unavailable, using fallback charts:', error.message);
+        // عرض رسالة بسيطة بدلاً من ترك الصفحة فارغة
+        var noDataMsg = document.querySelector('.no-data-message');
+        if (!noDataMsg) {
+            var msg = document.createElement('div');
+            msg.className = 'alert alert-info text-center no-data-message';
+            msg.innerHTML = '<i class="fas fa-info-circle me-2"></i>جاري تحميل البيانات... قد يستغرق ذلك بضع ثوانٍ';
+            var container = document.querySelector('.container-fluid');
+            if (container) container.insertBefore(msg, container.children[1]);
+        }
+    }
+}
+
+// Update dashboard with data
+function updateDashboard(data) {
+    // Quick Stats
+    if (data.quick_stats) {
+        document.getElementById('salesToday').textContent = formatCurrency(data.quick_stats.sales?.value || 0);
+        document.getElementById('ordersToday').textContent = formatNumber(data.quick_stats.orders?.value || 0);
+        document.getElementById('productionToday').textContent = formatNumber(data.quick_stats.production?.value || 0);
+        
+        updateTrend('salesTrend', data.quick_stats.sales?.change || 0);
+        updateTrend('ordersTrend', data.quick_stats.orders?.change || 0);
+        updateTrend('productionTrend', data.quick_stats.production?.change || 0);
+    }
+    
+    // Stock value
+    if (data.inventory_overview) {
+        document.getElementById('stockValue').textContent = formatCurrency(data.inventory_overview.total_stock_value || 0);
+        document.getElementById('lowStockCount').textContent = data.inventory_overview.low_stock_items || 0;
+        document.getElementById('outOfStockCount').textContent = data.inventory_overview.out_of_stock_items || 0;
+        document.getElementById('pendingTransfers').textContent = data.inventory_overview.pending_transfers || 0;
+        document.getElementById('inTransitValue').textContent = formatCurrency(data.inventory_overview.in_transit_value || 0);
+    }
+    
+    // Production Status
+    if (data.production_status) {
+        document.getElementById('prodInProgress').textContent = data.production_status.orders_in_progress || 0;
+        document.getElementById('prodPending').textContent = data.production_status.orders_pending || 0;
+        document.getElementById('prodCompleted').textContent = data.production_status.orders_completed_today || 0;
+        document.getElementById('prodOverdue').textContent = data.production_status.overdue_orders || 0;
+        
+        const capacity = data.production_status.capacity_utilization || 0;
+        document.getElementById('capacityPct').textContent = `${capacity.toFixed(0)}%`;
+        document.getElementById('capacityBar').style.width = `${capacity}%`;
+    }
+    
+    // Branches Performance
+    if (data.branches_performance) {
+        updateBranchesTable(data.branches_performance);
+    }
+    
+    // Alerts
+    if (data.alerts) {
+        updateAlerts(data.alerts);
+    }
+    
+    // Charts
+    if (data.charts_data) {
+        updateCharts(data.charts_data);
+    }
+    
+    // Timestamp
+    document.querySelector('#lastUpdated span').textContent = new Date().toLocaleTimeString('ar-SA');
+}
+
+// Update branches table
+function updateBranchesTable(branches) {
+    const tbody = document.getElementById('branchesTable');
+    
+    if (!branches.length) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center py-4 text-muted">
+                    {% trans "لا توجد معارض" %}
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = branches.map((branch, index) => {
+        const rankClass = index === 0 ? 'rank-1' : (index === 1 ? 'rank-2' : (index === 2 ? 'rank-3' : 'rank-other'));
+        const progressColor = branch.target_achievement >= 100 ? 'success' : 
+                             (branch.target_achievement >= 70 ? 'primary' : 
+                             (branch.target_achievement >= 40 ? 'warning' : 'danger'));
+        
+        return `
+            <tr class="branch-row">
+                <td>
+                    <div class="branch-rank ${rankClass}">${index + 1}</div>
+                </td>
+                <td>
+                    <strong>${branch.branch_name}</strong>
+                    <div class="small text-muted">${branch.branch_code}</div>
+                </td>
+                <td class="text-end">${formatCurrency(branch.sales_today)}</td>
+                <td class="text-end">${formatCurrency(branch.sales_this_month)}</td>
+                <td>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="progress flex-grow-1" style="height: 6px;">
+                            <div class="progress-bar bg-${progressColor}" 
+                                 style="width: ${Math.min(branch.target_achievement, 100)}%"></div>
+                        </div>
+                        <span class="small">${branch.target_achievement.toFixed(0)}%</span>
+                    </div>
+                </td>
+                <td class="text-center">
+                    ${branch.low_stock_items > 0 ? 
+                        `<span class="badge bg-warning">${branch.low_stock_items} منخفض</span>` : 
+                        `<span class="badge bg-success">جيد</span>`
+                    }
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Update alerts
+function updateAlerts(alerts) {
+    const container = document.getElementById('alertsContainer');
+    document.getElementById('alertsCount').textContent = alerts.length;
+    
+    if (!alerts.length) {
+        container.innerHTML = `
+            <div class="text-center py-4 text-muted">
+                <i class="fas fa-check-circle fa-2x mb-2 text-success"></i>
+                <p class="mb-0">{% trans "لا توجد تنبيهات" %}</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = alerts.map(alert => `
+        <div class="alert-card alert-${alert.severity}">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <strong>${alert.title}</strong>
+                    <div class="small text-muted mt-1">${alert.message}</div>
+                </div>
+                ${alert.count ? `<span class="badge bg-${alert.severity}">${alert.count}</span>` : ''}
+            </div>
+            ${alert.link ? `<a href="${alert.link}" class="btn btn-sm btn-outline-${alert.severity} mt-2">عرض</a>` : ''}
+        </div>
+    `).join('');
+}
+
+// Update charts
+function updateCharts(chartsData) {
+    // Sales Chart
+    const salesCtx = document.getElementById('salesChart').getContext('2d');
+    
+    if (salesChart) salesChart.destroy();
+    
+    salesChart = new Chart(salesCtx, {
+        type: 'line',
+        data: {
+            labels: chartsData.sales_trend?.map(d => d.day_name) || [],
+            datasets: [{
+                label: '{% trans "المبيعات" %}',
+                data: chartsData.sales_trend?.map(d => d.value) || [],
+                borderColor: '#27ae60',
+                backgroundColor: 'rgba(39, 174, 96, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: value => formatCurrency(value)
+                    }
+                }
+            }
+        }
+    });
+    
+    // Production Chart
+    const prodCtx = document.getElementById('productionChart').getContext('2d');
+    
+    if (productionChart) productionChart.destroy();
+    
+    productionChart = new Chart(prodCtx, {
+        type: 'bar',
+        data: {
+            labels: chartsData.production_trend?.map(d => d.day_name) || [],
+            datasets: [{
+                label: '{% trans "الإنتاج" %}',
+                data: chartsData.production_trend?.map(d => d.value) || [],
+                backgroundColor: '#f39c12',
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+}
+
+// Refresh dashboard
+function refreshDashboard() {
+    const btn = document.querySelector('.refresh-btn');
+    btn.classList.add('loading');
+    
+    loadDashboard().finally(() => {
+        setTimeout(() => btn.classList.remove('loading'), 500);
+    });
+}
+
+// Export dashboard (placeholder)
+function exportDashboard() {
+    alert('{% trans "سيتم تصدير التقرير قريباً" %}');
+}
+
+// Initialize with fallback chart data if API fails
+function initFallbackCharts() {
+    // بيانات افتراضية لعرض الرسوم البيانية حتى لو فشل الـ API
+    const days = [];
+    const dayNames = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        days.push(dayNames[d.getDay()]);
+    }
+    updateCharts({
+        sales_trend: days.map(d => ({day_name: d, value: 0})),
+        production_trend: days.map(d => ({day_name: d, value: 0}))
+    });
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    // عرض الرسوم البيانية فوراً كحالة أولية
+    initFallbackCharts();
+    
+    // ثم تحميل البيانات الحقيقية
+    loadDashboard();
+    
+    // Auto refresh every 30 seconds for near-real-time branch data sync
+    refreshInterval = setInterval(loadDashboard, 30 * 1000);
+});
+
+// Cleanup
+window.addEventListener('beforeunload', function() {
+    if (refreshInterval) clearInterval(refreshInterval);
+});
+</script>
+{% endblock %}

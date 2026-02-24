@@ -1,0 +1,1273 @@
+"""
+Context processors للنظام - Tony ERB
+"""
+
+import os
+from datetime import datetime, timedelta
+from django.utils.translation import gettext_lazy as _
+from django.conf import settings
+
+
+def _resolve_ui_new_flag(request, settings):
+    """تحديد هل سيتم تفعيل الواجهة الجديدة."""
+    try:
+        ui_param = request.GET.get('ui') if hasattr(request, 'GET') else None
+        if ui_param in ('new', 'old'):
+            request.session['UI_NEW'] = (ui_param == 'new')
+            return ui_param == 'new'
+        if 'UI_NEW' in request.session:
+            return bool(request.session.get('UI_NEW'))
+        return bool(getattr(settings, 'UI_NEW_DEFAULT', False))
+    except Exception:
+        return bool(getattr(settings, 'UI_NEW_DEFAULT', False))
+
+
+_attention_cache = {'value': 0, 'ts': None}
+def _purchase_orders_attention_count():
+    from purchases.models import PurchaseOrder
+    from datetime import date
+    now = datetime.utcnow()
+    if _attention_cache['ts'] and (now - _attention_cache['ts']) < timedelta(seconds=60):
+        return _attention_cache['value']
+    today = date.today()
+    qs = PurchaseOrder.objects.filter(status__in=['confirmed', 'partial']).only('id', 'status', 'expected_date')
+    count = 0
+    for po in qs:
+        if po.status == 'partial' or (po.expected_date and po.expected_date < today and po.status != 'partial'):
+            count += 1
+    _attention_cache['value'] = count
+    _attention_cache['ts'] = now
+    return count
+
+
+_pending_cache = {'value': 0, 'ts': None}
+def _pending_purchase_orders_count():
+    from purchases.models import PurchaseOrder
+    now = datetime.utcnow()
+    if _pending_cache['ts'] and (now - _pending_cache['ts']) < timedelta(seconds=60):
+        return _pending_cache['value']
+    qs = PurchaseOrder.objects.filter(status__in=['draft', 'confirmed', 'partial']).select_related('bill').only('id', 'status', 'bill_id')
+    count = 0
+    for po in qs:
+        bill = getattr(po, 'bill', None)
+        if not bill or not getattr(bill, 'posted', False):
+            count += 1
+    _pending_cache['value'] = count
+    _pending_cache['ts'] = now
+    return count
+
+
+_unposted_cache = {'value': 0, 'ts': None}
+def _unposted_journal_entries_count():
+    from accounting.models import JournalEntry
+    now = datetime.utcnow()
+    if _unposted_cache['ts'] and (now - _unposted_cache['ts']) < timedelta(seconds=60):
+        return _unposted_cache['value']
+    count = JournalEntry.objects.filter(is_posted=False).count()
+    _unposted_cache['value'] = count
+    _unposted_cache['ts'] = now
+    return count
+
+
+def system_info(request):
+    """إضافة معلومات النظام للسياق العام"""
+    from core.models import Company, AppSettings
+    from django.conf import settings
+
+    company = Company.objects.first()
+    app_settings = AppSettings.get()
+
+    # ألوان الهوية: من إعدادات التطبيق ثم من متغيرات البيئة عند غيابها
+    brand = dict(app_settings.brand_colors or {})
+    env_brand = {
+        'primary': os.getenv('BRAND_PRIMARY', ''),
+        'primary_dark': os.getenv('BRAND_PRIMARY_DARK', ''),
+        'primary_light': os.getenv('BRAND_PRIMARY_LIGHT', ''),
+        'info': os.getenv('BRAND_INFO', ''),
+        'success': os.getenv('BRAND_SUCCESS', ''),
+        'warning': os.getenv('BRAND_WARNING', ''),
+        'danger': os.getenv('BRAND_DANGER', ''),
+    }
+    for k, v in env_brand.items():
+        if k not in brand and v:
+            brand[k] = v
+    # نظّف القيم الفارغة
+    brand = {k: v for k, v in brand.items() if v}
+
+    # اكتشاف عنوان IP المحلي لعرضه في زر/نافذة المشاركة
+    try:
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        local_ip = ''
+
+    # منفذ وبروتوكول الطلب الحالي
+    try:
+        request_port = request.get_port()
+    except Exception:
+        request_port = os.getenv('PORT', '8000')
+    request_scheme = getattr(request, 'scheme', 'http')
+
+    from django.utils import translation
+    current_lang = getattr(request, 'LANGUAGE_CODE', translation.get_language())
+    ui_new = _resolve_ui_new_flag(request, settings)
+    base_context = {
+        'SYSTEM_NAME': 'Tony ERB',
+        'SYSTEM_VERSION': '2.0',
+        'SYSTEM_DESCRIPTION': _('نظام إدارة الأعمال الشامل'),
+        'BRAND_COLORS': brand or None,
+        'company': company,
+        'APP_SETTINGS': app_settings,
+        'SERVER_LOCAL_IP': local_ip,
+        'REQUEST_PORT': request_port,
+        'REQUEST_SCHEME': request_scheme,
+        'CURRENT_LANGUAGE_CODE': current_lang,
+        'UI_NEW': ui_new,
+        'BASE_TEMPLATE': 'base_v2.html' if ui_new else 'base.html',
+        'base_template': 'base_v2.html' if ui_new else 'base.html',
+        'PURCHASE_ORDERS_ATTENTION_COUNT': (_purchase_orders_attention_count() if (request.user.is_authenticated and request.user.has_perm('purchases.view_purchaseorder')) else None),
+        'pending_purchase_orders_count': (_pending_purchase_orders_count() if (request.user.is_authenticated and request.user.has_perm('purchases.view_purchaseorder')) else 0),
+        'unposted_journal_entries_count': (
+            _unposted_journal_entries_count()
+            if (request.user.is_authenticated and (request.user.is_superuser or request.user.has_perm('accounting.view_journalentry')))
+            else 0
+        ),
+    }
+    return base_context
+
+
+def user_permissions(request):
+    """إضافة صلاحيات المستخدم للسياق العام"""
+    permissions = {}
+
+    if not getattr(request, 'user', None) or not request.user.is_authenticated:
+        return {'user_modules': permissions, 'has_any_permissions': False}
+
+    # قائمة الوحدات النهائية (مستنسخة من Kayanac) - يحافظ Python على ترتيب الإدخال
+    modules_config = {
+        'basic_data': {
+            'name': _('البيانات الأساسية'),
+            'icon': 'bi-building-gear',
+            'perm_module': 'core',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'type': 'header', 'name': _('SYSTEM OPTIONS:')},
+                {'name': _('الشركة الرئيسية'), 'url': 'core:company_settings', 'permission': 'view'},
+                {'name': _('السنوات المالية'), 'url': 'accounting:fiscal_year_list', 'permission': 'view'},
+                {'name': _('الفروع'), 'url': 'core:branch_list', 'permission': 'view'},
+                {'name': _('إدارة الأدوار'), 'url': 'users:role_list', 'permission': 'view'},
+                {'name': _('المستخدمين'), 'url': 'users:list', 'permission': 'view'},
+                {'name': _('إدارة صلاحيات الصفحات'), 'url': 'users:page_permissions', 'permission': 'change'},
+                {'name': _('إدارة الصفحات والأقسام'), 'url': 'core:page_list', 'permission': 'view'},
+                {'name': _('العملات'), 'url': 'core:currency_settings', 'permission': 'view'},
+                {'name': _('الدول'), 'url': 'core:country_list', 'permission': 'view'},
+                {'name': _('المحافظات'), 'url': 'core:state_list', 'permission': 'view'},
+                {'name': _('المناطق'), 'url': 'core:state_list', 'permission': 'view'},
+            ]
+        },
+        'projects': {
+            'name': _('إدارة المشاريع'),
+            'icon': 'bi-building',
+            'perm_module': 'core',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'type': 'header', 'name': _('إدارة المشاريع')},
+                {'name': _('لوحة المعلومات'), 'url': 'projects:dashboard', 'permission': 'view'},
+                {'type': 'header', 'name': _('إعدادات النظام')},
+                {'name': _('أنواع المشاريع'), 'url': 'projects:type_list', 'permission': 'view'},
+                {'name': _('تصنيفات المشاريع'), 'url': 'projects:category_list', 'permission': 'view'},
+                {'name': _('الإضافات والخصومات'), 'url': 'core:coming_soon', 'permission': 'view'},
+                {'name': _('شجرة البنود'), 'url': 'projects:boq_list', 'permission': 'view'},
+                {'type': 'header', 'name': _('إدارة المشاريع')},
+                {'name': _('قائمة المشاريع'), 'url': 'projects:project_list', 'permission': 'view'},
+                {'name': _('مشروع جديد'), 'url': 'projects:project_create', 'permission': 'add'},
+                {'name': _('المقايسات'), 'url': 'projects:estimations', 'permission': 'view'},
+                {'name': _('العقود'), 'url': 'projects:contracts', 'permission': 'view'},
+                {'name': _('خطط المشاريع'), 'url': 'projects:plans', 'permission': 'view'},
+                {'name': _('حصر الكميات'), 'url': 'projects:quantities', 'permission': 'view'},
+                {'name': _('مستخلصات المالك'), 'url': 'projects:owner_statements', 'permission': 'view'},
+                {'name': _('أوامر التوريد'), 'url': 'projects:purchase_orders', 'permission': 'view'},
+                {'type': 'header', 'name': _('إدارة المقاولين')},
+                {'name': _('قائمة المقاولين'), 'url': 'projects:contractor_list', 'permission': 'view'},
+                {'name': _('إضافة مقاول'), 'url': 'projects:contractor_create', 'permission': 'add'},
+                {'name': _('عقود المقاولين'), 'url': 'projects:contractor_contracts', 'permission': 'view'},
+                {'name': _('مستخلصات المقاولين'), 'url': 'projects:contractor_statements', 'permission': 'view'},
+                {'type': 'header', 'name': _('إدارة العمالة')},
+                {'name': _('العمال'), 'url': 'projects:labour_list', 'permission': 'view'},
+                {'name': _('الحضور والانصراف'), 'url': 'projects:labour_attendance', 'permission': 'view'},
+                {'name': _('تسجيل حضور'), 'url': 'projects:labour_attendance_create', 'permission': 'add'},
+                {'name': _('تقرير حضور'), 'url': 'projects:labour_attendance_report', 'permission': 'view'},
+                {'type': 'header', 'name': _('الإدارة المالية')},
+                {'name': _('مفوضات العقود'), 'url': 'projects:finance_mandates', 'permission': 'view'},
+                {'name': _('المصروفات'), 'url': 'projects:finance_expenses', 'permission': 'view'},
+                {'name': _('الفواتير'), 'url': 'projects:finance_invoices', 'permission': 'view'},
+                {'type': 'header', 'name': _('التقارير')},
+                {'name': _('التقرير الشامل'), 'url': 'projects:reports_overview', 'permission': 'view'},
+                {'name': _('الإحصائيات'), 'url': 'projects:reports_stats', 'permission': 'view'},
+                {'name': _('تقرير الإنجاز'), 'url': 'projects:reports_progress', 'permission': 'view'},
+                {'name': _('تقرير التكاليف'), 'url': 'projects:reports_costs', 'permission': 'view'},
+                {'name': _('تقرير المقاولين'), 'url': 'projects:reports_contractors', 'permission': 'view'},
+                {'name': _('مستخلصات مقاول العمالة'), 'url': 'projects:reports_labour_statements', 'permission': 'view'},
+            ]
+        },
+        'kayanac': {
+            'name': _('كيانك'),
+            'icon': 'bi-briefcase',
+            'perm_module': 'crm',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'type': 'header', 'name': _('KAYANAC OPTIONS:')},
+                {'name': _('لوحة التحكم'), 'url': 'core:dashboard', 'permission': 'view'},
+                {'name': _('البحث عن العملاء'), 'url': 'partners:customers_list', 'permission': 'view'},
+                {'name': _('العملاء'), 'url': 'partners:customers_list', 'permission': 'view'},
+                {'name': _('المتابعات والاتصالات'), 'url': 'crm:activity_list', 'permission': 'view'},
+                {'name': _('الموظفين'), 'url': 'hr:employee_list', 'permission': 'view'},
+                {'name': _('معاملات الموظفين'), 'url': 'hr:payroll_dashboard', 'permission': 'view'},
+                {'name': _('الموديلات'), 'url': 'core:coming_soon', 'permission': 'view'},
+                {'name': _('عروض الأسعار'), 'url': 'crm:quotation_list', 'permission': 'view'},
+                {'name': _('المبيعات'), 'url': 'sales:invoice_list', 'permission': 'view'},
+                {'name': _('دفع الأقساط'), 'url': 'payments:installments_list', 'permission': 'view'},
+                {'name': _('المهام'), 'url': 'crm:activity_list', 'permission': 'view'},
+                {'name': _('الإيرادات والمصروفات'), 'url': 'accounting:cash_positions', 'permission': 'view'},
+                {'type': 'header', 'name': _('التقارير:')},
+                {'name': _('المهام المتأخرة'), 'url': 'crm:task_list', 'permission': 'view'},
+                {'name': _('تقرير المبيعات'), 'url': 'sales:reporting_analytics', 'permission': 'view'},
+                {'name': _('مفردات المرتب'), 'url': 'hr:payroll_dashboard', 'permission': 'view'},
+                {'name': _('تقرير أداء الموظفين'), 'url': 'hr:performance_dashboard', 'permission': 'view'},
+                {'name': _('متابعة العملاء الشاملة'), 'url': 'crm:reports_dashboard', 'permission': 'view'},
+                {'name': _('التحقق النقدي المتوقع'), 'url': 'accounting:cash_positions', 'permission': 'view'},
+                {'type': 'header', 'name': _('الإدارة:')},
+                {'name': _('إدارة الصلاحيات'), 'url': 'users:permissions_manager', 'permission': 'change'},
+            ]
+        },
+        'accounting': {
+            'name': _('الحسابات العامة'),
+            'icon': 'bi-calculator',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'name': _('لوحة المحاسبة'), 'url': 'accounting:dashboard', 'permission': 'view'},
+                {'name': _('تكوين الحسابات'), 'url': 'accounting:settings', 'permission': 'change'},
+                {'name': _('قيد جديد'), 'url': 'accounting:journal_entry_create', 'permission': 'add'},
+                {'name': _('القيود المحاسبية'), 'url': 'accounting:journal_entries_list', 'permission': 'view'},
+                {'name': _('قيود غير مُرحّلة'), 'url': 'accounting:journal_entries_list', 'permission': 'view', 'badge_key': 'unposted_journal_entries_count'},
+            ]
+        },
+        'finance': {
+            'name': _('المعاملات المالية'),
+            'icon': 'bi-cash-coin',
+            'perm_module': 'accounting',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'name': _('لوحة تحكم السندات'), 'url': 'accounting:cash_positions', 'permission': 'view'},
+                {'name': _('سندات القبض'), 'url': 'accounting:cash_receipt_create', 'permission': 'add'},
+                {'name': _('سندات الصرف'), 'url': 'accounting:cash_payment_create', 'permission': 'add'},
+                {'name': _('تحويلات بين الخزن'), 'url': 'accounting:cash_transfer_create', 'permission': 'add'},
+                {'name': _('تقرير السندات'), 'url': 'accounting:cash_positions', 'permission': 'view'},
+            ]
+        },
+        'cheques': {
+            'name': _('إدارة الشيكات'),
+            'icon': 'bi-journal-check',
+            'perm_module': 'accounting',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'name': _('الشيكات الواردة'), 'url': 'accounting:cheque_list', 'permission': 'view'},
+                {'name': _('الشيكات الصادرة'), 'url': 'accounting:cheque_list', 'permission': 'view'},
+                {'name': _('كل الشيكات'), 'url': 'accounting:cheque_list', 'permission': 'view'},
+                {'name': _('إضافة شيك جديد'), 'url': 'accounting:cheque_create', 'permission': 'add'},
+                {'name': _('دفاتر الشيكات'), 'url': 'accounting:cheque_list', 'permission': 'view'},
+                {'name': _('حافظات الشيكات'), 'url': 'accounting:cheque_list', 'permission': 'view'},
+                {'name': _('إضافة حافظة شيكات'), 'url': 'accounting:cheque_create', 'permission': 'add'},
+                {'name': _('تقرير الشيكات'), 'url': 'accounting:cheque_list', 'permission': 'view'},
+            ]
+        },
+        'inventory': {
+            'name': _('المخازن'),
+            'icon': 'bi-boxes',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'name': _('📔 كتالوج المنتجات'), 'url': 'inventory:catalog_list', 'permission': 'view', 'icon': 'bi-journal-richtext'},
+                {'name': _('إدارة المخزون'), 'url': 'inventory:stock_management', 'permission': 'view', 'resource': 'stock_management'},
+                {'name': _('المنتجات'), 'url': 'inventory:product_list', 'permission': 'view', 'resource': 'product_list'},
+                {'name': _('منتج جديد'), 'url': 'inventory:product_add', 'permission': 'add'},
+                {'name': _('المواقع'), 'url': 'inventory:location_list', 'permission': 'view'},
+                {'name': _('تحويلات المخزون'), 'url': 'inventory:transfer_list', 'permission': 'view'},
+                {'name': _('تحويلات المخزون - جديد'), 'url': 'inventory:transfer_create', 'permission': 'add'},
+                {'name': _('تسوية المخزون'), 'url': 'inventory:stock_adjust', 'permission': 'change'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('طلبات خامات الإنتاج')},
+                {'name': _('طلبات خامات الإنتاج'), 'url': 'inventory:requisition_list', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('العمليات اليومية')},
+                {'name': _('الاستلام - جديد'), 'url': 'inventory:receiving_create', 'permission': 'add'},
+                {'name': _('الاستلام - القائمة'), 'url': 'inventory:receiving_list', 'permission': 'view'},
+                {'name': _('الصرف - جديد'), 'url': 'inventory:issue_create', 'permission': 'add'},
+                {'name': _('الصرف - القائمة'), 'url': 'inventory:issue_list', 'permission': 'view'},
+                {'name': _('الجرد - جلسة جديدة'), 'url': 'inventory:count_create', 'permission': 'add'},
+                {'name': _('الجرد - الجلسات'), 'url': 'inventory:count_list', 'permission': 'view'},
+                {'name': _('ملخص المخزون'), 'url': 'inventory:warehouse_summary', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('الباركود والملصقات')},
+                {'name': _('إدارة الباركود'), 'url': 'inventory:barcode_management', 'permission': 'view'},
+                {'name': _('مسح الباركود'), 'url': 'inventory:barcode_scanner', 'permission': 'add'},
+                {'name': _('طباعة ملصقات'), 'url': 'inventory:batch_labels', 'permission': 'add'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('التقارير والتحليلات')},
+                {'name': _('لوحة التحليلات الشاملة'), 'url': 'inventory:inventory_analytics_dashboard', 'permission': 'view'},
+                {'name': _('تقرير تقييم المخزون'), 'url': 'inventory:stock_valuation_report', 'permission': 'view'},
+                {'name': _('تقرير أقدمية المخزون'), 'url': 'inventory:stock_aging_report', 'permission': 'view'},
+                {'name': _('تحليل ABC'), 'url': 'inventory:abc_analysis_report', 'permission': 'view'},
+                {'name': _('معدل دوران المخزون'), 'url': 'inventory:inventory_turnover_report', 'permission': 'view'},
+                {'name': _('نقطة إعادة الطلب'), 'url': 'inventory:reorder_point_analysis', 'permission': 'view'},
+                {'name': _('المخزون الراكد/الميت'), 'url': 'inventory:dead_stock_report', 'permission': 'view'},
+                {'name': _('المخزون منخفض الكمية'), 'url': 'inventory:low_stock_dashboard', 'permission': 'view'},
+                {'name': _('تحليلات متقدمة'), 'url': 'inventory:advanced_analytics', 'permission': 'view'},
+                {'name': _('تحليلات المواقع'), 'url': 'inventory:location_analytics', 'permission': 'view'},
+            ]
+        },
+        'inventory_reports': {
+            'name': _('تقرير المخازن'),
+            'icon': 'bi-journal-richtext',
+            'perm_module': 'inventory',
+            'permissions': ['view'],
+            'items': [
+                {'type': 'header', 'name': _('Store Options:')},
+                {'name': _('تقرير كارت الصنف'), 'url': 'inventory:product_list', 'permission': 'view'},
+                {'name': _('تقرير الإدونات'), 'url': 'inventory:issue_list', 'permission': 'view'},
+                {'name': _('تقرير أرصدة أصناف'), 'url': 'inventory:warehouse_summary', 'permission': 'view'},
+                {'name': _('تقرير تقييم المخزون'), 'url': 'inventory:stock_valuation_report', 'permission': 'view'},
+                {'name': _('تقرير جرد المخازن'), 'url': 'inventory:count_list', 'permission': 'view'},
+                {'name': _('تقرير جرد بالوحدات'), 'url': 'inventory:count_list', 'permission': 'view'},
+                {'name': _('تقرير حد الطلب'), 'url': 'inventory:reorder_point_analysis', 'permission': 'view'},
+            ]
+        },
+        'sales': {
+            'name': _('المبيعات'),
+            'icon': 'bi-cart-check',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'name': _('لوحة المبيعات'), 'url': 'sales:dashboard', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('الأقسام/المهام الرئيسية')},
+                {'name': _('المبيعات الخارجية'), 'url': 'sales:field_sales', 'permission': 'view'},
+                {'name': _('زيارة ميدانية جديدة'), 'url': 'sales:field_visit_create', 'permission': 'add'},
+                {'name': _('المبيعات الداخلية'), 'url': 'sales:indoor_sales', 'permission': 'view'},
+                {'name': _('إدارة حسابات العملاء'), 'url': 'sales:key_accounts', 'permission': 'view'},
+                {'name': _('مبيعات أونلاين'), 'url': 'sales:ecommerce_sales', 'permission': 'view'},
+                {'name': _('التسعير والعروض'), 'url': 'sales:pricing_offers', 'permission': 'change'},
+                {'name': _('المتابعة والتحصيل'), 'url': 'sales:followup_collection', 'permission': 'view'},
+                {'name': _('التنسيق مع باقي الأقسام'), 'url': 'sales:coordination', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('العمليات اليومية')},
+                {'name': _('عميل جديد'), 'url': 'partners:customer_create', 'permission': 'add'},
+                {'name': _('قائمة العملاء'), 'url': 'partners:customers_list', 'permission': 'view'},
+                {'name': _('فاتورة جديدة'), 'url': 'sales:invoice_create', 'permission': 'add', 'resource': 'invoice_create'},
+                {'name': _('قائمة الفواتير'), 'url': 'sales:invoice_list', 'permission': 'view'},
+                {'name': _('مرتجع مبيعات'), 'url': 'sales:sales_return_start', 'permission': 'add'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('التحصيل والمدفوعات')},
+                {'name': _('إيصال تحصيل جديد'), 'url': 'sales:receipt_create', 'permission': 'add'},
+                {'name': _('مدفوعات العملاء'), 'url': 'accounting:sales_payments_overview', 'permission': 'view'},
+                {'name': _('كشف حساب عميل'), 'url': 'accounting:sales_customer_statement_sample', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('التقارير والتحليلات')},
+                {'name': _('لوحة تحليلات CRM'), 'url': 'sales:crm_analytics_dashboard', 'permission': 'view'},
+                {'name': _('القيمة الدائمة للعميل (CLV)'), 'url': 'sales:clv_report', 'permission': 'view'},
+                {'name': _('تقسيم العملاء'), 'url': 'sales:customer_segmentation', 'permission': 'view'},
+                {'name': _('خط أنابيب المبيعات'), 'url': 'sales:sales_pipeline', 'permission': 'view'},
+                {'name': _('عمولات الموظفين'), 'url': 'sales:commission_report', 'permission': 'view'},
+                {'name': _('تحويل العملاء المحتملين'), 'url': 'sales:lead_conversion_report', 'permission': 'view'},
+                {'name': _('التقارير والتحليل العام'), 'url': 'sales:reporting_analytics', 'permission': 'view'},
+                {'name': _('تقرير سريع'), 'url': 'sales:quick_report', 'permission': 'view'},
+                {'name': _('تقرير يومي'), 'url': 'sales:daily_report', 'permission': 'view'},
+            ]
+        },
+        'pos_extended': {
+            'name': _('نقاط البيع'),
+            'icon': 'bi-cash-register',
+            'perm_module': 'pos',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'type': 'header', 'name': _('Point of Sales Options:')},
+                {'name': _('الطاولات'), 'url': 'pos:tables', 'permission': 'view'},
+                {'name': _('نقاط البيع'), 'url': 'pos:new_order', 'permission': 'add'},
+                {'name': _('تقارير الورديات'), 'url': 'pos:shifts', 'permission': 'view'},
+                {'name': _('تفاصيل البيع'), 'url': 'pos:sales_details', 'permission': 'view'},
+                {'name': _('تقرير الكاشير والوردية'), 'url': 'pos:cashier_report', 'permission': 'view'},
+                {'name': _('تقرير الأصناف المحذوفة'), 'url': 'pos:deleted_items', 'permission': 'view'},
+                {'name': _('إعدادات الطابعة'), 'url': 'pos:printer_settings', 'permission': 'change'},
+            ]
+        },
+        'purchases': {
+            'name': _('المشتريات'),
+            'icon': 'bi-bag-plus',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'type': 'header', 'name': _('طلبات الشراء (PR)')},
+                {'name': _('طلبات الشراء'), 'url': 'purchases:pr_list', 'permission': 'view'},
+                {'name': _('طلب شراء جديد'), 'url': 'purchases:pr_create', 'permission': 'add'},
+                {'name': _('طلبات من المخازن'), 'url': 'purchases:warehouse_purchase_requests', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('عروض الأسعار (RFQ)')},
+                {'name': _('طلبات عروض الأسعار'), 'url': 'purchases:rfq_list', 'permission': 'view'},
+                {'name': _('طلب عروض جديد'), 'url': 'purchases:rfq_create', 'permission': 'add'},
+                {'name': _('عروض الموردين'), 'url': 'purchases:quotation_list', 'permission': 'view'},
+                {'name': _('مقارنة الأسعار'), 'url': 'purchases:price_comparison', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('أوامر الشراء (PO)')},
+                {'name': _('أوامر الشراء'), 'url': 'purchases:po_list', 'permission': 'view'},
+                {'name': _('أمر شراء جديد'), 'url': 'purchases:po_create', 'permission': 'add'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('الشحنات والاستلام')},
+                {'name': _('الشحنات'), 'url': 'purchases:shipment_list', 'permission': 'view'},
+                {'name': _('سندات الاستلام'), 'url': 'purchases:receipt_list', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('فواتير الشراء')},
+                {'name': _('قائمة المشتريات'), 'url': 'purchases:purchase_list', 'permission': 'view'},
+                {'name': _('مشتريات جديدة'), 'url': 'purchases:purchase_create', 'permission': 'add'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('التقارير والتحليلات')},
+                {'name': _('أداء الموردين'), 'url': 'purchases:supplier_performance', 'permission': 'view'},
+                {'name': _('تحليلات المشتريات'), 'url': 'purchases:purchasing_analytics', 'permission': 'view'},
+                {'name': _('أرصدة الموردين'), 'url': '/purchases/vendors/balances', 'permission': 'view', 'badge_key': 'suppliers_with_debt_nav'},
+            ]
+        },
+        'shipping': {
+            'name': _('إدارة الشحن'),
+            'icon': 'bi-truck',
+            'perm_module': 'fleet',
+            'permissions': ['view'],
+            'items': [
+                {'name': _('لوحة الشحن'), 'url': 'fleet:dashboard', 'permission': 'view'},
+            ]
+        },
+        'hr': {
+            'name': _('موصول الموارد البشرية'),
+            'icon': 'bi-people',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'name': _('لوحة الموارد البشرية'), 'url': 'hr:dashboard', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('شؤون الموظفين')},
+                {'name': _('إدارة الموظفين'), 'url': 'hr:employee_list', 'permission': 'view'},
+                {'name': _('الأقسام'), 'url': 'hr:department_list', 'permission': 'view'},
+                {'name': _('المناصب'), 'url': 'hr:position_list', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('الحضور والإجازات')},
+                {'name': _('الحضور والانصراف'), 'url': 'hr:attendance_dashboard', 'permission': 'view'},
+                {'name': _('إدارة الإجازات'), 'url': 'hr:leave_dashboard', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('الرواتب والمزايا')},
+                {'name': _('الرواتب'), 'url': 'hr:payroll_dashboard', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('الأداء والأهداف')},
+                {'name': _('تقييم الأداء'), 'url': 'hr:performance_dashboard', 'permission': 'view'},
+                {'name': _('الأهداف والتارجت'), 'url': 'hr:targets_dashboard', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('التدريب والتطوير')},
+                {'name': _('التدريب والتطوير'), 'url': 'hr:training_dashboard', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('التوظيف')},
+                {'name': _('لوحة التوظيف'), 'url': 'hr:recruitment_dashboard', 'permission': 'view'},
+                {'name': _('الوظائف الشاغرة'), 'url': 'hr:job_vacancy_list', 'permission': 'view'},
+                {'name': _('إضافة وظيفة'), 'url': 'hr:job_vacancy_create', 'permission': 'add'},
+                {'name': _('الطلبات الواردة'), 'url': 'hr:job_application_list', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('العلاقات العمالية')},
+                {'name': _('لوحة العلاقات العمالية'), 'url': 'hr:relations_dashboard', 'permission': 'view'},
+                {'name': _('الشكاوى والملاحظات'), 'url': 'hr:complaint_list', 'permission': 'view'},
+                {'name': _('مخالفات/جزاءات'), 'url': 'hr:disciplinary_list', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('السلامة والصحة المهنية')},
+                {'name': _('لوحة السلامة'), 'url': 'hr:hse_dashboard', 'permission': 'view'},
+                {'name': _('الحوادث والإصابات'), 'url': 'hr:hse_incident_list', 'permission': 'view'},
+                {'name': _('تفتيشات السلامة'), 'url': 'hr:hse_inspection_list', 'permission': 'view'},
+                {'name': _('تدريبات السلامة'), 'url': 'hr:hse_training_list', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('السياسات واللوائح')},
+                {'name': _('لوائح الموارد البشرية'), 'url': 'hr:policies', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('التقارير')},
+                {'name': _('تقارير الموارد البشرية'), 'url': 'hr:reports_dashboard', 'permission': 'view'},
+            ]
+        },
+        'crm': {
+            'name': _('CRM إدارة العملاء'),
+            'icon': 'bi-person-hearts',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'name': _('لوحة CRM'), 'url': 'crm:dashboard', 'permission': 'view'},
+                {'type': 'divider'},
+                # إدارة العملاء
+                {'type': 'header', 'name': _('إدارة العملاء')},
+                {'name': _('قائمة العملاء'), 'url': 'crm:customer_list', 'permission': 'view'},
+                {'name': _('إضافة عميل جديد'), 'url': 'crm:customer_create', 'permission': 'add'},
+                {'name': _('جهات الاتصال'), 'url': 'crm:contact_list', 'permission': 'view'},
+                {'name': _('أنواع العملاء'), 'url': 'crm:customer_types', 'permission': 'view'},
+                {'name': _('مصادر العملاء'), 'url': 'crm:customer_sources', 'permission': 'view'},
+                {'type': 'divider'},
+                # الفرص والمبيعات
+                {'type': 'header', 'name': _('الفرص والمبيعات')},
+                {'name': _('الفرص التجارية'), 'url': 'crm:opportunity_list', 'permission': 'view'},
+                {'name': _('لوحة كانبان'), 'url': 'crm:opportunity_kanban', 'permission': 'view'},
+                {'name': _('إضافة فرصة جديدة'), 'url': 'crm:opportunity_create', 'permission': 'add'},
+                {'name': _('مراحل الفرص'), 'url': 'crm:opportunity_stages', 'permission': 'view'},
+                {'type': 'divider'},
+                # عروض الأسعار والعقود
+                {'type': 'header', 'name': _('عروض الأسعار والعقود')},
+                {'name': _('عروض الأسعار'), 'url': 'crm:quotation_list', 'permission': 'view'},
+                {'name': _('إنشاء عرض سعر'), 'url': 'crm:quotation_create', 'permission': 'add'},
+                {'name': _('العقود'), 'url': 'crm:contract_list', 'permission': 'view'},
+                {'name': _('إضافة عقد'), 'url': 'crm:contract_create', 'permission': 'add'},
+                {'name': _('تجديدات العقود'), 'url': 'crm:contract_renewals', 'permission': 'view'},
+                {'type': 'divider'},
+                # الأنشطة والمتابعة
+                {'type': 'header', 'name': _('الأنشطة والمتابعة')},
+                {'name': _('الأنشطة'), 'url': 'crm:activity_list', 'permission': 'view'},
+                {'name': _('إضافة نشاط'), 'url': 'crm:activity_create', 'permission': 'add'},
+                {'name': _('المتابعات'), 'url': 'crm:followup_list', 'permission': 'view'},
+                {'name': _('متابعاتي'), 'url': 'crm:my_followups', 'permission': 'view'},
+                {'name': _('المهام'), 'url': 'crm:task_list', 'permission': 'view'},
+                {'name': _('أنواع الأنشطة'), 'url': 'crm:activity_types', 'permission': 'view'},
+                {'type': 'divider'},
+                # المواعيد والتقويم
+                {'type': 'header', 'name': _('المواعيد والتقويم')},
+                {'name': _('المواعيد'), 'url': 'crm:appointment_list', 'permission': 'view'},
+                {'name': _('تقويم المواعيد'), 'url': 'crm:appointment_calendar', 'permission': 'view'},
+                {'name': _('التقويم العام'), 'url': 'crm:crm_calendar', 'permission': 'view'},
+                {'name': _('لوحة كانبان'), 'url': 'crm:kanban_board', 'permission': 'view'},
+                {'type': 'divider'},
+                # الدعم الفني
+                {'type': 'header', 'name': _('الدعم الفني')},
+                {'name': _('تذاكر الدعم'), 'url': 'crm:ticket_list', 'permission': 'view'},
+                {'name': _('إضافة تذكرة'), 'url': 'crm:ticket_create', 'permission': 'add'},
+                {'name': _('فئات التذاكر'), 'url': 'crm:ticket_categories', 'permission': 'view'},
+                {'type': 'divider'},
+                # التواصل
+                {'type': 'header', 'name': _('التواصل')},
+                {'name': _('البريد الإلكتروني'), 'url': 'crm:email_dashboard', 'permission': 'view'},
+                {'name': _('إرسال بريد'), 'url': 'crm:email_send', 'permission': 'add'},
+                {'name': _('قوالب البريد'), 'url': 'crm:email_templates', 'permission': 'view'},
+                {'name': _('واتساب'), 'url': 'crm:whatsapp_dashboard', 'permission': 'view'},
+                {'name': _('المحادثات'), 'url': 'crm:whatsapp_conversations', 'permission': 'view'},
+                {'name': _('رسائل جماعية'), 'url': 'crm:whatsapp_bulk', 'permission': 'view'},
+                {'name': _('قوالب واتساب'), 'url': 'crm:whatsapp_templates', 'permission': 'view'},
+                {'type': 'divider'},
+                # الحملات التسويقية
+                {'type': 'header', 'name': _('الحملات التسويقية')},
+                {'name': _('الحملات'), 'url': 'crm:campaign_list', 'permission': 'view'},
+                {'name': _('إضافة حملة'), 'url': 'crm:campaign_create', 'permission': 'add'},
+                {'name': _('تحليلات التواصل'), 'url': 'crm:communication_analytics', 'permission': 'view'},
+                {'type': 'divider'},
+                # الخطط والاشتراكات
+                {'type': 'header', 'name': _('الخطط والاشتراكات')},
+                {'name': _('الخطط'), 'url': 'crm:plan_list', 'permission': 'view'},
+                {'name': _('إضافة خطة'), 'url': 'crm:plan_create', 'permission': 'add'},
+                {'name': _('الاشتراكات'), 'url': 'crm:subscription_list', 'permission': 'view'},
+                {'name': _('عقود الصيانة'), 'url': 'crm:maintenance_contracts', 'permission': 'view'},
+                {'type': 'divider'},
+                # التقارير والتحليلات
+                {'type': 'header', 'name': _('التقارير والتحليلات')},
+                {'name': _('لوحة التقارير'), 'url': 'crm:reports_dashboard', 'permission': 'view'},
+                {'name': _('تقرير المبيعات'), 'url': 'crm:sales_report', 'permission': 'view'},
+                {'name': _('تقرير العملاء'), 'url': 'crm:customer_report', 'permission': 'view'},
+                {'name': _('تقرير الفرص'), 'url': 'crm:opportunity_report', 'permission': 'view'},
+                {'name': _('تقرير الأنشطة'), 'url': 'crm:activity_report', 'permission': 'view'},
+                {'name': _('تقرير Pipeline'), 'url': 'crm:pipeline_report', 'permission': 'view'},
+                {'name': _('تقرير العمولات'), 'url': 'crm:commissions_report', 'permission': 'view'},
+                {'name': _('تقرير الدعم'), 'url': 'crm:support_report', 'permission': 'view'},
+                {'name': _('تقرير الأداء'), 'url': 'crm:performance_report', 'permission': 'view'},
+                {'name': _('تقرير التحويلات'), 'url': 'crm:source_conversions_report', 'permission': 'view'},
+                {'name': _('اتجاه العمولات'), 'url': 'crm:commissions_trend', 'permission': 'view'},
+                {'name': _('اتجاه قبول العروض'), 'url': 'crm:acceptance_trend', 'permission': 'view'},
+                {'type': 'divider'},
+                # الإعدادات
+                {'type': 'header', 'name': _('الإعدادات')},
+                {'name': _('إعدادات CRM'), 'url': 'crm:settings', 'permission': 'view'},
+                {'name': _('أنواع العملاء'), 'url': 'crm:customer_types', 'permission': 'view'},
+                {'name': _('مصادر العملاء'), 'url': 'crm:customer_sources', 'permission': 'view'},
+                {'name': _('مراحل الفرص'), 'url': 'crm:opportunity_stages', 'permission': 'view'},
+                {'name': _('أنواع الأنشطة'), 'url': 'crm:activity_types', 'permission': 'view'},
+                {'name': _('فئات التذاكر'), 'url': 'crm:ticket_categories', 'permission': 'view'},
+                {'name': _('الأنشطة التجارية'), 'url': 'crm:business_activities', 'permission': 'view'},
+                {'name': _('المناطق'), 'url': 'crm:regions', 'permission': 'view'},
+                {'name': _('أسباب الرفض'), 'url': 'crm:rejection_reasons', 'permission': 'view'},
+                {'name': _('أنواع العقود'), 'url': 'crm:contract_types', 'permission': 'view'},
+                {'name': _('الإعدادات العامة'), 'url': 'crm:general_settings', 'permission': 'view'},
+                {'type': 'divider'},
+                # الإدارة
+                {'type': 'header', 'name': _('الإدارة')},
+                {'name': _('الأدوار'), 'url': 'crm:admin_roles', 'permission': 'view'},
+                {'name': _('الفرق'), 'url': 'crm:admin_teams', 'permission': 'view'},
+                {'name': _('تعيينات المستخدمين'), 'url': 'crm:admin_user_assignments', 'permission': 'view'},
+                {'name': _('الوحدات'), 'url': 'crm:admin_modules', 'permission': 'view'},
+                {'name': _('الموافقات'), 'url': 'crm:admin_approvals', 'permission': 'view'},
+                {'name': _('النظام'), 'url': 'crm:admin_system', 'permission': 'view'},
+            ]
+        },
+        'shipping': {
+            'name': _('إدارة الشحن'),
+            'icon': 'bi-truck',
+            'perm_module': 'shipping',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'name': _('لوحة الشحن'), 'url': 'shipping:dashboard', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('إدارة الشحنات')},
+                {'name': _('قائمة الشحنات'), 'url': 'shipping:shipment_list', 'permission': 'view'},
+                {'name': _('إنشاء شحنة'), 'url': 'shipping:shipment_create', 'permission': 'add'},
+                {'name': _('تتبع شحنة'), 'url': 'shipping:track_shipment', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('الإعدادات')},
+                {'name': _('شركات الشحن'), 'url': 'shipping:company_list', 'permission': 'view'},
+                {'name': _('مناطق الشحن'), 'url': 'shipping:zone_list', 'permission': 'view'},
+                {'name': _('أسعار الشحن'), 'url': 'shipping:rate_list', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('العمليات')},
+                {'name': _('طلبات الاستلام'), 'url': 'shipping:pickup_list', 'permission': 'view'},
+                {'name': _('فواتير الشحن'), 'url': 'shipping:invoice_list', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('التقارير')},
+                {'name': _('تقارير الشحن'), 'url': 'shipping:reports_dashboard', 'permission': 'view'},
+            ]
+        },
+        'eservices': {
+            'name': _('الخدمات الإلكترونية'),
+            'icon': 'bi-lightning-charge',
+            'perm_module': 'eservices',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'name': _('لوحة الخدمات'), 'url': 'eservices:dashboard', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('الخدمات')},
+                {'name': _('شحن الرصيد'), 'url': 'eservices:recharge_dashboard', 'permission': 'view'},
+                {'name': _('دفع الفواتير'), 'url': 'eservices:bill_dashboard', 'permission': 'view'},
+                {'name': _('تحويل الأموال'), 'url': 'eservices:transfer_dashboard', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('إدارة المعاملات')},
+                {'name': _('المعاملات'), 'url': 'eservices:transaction_list', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('الإعدادات')},
+                {'name': _('الفئات'), 'url': 'eservices:category_list', 'permission': 'view'},
+                {'name': _('المزودين'), 'url': 'eservices:provider_list', 'permission': 'view'},
+                {'name': _('الخدمات'), 'url': 'eservices:service_list', 'permission': 'view'},
+                {'name': _('مشغلي الجوال'), 'url': 'eservices:operator_list', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('التقارير')},
+                {'name': _('تقارير الخدمات'), 'url': 'eservices:reports_dashboard', 'permission': 'view'},
+            ]
+        },
+        'heavy_equipment': {
+            'name': _('إدارة المعدات الثقيلة'),
+            'icon': 'bi-cone-striped',
+            'perm_module': 'fleet',
+            'permissions': ['view'],
+            'items': [
+                {'name': _('لوحة المعدات الثقيلة'), 'url': 'fleet:dashboard', 'permission': 'view'},
+            ]
+        },
+        'ports_transfers': {
+            'name': _('نقليات وموانئ'),
+            'icon': 'bi-truck-flatbed',
+            'perm_module': 'fleet',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'type': 'header', 'name': _('إدارة النقل والسولار')},
+                {'name': _('إدارة السولار'), 'url': 'fleet:fuel_list', 'permission': 'view'},
+                {'name': _('استيراد السولار'), 'url': 'fleet:fuel_import', 'permission': 'add'},
+                {'name': _('محطات الوقود'), 'url': 'fleet:fuel_station_list', 'permission': 'view'},
+                {'type': 'header', 'name': _('التقارير')},
+                {'name': _('تقارير السولار'), 'url': 'fleet:fuel_reports', 'permission': 'view'},
+                {'type': 'header', 'name': _('إعدادات النقل')},
+                {'name': _('البوالص'), 'url': 'fleet:transfer_bill_list', 'permission': 'view'},
+                {'name': _('تقارير النقل'), 'url': 'fleet:transfer_reports', 'permission': 'view'},
+            ]
+        },
+        'fleet': {
+            'name': _('إدارة السيارات'),
+            'icon': 'bi-truck',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'type': 'header', 'name': _('إدارة البيانات الأساسية')},
+                {'name': _('أنواع السيارات'), 'url': 'fleet:vehicle_type_list', 'permission': 'view'},
+                {'name': _('السيارات'), 'url': 'fleet:vehicle_list', 'permission': 'view'},
+                {'name': _('تسليم واستلام السيارات'), 'url': 'fleet:vehicle_handover_list', 'permission': 'view'},
+                {'name': _('الجراجات'), 'url': 'fleet:garage_list', 'permission': 'view'},
+                {'name': _('العطل الرسمية'), 'url': 'fleet:holiday_list', 'permission': 'view'},
+                {'name': _('قطع الغيار'), 'url': 'fleet:spare_part_list', 'permission': 'view'},
+                {'name': _('أنواع الصيانة'), 'url': 'fleet:maintenance_type_list', 'permission': 'view'},
+                {'name': _('أنواع المصروفات الإدارية'), 'url': 'fleet:expense_type_list', 'permission': 'view'},
+                {'name': _('المصروفات الموحدة'), 'url': 'fleet:unified_expense_list', 'permission': 'view'},
+                {'name': _('إذون الصيانة'), 'url': 'fleet:maintenance_permission_list', 'permission': 'view'},
+                {'name': _('إذون صرف قطع الغيار'), 'url': 'fleet:spare_parts_permission_list', 'permission': 'view'},
+                {'name': _('المخازن'), 'url': 'inventory:location_list', 'permission': 'view'},
+                {'name': _('أنواع الزيوت'), 'url': 'fleet:oil_type_list', 'permission': 'view'},
+                {'type': 'header', 'name': _('تقارير السيارات')},
+                {'name': _('تنبيهات الصيانة'), 'url': 'fleet:maintenance_alert_list', 'permission': 'view'},
+                {'name': _('تعديلات العداد'), 'url': 'fleet:odometer_adjustment_list', 'permission': 'view'},
+            ]
+        },
+        'fuel': {
+            'name': _('إدارة الوقود'),
+            'icon': 'bi-fuel-pump',
+            'perm_module': 'fleet',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'type': 'header', 'name': _('إدارة الوقود والسولار')},
+                {'name': _('إدارة السولار'), 'url': 'fleet:fuel_list', 'permission': 'view'},
+                {'name': _('استيراد السولار'), 'url': 'fleet:fuel_import', 'permission': 'add'},
+                {'name': _('محطات الوقود'), 'url': 'fleet:fuel_station_list', 'permission': 'view'},
+                {'type': 'header', 'name': _('تقارير الوقود')},
+                {'name': _('تقارير السولار'), 'url': 'fleet:fuel_reports', 'permission': 'view'},
+            ]
+        },
+        'kaosh': {
+            'name': _('إدارة الكاوش'),
+            'icon': 'bi-circle',
+            'perm_module': 'fleet',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'type': 'header', 'name': _('إدارة الكاوش والإطارات')},
+                {'name': _('ماركات الكاوش'), 'url': 'fleet:tire_brand_list', 'permission': 'view'},
+                {'name': _('مخزون الكاوش'), 'url': 'fleet:tire_inventory_list', 'permission': 'view'},
+                {'name': _('حركات الكاوش'), 'url': 'fleet:tire_movement_list', 'permission': 'view'},
+                {'name': _('فحص ضغط الهواء'), 'url': 'fleet:tire_pressure_list', 'permission': 'view'},
+                {'name': _('صيانة الكاوش'), 'url': 'fleet:tire_maintenance_list', 'permission': 'view'},
+                {'type': 'header', 'name': _('التقارير المتخصصة')},
+                {'name': _('الأداء الشامل للكاوش'), 'url': 'fleet:tire_performance_report', 'permission': 'view'},
+                {'name': _('مقارنة النواحي'), 'url': 'fleet:tire_comparison_report', 'permission': 'view'},
+                {'type': 'header', 'name': _('الضمانات والتنسيقات')},
+                {'name': _('مخزون منخفض'), 'url': 'fleet:tire_low_stock', 'permission': 'view'},
+                {'name': _('مجموعات متأخرة'), 'url': 'fleet:tire_overdue', 'permission': 'view'},
+            ]
+        },
+        'fleet_reports': {
+            'name': _('تقارير الأسطول'),
+            'icon': 'bi-bar-chart',
+            'perm_module': 'fleet',
+            'permissions': ['view'],
+            'items': [
+                {'type': 'header', 'name': _('تقارير السيارات')},
+                {'name': _('تقارير الوقود'), 'url': 'fleet:fuel_report', 'permission': 'view'},
+                {'name': _('تقارير الصيانة'), 'url': 'fleet:maintenance_report', 'permission': 'view'},
+                {'name': _('تقارير أيام العمل'), 'url': 'fleet:working_days_report', 'permission': 'view'},
+                {'name': _('بيان عمل السائقين'), 'url': 'fleet:driver_performance_report', 'permission': 'view'},
+                {'name': _('مقارنة الحمولات'), 'url': 'fleet:load_comparison_report', 'permission': 'view'},
+                {'name': _('متابعة حالة زيوت السيارات'), 'url': 'fleet:oil_status_report', 'permission': 'view'},
+            ]
+        },
+        'general_contracting': {
+            'name': _('المقاولات العامة'),
+            'icon': 'bi-building-gear',
+            'perm_module': 'core',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'type': 'header', 'name': _('CONTRACTING OPTIONS:')},
+                {'name': _('لوحة التحكم'), 'url': 'contracting:dashboard', 'permission': 'view'},
+                {'type': 'header', 'name': _('إدارة المشاريع')},
+                {'name': _('قائمة المشاريع'), 'url': 'contracting:project_list', 'permission': 'view'},
+                {'name': _('مشروع جديد'), 'url': 'contracting:project_create', 'permission': 'add'},
+                {'type': 'header', 'name': _('إدارة العملاء')},
+                {'name': _('قائمة العملاء'), 'url': 'partners:customers_list', 'permission': 'view'},
+                {'name': _('عميل جديد'), 'url': 'partners:customer_create', 'permission': 'add'},
+                {'type': 'header', 'name': _('إدارة العمال')},
+                {'name': _('قائمة العمال'), 'url': 'contracting:worker_list', 'permission': 'view'},
+                {'name': _('عامل جديد'), 'url': 'contracting:worker_create', 'permission': 'add'},
+                {'name': _('الحضور والانصراف'), 'url': 'contracting:attendance_list', 'permission': 'view'},
+                {'name': _('تسجيل حضور'), 'url': 'contracting:attendance_create', 'permission': 'add'},
+                {'name': _('تقرير الحضور'), 'url': 'contracting:attendance_report', 'permission': 'view'},
+                {'type': 'header', 'name': _('المواد والمعدات')},
+                {'name': _('قائمة المواد'), 'url': 'contracting:material_list', 'permission': 'view'},
+                {'name': _('إضافة مادة'), 'url': 'contracting:material_create', 'permission': 'add'},
+                {'name': _('الموردين'), 'url': 'partners:suppliers_list', 'permission': 'view'},
+                {'name': _('مورد جديد'), 'url': 'partners:supplier_create', 'permission': 'add'},
+                {'type': 'header', 'name': _('قائمة المعدات')},
+                {'name': _('قائمة معدات'), 'url': 'contracting:equipment_list', 'permission': 'view'},
+                {'name': _('إضافة معدة'), 'url': 'contracting:equipment_create', 'permission': 'add'},
+                {'type': 'header', 'name': _('الإدارة المالية')},
+                {'name': _('المصروفات'), 'url': 'contracting:expense_list', 'permission': 'view'},
+                {'name': _('المقبوضات'), 'url': 'contracting:receipt_list', 'permission': 'view'},
+                {'name': _('الفواتير'), 'url': 'sales:invoice_list', 'permission': 'view'},
+                {'name': _('العقود'), 'url': 'contracting:contract_list', 'permission': 'view'},
+            ]
+        },
+        'contracting_reports': {
+            'name': _('تقارير المقاولات'),
+            'icon': 'bi-clipboard-data',
+            'perm_module': 'core',
+            'permissions': ['view'],
+            'items': [
+                {'type': 'header', 'name': _('التقارير')},
+                {'name': _('تقارير المقاولات'), 'url': 'contracting:reports_dashboard', 'permission': 'view'},
+                {'name': _('التقارير اليومية'), 'url': 'contracting:daily_report', 'permission': 'view'},
+                {'name': _('تحليل العملاء'), 'url': 'contracting:customers_report', 'permission': 'view'},
+            ]
+        },
+        'mosool_ta7dir': {
+            'name': _('موصول التحضير'),
+            'icon': 'bi-journal-bookmark',
+            'perm_module': 'core',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'type': 'header', 'name': _('طلبات التحضير')},
+                {'name': _('لوحة التحضير'), 'url': 'mosool:preparation_dashboard', 'permission': 'view'},
+                {'name': _('قائمة الطلبات'), 'url': 'mosool:preparation_list', 'permission': 'view'},
+                {'name': _('طلب جديد'), 'url': 'mosool:preparation_create', 'permission': 'add'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('التقارير')},
+                {'name': _('تصدير CSV'), 'url': 'mosool:export_preparations_csv', 'permission': 'view'},
+            ]
+        },
+        'mosool_stemad': {
+            'name': _('موصول الاستماد'),
+            'icon': 'bi-journal-check',
+            'perm_module': 'core',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'type': 'header', 'name': _('مستندات الاستماد')},
+                {'name': _('لوحة الاستماد'), 'url': 'mosool:approval_dashboard', 'permission': 'view'},
+                {'name': _('كل المستندات'), 'url': 'mosool:approval_list', 'permission': 'view'},
+                {'name': _('في انتظار اعتمادي'), 'url': 'mosool:approval_pending', 'permission': 'view'},
+                {'name': _('مستند جديد'), 'url': 'mosool:approval_create', 'permission': 'add'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('التقارير')},
+                {'name': _('تصدير CSV'), 'url': 'mosool:export_approvals_csv', 'permission': 'view'},
+            ]
+        },
+        'production': {
+            'name': _('الإنتاج والتصنيع'),
+            'icon': 'bi-gear-wide-connected',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'type': 'header', 'name': _('التخطيط والإنتاج (Production Planning)')},
+                {'name': _('لوحة الإنتاج'), 'url': 'production:dashboard', 'permission': 'view'},
+                {'name': _('أوامر الإنتاج (الجدولة)'), 'url': 'production:orders_list', 'permission': 'view'},
+                {'name': _('التنسيق مع المشتريات'), 'url': 'purchases:po_list', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('التصنيع (Manufacturing)')},
+                {'name': _('تشغيل خطوط الإنتاج'), 'url': 'production:orders_list', 'permission': 'view'},
+                {'name': _('مراكز العمل'), 'url': 'production:work_centers_list', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('الجودة (QC/QA)')},
+                {'name': _('إدارة الجودة'), 'url': 'production:quality_control', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('الصيانة (Maintenance)')},
+                {'name': _('لوحة الصيانة'), 'url': 'maintenance:dashboard', 'permission': 'view'},
+                {'name': _('جدولة الصيانة'), 'url': 'maintenance:maintenance_schedule_list', 'permission': 'view'},
+                {'name': _('الماكينات'), 'url': 'maintenance:machine_list', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('إدارة المخزون (Inventory Management)')},
+                {'name': _('إدارة المخزون'), 'url': 'inventory:stock_management', 'permission': 'view'},
+                {'name': _('تحويلات المخزون'), 'url': 'inventory:transfer_list', 'permission': 'view'},
+                {'name': _('ملخص المخزون'), 'url': 'inventory:warehouse_summary', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('السلامة المهنية (Health & Safety)')},
+                {'name': _('دليل السلامة'), 'url': 'production:safety', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('الهندسة الصناعية وتحسين العمليات')},
+                {'name': _('تحليل الوقت والحركة'), 'url': 'production:time_motion', 'permission': 'view'},
+                {'name': _('تصميم وترتيب خطوط الإنتاج'), 'url': 'production:work_centers_list', 'permission': 'view'},
+                {'name': _('تقليل الهدر وزيادة الإنتاجية'), 'url': 'production:waste_report', 'permission': 'view'},
+                {'name': _('تحليل التكاليف'), 'url': 'production:cost_analysis', 'permission': 'view'},
+                {'name': _('تكلفة المنتج'), 'url': 'production:product_costing', 'permission': 'view'},
+            ]
+        },
+        'production_advanced': {
+            'name': _('الإنتاج والتصنيع المتقدم'),
+            'icon': 'bi-gear-fill',
+            'perm_module': 'production',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'type': 'header', 'name': _('إدارة الإنتاج المتقدم')},
+                {'name': _('لوحة التحكم'), 'url': 'production:advanced_dashboard', 'permission': 'view'},
+                {'name': _('أوامر العمل'), 'url': 'production:work_orders_list', 'permission': 'view'},
+                {'name': _('أوامر الإنتاج'), 'url': 'production:orders_list', 'permission': 'view'},
+                {'name': _('المراحل الإنتاجية'), 'url': 'production:stages_list', 'permission': 'view'},
+                {'name': _('المكونات التدريبية'), 'url': 'production:training_components', 'permission': 'view'},
+                {'name': _('الآلات'), 'url': 'maintenance:machine_list', 'permission': 'view'},
+                {'name': _('مراقبة الجودة'), 'url': 'production:quality_control', 'permission': 'view'},
+                {'name': _('جدولة الإنتاج'), 'url': 'production:scheduling_dashboard', 'permission': 'view'},
+                {'name': _('التوزيع الأمثل'), 'url': 'production:optimization', 'permission': 'view'},
+            ]
+        },
+        'export_module': {
+            'name': _('موديول التصدير'),
+            'icon': 'bi-box-arrow-up-right',
+            'perm_module': 'core',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'type': 'header', 'name': _('EXPORT OPTIONS:')},
+                {'name': _('وكلاء الشحن'), 'url': 'core:coming_soon', 'permission': 'view'},
+                {'name': _('طلب بيع خارجي'), 'url': 'core:coming_soon', 'permission': 'add'},
+                {'name': _('الموافقة المالية'), 'url': 'core:coming_soon', 'permission': 'view'},
+                {'name': _('الفاتورة قبل التصدير'), 'url': 'core:coming_soon', 'permission': 'view'},
+                {'name': _('الشهادة الكلية للتصدير'), 'url': 'core:coming_soon', 'permission': 'view'},
+            ]
+        },
+        'import_module': {
+            'name': _('موديول الاستيراد'),
+            'icon': 'bi-box-arrow-in-down',
+            'perm_module': 'core',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'type': 'header', 'name': _('IMPORTS OPTIONS:')},
+                {'name': _('المخلص الجمركي'), 'url': 'core:coming_soon', 'permission': 'view'},
+                {'name': _('أوامر الاستيراد'), 'url': 'core:coming_soon', 'permission': 'view'},
+                {'name': _('الشهادات الكلية'), 'url': 'core:coming_soon', 'permission': 'view'},
+                {'name': _('أذون الإفراج'), 'url': 'core:coming_soon', 'permission': 'view'},
+                {'name': _('التنازل'), 'url': 'core:coming_soon', 'permission': 'view'},
+                {'type': 'header', 'name': _('التقارير')},
+                {'name': _('تقارير الاستيراد'), 'url': 'core:coming_soon', 'permission': 'view'},
+            ]
+        },
+        'production_reports': {
+            'name': _('تقارير الإنتاج والتصنيع'),
+            'icon': 'bi-clipboard2-data',
+            'perm_module': 'production',
+            'permissions': ['view'],
+            'items': [
+                {'type': 'header', 'name': _('مراحل وخطوط الإنتاج')},
+                {'name': _('تقرير التصنيع'), 'url': 'production:manufacturing_report', 'permission': 'view'},
+                {'name': _('تقرير تكلفة الإنتاج'), 'url': 'production:production_cost_report', 'permission': 'view'},
+                {'name': _('تقرير استهلاك الخامات'), 'url': 'production:material_consumption_report', 'permission': 'view'},
+                {'name': _('تقرير كميات التصنيع'), 'url': 'production:quantities_report', 'permission': 'view'},
+                {'name': _('تقرير تكلفة المنتج'), 'url': 'production:product_cost_report', 'permission': 'view'},
+                {'name': _('تقرير الهالك'), 'url': 'production:waste_report', 'permission': 'view'},
+                {'name': _('تقرير الربحية'), 'url': 'production:profitability_report', 'permission': 'view'},
+                {'name': _('تقرير العمال'), 'url': 'production:labor_report', 'permission': 'view'},
+                {'name': _('تقرير كفاءة الماكينة'), 'url': 'production:machine_efficiency_report', 'permission': 'view'},
+                {'name': _('تقرير المصاريف الغير مباشرة'), 'url': 'production:indirect_costs_report', 'permission': 'view'},
+            ]
+        },
+        'reports_general': {
+            'name': _('تقارير عامة'),
+            'icon': 'bi-graph-up',
+            'perm_module': 'reports',
+            'permissions': ['view'],
+            'items': [
+                {'type': 'header', 'name': _('خيارات التقارير')},
+                {'name': _('كشف حساب عملاء/موردين'), 'url': 'reports:account_statement', 'permission': 'view'},
+                {'name': _('مديونيتي العملاء'), 'url': 'reports:customer_debts', 'permission': 'view'},
+                {'name': _('مديونيتي الموردين'), 'url': 'reports:supplier_debts', 'permission': 'view'},
+                {'name': _('مبيعات المناديب والعملاء'), 'url': 'reports:sales_representatives', 'permission': 'view'},
+                {'name': _('الأصناف الأكثر مبيعا'), 'url': 'reports:top_selling_products', 'permission': 'view'},
+                {'name': _('الأصناف الأقل مبيعا'), 'url': 'reports:least_selling_products', 'permission': 'view'},
+                {'name': _('تقرير عملاء تفصيلي'), 'url': 'reports:customer_details', 'permission': 'view'},
+                {'name': _('تقرير موردين تفصيلي'), 'url': 'reports:supplier_details', 'permission': 'view'},
+                {'name': _('تقرير المصاريف اليومية'), 'url': 'reports:daily_expenses', 'permission': 'view'},
+            ]
+        },
+        'reports': {
+            'name': _('التقارير'),
+            'icon': 'bi-file-earmark-bar-graph',
+            'perm_module': 'reports',
+            'permissions': ['view'],
+            'items': [
+                {'type': 'header', 'name': _('التقارير العامة')},
+                {'name': _('شامل للعملاء والموردين'), 'url': 'reports:comprehensive', 'permission': 'view'},
+                {'type': 'header', 'name': _('التقارير العامة')},
+                {'name': _('تقرير الأصناف الراكدة'), 'url': 'inventory:dead_stock_report', 'permission': 'view'},
+                {'name': _('تقرير معدل دوران الصنف'), 'url': 'inventory:inventory_turnover_report', 'permission': 'view'},
+                {'name': _('مقارنة أسعار الصنف'), 'url': 'reports:product_price_comparison', 'permission': 'view'},
+                {'name': _('مقارنة المبيعات بين الشهور'), 'url': 'reports:monthly_sales_comparison', 'permission': 'view'},
+                {'name': _('مبيعات المناديب مجامع'), 'url': 'reports:sales_rep_summary', 'permission': 'view'},
+                {'type': 'header', 'name': _('التقارير المتخصصة')},
+                {'name': _('تقرير المبيعات والتكلفة'), 'url': 'reports:sales_and_cost', 'permission': 'view'},
+                {'type': 'header', 'name': _('تقارير المعدات والموالع')},
+                {'name': _('استخدام المعدات'), 'url': 'reports:equipment_usage', 'permission': 'view'},
+                {'name': _('صيانة المعدات'), 'url': 'reports:equipment_maintenance', 'permission': 'view'},
+                {'name': _('استهلاك المواد'), 'url': 'reports:material_consumption', 'permission': 'view'},
+                {'name': _('تقرير المخزون'), 'url': 'inventory:warehouse_summary', 'permission': 'view'},
+                {'name': _('تحليل الموردين'), 'url': 'purchases:supplier_performance', 'permission': 'view'},
+            ]
+        },
+        'reports_advanced': {
+            'name': _('التقارير المتقدمة'),
+            'icon': 'bi-graph-up-arrow',
+            'perm_module': 'reports',
+            'permissions': ['view'],
+            'items': [
+                {'name': _('لوحة التقارير'), 'url': 'reports:dashboard', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('تقارير عامة (Consolidated)')},
+                {'name': _('تقرير المبيعات'), 'url': 'reports:sales_report', 'permission': 'view'},
+                {'name': _('تقرير المخزون'), 'url': 'reports:inventory_report', 'permission': 'view'},
+                {'name': _('تقرير المشتريات'), 'url': 'reports:purchases_report', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('التقارير المالية')},
+                {'name': _('دفتر الأستاذ العام'), 'url': 'accounting:general_ledger', 'permission': 'view'},
+                {'name': _('ميزان المراجعة'), 'url': 'accounting:trial_balance', 'permission': 'view'},
+                {'name': _('الميزانية العمومية'), 'url': 'accounting:balance_sheet', 'permission': 'view'},
+                {'name': _('قائمة الدخل'), 'url': 'accounting:income_statement', 'permission': 'view'},
+                {'name': _('قائمة التدفقات النقدية'), 'url': 'accounting:cash_flow_statement', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('تقارير المخزون')},
+                {'name': _('ملخص المخزون'), 'url': 'inventory:warehouse_summary', 'permission': 'view'},
+                {'name': _('تقييم المخزون'), 'url': 'inventory:valuation_report', 'permission': 'view'},
+                {'name': _('أقدمية المخزون'), 'url': 'inventory:aging_report', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('تقارير CRM والمبيعات')},
+                {'name': _('العمولات (قائمة)'), 'url': 'crm:commissions_report', 'permission': 'view'},
+                {'name': _('اتجاه العمولات'), 'url': 'crm:commissions_trend', 'permission': 'view'},
+                {'name': _('اتجاه قبول العروض'), 'url': 'crm:acceptance_trend', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('تقارير الأسطول')},
+                {'name': _('أداء السائقين'), 'url': 'fleet:driver_performance', 'permission': 'view'},
+            ]
+        },
+        'settings': {
+            'name': _('إعدادات'),
+            'icon': 'bi-gear',
+            'perm_module': 'core',
+            'permissions': ['view', 'change'],
+            'items': [
+                {'type': 'header', 'name': _('SETTING OPTIONS:')},
+                {'name': _('إعدادات البيزنس'), 'url': 'core:company_settings', 'permission': 'view'},
+            ]
+        },
+        'users': {
+            'name': _('إدارة المستخدمين والصلاحيات'),
+            'icon': 'bi-shield-lock',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'name': _('لوحة المستخدمين'), 'url': 'users:dashboard', 'permission': 'view'},
+                {'name': _('قائمة المستخدمين'), 'url': 'users:list', 'permission': 'view'},
+                {'name': _('إدارة الصلاحيات (وحدات)'), 'url': 'users:permissions_manager', 'permission': 'change'},
+                {'type': 'divider'},
+                {'name': _('سجل الأنشطة'), 'url': 'users:activity_log', 'permission': 'view'},
+                {'name': _('جلسات المستخدمين'), 'url': 'users:sessions', 'permission': 'view'},
+                {'name': _('التنبيهات الأمنية'), 'url': 'users:security_alerts', 'permission': 'view'},
+            ]
+        },
+        'showrooms': {
+            'name': _('المعارض'),
+            'icon': 'bi-shop-window',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'type': 'header', 'name': _('إدارة المعارض')},
+                {'name': _('قائمة المعارض'), 'url': 'showrooms:showroom_list', 'permission': 'view'},
+                {'name': _('إضافة معرض جديد'), 'url': 'showrooms:showroom_create', 'permission': 'add'},
+                {'name': _('المعرض النشط'), 'url': 'showrooms:active_showroom', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('الموظفون')},
+                {'name': _('قائمة موظفي المعارض'), 'url': 'showrooms:employee_list', 'permission': 'view'},
+                {'name': _('إضافة موظف للمعرض'), 'url': 'showrooms:employee_create', 'permission': 'add'},
+                {'name': _('صلاحيات الموظفين الإضافية'), 'url': 'showrooms:employee_permissions', 'permission': 'change'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('المبيعات والعملاء')},
+                {'name': _('مبيعات المعرض'), 'url': 'sales:invoice_list', 'permission': 'view'},
+                {'name': _('عملاء المعرض'), 'url': 'partners:customers_list', 'permission': 'view'},
+                {'name': _('فاتورة جديدة'), 'url': 'sales:invoice_create', 'permission': 'add'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('المخزون')},
+                {'name': _('مخزون المعرض'), 'url': 'inventory:stock_management', 'permission': 'view'},
+                {'name': _('تحويل بضاعة للمعرض'), 'url': 'inventory:transfer_create', 'permission': 'add'},
+                {'name': _('جرد المعرض'), 'url': 'inventory:count_list', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('التقارير المالية')},
+                {'name': _('مؤشرات الأداء (KPIs)'), 'url': 'showrooms:kpis', 'permission': 'view'},
+                {'name': _('الأرباح والخسائر (P&L)'), 'url': 'showrooms:pnl', 'permission': 'view'},
+                {'name': _('تقرير المبيعات'), 'url': 'sales:reporting_analytics', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('الصندوق')},
+                {'name': _('الأرصدة النقدية'), 'url': 'accounting:cash_positions', 'permission': 'view'},
+                {'name': _('سند قبض'), 'url': 'accounting:cash_receipt_create', 'permission': 'add'},
+                {'name': _('سند صرف'), 'url': 'accounting:cash_payment_create', 'permission': 'add'},
+            ]
+        },
+        'ecommerce': {
+            'name': _('المتجر الإلكتروني'),
+            'icon': 'bi-shop',
+            'perm_module': 'ecommerce',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'type': 'header', 'name': _('لوحة التحكم')},
+                {'name': _('لوحة تحكم المتجر'), 'url': 'ecommerce:admin_dashboard', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('إدارة المتجر')},
+                {'name': _('الطلبات'), 'url': 'ecommerce:admin_orders', 'permission': 'view'},
+                {'name': _('المنتجات'), 'url': 'ecommerce:admin_products', 'permission': 'view'},
+                {'name': _('التصنيفات'), 'url': 'ecommerce:admin_categories', 'permission': 'view'},
+                {'name': _('التقييمات'), 'url': 'ecommerce:admin_reviews', 'permission': 'view'},
+                {'name': _('الكوبونات'), 'url': 'ecommerce:admin_coupons', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('الإعدادات')},
+                {'name': _('⚙️ جميع الإعدادات'), 'url': 'ecommerce:admin_settings_menu', 'permission': 'view'},
+                {'name': _('إعدادات المتجر'), 'url': 'ecommerce:admin_settings', 'permission': 'change'},
+                {'name': _('إعدادات الهيدر'), 'url': 'ecommerce:admin_header_settings', 'permission': 'change'},
+                {'name': _('إعدادات الفوتر'), 'url': 'ecommerce:admin_footer_settings', 'permission': 'change'},
+                {'name': _('بوابات الدفع'), 'url': 'ecommerce:admin_payment_gateways', 'permission': 'change'},
+                {'name': _('شركات الشحن'), 'url': 'ecommerce:admin_shipping_companies', 'permission': 'change'},
+                {'name': _('تكاليف الشحن'), 'url': 'ecommerce:admin_shipping_costs', 'permission': 'change'},
+                {'name': _('التواصل الاجتماعي'), 'url': 'ecommerce:admin_social_media', 'permission': 'change'},
+                {'name': _('البانرات'), 'url': 'ecommerce:admin_banners', 'permission': 'change'},
+                {'name': _('محتوى الصفحات'), 'url': 'ecommerce:admin_page_content', 'permission': 'change'},
+                {'name': _('العروض السريعة'), 'url': 'ecommerce:admin_flash_sales', 'permission': 'change'},
+                {'name': _('أقسام الصفحة الرئيسية'), 'url': 'ecommerce:admin_homepage_sections', 'permission': 'change'},
+                {'name': _('النشرة البريدية'), 'url': 'ecommerce:admin_newsletter', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('🛡️ نظام الضمان')},
+                {'name': _('لوحة تحكم الضمان'), 'url': 'ecommerce:warranty_admin_dashboard', 'permission': 'view'},
+                {'name': _('سياسات الضمان'), 'url': 'ecommerce:warranty_policy_list', 'permission': 'view'},
+                {'name': _('بطاقات الضمان'), 'url': 'ecommerce:warranty_card_list', 'permission': 'view'},
+                {'name': _('طلبات تسجيل الضمان'), 'url': 'ecommerce:warranty_registration_list', 'permission': 'view'},
+                {'name': _('مطالبات الضمان'), 'url': 'ecommerce:warranty_claim_list', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('🔗 روابط سريعة')},
+                {'name': _('عرض المتجر'), 'url': 'ecommerce:store_home', 'permission': 'view'},
+                {'name': _('صفحة الضمان للعميل'), 'url': 'ecommerce:warranty_landing', 'permission': 'view'},
+                {'name': _('التحقق من الضمان'), 'url': 'ecommerce:warranty_check', 'permission': 'view'},
+                {'type': 'divider'},
+                {'type': 'header', 'name': _('🏠 الخدمات المنزلية')},
+                {'name': _('لوحة الخدمات المنزلية'), 'url': 'home_services:dashboard', 'permission': 'view'},
+                {'name': _('طلبات الخدمات'), 'url': 'home_services:request_list', 'permission': 'view'},
+                {'name': _('فئات الصيانة'), 'url': 'home_services:maintenance_category_list', 'permission': 'view'},
+                {'name': _('باقات النظافة'), 'url': 'home_services:cleaning_package_list', 'permission': 'view'},
+                {'name': _('إعدادات الخدمات'), 'url': 'home_services:settings', 'permission': 'change'},
+                {'name': _('تقارير الخدمات'), 'url': 'home_services:reports', 'permission': 'view'},
+            ]
+        },
+        'maintenance': {
+            'name': _('الصيانة'),
+            'icon': 'bi-tools',
+            'permissions': ['view', 'add', 'change'],
+            'items': [
+                {'name': _('لوحة الصيانة'), 'url': 'maintenance:dashboard', 'permission': 'view'},
+                {'name': _('الماكينات'), 'url': 'maintenance:machine_list', 'permission': 'view'},
+                {'name': _('قطع الغيار'), 'url': 'maintenance:spare_part_list', 'permission': 'view'},
+                {'name': _('طلبات الصيانة'), 'url': 'maintenance:maintenance_request_list', 'permission': 'view'},
+                {'name': _('جدولة الصيانة'), 'url': 'maintenance:maintenance_schedule_list', 'permission': 'view'},
+                {'name': _('سجلات الصيانة'), 'url': 'maintenance:maintenance_record_list', 'permission': 'view'},
+            ]
+        },
+    }
+
+    # فحص صلاحيات المستخدم لكل وحدة
+    from django.urls import reverse, NoReverseMatch
+    current_path = getattr(request, 'path', '')
+    current_view_name = ''
+    try:
+        if hasattr(request, 'resolver_match') and request.resolver_match:
+            current_view_name = request.resolver_match.view_name or ''
+    except Exception:
+        current_view_name = ''
+
+    def _has_perm_mod_or_django(mod_key: str, action: str, perm_mod: str) -> bool:
+        try:
+            if getattr(request.user, 'is_superuser', False):
+                return True
+        except Exception:
+            pass
+        has_mod = False
+        try:
+            has_mod = request.user.has_module_permission(perm_mod, action)
+        except Exception:
+            has_mod = False
+        if not has_mod and perm_mod == 'purchases':
+            try:
+                if action == 'view':
+                    return (
+                        has_mod
+                        or request.user.has_perm('purchases.view_purchaseorder')
+                        or request.user.has_perm('purchases.view_purchasebill')
+                    )
+                if action == 'add':
+                    return (
+                        has_mod
+                        or request.user.has_perm('purchases.add_purchaseorder')
+                        or request.user.has_perm('purchases.add_purchasebill')
+                    )
+                if action == 'change':
+                    return (
+                        has_mod
+                        or request.user.has_perm('purchases.change_purchaseorder')
+                        or request.user.has_perm('purchases.change_purchasebill')
+                    )
+            except Exception:
+                return has_mod
+        return has_mod
+
+    show_all = getattr(request.user, 'is_superuser', False) or getattr(settings, 'UI_SHOW_ALL_MODULES', False)
+
+    for module_key, module_config in modules_config.items():
+        perm_module = module_config.get('perm_module', module_key)
+        has_access = bool(show_all)
+        accessible_items = []
+        module_active = False
+
+        # فحص إذا كان المستخدم له أي صلاحية في هذه الوحدة
+        if not has_access:
+            for permission in module_config['permissions']:
+                if _has_perm_mod_or_django(module_key, permission, perm_module):
+                    has_access = True
+                    break
+
+        # إذا كان له صلاحية، فحص العناصر الفرعية
+        if has_access:
+            for item in module_config['items']:
+                # السماح بعناصر الرأس والفواصل بدون صلاحية
+                if item.get('type') in {'header', 'divider'}:
+                    accessible_items.append(item)
+                    continue
+                # عناصر الروابط تتحقق من صلاحية محددة (أو تُعرض للجميع إذا show_all)
+                allowed = bool(show_all)
+                resource_key = item.get('resource')
+                action_key = item.get('permission', 'view')
+                if not allowed:
+                    if resource_key:
+                        try:
+                            allowed = request.user.has_resource_permission(perm_module, resource_key, action_key)
+                        except Exception:
+                            allowed = False
+                        if not allowed:
+                            allowed = _has_perm_mod_or_django(module_key, action_key, perm_module)
+                    else:
+                        allowed = _has_perm_mod_or_django(module_key, action_key, perm_module)
+                # استثناء عملي: عرض قائمة أوامر الشراء لمن لديه صلاحية الإضافة فقط (بدون عرض عام)
+                if not allowed and module_key == 'purchases' and item.get('url') == 'purchases:po_list':
+                    try:
+                        allowed = request.user.has_module_permission('purchases', 'add') or request.user.has_perm('purchases.add_purchaseorder')
+                    except Exception:
+                        allowed = False
+                if allowed:
+                    item_active = False
+                    if 'url' in item:
+                        raw_url = item['url']
+                        if not raw_url.startswith('/'):
+                            try:
+                                resolved = reverse(raw_url)
+                            except NoReverseMatch:
+                                resolved = ''
+                        else:
+                            resolved = raw_url
+                        def _norm(p):
+                            if not p:
+                                return ''
+                            return p.rstrip('/') or '/'
+                        norm_current = _norm(current_path)
+                        norm_resolved = _norm(resolved)
+                        if norm_resolved and norm_current == norm_resolved:
+                            item_active = True
+                        if not item_active and not raw_url.startswith('/') and current_view_name == raw_url:
+                            item_active = True
+                    if item_active:
+                        item['active'] = True
+                        module_active = True
+                    accessible_items.append(item)
+
+        visible_links = [i for i in accessible_items if 'url' in i]
+        if visible_links:
+            permissions[module_key] = {
+                'name': module_config['name'],
+                'icon': module_config['icon'],
+                'items': accessible_items,
+                'active': module_active,
+            }
+
+    return {
+        'user_modules': permissions,
+        'has_any_permissions': bool(permissions),
+    }

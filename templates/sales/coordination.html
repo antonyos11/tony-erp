@@ -1,0 +1,521 @@
+﻿{% extends 'base_templates/_dashboard_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'تنسيق المبيعات' %}{% endblock %}
+{% block dashboard_hero_icon %}bi-diagram-3{% endblock %}
+{% block dashboard_hero_title %}{% trans 'تنسيق المبيعات' %}{% endblock %}
+{% block dashboard_hero_subtitle %}{% trans 'إدارة وتنسيق فريق المبيعات والأنشطة' %}{% endblock %}
+
+{% block dashboard_actions %}
+<a href="{% url 'sales:task_create' %}" class="btn btn-primary">
+  <i class="bi bi-plus-lg me-1"></i>{% trans 'مهمة جديدة' %}
+</a>
+<button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#assignModal">
+  <i class="bi bi-person-plus me-1"></i>{% trans 'تعيين مندوب' %}
+</button>
+{% endblock %}
+
+{% block kpi_cards %}
+<style>
+  .team-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .team-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    transition: var(--transition);
+  }
+  .team-card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+  .team-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .team-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+  .team-info h5 {
+    margin-bottom: 0.25rem;
+    font-weight: 700;
+  }
+  .team-role {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  .team-status {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--success);
+    margin-right: auto;
+  }
+  .team-status.offline { background: var(--text-muted); }
+  .team-status.busy { background: var(--warning); }
+  .team-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  .team-stat {
+    text-align: center;
+    padding: 0.5rem;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+  }
+  .team-stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .team-stat-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+  }
+  .team-progress {
+    margin-bottom: 0.75rem;
+  }
+  .team-progress-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    margin-bottom: 0.25rem;
+  }
+  .activity-timeline {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+  }
+  .activity-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  .activity-item {
+    display: flex;
+    gap: 1rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .activity-item:last-child {
+    border-bottom: none;
+  }
+  .activity-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--bg-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .activity-icon.sale { background: rgba(16,185,129,0.1); color: var(--success); }
+  .activity-icon.visit { background: rgba(59,130,246,0.1); color: #3b82f6; }
+  .activity-icon.call { background: rgba(139,92,246,0.1); color: #8b5cf6; }
+  .activity-icon.task { background: rgba(245,158,11,0.1); color: #f59e0b; }
+  .task-board {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  @media (max-width: 1200px) {
+    .task-board { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 768px) {
+    .task-board { grid-template-columns: 1fr; }
+  }
+  .task-column {
+    background: var(--bg-light);
+    border-radius: var(--radius-lg);
+    min-height: 300px;
+  }
+  .task-column-header {
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .task-column-header .badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+  }
+  .task-column.new .task-column-header { border-bottom-color: #6b7280; }
+  .task-column.progress .task-column-header { border-bottom-color: #3b82f6; }
+  .task-column.review .task-column-header { border-bottom-color: #f59e0b; }
+  .task-column.done .task-column-header { border-bottom-color: #10b981; }
+  .task-column-body {
+    padding: 1rem;
+  }
+  .task-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    cursor: grab;
+    transition: var(--transition);
+  }
+  .task-item:hover {
+    box-shadow: var(--shadow-md);
+  }
+  .task-title {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+  .task-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .task-assignee {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    font-size: 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .priority-high { border-right: 3px solid var(--danger); }
+  .priority-medium { border-right: 3px solid var(--warning); }
+  .priority-low { border-right: 3px solid var(--success); }
+</style>
+
+<!-- KPIs -->
+<div class="kpi-card">
+  <div class="kpi-icon text-primary"><i class="bi bi-people"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ team_count|default:"8" }}</div>
+    <div class="kpi-label">{% trans 'أعضاء الفريق' %}</div>
+  </div>
+  <div class="kpi-trend up"><i class="bi bi-check-circle"></i> {{ active_count|default:"6" }} نشط</div>
+</div>
+
+<div class="kpi-card">
+  <div class="kpi-icon text-success"><i class="bi bi-list-check"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ tasks_today|default:"24" }}</div>
+    <div class="kpi-label">{% trans 'مهام اليوم' %}</div>
+  </div>
+  <div class="kpi-trend up"><i class="bi bi-arrow-up"></i> {{ completed_today|default:"18" }} منجزة</div>
+</div>
+
+<div class="kpi-card">
+  <div class="kpi-icon text-info"><i class="bi bi-geo-alt"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ visits_today|default:"12" }}</div>
+    <div class="kpi-label">{% trans 'زيارات اليوم' %}</div>
+  </div>
+</div>
+
+<div class="kpi-card">
+  <div class="kpi-icon text-warning"><i class="bi bi-telephone"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ calls_today|default:"45" }}</div>
+    <div class="kpi-label">{% trans 'مكالمات اليوم' %}</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block dashboard_content %}
+<!-- Task Board -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h5 class="fw-bold mb-0"><i class="bi bi-kanban me-2"></i>{% trans 'لوحة المهام' %}</h5>
+  <div class="btn-group btn-group-sm">
+    <button class="btn btn-outline-secondary active">{% trans 'لوحة' %}</button>
+    <button class="btn btn-outline-secondary">{% trans 'قائمة' %}</button>
+  </div>
+</div>
+
+<div class="task-board">
+  <div class="task-column new">
+    <div class="task-column-header">
+      <span class="fw-bold">{% trans 'جديد' %}</span>
+      <span class="badge bg-secondary">4</span>
+    </div>
+    <div class="task-column-body">
+      <div class="task-item priority-high">
+        <div class="task-title">{% trans 'زيارة عميل الرياض' %}</div>
+        <div class="task-meta">
+          <span class="task-assignee">أم</span>
+          <span><i class="bi bi-clock me-1"></i>09:00</span>
+        </div>
+      </div>
+      <div class="task-item priority-medium">
+        <div class="task-title">{% trans 'إعداد عرض أسعار' %}</div>
+        <div class="task-meta">
+          <span class="task-assignee">خع</span>
+          <span><i class="bi bi-clock me-1"></i>10:30</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="task-column progress">
+    <div class="task-column-header">
+      <span class="fw-bold">{% trans 'قيد التنفيذ' %}</span>
+      <span class="badge bg-primary">6</span>
+    </div>
+    <div class="task-column-body">
+      <div class="task-item priority-high">
+        <div class="task-title">{% trans 'متابعة صفقة كبيرة' %}</div>
+        <div class="task-meta">
+          <span class="task-assignee">سح</span>
+          <span><i class="bi bi-clock me-1"></i>11:00</span>
+        </div>
+      </div>
+      <div class="task-item priority-low">
+        <div class="task-title">{% trans 'تحديث بيانات العملاء' %}</div>
+        <div class="task-meta">
+          <span class="task-assignee">نف</span>
+          <span><i class="bi bi-clock me-1"></i>14:00</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="task-column review">
+    <div class="task-column-header">
+      <span class="fw-bold">{% trans 'للمراجعة' %}</span>
+      <span class="badge bg-warning text-dark">3</span>
+    </div>
+    <div class="task-column-body">
+      <div class="task-item priority-medium">
+        <div class="task-title">{% trans 'تقرير مبيعات الأسبوع' %}</div>
+        <div class="task-meta">
+          <span class="task-assignee">أم</span>
+          <span><i class="bi bi-clock me-1"></i>15:00</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="task-column done">
+    <div class="task-column-header">
+      <span class="fw-bold">{% trans 'منجز' %}</span>
+      <span class="badge bg-success">12</span>
+    </div>
+    <div class="task-column-body">
+      <div class="task-item">
+        <div class="task-title">{% trans 'مكالمة متابعة' %}</div>
+        <div class="task-meta">
+          <span class="task-assignee">خع</span>
+          <span class="text-success"><i class="bi bi-check2 me-1"></i>{% trans 'منجز' %}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Team Cards -->
+  <div class="col-lg-8">
+    <h5 class="fw-bold mb-3"><i class="bi bi-people me-2"></i>{% trans 'فريق المبيعات' %}</h5>
+    <div class="team-grid">
+      {% for member in team_members %}
+      <div class="team-card">
+        <div class="team-header">
+          <div class="team-avatar">{{ member.initials }}</div>
+          <div class="team-info">
+            <h5>{{ member.name }}</h5>
+            <span class="team-role">{{ member.role }}</span>
+          </div>
+          <div class="team-status { member.status }"></div>
+        </div>
+        <div class="team-stats">
+          <div class="team-stat">
+            <div class="team-stat-value">{{ member.sales_count }}</div>
+            <div class="team-stat-label">{% trans 'مبيعات' %}</div>
+          </div>
+          <div class="team-stat">
+            <div class="team-stat-value">{{ member.visits }}</div>
+            <div class="team-stat-label">{% trans 'زيارات' %}</div>
+          </div>
+          <div class="team-stat">
+            <div class="team-stat-value">{{ member.calls }}</div>
+            <div class="team-stat-label">{% trans 'مكالمات' %}</div>
+          </div>
+        </div>
+        <div class="team-progress">
+          <div class="team-progress-header">
+            <span>{% trans 'الهدف الشهري' %}</span>
+            <span>{{ member.target_percent|default:75 }}%</span>
+          </div>
+          <div class="progress" style="height: 6px;">
+            <div class="progress-bar bg-primary" style="width: { member.target_percent|default:75 }%;"></div>
+          </div>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-outline-primary flex-fill">
+            <i class="bi bi-chat-dots"></i>
+          </button>
+          <button class="btn btn-sm btn-outline-secondary flex-fill">
+            <i class="bi bi-telephone"></i>
+          </button>
+          <button class="btn btn-sm btn-outline-secondary flex-fill">
+            <i class="bi bi-geo-alt"></i>
+          </button>
+        </div>
+      </div>
+      {% empty %}
+      <!-- Sample Cards -->
+      <div class="team-card">
+        <div class="team-header">
+          <div class="team-avatar">أم</div>
+          <div class="team-info">
+            <h5>أحمد محمد</h5>
+            <span class="team-role">مندوب أول</span>
+          </div>
+          <div class="team-status"></div>
+        </div>
+        <div class="team-stats">
+          <div class="team-stat">
+            <div class="team-stat-value">45</div>
+            <div class="team-stat-label">{% trans 'مبيعات' %}</div>
+          </div>
+          <div class="team-stat">
+            <div class="team-stat-value">23</div>
+            <div class="team-stat-label">{% trans 'زيارات' %}</div>
+          </div>
+          <div class="team-stat">
+            <div class="team-stat-value">89</div>
+            <div class="team-stat-label">{% trans 'مكالمات' %}</div>
+          </div>
+        </div>
+        <div class="team-progress">
+          <div class="team-progress-header">
+            <span>{% trans 'الهدف الشهري' %}</span>
+            <span>85%</span>
+          </div>
+          <div class="progress" style="height: 6px;">
+            <div class="progress-bar bg-primary" style="width: 85%;"></div>
+          </div>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-outline-primary flex-fill"><i class="bi bi-chat-dots"></i></button>
+          <button class="btn btn-sm btn-outline-secondary flex-fill"><i class="bi bi-telephone"></i></button>
+          <button class="btn btn-sm btn-outline-secondary flex-fill"><i class="bi bi-geo-alt"></i></button>
+        </div>
+      </div>
+      <div class="team-card">
+        <div class="team-header">
+          <div class="team-avatar">سح</div>
+          <div class="team-info">
+            <h5>سارة حسن</h5>
+            <span class="team-role">مندوبة مبيعات</span>
+          </div>
+          <div class="team-status"></div>
+        </div>
+        <div class="team-stats">
+          <div class="team-stat">
+            <div class="team-stat-value">38</div>
+            <div class="team-stat-label">{% trans 'مبيعات' %}</div>
+          </div>
+          <div class="team-stat">
+            <div class="team-stat-value">18</div>
+            <div class="team-stat-label">{% trans 'زيارات' %}</div>
+          </div>
+          <div class="team-stat">
+            <div class="team-stat-value">67</div>
+            <div class="team-stat-label">{% trans 'مكالمات' %}</div>
+          </div>
+        </div>
+        <div class="team-progress">
+          <div class="team-progress-header">
+            <span>{% trans 'الهدف الشهري' %}</span>
+            <span>72%</span>
+          </div>
+          <div class="progress" style="height: 6px;">
+            <div class="progress-bar bg-primary" style="width: 72%;"></div>
+          </div>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-outline-primary flex-fill"><i class="bi bi-chat-dots"></i></button>
+          <button class="btn btn-sm btn-outline-secondary flex-fill"><i class="bi bi-telephone"></i></button>
+          <button class="btn btn-sm btn-outline-secondary flex-fill"><i class="bi bi-geo-alt"></i></button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Activity Timeline -->
+  <div class="col-lg-4">
+    <div class="activity-timeline">
+      <div class="activity-header">
+        <h6 class="fw-bold mb-0"><i class="bi bi-activity me-2"></i>{% trans 'النشاط الأخير' %}</h6>
+        <a href="#" class="small text-primary">{% trans 'عرض الكل' %}</a>
+      </div>
+      
+      <div class="activity-item">
+        <div class="activity-icon sale"><i class="bi bi-cart-check"></i></div>
+        <div class="flex-grow-1">
+          <div class="fw-medium">{% trans 'أحمد أغلق صفقة' %}</div>
+          <div class="small text-muted">{% trans 'بقيمة' %} 15,000 ج.م - منذ 5 دقائق</div>
+        </div>
+      </div>
+      
+      <div class="activity-item">
+        <div class="activity-icon visit"><i class="bi bi-geo-alt"></i></div>
+        <div class="flex-grow-1">
+          <div class="fw-medium">{% trans 'سارة وصلت للعميل' %}</div>
+          <div class="small text-muted">شركة الفجر - منذ 15 دقيقة</div>
+        </div>
+      </div>
+      
+      <div class="activity-item">
+        <div class="activity-icon call"><i class="bi bi-telephone"></i></div>
+        <div class="flex-grow-1">
+          <div class="fw-medium">{% trans 'مكالمة متابعة ناجحة' %}</div>
+          <div class="small text-muted">خالد - عميل VIP - منذ 30 دقيقة</div>
+        </div>
+      </div>
+      
+      <div class="activity-item">
+        <div class="activity-icon task"><i class="bi bi-check-square"></i></div>
+        <div class="flex-grow-1">
+          <div class="fw-medium">{% trans 'مهمة منجزة' %}</div>
+          <div class="small text-muted">إعداد تقرير أسبوعي - منذ ساعة</div>
+        </div>
+      </div>
+      
+      <div class="activity-item">
+        <div class="activity-icon sale"><i class="bi bi-cart-check"></i></div>
+        <div class="flex-grow-1">
+          <div class="fw-medium">{% trans 'عرض سعر مقبول' %}</div>
+          <div class="small text-muted">مؤسسة النور - منذ ساعتين</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

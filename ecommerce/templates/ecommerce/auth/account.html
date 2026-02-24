@@ -1,0 +1,483 @@
+{% extends 'ecommerce/store_base_new.html' %}
+{% load static i18n %}
+
+{% block title %}حسابي{% endblock %}
+
+{% block store_content %}
+<div class="container py-5">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-lg-3 mb-4">
+            <div class="card shadow-sm border-0 rounded-3">
+                <div class="card-body text-center py-4">
+                    {% if customer.avatar %}
+                        <img src="{{ customer.avatar.url }}" alt="{{ customer.name }}" 
+                             class="rounded-circle mb-3" style="width: 100px; height: 100px; object-fit: cover;">
+                    {% else %}
+                        <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center mb-3" 
+                             style="width: 100px; height: 100px; font-size: 2.5rem;">
+                            {{ customer.name|slice:":1"|upper }}
+                        </div>
+                    {% endif %}
+                    <h5 class="mb-1">{{ customer.name }}</h5>
+                    <p class="text-muted small mb-0">{{ customer.email }}</p>
+                    {% if not customer.email_verified %}
+                        <span class="badge bg-warning text-dark mt-2">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            البريد غير مؤكد
+                        </span>
+                    {% else %}
+                        <span class="badge bg-success mt-2">
+                            <i class="fas fa-check-circle me-1"></i>
+                            حساب موثق
+                        </span>
+                    {% endif %}
+                </div>
+                <hr class="m-0">
+                <div class="list-group list-group-flush">
+                    <a href="#profile" class="list-group-item list-group-item-action active" data-bs-toggle="list">
+                        <i class="fas fa-user me-2"></i> الملف الشخصي
+                    </a>
+                    <a href="#orders" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                        <i class="fas fa-shopping-bag me-2"></i> طلباتي
+                        <span class="badge bg-primary rounded-pill float-end">{{ customer.total_orders }}</span>
+                    </a>
+                    <a href="#addresses" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                        <i class="fas fa-map-marker-alt me-2"></i> العناوين
+                    </a>
+                    <a href="#security" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                        <i class="fas fa-shield-alt me-2"></i> الأمان
+                    </a>
+                    <a href="#social" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                        <i class="fas fa-link me-2"></i> الحسابات المرتبطة
+                    </a>
+                    <a href="{% url 'ecommerce:customer_logout' %}" class="list-group-item list-group-item-action text-danger">
+                        <i class="fas fa-sign-out-alt me-2"></i> تسجيل الخروج
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Content -->
+        <div class="col-lg-9">
+            <div class="tab-content">
+                <!-- Profile Tab -->
+                <div class="tab-pane fade show active" id="profile">
+                    <div class="card shadow-sm border-0 rounded-3">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="mb-0"><i class="fas fa-user me-2 text-primary"></i>الملف الشخصي</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if not customer.email_verified %}
+                            <div class="alert alert-warning d-flex align-items-center mb-4">
+                                <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                                <div>
+                                    <strong>البريد الإلكتروني غير مؤكد</strong>
+                                    <p class="mb-2">يرجى تأكيد بريدك الإلكتروني للاستفادة من جميع الميزات.</p>
+                                    <a href="{% url 'ecommerce:resend_verification' %}" class="btn btn-sm btn-warning">
+                                        <i class="fas fa-paper-plane me-1"></i> إعادة إرسال رابط التأكيد
+                                    </a>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            <form method="post" action="{% url 'ecommerce:update_profile' %}" enctype="multipart/form-data">
+                                {% csrf_token %}
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">الاسم الأول</label>
+                                        <input type="text" class="form-control" name="first_name" 
+                                               value="{{ request.user.first_name }}">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">اسم العائلة</label>
+                                        <input type="text" class="form-control" name="last_name" 
+                                               value="{{ request.user.last_name }}">
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">البريد الإلكتروني</label>
+                                        <input type="email" class="form-control" value="{{ request.user.email }}" readonly disabled>
+                                        <small class="text-muted">لا يمكن تغيير البريد الإلكتروني</small>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">رقم الهاتف</label>
+                                        <input type="tel" class="form-control" name="phone" dir="ltr"
+                                               value="{{ customer.phone }}">
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">تاريخ الميلاد</label>
+                                        <input type="date" class="form-control" name="date_of_birth"
+                                               value="{{ customer.date_of_birth|date:'Y-m-d' }}">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">الجنس</label>
+                                        <select class="form-select" name="gender">
+                                            <option value="">-- اختر --</option>
+                                            <option value="male" {% if customer.gender == 'male' %}selected{% endif %}>ذكر</option>
+                                            <option value="female" {% if customer.gender == 'female' %}selected{% endif %}>أنثى</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">الصورة الشخصية</label>
+                                    <input type="file" class="form-control" name="avatar" accept="image/*">
+                                </div>
+                                
+                                <hr>
+                                
+                                <h6 class="mb-3">تفضيلات الإشعارات</h6>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" name="newsletter_subscribed" id="newsletter"
+                                           {% if customer.newsletter_subscribed %}checked{% endif %}>
+                                    <label class="form-check-label" for="newsletter">
+                                        الاشتراك في النشرة البريدية
+                                    </label>
+                                </div>
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" name="sms_notifications" id="sms"
+                                           {% if customer.sms_notifications %}checked{% endif %}>
+                                    <label class="form-check-label" for="sms">
+                                        إشعارات SMS
+                                    </label>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-1"></i> حفظ التغييرات
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Orders Tab -->
+                <div class="tab-pane fade" id="orders">
+                    <div class="card shadow-sm border-0 rounded-3">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="mb-0"><i class="fas fa-shopping-bag me-2 text-primary"></i>طلباتي</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if request.user.ecommerce_orders.exists %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>رقم الطلب</th>
+                                                <th>التاريخ</th>
+                                                <th>الحالة</th>
+                                                <th>الإجمالي</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for order in request.user.ecommerce_orders.all|slice:":10" %}
+                                            <tr>
+                                                <td><strong>{{ order.order_number }}</strong></td>
+                                                <td>{{ order.created_at|date:"Y/m/d" }}</td>
+                                                <td>
+                                                    <span class="badge 
+                                                        {% if order.status == 'delivered' %}bg-success
+                                                        {% elif order.status == 'cancelled' %}bg-danger
+                                                        {% elif order.status == 'shipped' %}bg-info
+                                                        {% else %}bg-warning text-dark{% endif %}">
+                                                        {{ order.get_status_display }}
+                                                    </span>
+                                                </td>
+                                                <td>{{ order.total }} {{ store_settings.currency }}</td>
+                                                <td>
+                                                    <a href="#" class="btn btn-sm btn-outline-primary">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-5">
+                                    <i class="fas fa-shopping-bag fa-4x text-muted mb-3"></i>
+                                    <h5>لا توجد طلبات</h5>
+                                    <p class="text-muted">لم تقم بأي طلبات بعد</p>
+                                    <a href="{% url 'ecommerce:store_home' %}" class="btn btn-primary">
+                                        تسوق الآن
+                                    </a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Addresses Tab -->
+                <div class="tab-pane fade" id="addresses">
+                    <div class="card shadow-sm border-0 rounded-3">
+                        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-map-marker-alt me-2 text-primary"></i>العناوين</h5>
+                            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addAddressModal">
+                                <i class="fas fa-plus me-1"></i> إضافة عنوان
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            {% if addresses %}
+                                <div class="row">
+                                    {% for address in addresses %}
+                                    <div class="col-md-6 mb-3">
+                                        <div class="card h-100 {% if address.is_default %}border-primary{% endif %}">
+                                            <div class="card-body">
+                                                {% if address.is_default %}
+                                                    <span class="badge bg-primary mb-2">الافتراضي</span>
+                                                {% endif %}
+                                                <h6>{{ address.full_name }}</h6>
+                                                <p class="mb-1">{{ address.address_line1 }}</p>
+                                                {% if address.address_line2 %}
+                                                    <p class="mb-1">{{ address.address_line2 }}</p>
+                                                {% endif %}
+                                                <p class="mb-1">{{ address.city }}{% if address.state %}, {{ address.state }}{% endif %}</p>
+                                                <p class="mb-1">{{ address.country }} {% if address.postal_code %}- {{ address.postal_code }}{% endif %}</p>
+                                                <p class="mb-0"><i class="fas fa-phone me-1"></i> {{ address.phone }}</p>
+                                            </div>
+                                            <div class="card-footer bg-white">
+                                                <form method="post" action="{% url 'ecommerce:manage_addresses' %}" class="d-inline">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="action" value="delete">
+                                                    <input type="hidden" name="address_id" value="{{ address.id }}">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('هل أنت متأكد؟')">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                                {% if not address.is_default %}
+                                                <form method="post" action="{% url 'ecommerce:manage_addresses' %}" class="d-inline">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="action" value="set_default">
+                                                    <input type="hidden" name="address_id" value="{{ address.id }}">
+                                                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                                                        تعيين كافتراضي
+                                                    </button>
+                                                </form>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="text-center py-5">
+                                    <i class="fas fa-map-marker-alt fa-4x text-muted mb-3"></i>
+                                    <h5>لا توجد عناوين</h5>
+                                    <p class="text-muted">أضف عنوانك الأول لتسهيل عملية الشراء</p>
+                                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAddressModal">
+                                        <i class="fas fa-plus me-1"></i> إضافة عنوان
+                                    </button>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Security Tab -->
+                <div class="tab-pane fade" id="security">
+                    <div class="card shadow-sm border-0 rounded-3">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="mb-0"><i class="fas fa-shield-alt me-2 text-primary"></i>الأمان</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if request.user.has_usable_password %}
+                            <h6 class="mb-3">تغيير كلمة المرور</h6>
+                            <form method="post" action="{% url 'ecommerce:change_password' %}">
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    <label class="form-label">كلمة المرور الحالية</label>
+                                    <input type="password" class="form-control" name="current_password" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">كلمة المرور الجديدة</label>
+                                    <input type="password" class="form-control" name="new_password" required minlength="8">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">تأكيد كلمة المرور</label>
+                                    <input type="password" class="form-control" name="confirm_password" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-key me-1"></i> تغيير كلمة المرور
+                                </button>
+                            </form>
+                            {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                أنت تستخدم تسجيل الدخول الاجتماعي. يمكنك تعيين كلمة مرور لتسجيل الدخول بالبريد الإلكتروني أيضاً.
+                            </div>
+                            <h6 class="mb-3">تعيين كلمة مرور</h6>
+                            <form method="post" action="{% url 'ecommerce:set_password' %}">
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    <label class="form-label">كلمة المرور الجديدة</label>
+                                    <input type="password" class="form-control" name="new_password" required minlength="8">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">تأكيد كلمة المرور</label>
+                                    <input type="password" class="form-control" name="confirm_password" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-key me-1"></i> تعيين كلمة المرور
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Social Accounts Tab -->
+                <div class="tab-pane fade" id="social">
+                    <div class="card shadow-sm border-0 rounded-3">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="mb-0"><i class="fas fa-link me-2 text-primary"></i>الحسابات المرتبطة</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-4">
+                                يمكنك ربط حساباتك الاجتماعية لتسهيل تسجيل الدخول
+                            </p>
+                            
+                            {% for provider in social_providers %}
+                            <div class="d-flex justify-content-between align-items-center p-3 border rounded mb-2">
+                                <div class="d-flex align-items-center">
+                                    <i class="{{ provider.get_oauth_config.icon_class }} fa-2x me-3" 
+                                       style="color: {{ provider.get_oauth_config.button_color }}"></i>
+                                    <div>
+                                        <strong>{{ provider.name }}</strong>
+                                        {% for account in social_accounts %}
+                                            {% if account.provider == provider.provider %}
+                                                <br><small class="text-success">
+                                                    <i class="fas fa-check-circle me-1"></i>
+                                                    مرتبط ({{ account.email|default:account.name }})
+                                                </small>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                <div>
+                                    {% with connected=False %}
+                                    {% for account in social_accounts %}
+                                        {% if account.provider == provider.provider %}
+                                            <a href="{% url 'ecommerce:unlink_social' provider.provider %}" 
+                                               class="btn btn-sm btn-outline-danger"
+                                               onclick="return confirm('هل تريد إلغاء الربط؟')">
+                                                <i class="fas fa-unlink me-1"></i> إلغاء الربط
+                                            </a>
+                                        {% endif %}
+                                    {% empty %}
+                                        <a href="{% url 'ecommerce:link_social' provider.provider %}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-link me-1"></i> ربط
+                                        </a>
+                                    {% endfor %}
+                                    {% endwith %}
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="alert alert-info">
+                                لا تتوفر خيارات تسجيل الدخول الاجتماعي حالياً
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Address Modal -->
+<div class="modal fade" id="addAddressModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'ecommerce:manage_addresses' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add">
+                <div class="modal-header">
+                    <h5 class="modal-title">إضافة عنوان جديد</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">نوع العنوان</label>
+                        <select class="form-select" name="address_type">
+                            <option value="home">المنزل</option>
+                            <option value="work">العمل</option>
+                            <option value="other">آخر</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الاسم الكامل</label>
+                        <input type="text" class="form-control" name="full_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">رقم الهاتف</label>
+                        <input type="tel" class="form-control" name="phone" required dir="ltr">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">العنوان - السطر 1</label>
+                        <input type="text" class="form-control" name="address_line1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">العنوان - السطر 2 (اختياري)</label>
+                        <input type="text" class="form-control" name="address_line2">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">المدينة</label>
+                            <input type="text" class="form-control" name="city" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">المنطقة</label>
+                            <input type="text" class="form-control" name="state">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">الدولة</label>
+                            <input type="text" class="form-control" name="country" value="مصر">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">الرمز البريدي</label>
+                            <input type="text" class="form-control" name="postal_code">
+                        </div>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_default" id="is_default">
+                        <label class="form-check-label" for="is_default">
+                            تعيين كعنوان افتراضي
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> حفظ العنوان
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Handle tab from URL hash
+    document.addEventListener('DOMContentLoaded', function() {
+        const hash = window.location.hash;
+        if (hash) {
+            const tab = document.querySelector(`[href="${hash}"]`);
+            if (tab) {
+                tab.click();
+            }
+        }
+    });
+</script>
+{% endblock %}

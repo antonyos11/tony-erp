@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'data_import:dashboard' %}">{% trans "استيراد البيانات" %}</a></li>
+                    <li class="breadcrumb-item active">{% trans "جلسة" %} #{{ session.id }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <!-- معلومات الجلسة -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header {% if session.status == 'completed' %}bg-success text-white{% elif session.status == 'partial' %}bg-warning{% elif session.status == 'failed' %}bg-danger text-white{% else %}bg-info text-white{% endif %}">
+                    <h5 class="mb-0">
+                        {% if session.status == 'completed' %}
+                        <i class="fas fa-check-circle me-2"></i>
+                        {% elif session.status == 'failed' %}
+                        <i class="fas fa-times-circle me-2"></i>
+                        {% else %}
+                        <i class="fas fa-info-circle me-2"></i>
+                        {% endif %}
+                        {% trans "جلسة استيراد" %}: {{ session.get_module_display }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <th>{% trans "الموديول" %}:</th>
+                                    <td>{{ session.get_module_display }}</td>
+                                </tr>
+                                <tr>
+                                    <th>{% trans "الملف" %}:</th>
+                                    <td>{{ session.original_filename }}</td>
+                                </tr>
+                                <tr>
+                                    <th>{% trans "المستخدم" %}:</th>
+                                    <td>{{ session.user.username|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>{% trans "تاريخ الإنشاء" %}:</th>
+                                    <td>{{ session.created_at|date:"Y/m/d H:i" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <th>{% trans "الحالة" %}:</th>
+                                    <td>
+                                        {% if session.status == 'completed' %}
+                                        <span class="badge bg-success">{% trans "مكتمل" %}</span>
+                                        {% elif session.status == 'partial' %}
+                                        <span class="badge bg-warning">{% trans "مكتمل جزئياً" %}</span>
+                                        {% elif session.status == 'failed' %}
+                                        <span class="badge bg-danger">{% trans "فشل" %}</span>
+                                        {% elif session.status == 'processing' %}
+                                        <span class="badge bg-info">{% trans "جاري المعالجة" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">{% trans "قيد الانتظار" %}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>{% trans "تاريخ الانتهاء" %}:</th>
+                                    <td>{{ session.completed_at|date:"Y/m/d H:i"|default:"-" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- إحصائيات -->
+                    <div class="row text-center mt-4">
+                        <div class="col-3">
+                            <div class="border rounded p-3">
+                                <h3 class="mb-0">{{ session.total_rows }}</h3>
+                                <small class="text-muted">{% trans "إجمالي الصفوف" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="border rounded p-3">
+                                <h3 class="mb-0">{{ session.processed_rows }}</h3>
+                                <small class="text-muted">{% trans "تم معالجتها" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="border rounded p-3 bg-success bg-opacity-10">
+                                <h3 class="mb-0 text-success">{{ session.success_count }}</h3>
+                                <small class="text-muted">{% trans "ناجحة" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="border rounded p-3 bg-danger bg-opacity-10">
+                                <h3 class="mb-0 text-danger">{{ session.error_count }}</h3>
+                                <small class="text-muted">{% trans "فاشلة" %}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">{% trans "الإجراءات" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'data_import:import_module' session.module %}" class="btn btn-primary">
+                            <i class="fas fa-redo me-1"></i>
+                            {% trans "استيراد ملف جديد" %}
+                        </a>
+                        <a href="{% url 'data_import:download_template' session.module %}" class="btn btn-outline-primary">
+                            <i class="fas fa-download me-1"></i>
+                            {% trans "تحميل القالب" %}
+                        </a>
+                        <a href="{% url 'data_import:dashboard' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-right me-1"></i>
+                            {% trans "العودة للوحة التحكم" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- سجل الأخطاء -->
+    {% if errors %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        {% trans "سجل الأخطاء" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "رقم الصف" %}</th>
+                                    <th>{% trans "العمود" %}</th>
+                                    <th>{% trans "نوع الخطأ" %}</th>
+                                    <th>{% trans "الرسالة" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for error in errors %}
+                                <tr>
+                                    <td><span class="badge bg-secondary">{{ error.row_number }}</span></td>
+                                    <td>{{ error.column_name|default:"-" }}</td>
+                                    <td><span class="badge bg-warning text-dark">{{ error.error_type }}</span></td>
+                                    <td>{{ error.error_message }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- سجل الخطأ العام -->
+    {% if session.error_log %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bug me-2"></i>
+                        {% trans "سجل الخطأ العام" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-light p-3 rounded">{{ session.error_log }}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

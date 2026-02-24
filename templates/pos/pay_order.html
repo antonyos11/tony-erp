@@ -1,0 +1,87 @@
+﻿{% extends 'base_v2.html' %}{% load i18n %}
+{% block title %}{{ order.number }}{% endblock %}
+{% block extra_head %}
+<style>
+  .pos-entry input { font-size: 1.1rem; }
+  .pos-lines { max-height: 55vh; overflow-y: auto; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+  <h4 class="mb-0">{{ order.number }} - <span class="text-muted small">{{ order.location }}</span></h4>
+    <a href="{% url 'pos:dashboard' %}" class="btn btn-outline-secondary btn-sm">{% trans 'رجوع' %}</a>
+  </div>
+  <div class="row g-3">
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-header py-2 small d-flex justify-content-between align-items-center">
+          <strong>{% trans 'البنود' %}</strong>
+          <form id="addLineForm" class="d-flex gap-2 pos-entry">
+            {% csrf_token %}
+            <input name="code" id="codeInput" class="form-control form-control-sm" placeholder="{% trans 'باركود / كود' %}" autocomplete="off" autofocus>
+            <input name="qty" id="qtyInput" type="number" value="1" class="form-control form-control-sm" style="max-width:90px">
+            <button class="btn btn-primary btn-sm">{% trans 'إضافة' %}</button>
+          </form>
+        </div>
+        <div class="table-responsive pos-lines">
+          <table class="table table-sm mb-0">
+            <thead class="small"><tr><th>{% trans 'المنتج' %}</th><th>{% trans 'سعر' %}</th><th>{% trans 'كمية' %}</th><th>{% trans 'الإجمالي' %}</th></tr></thead>
+            <tbody id="linesBody">
+              {% for l in lines %}
+              <tr><td>{{ l.product.name }}</td><td>{{ l.price }}</td><td>{{ l.quantity }}</td><td>{{ l.total }}</td></tr>
+              {% empty %}
+              <tr class="text-muted"><td colspan="4" class="text-center">{% trans 'لا توجد بنود بعد' %}</td></tr>
+              {% endfor %}
+            </tbody>
+            <tfoot class="small">
+              <tr><th colspan="3" class="text-end">{% trans 'الإجمالي' %}</th><th id="orderTotal">{{ order.total }}</th></tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="card mb-3">
+        <div class="card-body py-2">
+          <div class="d-flex justify-content-between small"><span>{% trans 'الإجمالي' %}</span><strong id="totalDisplay">{{ order.total }}</strong></div>
+          <div class="d-flex justify-content-between small"><span>{% trans 'متبقي' %}</span><strong id="remainingDisplay">{{ remaining }}</strong></div>
+          {% if order.status == 'paid' %}
+            <div class="alert alert-success mt-2 py-1 small mb-0">{% trans 'مدفوعة بالكامل' %}</div>
+          {% endif %}
+        </div>
+      </div>
+      {% if order.status != 'paid' %}
+      <div class="card">
+        <div class="card-header py-2 small"><strong>{% trans 'الدفع' %}</strong></div>
+        <form method="post" class="card-body p-2 small" id="payForm">
+          {% csrf_token %}
+          <div class="mb-2">
+            <label class="form-label mb-1">{% trans 'المبلغ المدفوع الآن' %}</label>
+            <input type="number" step="0.01" name="amount" class="form-control form-control-sm" value="{{ remaining }}">
+          </div>
+          <div class="mb-2">
+            <label class="form-label mb-1">{% trans 'اسم العميل (اختياري)' %}</label>
+            <input type="text" name="customer_name" class="form-control form-control-sm" placeholder="{% trans 'عميل نقدي' %}">
+          </div>
+            <button class="btn btn-success w-100 btn-sm">{% trans 'تأكيد الدفع' %}</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+var form = document.getElementById('addLineForm');
+if(form){
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    var fd = new FormData(form);
+    fetch('', {method:'POST', headers:{'X-CSRFToken': fd.get('csrfmiddlewaretoken')}, body: fd})
+      .then(function(r){ return r.json(); }).then(function(data){ if(data.error){ alert(data.error); return;} location.reload(); });
+  });
+}
+</script>
+{% endblock %}

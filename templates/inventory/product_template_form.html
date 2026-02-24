@@ -1,0 +1,304 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section {
+        background: white;
+        padding: 25px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border: 1px solid #dee2e6;
+    }
+    
+    .form-section-title {
+        font-size: 1.1em;
+        font-weight: bold;
+        color: #495057;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #007bff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="fas fa-copy"></i> {{ title }}</h2>
+                <a href="{% url 'inventory:product_template_list' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-right"></i> رجوع
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <form method="post" id="templateForm">
+        {% csrf_token %}
+        
+        <div class="row">
+            <div class="col-md-8">
+                <!-- معلومات أساسية -->
+                <div class="form-section">
+                    <div class="form-section-title">
+                        <i class="fas fa-info-circle"></i> معلومات القالب
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="name">اسم القالب <span class="text-danger">*</span></label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="name" 
+                               name="name" 
+                               value="{% if template %}{{ template.name }}{% endif %}"
+                               placeholder="مثال: قالب إسفنج 20 كثافة"
+                               required>
+                        <small class="form-text text-muted">اسم وصفي للقالب لسهولة التعرف عليه</small>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="product_type">نوع المنتج <span class="text-danger">*</span></label>
+                                <select class="form-control" id="product_type" name="product_type" required>
+                                    <option value="raw_material" {% if template and template.product_type == 'raw_material' %}selected{% endif %}>مادة خام</option>
+                                    <option value="finished" {% if template and template.product_type == 'finished' %}selected{% endif %}>منتج نهائي</option>
+                                    <option value="semi_finished" {% if template and template.product_type == 'semi_finished' %}selected{% endif %}>منتج نصف مصنع</option>
+                                    <option value="accessory" {% if template and template.product_type == 'accessory' %}selected{% endif %}>إكسسوار</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-group" id="raw_material_type_group">
+                                <label for="raw_material_type">نوع المادة الخام</label>
+                                <select class="form-control" id="raw_material_type" name="raw_material_type">
+                                    <option value="">-- اختر --</option>
+                                    <option value="foam" {% if template and template.raw_material_type == 'foam' %}selected{% endif %}>إسفنج</option>
+                                    <option value="fabric" {% if template and template.raw_material_type == 'fabric' %}selected{% endif %}>قماش</option>
+                                    <option value="spring" {% if template and template.raw_material_type == 'spring' %}selected{% endif %}>سوست</option>
+                                    <option value="wood" {% if template and template.raw_material_type == 'wood' %}selected{% endif %}>خشب</option>
+                                    <option value="metal" {% if template and template.raw_material_type == 'metal' %}selected{% endif %}>معدن</option>
+                                    <option value="chemical" {% if template and template.raw_material_type == 'chemical' %}selected{% endif %}>مادة كيميائية</option>
+                                    <option value="packaging" {% if template and template.raw_material_type == 'packaging' %}selected{% endif %}>تعبئة وتغليف</option>
+                                    <option value="other" {% if template and template.raw_material_type == 'other' %}selected{% endif %}>أخرى</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="category">الفئة</label>
+                        <select class="form-control" id="category" name="category">
+                            <option value="">-- اختر الفئة --</option>
+                            {% for cat in categories %}
+                            <option value="{{ cat.id }}" {% if template and template.category_id == cat.id %}selected{% endif %}>
+                                {{ cat.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- وحدات القياس -->
+                <div class="form-section">
+                    <div class="form-section-title">
+                        <i class="fas fa-balance-scale"></i> وحدات القياس
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="purchase_uom">وحدة الشراء <span class="text-danger">*</span></label>
+                                <select class="form-control" id="purchase_uom" name="purchase_uom" required>
+                                    <option value="unit" {% if template and template.purchase_uom == 'unit' %}selected{% endif %}>وحدة</option>
+                                    <option value="kg" {% if template and template.purchase_uom == 'kg' %}selected{% endif %}>كيلوجرام</option>
+                                    <option value="m" {% if template and template.purchase_uom == 'm' %}selected{% endif %}>متر</option>
+                                    <option value="m2" {% if template and template.purchase_uom == 'm2' %}selected{% endif %}>متر مربع</option>
+                                    <option value="m3" {% if template and template.purchase_uom == 'm3' %}selected{% endif %}>متر مكعب</option>
+                                    <option value="roll" {% if template and template.purchase_uom == 'roll' %}selected{% endif %}>رولة</option>
+                                    <option value="sheet" {% if template and template.purchase_uom == 'sheet' %}selected{% endif %}>لوح</option>
+                                    <option value="box" {% if template and template.purchase_uom == 'box' %}selected{% endif %}>صندوق</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="usage_uom">وحدة الاستخدام <span class="text-danger">*</span></label>
+                                <select class="form-control" id="usage_uom" name="usage_uom" required>
+                                    <option value="unit" {% if template and template.usage_uom == 'unit' %}selected{% endif %}>وحدة</option>
+                                    <option value="kg" {% if template and template.usage_uom == 'kg' %}selected{% endif %}>كيلوجرام</option>
+                                    <option value="m" {% if template and template.usage_uom == 'm' %}selected{% endif %}>متر</option>
+                                    <option value="m2" {% if template and template.usage_uom == 'm2' %}selected{% endif %}>متر مربع</option>
+                                    <option value="m3" {% if template and template.usage_uom == 'm3' %}selected{% endif %}>متر مكعب</option>
+                                    <option value="piece" {% if template and template.usage_uom == 'piece' %}selected{% endif %}>قطعة</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="conversion_factor">معامل التحويل <span class="text-danger">*</span></label>
+                        <input type="number" 
+                               class="form-control" 
+                               id="conversion_factor" 
+                               name="conversion_factor" 
+                               value="{% if template %}{{ template.conversion_factor }}{% else %}1{% endif %}"
+                               step="0.0001"
+                               min="0.0001"
+                               required>
+                        <small class="form-text text-muted">عدد وحدات الاستخدام في وحدة الشراء الواحدة</small>
+                    </div>
+                    
+                    <!-- الحساب التلقائي للأبعاد -->
+                    <div class="form-check mb-3">
+                        <input type="checkbox" 
+                               class="form-check-input" 
+                               id="auto_calculate_conversion" 
+                               name="auto_calculate_conversion"
+                               {% if template and template.auto_calculate_conversion %}checked{% endif %}>
+                        <label class="form-check-label" for="auto_calculate_conversion">
+                            حساب تلقائي من الأبعاد
+                        </label>
+                    </div>
+                    
+                    <div id="dimensions_section" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="length">الطول (سم)</label>
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="length" 
+                                           name="length" 
+                                           value="{% if template %}{{ template.length }}{% endif %}"
+                                           step="0.01">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="width">العرض (سم)</label>
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="width" 
+                                           name="width" 
+                                           value="{% if template %}{{ template.width }}{% endif %}"
+                                           step="0.01">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="height">الارتفاع (سم)</label>
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="height" 
+                                           name="height" 
+                                           value="{% if template %}{{ template.height }}{% endif %}"
+                                           step="0.01">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <!-- معلومات إضافية -->
+                <div class="form-section">
+                    <div class="form-section-title">
+                        <i class="fas fa-dollar-sign"></i> التسعير والمخزون
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="purchase_price">سعر الشراء</label>
+                        <input type="number" 
+                               class="form-control" 
+                               id="purchase_price" 
+                               name="purchase_price" 
+                               value="{% if template %}{{ template.purchase_price }}{% else %}0{% endif %}"
+                               step="0.01"
+                               min="0">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="min_stock">الحد الأدنى للمخزون</label>
+                        <input type="number" 
+                               class="form-control" 
+                               id="min_stock" 
+                               name="min_stock" 
+                               value="{% if template %}{{ template.min_stock }}{% else %}0{% endif %}"
+                               min="0">
+                    </div>
+                </div>
+                
+                <!-- ملاحظات -->
+                <div class="form-section">
+                    <div class="form-section-title">
+                        <i class="fas fa-sticky-note"></i> ملاحظات
+                    </div>
+                    
+                    <div class="form-group">
+                        <textarea class="form-control" 
+                                  id="notes" 
+                                  name="notes" 
+                                  rows="4"
+                                  placeholder="ملاحظات إضافية عن القالب...">{% if template %}{{ template.notes }}{% endif %}</textarea>
+                    </div>
+                </div>
+                
+                <!-- أزرار الحفظ -->
+                <div class="form-section">
+                    <button type="submit" class="btn btn-primary btn-block btn-lg">
+                        <i class="fas fa-save"></i> حفظ القالب
+                    </button>
+                    <a href="{% url 'inventory:product_template_list' %}" class="btn btn-secondary btn-block mt-2">
+                        <i class="fas fa-times"></i> إلغاء
+                    </a>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // إظهار/إخفاء نوع المادة الخام
+    function toggleRawMaterialType() {
+        const productType = document.getElementById('product_type').value;
+        const rawMaterialGroup = document.getElementById('raw_material_type_group');
+        
+        if (productType === 'raw_material') {
+            rawMaterialGroup.style.display = 'block';
+        } else {
+            rawMaterialGroup.style.display = 'none';
+            document.getElementById('raw_material_type').value = '';
+        }
+    }
+    
+    // إظهار/إخفاء قسم الأبعاد
+    function toggleDimensions() {
+        const autoCalc = document.getElementById('auto_calculate_conversion').checked;
+        const dimensionsSection = document.getElementById('dimensions_section');
+        
+        if (autoCalc) {
+            dimensionsSection.style.display = 'block';
+        } else {
+            dimensionsSection.style.display = 'none';
+        }
+    }
+    
+    document.getElementById('product_type').addEventListener('change', toggleRawMaterialType);
+    document.getElementById('auto_calculate_conversion').addEventListener('change', toggleDimensions);
+    
+    // تشغيل عند تحميل الصفحة
+    toggleRawMaterialType();
+    toggleDimensions();
+</script>
+{% endblock %}

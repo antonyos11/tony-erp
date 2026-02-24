@@ -1,0 +1,269 @@
+﻿{% extends 'base_templates/modern_detail.html' %}
+
+{% block page_module %}import_export{% endblock %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">
+            <i class="bi bi-truck text-primary me-2"></i>
+            {{ agent.name }}
+        </h1>
+        <div>
+            <a href="{% url 'import_export:shipping_agent_edit' agent.pk %}" class="btn btn-outline-primary">
+                <i class="bi bi-pencil me-1"></i> {% trans "تعديل" %}
+            </a>
+            <a href="{% url 'import_export:shipping_agent_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-right me-1"></i> {% trans "عودة للقائمة" %}
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- البيانات الأساسية -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>{% trans "البيانات الأساسية" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">{% trans "الكود" %}</label>
+                            <p class="mb-0 fw-bold"><code>{{ agent.code }}</code></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">{% trans "نوع الوكيل" %}</label>
+                            <p class="mb-0">{{ agent.get_agent_type_display }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">{% trans "الاسم بالعربية" %}</label>
+                            <p class="mb-0">{{ agent.name }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">{% trans "الاسم بالإنجليزية" %}</label>
+                            <p class="mb-0">{{ agent.name_en|default:"-" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- بيانات الاتصال -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-telephone me-2"></i>{% trans "بيانات الاتصال" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">{% trans "الهاتف" %}</label>
+                            <p class="mb-0">{{ agent.phone|default:"-" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">{% trans "الجوال" %}</label>
+                            <p class="mb-0">{{ agent.mobile|default:"-" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">{% trans "البريد الإلكتروني" %}</label>
+                            <p class="mb-0">
+                                {% if agent.email %}
+                                <a href="mailto:{{ agent.email }}">{{ agent.email }}</a>
+                                {% else %}-{% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">{% trans "الموقع الإلكتروني" %}</label>
+                            <p class="mb-0">
+                                {% if agent.website %}
+                                <a href="{{ agent.website }}" target="_blank">{{ agent.website }}</a>
+                                {% else %}-{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- الإحصائيات -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body text-center">
+                            <h3 class="mb-0">{{ export_orders_count }}</h3>
+                            <small>{% trans "طلبات تصدير" %}</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body text-center">
+                            <h3 class="mb-0">{{ import_orders_count }}</h3>
+                            <small>{% trans "أوامر استيراد" %}</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body text-center">
+                            <h3 class="mb-0">{{ total_export_value|floatformat:0 }}</h3>
+                            <small>{% trans "قيمة التصدير" %}</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-dark">
+                        <div class="card-body text-center">
+                            <h3 class="mb-0">{{ total_import_value|floatformat:0 }}</h3>
+                            <small>{% trans "قيمة الاستيراد" %}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- آخر العمليات -->
+            {% if recent_exports or recent_imports %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>{% trans "آخر العمليات" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>{% trans "آخر طلبات التصدير" %}</h6>
+                            <ul class="list-group list-group-flush">
+                                {% for order in recent_exports %}
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <a href="{% url 'import_export:export_order_detail' order.pk %}">{{ order.number }}</a>
+                                    <span class="badge bg-secondary">{{ order.status }}</span>
+                                </li>
+                                {% empty %}
+                                <li class="list-group-item text-muted">{% trans "لا توجد طلبات" %}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>{% trans "آخر أوامر الاستيراد" %}</h6>
+                            <ul class="list-group list-group-flush">
+                                {% for order in recent_imports %}
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <a href="{% url 'import_export:import_order_detail' order.pk %}">{{ order.number }}</a>
+                                    <span class="badge bg-secondary">{{ order.status }}</span>
+                                </li>
+                                {% empty %}
+                                <li class="list-group-item text-muted">{% trans "لا توجد أوامر" %}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- الجانب -->
+        <div class="col-lg-4">
+            <!-- الحالة -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-toggles me-2"></i>{% trans "الحالة" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if agent.is_active %}
+                    <span class="badge bg-success fs-6 me-2">{% trans "نشط" %}</span>
+                    {% else %}
+                    <span class="badge bg-secondary fs-6 me-2">{% trans "غير نشط" %}</span>
+                    {% endif %}
+                    
+                    {% if agent.is_preferred %}
+                    <span class="badge bg-warning fs-6">{% trans "مفضل" %}</span>
+                    {% endif %}
+                    
+                    {% if agent.rating %}
+                    <div class="mt-3">
+                        <label class="text-muted small">{% trans "التقييم" %}</label>
+                        <div>
+                            {% for i in "12345" %}
+                            {% if forloop.counter <= agent.rating %}
+                            <i class="bi bi-star-fill text-warning"></i>
+                            {% else %}
+                            <i class="bi bi-star text-muted"></i>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- العنوان -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-geo-alt me-2"></i>{% trans "العنوان" %}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-1">{{ agent.address|default:"-" }}</p>
+                    <p class="mb-0 text-muted">
+                        {{ agent.city|default:"" }}
+                        {% if agent.country %}, {{ agent.country.name }}{% endif %}
+                    </p>
+                </div>
+            </div>
+
+            <!-- جهة الاتصال -->
+            {% if agent.contact_person %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-person me-2"></i>{% trans "جهة الاتصال" %}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-1 fw-bold">{{ agent.contact_person }}</p>
+                    <p class="mb-1">{{ agent.contact_phone|default:"-" }}</p>
+                    <p class="mb-0">
+                        {% if agent.contact_email %}
+                        <a href="mailto:{{ agent.contact_email }}">{{ agent.contact_email }}</a>
+                        {% else %}-{% endif %}
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- معلومات التسجيل -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-card-text me-2"></i>{% trans "معلومات التسجيل" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <label class="text-muted small">{% trans "رقم الترخيص" %}</label>
+                        <p class="mb-0">{{ agent.license_number|default:"-" }}</p>
+                    </div>
+                    {% if agent.license_expiry %}
+                    <div class="mb-2">
+                        <label class="text-muted small">{% trans "انتهاء الترخيص" %}</label>
+                        <p class="mb-0">{{ agent.license_expiry }}</p>
+                    </div>
+                    {% endif %}
+                    <div class="mb-2">
+                        <label class="text-muted small">{% trans "الرقم الضريبي" %}</label>
+                        <p class="mb-0">{{ agent.tax_number|default:"-" }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ملاحظات -->
+            {% if agent.notes %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-chat-text me-2"></i>{% trans "ملاحظات" %}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ agent.notes }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

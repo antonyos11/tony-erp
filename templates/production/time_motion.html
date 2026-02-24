@@ -1,0 +1,156 @@
+﻿{% extends BASE_TEMPLATE %}
+{% block content %}
+<div class="container py-3">
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3">
+    <h3 class="mb-0">تحليل الوقت والحركة</h3>
+    <form class="d-flex gap-2 align-items-stretch" method="get">
+      <input type="date" class="form-control form-control-sm" name="start_date" value="{{ start_date|date:'Y-m-d' }}">
+      <input type="date" class="form-control form-control-sm" name="end_date" value="{{ end_date|date:'Y-m-d' }}">
+      <select name="department" class="form-select form-select-sm" style="min-width:180px">
+        <option value="">كل الأقسام</option>
+        {% for d in departments %}
+        <option value="{{ d.id }}" {% if selected_department == d.id %}selected{% endif %}>{{ d.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="work_center" class="form-select form-select-sm" style="min-width:180px">
+        <option value="">كل مراكز العمل</option>
+        {% for wc in work_centers %}
+        <option value="{{ wc.id }}" {% if selected_work_center == wc.id %}selected{% endif %}>{{ wc.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="product" class="form-select form-select-sm" style="min-width:180px">
+        <option value="">كل المنتجات</option>
+        {% for p in products %}
+        <option value="{{ p.id }}" {% if selected_product == p.id %}selected{% endif %}>{{ p.name }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-sm btn-primary">تصفية</button>
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'production:time_motion_export_csv' %}?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}">تصدير CSV</a>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">طباعة</button>
+    </form>
+  </div>
+
+  <p class="text-muted">مبادئ أساسية لقياس وتحسين كفاءة العمليات وخطوط الإنتاج، مع مؤشرات مباشرة من سجلات الوقت.</p>
+
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card h-100 shadow-sm"><div class="card-body">
+        <div class="small text-muted">إجمالي ساعات العمل</div>
+        <div class="h4 mb-0">{{ total_hours|floatformat:2 }}</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card h-100 shadow-sm"><div class="card-body">
+        <div class="small text-muted">ساعات منتجة</div>
+        <div class="h4 mb-0">{{ productive_hours|floatformat:2 }}</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card h-100 shadow-sm"><div class="card-body">
+        <div class="small text-muted">نسبة الاستغلال</div>
+        <div class="h4 mb-0">{{ utilization|floatformat:1 }}%</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card h-100 shadow-sm"><div class="card-body">
+        <div class="small text-muted">إجمالي الإنتاج</div>
+        <div class="h4 mb-0">{{ total_quantity|floatformat:0 }}</div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card h-100 shadow-sm"><div class="card-body">
+        <div class="small text-muted">إنتاجية متوسطة (وحدة/ساعة)</div>
+        <div class="h4 mb-0">{{ avg_productivity|floatformat:2 }}</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card h-100 shadow-sm"><div class="card-body">
+        <div class="small text-muted">زمن دورة متوسط (ساعة/وحدة)</div>
+        <div class="h4 mb-0">{% if avg_cycle_time_hours %}{{ avg_cycle_time_hours|floatformat:2 }}{% else %}—{% endif %}</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card h-100 shadow-sm"><div class="card-body">
+        <div class="small text-muted">معدل الجودة</div>
+        <div class="h4 mb-0">{% if quality_rate %}{{ quality_rate|floatformat:1 }}%{% else %}—{% endif %}</div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card h-100 shadow-sm"><div class="card-body">
+        <div class="small text-muted">OEE (مبسّط)</div>
+        <div class="h4 mb-0">{{ oee|floatformat:1 }}%</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card h-100 shadow-sm"><div class="card-body">
+        <div class="small text-muted">ساعات توقف</div>
+        <div class="h4 mb-0">{{ downtime_hours|floatformat:2 }}</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card h-100 shadow-sm"><div class="card-body">
+        <div class="small text-muted">معدل التوقف</div>
+        <div class="h4 mb-0">{{ downtime_rate|floatformat:1 }}%</div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-header">الإنتاج اليومي (وحدة/يوم)</div>
+    <div class="card-body">
+      <canvas id="tmChart" height="120"></canvas>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-3">
+    <div class="col-md-6">
+      <div class="card h-100 shadow-sm"><div class="card-header">أعلى مراكز العمل إنتاجاً</div>
+        <div class="card-body">
+          {% if top_centers %}
+          <ul class="mb-0">
+            {% for it in top_centers %}<li class="d-flex justify-content-between"><span>{{ it.work_center__name }}</span><strong>{{ it.q|floatformat:0 }}</strong></li>{% endfor %}
+          </ul>
+          {% else %}
+          <div class="text-muted">لا توجد بيانات</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card h-100 shadow-sm"><div class="card-header">أعلى المنتجات إنتاجاً</div>
+        <div class="card-body">
+          {% if top_products %}
+          <ul class="mb-0">
+            {% for it in top_products %}<li class="d-flex justify-content-between"><span>{{ it.production_order__product__name }}</span><strong>{{ it.q|floatformat:0 }}</strong></li>{% endfor %}
+          </ul>
+          {% else %}
+          <div class="text-muted">لا توجد بيانات</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% block extra_js %}
+<script>
+  (function(){
+    const labels = {{ tm_labels|default:'[]'|safe }};
+    const data = {{ tm_values|default:'[]'|safe }};
+    const ctx = document.getElementById('tmChart');
+    if (ctx && window.Chart && Array.isArray(labels) && Array.isArray(data)) {
+      new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets: [{ label: 'الإنتاج', data, borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,.1)', tension: .2, fill: true }]},
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision:0 } } } }
+      });
+    }
+  })();
+</script>
+{% endblock %}
+{% endblock %}

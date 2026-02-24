@@ -1,0 +1,480 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'المبيعات الداخلية' %}{% endblock %}
+
+{% block content %}
+<style>
+  .indoor-hero {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+    margin-bottom: 2rem;
+  }
+  .indoor-hero h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  .pos-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
+    height: calc(100vh - 280px);
+    min-height: 600px;
+  }
+  .products-section {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .products-header {
+    padding: 1rem 1.5rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    border-bottom: 1px solid var(--border-color);
+  }
+  .category-tabs {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+  }
+  .category-tab {
+    padding: 0.5rem 1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: var(--transition);
+  }
+  .category-tab:hover {
+    border-color: var(--primary);
+  }
+  .category-tab.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+  .products-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 1rem;
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .product-card {
+    background: var(--bg-light);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .product-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+  }
+  .product-card .product-img {
+    width: 60px;
+    height: 60px;
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    margin: 0 auto 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+    font-size: 1.5rem;
+  }
+  .product-card .product-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .product-card .product-price {
+    font-weight: 700;
+    color: var(--success);
+  }
+  .cart-section {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+  }
+  .cart-header {
+    padding: 1rem 1.5rem;
+    background: linear-gradient(135deg, var(--primary) 0%, #2d5a87 100%);
+    color: white;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .cart-items {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+  }
+  .cart-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .cart-item:last-child {
+    border-bottom: none;
+  }
+  .cart-item .item-info {
+    flex: 1;
+  }
+  .cart-item .item-name {
+    font-weight: 600;
+    font-size: 0.875rem;
+  }
+  .cart-item .item-price {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .cart-item .qty-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  .cart-item .qty-btn {
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-light);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+  }
+  .cart-item .qty-btn:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+  .cart-item .qty-value {
+    min-width: 30px;
+    text-align: center;
+    font-weight: 600;
+  }
+  .cart-item .item-total {
+    font-weight: 700;
+    color: var(--primary);
+    min-width: 70px;
+    text-align: end;
+  }
+  .cart-item .remove-btn {
+    color: var(--danger);
+    cursor: pointer;
+    opacity: 0.6;
+    transition: var(--transition);
+  }
+  .cart-item .remove-btn:hover {
+    opacity: 1;
+  }
+  .cart-footer {
+    padding: 1.5rem;
+    border-top: 2px solid var(--border-color);
+    background: var(--bg-light);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  }
+  .totals-grid {
+    margin-bottom: 1rem;
+  }
+  .total-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px dashed var(--border-color);
+  }
+  .total-row.grand {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary);
+    border-bottom: none;
+    padding-top: 1rem;
+    border-top: 2px solid var(--primary);
+  }
+  .payment-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+  .customer-select {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.5rem;
+    box-shadow: var(--shadow);
+    margin-bottom: 1.5rem;
+  }
+  .empty-cart {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 3rem 1rem;
+  }
+  .empty-cart i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+  @media (max-width: 991px) {
+    .pos-grid {
+      grid-template-columns: 1fr;
+      height: auto;
+    }
+  }
+</style>
+
+<!-- Hero -->
+<div class="indoor-hero">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div>
+      <h1><i class="bi bi-shop me-2"></i>{% trans 'نقطة البيع الداخلية' %}</h1>
+      <p class="mb-0 opacity-75">{% trans 'بيع سريع ومباشر للعملاء' %}</p>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-light" onclick="openDrawer()">
+        <i class="bi bi-safe me-1"></i>{% trans 'فتح الدرج' %}
+      </button>
+      <a href="{% url 'sales:daily_report' %}" class="btn btn-outline-light">
+        <i class="bi bi-file-text me-1"></i>{% trans 'تقرير اليوم' %}
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Customer Selection -->
+<div class="customer-select">
+  <div class="row align-items-center">
+    <div class="col-md-6">
+      <div class="input-group">
+        <span class="input-group-text"><i class="bi bi-person"></i></span>
+        <select id="customer-select" class="form-select">
+          <option value="">{% trans 'عميل نقدي' %}</option>
+          {% for customer in customers %}
+          <option value="{ customer.pk }">{{ customer.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="input-group">
+        <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+        <input type="text" id="barcode-input" class="form-control" placeholder="{% trans 'امسح الباركود أو اكتب اسم المنتج...' %}" autofocus>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- POS Grid -->
+<div class="pos-grid">
+  <!-- Products Section -->
+  <div class="products-section">
+    <div class="products-header">
+      <div class="category-tabs">
+        <div class="category-tab active" data-category="all">{% trans 'الكل' %}</div>
+        {% for category in categories %}
+        <div class="category-tab" data-category="{ category.pk }">{{ category.name }}</div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="products-grid" id="products-grid">
+      {% for product in products %}
+      <div class="product-card" onclick="addToCart({{ product.pk }}, '{{ product.name|escapejs }}', {{ product.selling_price }})">
+        <div class="product-img">
+          {% if product.image %}
+          <img src="{{ product.image.url }}" alt="{{ product.name }}" style="width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius);">
+          {% else %}
+          <i class="bi bi-box"></i>
+          {% endif %}
+        </div>
+        <div class="product-name" title="{{ product.name }}">{{ product.name }}</div>
+        <div class="product-price">{{ product.selling_price|floatformat:2 }}</div>
+      </div>
+      {% empty %}
+      <div class="col-12 text-center text-muted py-5">{% trans 'لا توجد منتجات' %}</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Cart Section -->
+  <div class="cart-section">
+    <div class="cart-header">
+      <h5 class="mb-0"><i class="bi bi-cart3 me-2"></i>{% trans 'الفاتورة' %}</h5>
+      <button class="btn btn-sm btn-outline-light" onclick="clearCart()">
+        <i class="bi bi-trash me-1"></i>{% trans 'مسح' %}
+      </button>
+    </div>
+    <div class="cart-items" id="cart-items">
+      <div class="empty-cart">
+        <i class="bi bi-cart-x d-block"></i>
+        <p>{% trans 'السلة فارغة' %}</p>
+        <small>{% trans 'اضغط على منتج لإضافته' %}</small>
+      </div>
+    </div>
+    <div class="cart-footer">
+      <div class="totals-grid">
+        <div class="total-row">
+          <span>{% trans 'المجموع الفرعي' %}</span>
+          <span id="subtotal">0.00</span>
+        </div>
+        <div class="total-row">
+          <span>{% trans 'الخصم' %}</span>
+          <span id="discount" class="text-danger">0.00</span>
+        </div>
+        <div class="total-row">
+          <span>{% trans 'الضريبة' %} (15%)</span>
+          <span id="tax">0.00</span>
+        </div>
+        <div class="total-row grand">
+          <span>{% trans 'الإجمالي' %}</span>
+          <span id="grand-total">0.00</span>
+        </div>
+      </div>
+      <div class="payment-buttons">
+        <button class="btn btn-success btn-lg" onclick="checkout('cash')">
+          <i class="bi bi-cash me-1"></i>{% trans 'نقدي' %}
+        </button>
+        <button class="btn btn-primary btn-lg" onclick="checkout('card')">
+          <i class="bi bi-credit-card me-1"></i>{% trans 'بطاقة' %}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let cart = [];
+  const taxRate = 0.15;
+
+  function addToCart(id, name, price) {
+    const existing = cart.find(item => item.id === id);
+    if (existing) {
+      existing.qty++;
+    } else {
+      cart.push({ id, name, price, qty: 1 });
+    }
+    renderCart();
+  }
+
+  function updateQty(id, delta) {
+    const item = cart.find(item => item.id === id);
+    if (item) {
+      item.qty += delta;
+      if (item.qty <= 0) {
+        cart = cart.filter(i => i.id !== id);
+      }
+    }
+    renderCart();
+  }
+
+  function removeFromCart(id) {
+    cart = cart.filter(item => item.id !== id);
+    renderCart();
+  }
+
+  function clearCart() {
+    cart = [];
+    renderCart();
+  }
+
+  function renderCart() {
+    const container = document.getElementById('cart-items');
+    if (cart.length === 0) {
+      container.innerHTML = `
+        <div class="empty-cart">
+          <i class="bi bi-cart-x d-block"></i>
+          <p>{% trans 'السلة فارغة' %}</p>
+          <small>{% trans 'اضغط على منتج لإضافته' %}</small>
+        </div>
+      `;
+      document.getElementById('subtotal').textContent = '0.00';
+      document.getElementById('tax').textContent = '0.00';
+      document.getElementById('grand-total').textContent = '0.00';
+      return;
+    }
+
+    let html = '';
+    let subtotal = 0;
+
+    cart.forEach(item => {
+      const total = item.price * item.qty;
+      subtotal += total;
+      html += `
+        <div class="cart-item">
+          <div class="item-info">
+            <div class="item-name">${item.name}</div>
+            <div class="item-price">${item.price.toFixed(2)} x ${item.qty}</div>
+          </div>
+          <div class="qty-controls">
+            <button class="qty-btn" onclick="updateQty(${item.id}, -1)">-</button>
+            <span class="qty-value">${item.qty}</span>
+            <button class="qty-btn" onclick="updateQty(${item.id}, 1)">+</button>
+          </div>
+          <div class="item-total">${total.toFixed(2)}</div>
+          <span class="remove-btn" onclick="removeFromCart(${item.id})"><i class="bi bi-x-lg"></i></span>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+
+    const tax = subtotal * taxRate;
+    const grandTotal = subtotal + tax;
+
+    document.getElementById('subtotal').textContent = subtotal.toFixed(2);
+    document.getElementById('tax').textContent = tax.toFixed(2);
+    document.getElementById('grand-total').textContent = grandTotal.toFixed(2);
+  }
+
+  function checkout(method) {
+    if (cart.length === 0) {
+      alert('{% trans "السلة فارغة" %}');
+      return;
+    }
+    // Submit to backend
+    console.log('Checkout:', method, cart);
+  }
+
+  // Category filter
+  document.querySelectorAll('.category-tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+      document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+      // Filter products (AJAX in real implementation)
+    });
+  });
+
+  // Barcode input
+  document.getElementById('barcode-input').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      // Search product by barcode
+      console.log('Search:', this.value);
+      this.value = '';
+    }
+  });
+</script>
+{% endblock %}
+

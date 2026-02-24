@@ -1,0 +1,985 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<style>
+/* إزالة الـ backdrop الرمادي بالقوة - محسن */
+body,
+body.modal-open,
+body.modal-open.sidebar-open {
+    overflow: auto !important;
+    padding-right: 0 !important;
+    pointer-events: auto !important;
+    position: relative !important;
+}
+
+/* إخفاء أي backdrop موجود - بكل الطرق الممكنة */
+.modal-backdrop,
+.modal-backdrop.fade,
+.modal-backdrop.show,
+.modal-backdrop.fade.show,
+.modal-backdrop.in,
+div.modal-backdrop,
+div[class*="modal-backdrop"]:not(#categoryModalBackdrop) {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    z-index: -9999 !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+    position: absolute !important;
+    left: -9999px !important;
+    top: -9999px !important;
+}
+
+/* منع أي عنصر من حجب الصفحة */
+body > div:not(.container):not(.container-fluid):not(#app):not([id]):not([class*="main"]):not([class*="wrapper"]) {
+    pointer-events: none !important;
+}
+
+/* السماح للعناصر الأساسية بالتفاعل */
+.container,
+.container-fluid,
+.card,
+form,
+input,
+select,
+button,
+textarea,
+a {
+    pointer-events: auto !important;
+}
+
+/* Backdrop منفصل للـ Modal - تحت الـ modal */
+.category-modal-backdrop {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: rgba(0,0,0,0.5) !important;
+    z-index: 10000 !important;
+    cursor: pointer !important;
+}
+
+/* Fix modal - Modal فوق الـ backdrop */
+#addCategoryModal {
+    z-index: 10001 !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: none !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: transparent !important;
+    pointer-events: none !important;
+}
+
+#addCategoryModal.show {
+    display: flex !important;
+}
+
+#addCategoryModal .modal-dialog {
+    z-index: 10002 !important;
+    pointer-events: auto !important;
+    margin: auto !important;
+    position: relative;
+}
+
+#addCategoryModal .modal-content {
+    pointer-events: auto !important;
+    box-shadow: 0 5px 30px rgba(0,0,0,0.3);
+    position: relative;
+    z-index: 10003 !important;
+}
+
+#addCategoryModal .modal-body,
+#addCategoryModal .modal-header,
+#addCategoryModal .modal-footer {
+    pointer-events: auto !important;
+}
+
+#addCategoryModal .modal-body input,
+#addCategoryModal .modal-body textarea,
+#addCategoryModal .modal-body select,
+#addCategoryModal .modal-footer button,
+#addCategoryModal .modal-header button {
+    pointer-events: auto !important;
+    position: relative !important;
+    z-index: 10004 !important;
+}
+
+/* Fix form-select dropdown */
+.form-select,
+select.form-select,
+select {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    position: relative !important;
+    z-index: 100 !important;
+    -webkit-appearance: menulist !important;
+    -moz-appearance: menulist !important;
+    appearance: auto !important;
+}
+
+.input-group .form-select {
+    pointer-events: auto !important;
+    z-index: 100 !important;
+}
+
+/* Fix modal inputs */
+.modal.show .form-control,
+.modal.show .form-select {
+    pointer-events: auto !important;
+}
+
+/* تحسين زر إضافة الفئة - تصميم واضح وجذاب */
+.add-category-btn {
+    min-width: 120px !important;
+    font-weight: bold !important;
+    font-size: 14px !important;
+    border: 2px solid #0d6efd !important;
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%) !important;
+    color: white !important;
+    padding: 8px 16px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.4) !important;
+    transition: all 0.3s ease !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+}
+
+.add-category-btn:hover {
+    background: linear-gradient(135deg, #0a58ca 0%, #084298 100%) !important;
+    border-color: #0a58ca !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(13, 110, 253, 0.5) !important;
+}
+
+.add-category-btn:active {
+    transform: translateY(0) !important;
+    box-shadow: 0 2px 8px rgba(13, 110, 253, 0.3) !important;
+}
+
+.add-category-btn i {
+    font-size: 16px !important;
+}
+
+/* تأكد من أن الـ modal يظهر بشكل صحيح */
+#addCategoryModal.show {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+#categoryModalBackdrop {
+    display: none;
+}
+
+#categoryModalBackdrop.show {
+    display: block !important;
+}
+</style>
+
+<!-- سكريبت لإزالة الـ backdrop فوراً -->
+<script>
+// متغير للتحكم في إزالة الـ backdrop
+var categoryModalOpen = false;
+
+(function() {
+    // إزالة الـ backdrop فوراً عند تحميل الصفحة
+    function removeBackdrop() {
+        // لا تفعل شيء إذا كان modal الفئة مفتوح
+        if (categoryModalOpen) return;
+        
+        // إزالة جميع أنواع الـ backdrop من Bootstrap فقط
+        var backdrops = document.querySelectorAll('.modal-backdrop');
+        backdrops.forEach(function(el) { 
+            // لا تزيل الـ backdrop الخاص بنا
+            if (el.id !== 'categoryModalBackdrop') {
+                try {
+                    el.remove(); 
+                } catch(e) {
+                    console.log('Cannot remove element:', e);
+                }
+            }
+        });
+        
+        // إصلاح الـ body فقط إذا لم يكن modal الفئة مفتوح
+        if (!categoryModalOpen) {
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = 'auto';
+            document.body.style.paddingRight = '0';
+            document.body.style.pointerEvents = 'auto';
+        }
+        
+        // تفعيل كل عناصر الصفحة
+        document.querySelectorAll('select, input, button, a, .form-select, .form-control, .btn').forEach(function(el) {
+            el.style.pointerEvents = 'auto';
+            el.style.cursor = 'pointer';
+        });
+    }
+    
+    // تشغيل فوراً
+    removeBackdrop();
+    
+    // تشغيل عند اكتمال التحميل
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', removeBackdrop);
+    } else {
+        removeBackdrop();
+    }
+    
+    // تشغيل مرة واحدة فقط بعد التحميل
+    setTimeout(removeBackdrop, 500);
+})();
+</script>
+
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card">
+                <div class="card-header">
+                    <h4><i class="fas fa-plus-circle me-2"></i>{{ title }}</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <label class="form-label">الكود</label>
+                                <div class="input-group">
+                                    <input type="text" name="code" id="code_field" class="form-control" 
+                                           placeholder="مثال: LITE-RITA"
+                                           value="{{ family.code|default:'' }}"
+                                           {% if is_edit %}readonly{% endif %}>
+                                    {% if not is_edit %}
+                                    <button type="button" class="btn btn-primary" onclick="generateCode()" title="توليد كود تلقائي">
+                                        <i class="bi bi-magic"></i> توليد
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                <small class="text-muted">{% if is_edit %}الكود لا يمكن تغييره{% else %}اضغط الزر للتوليد التلقائي{% endif %}</small>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label">الاسم <span class="text-danger">*</span></label>
+                                <input type="text" name="name" class="form-control" required 
+                                       placeholder="مثال: لايت ريتا"
+                                       value="{{ family.name|default:'' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">الاسم بالإنجليزية</label>
+                                <input type="text" name="name_en" class="form-control" 
+                                       placeholder="Light Rita"
+                                       value="{{ family.name_en|default:'' }}">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">الوصف</label>
+                            <textarea name="description" class="form-control" rows="2">{{ family.description|default:'' }}</textarea>
+                        </div>
+
+                        <!-- ربط بمنتج من المخزون -->
+                        <div class="card bg-light mb-3">
+                            <div class="card-header bg-info text-white">
+                                <i class="fas fa-link me-2"></i>ربط بمنتج من المخزون (اختياري)
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <label class="form-label">اختر منتج لحساب التكلفة منه</label>
+                                        <select name="base_product" id="base_product" class="form-select">
+                                            <option value="">-- بدون ربط --</option>
+                                            {% for product in products %}
+                                            <option value="{{ product.id }}" 
+                                                    data-cost="{{ product.cost|default:0 }}"
+                                                    data-price="{{ product.price|default:0 }}"
+                                                    {% if family.base_product_id == product.id %}selected{% endif %}>
+                                                {{ product.sku }} - {{ product.name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <small class="text-muted">إذا كان للمنتج BOM، سيتم حساب التكلفة تلقائياً</small>
+                                    </div>
+                                    <div class="col-md-4 d-flex align-items-end">
+                                        <button type="button" class="btn btn-success w-100" onclick="fetchCostFromBOM()">
+                                            <i class="fas fa-calculator me-1"></i> جلب التكلفة من BOM
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="cost_result" class="mt-2" style="display:none;">
+                                    <div class="alert alert-success mb-0">
+                                        <strong>نتيجة الحساب:</strong>
+                                        <span id="cost_details"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">السعر الأساسي <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <input type="number" name="base_price" id="base_price" class="form-control" 
+                                           required min="0" step="0.01" value="{{ family.base_price|default:0 }}">
+                                    <span class="input-group-text">جنيه</span>
+                                </div>
+                                <small class="text-muted">سعر أصغر مقاس (مثلاً 90×190)</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">التكلفة الأساسية</label>
+                                <div class="input-group">
+                                    <input type="number" name="base_cost" id="base_cost" class="form-control" 
+                                           min="0" step="0.01" value="{{ family.base_cost|default:0 }}">
+                                    <span class="input-group-text">جنيه</span>
+                                </div>
+                                <small class="text-muted">تكلفة أصغر مقاس (تحسب من BOM)</small>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">الارتفاع الافتراضي (سم)</label>
+                                <div class="input-group">
+                                    <input type="number" name="default_height" class="form-control" 
+                                           min="1" max="100" value="{{ family.default_height|default:30 }}">
+                                    <span class="input-group-text">سم</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">هامش الربح المستهدف</label>
+                                <div class="input-group">
+                                    <input type="number" id="target_margin" class="form-control" 
+                                           min="0" max="200" value="40" onchange="calculatePrice()">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button type="button" class="btn btn-outline-primary w-100" onclick="calculatePrice()">
+                                    <i class="fas fa-magic me-1"></i> احسب السعر
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label">المقاسات المتاحة</label>
+                            <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+                                <div class="row">
+                                    {% for size in sizes %}
+                                    <div class="col-md-3 col-sm-4 mb-2">
+                                        <div class="form-check">
+                                            <input type="checkbox" name="sizes" value="{{ size.id }}" 
+                                                   class="form-check-input" id="size_{{ size.id }}"
+                                                   {% if size.id in selected_size_ids %}checked{% endif %}>
+                                            <label class="form-check-label" for="size_{{ size.id }}">
+                                                {{ size }}
+                                                <small class="text-muted">(×{{ size.price_multiplier }})</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {% empty %}
+                                    <div class="col-12 text-center text-muted">
+                                        <p>لا توجد مقاسات. <a href="{% url 'smart_pricing:bulk_create_sizes' %}">أنشئ مقاسات أولاً</a></p>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAllSizes()">
+                                    تحديد الكل
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAllSizes()">
+                                    إلغاء الكل
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- إنشاء منتجات تامة في المخزون -->
+                        <div class="card bg-success bg-opacity-10 mb-4">
+                            <div class="card-header bg-success text-white">
+                                <i class="fas fa-boxes me-2"></i>إنشاء منتجات تامة في المخزون
+                            </div>
+                            <div class="card-body">
+                                <div class="form-check form-switch mb-3">
+                                    <input type="checkbox" name="create_finished_products" class="form-check-input" 
+                                           id="create_finished_products" checked>
+                                    <label class="form-check-label" for="create_finished_products">
+                                        <strong>إنشاء منتج تام لكل مقاس في المخزون</strong>
+                                    </label>
+                                </div>
+                                <div class="alert alert-info mb-0" id="products_info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    سيتم إنشاء منتج تام الصنع في المخزون لكل مقاس محدد أعلاه مع:
+                                    <ul class="mb-0 mt-2">
+                                        <li>اسم المنتج: <strong>[اسم العائلة] [المقاس]</strong></li>
+                                        <li>كود المنتج (SKU): <strong>[كود العائلة]-[العرض]x[الطول]</strong></li>
+                                        <li>السعر: يحسب تلقائياً من السعر الأساسي × معامل المقاس</li>
+                                        <li>التكلفة: تحسب تلقائياً من التكلفة الأساسية × معامل المقاس</li>
+                                        <li>نوع المنتج: منتج تام</li>
+                                    </ul>
+                                </div>
+                                <div class="row mt-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">فئة المنتجات (اختياري)</label>
+                                        <div class="d-flex gap-2 align-items-center">
+                                            <select name="product_category" id="product_category" class="form-select" style="flex: 1;">
+                                                <option value="">-- منتجات تامة (افتراضي) --</option>
+                                                {% for cat in categories %}
+                                                <option value="{{ cat.id }}" {% if family.category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <button type="button" class="btn add-category-btn" id="addCategoryButton" title="إضافة فئة جديدة">
+                                                <i class="fas fa-plus-circle"></i>
+                                                <span>فئة جديدة</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">المخزن <span class="text-danger">*</span></label>
+                                        <select name="product_location" id="product_location" class="form-select" required>
+                                            <option value="">-- اختر المخزن --</option>
+                                            {% for loc in locations %}
+                                            <option value="{{ loc.id }}" {% if loc.is_default %}selected{% endif %}>
+                                                {{ loc.code }} - {{ loc.name }}
+                                                {% if loc.type %}({{ loc.get_type_display }}){% endif %}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <small class="text-muted">المخزن الذي سيتم تخزين المنتجات فيه</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <!-- أزرار التحكم الرئيسية -->
+                        <div class="d-flex justify-content-between align-items-center py-3 px-2 bg-light rounded-3 border">
+                            <a href="{% url 'smart_pricing:families_list' %}" class="btn btn-lg btn-outline-secondary px-4 py-2 shadow-sm">
+                                <i class="fas fa-arrow-right me-2"></i> رجوع
+                            </a>
+                            <button type="submit" id="saveButton" class="btn btn-lg btn-success px-5 py-3 shadow-lg" 
+                                    style="font-size: 1.25rem; font-weight: bold; min-width: 200px; border-radius: 12px;">
+                                <i class="fas fa-save me-2"></i> حفظ العائلة
+                            </button>
+                        </div>
+                        
+                        <!-- رسالة توضيحية -->
+                        <div class="alert alert-info mt-3 mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>ملاحظة:</strong> عند الضغط على زر "حفظ العائلة" سيتم:
+                            <ul class="mb-0 mt-2">
+                                <li>إنشاء عائلة المنتجات بالبيانات المدخلة</li>
+                                <li>ربط المقاسات المحددة بالعائلة</li>
+                                <li>إنشاء منتجات تامة في المخزون (إذا كان الخيار مفعلاً)</li>
+                            </ul>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Backdrop للـ Modal - منفصل -->
+<div id="categoryModalBackdrop" class="category-modal-backdrop" style="display: none;" onclick="closeCategoryModal()"></div>
+
+<!-- Modal إضافة فئة جديدة - بدون backdrop -->
+<div class="modal" id="addCategoryModal" tabindex="-1" aria-labelledby="addCategoryModalLabel" aria-hidden="true" data-bs-backdrop="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="addCategoryModalLabel">
+                    <i class="fas fa-plus-circle me-2"></i>إضافة فئة جديدة
+                </h5>
+                <button type="button" class="btn-close btn-close-white" onclick="closeCategoryModal()" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">اسم الفئة <span class="text-danger">*</span></label>
+                    <input type="text" id="new_category_name" class="form-control" placeholder="أدخل اسم الفئة" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">الوصف (اختياري)</label>
+                    <textarea id="new_category_description" class="form-control" rows="2" placeholder="وصف الفئة"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeCategoryModal()">إلغاء</button>
+                <button type="button" class="btn btn-success" id="addCategoryBtn" onclick="createCategory()">
+                    <i class="fas fa-plus me-1"></i>إضافة
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function selectAllSizes() {
+    document.querySelectorAll('input[name="sizes"]').forEach(cb => cb.checked = true);
+}
+
+function deselectAllSizes() {
+    document.querySelectorAll('input[name="sizes"]').forEach(cb => cb.checked = false);
+}
+
+function fetchCostFromBOM() {
+    const productSelect = document.getElementById('base_product');
+    const productId = productSelect.value;
+    
+    if (!productId) {
+        alert('اختر منتج أولاً');
+        return;
+    }
+    
+    // إظهار التحميل
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> جاري الحساب...';
+    btn.disabled = true;
+    
+    fetch(`/smart-pricing/api/calculate-product-cost/${productId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // تعبئة التكلفة
+                document.getElementById('base_cost').value = data.cost_per_unit.toFixed(2);
+                
+                // عرض التفاصيل
+                const details = `
+                    تكلفة المواد: ${data.material_cost.toFixed(2)} | 
+                    تكلفة العمالة: ${data.labor_cost.toFixed(2)} | 
+                    مصاريف إضافية: ${data.overhead_cost.toFixed(2)} | 
+                    <strong>الإجمالي: ${data.cost_per_unit.toFixed(2)} جنيه</strong>
+                `;
+                document.getElementById('cost_details').innerHTML = details;
+                document.getElementById('cost_result').style.display = 'block';
+                
+                // حساب السعر المقترح
+                calculatePrice();
+            } else {
+                alert(data.error || 'خطأ في حساب التكلفة');
+                document.getElementById('cost_result').style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('خطأ في الاتصال بالخادم');
+        })
+        .finally(() => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        });
+}
+
+function calculatePrice() {
+    const cost = parseFloat(document.getElementById('base_cost').value) || 0;
+    const margin = parseFloat(document.getElementById('target_margin').value) || 40;
+    
+    if (cost > 0) {
+        const price = cost * (1 + margin / 100);
+        document.getElementById('base_price').value = price.toFixed(2);
+    }
+}
+
+// عند تغيير المنتج، جلب السعر والتكلفة
+document.getElementById('base_product').addEventListener('change', function() {
+    const selected = this.options[this.selectedIndex];
+    if (selected.value) {
+        const cost = parseFloat(selected.dataset.cost) || 0;
+        const price = parseFloat(selected.dataset.price) || 0;
+        
+        if (cost > 0) {
+            document.getElementById('base_cost').value = cost.toFixed(2);
+        }
+        if (price > 0) {
+            document.getElementById('base_price').value = price.toFixed(2);
+        }
+    }
+});
+
+// توليد كود تلقائي
+function generateCode() {
+    const btn = event.target.closest('button');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    btn.disabled = true;
+    
+    fetch('{% url "smart_pricing:generate_family_code" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.code) {
+                document.getElementById('code_field').value = data.code;
+            } else {
+                alert('خطأ في توليد الكود');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('خطأ في الاتصال بالخادم');
+        })
+        .finally(() => {
+            btn.innerHTML = originalHTML;
+            btn.disabled = false;
+        });
+}
+
+// إغلاق الـ Modal بدون backdrop
+function closeCategoryModal() {
+    // إعلام السكربت الآخر أن الـ modal مغلق
+    categoryModalOpen = false;
+    
+    var modalEl = document.getElementById('addCategoryModal');
+    var backdropEl = document.getElementById('categoryModalBackdrop');
+
+    // إخفاء الـ Modal مباشرة بدون Bootstrap
+    if (modalEl) {
+        modalEl.style.display = 'none';
+        modalEl.setAttribute('aria-hidden', 'true');
+        modalEl.classList.remove('show');
+    }
+
+    // إخفاء الـ backdrop المنفصل
+    if (backdropEl) {
+        backdropEl.style.display = 'none';
+        backdropEl.classList.remove('show');
+    }
+
+    // إزالة أي backdrop قد يكون موجود من Bootstrap
+    document.querySelectorAll('.modal-backdrop').forEach(function(el) {
+        if (el.id !== 'categoryModalBackdrop') {
+            el.remove();
+        }
+    });
+
+    // إعادة الـ body للحالة الطبيعية
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = 'auto';
+    document.body.style.paddingRight = '';
+    document.body.style.pointerEvents = 'auto';
+}
+
+// فتح Modal إضافة فئة - بدون استخدام Bootstrap Modal API
+function showAddCategoryModal(event) {
+    console.log('showAddCategoryModal called');
+    
+    // منع السلوك الافتراضي
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    
+    // إعلام السكربت الآخر أن الـ modal مفتوح
+    categoryModalOpen = true;
+    
+    // مسح الحقول
+    var nameInput = document.getElementById('new_category_name');
+    var descInput = document.getElementById('new_category_description');
+    if (nameInput) nameInput.value = '';
+    if (descInput) descInput.value = '';
+
+    var modalEl = document.getElementById('addCategoryModal');
+    var backdropEl = document.getElementById('categoryModalBackdrop');
+
+    console.log('Modal element:', modalEl);
+    console.log('Backdrop element:', backdropEl);
+
+    // إغلاق السايدبار إذا كان مفتوحاً
+    document.body.classList.remove('sidebar-open');
+    var sidebarBackdrop = document.getElementById('sidebarMobileBackdrop');
+    if (sidebarBackdrop) {
+        sidebarBackdrop.setAttribute('hidden', 'true');
+        sidebarBackdrop.style.display = 'none';
+    }
+
+    // إزالة أي backdrop موجود من Bootstrap
+    document.querySelectorAll('.modal-backdrop').forEach(function(el) {
+        if (el.id !== 'categoryModalBackdrop') {
+            el.remove();
+        }
+    });
+
+    // إخفاء أي backdrop للسايدبار
+    document.querySelectorAll('.sidebar-mobile-backdrop').forEach(function(el) {
+        el.style.display = 'none';
+    });
+
+    // إظهار الـ backdrop المنفصل أولاً
+    if (backdropEl) {
+        backdropEl.style.display = 'block';
+        backdropEl.classList.add('show');
+        console.log('Backdrop shown');
+    }
+
+    // فتح الـ Modal مباشرة بدون Bootstrap API
+    if (modalEl) {
+        modalEl.style.display = 'flex';
+        modalEl.classList.add('show');
+        modalEl.setAttribute('aria-hidden', 'false');
+        console.log('Modal shown');
+    }
+
+    // Focus على حقل الاسم
+    setTimeout(function() {
+        if (nameInput) {
+            nameInput.focus();
+            console.log('Focus set on name input');
+        }
+    }, 200);
+    
+    return false; // منع أي سلوك افتراضي
+}
+
+// ربط الزر بالدالة عند تحميل الصفحة
+document.addEventListener('DOMContentLoaded', function() {
+    var addCategoryBtn = document.getElementById('addCategoryButton');
+    if (addCategoryBtn) {
+        addCategoryBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            showAddCategoryModal(e);
+        });
+        console.log('Add category button event listener attached');
+    }
+});
+
+// إنشاء فئة جديدة
+function createCategory() {
+    const nameInput = document.getElementById('new_category_name');
+    const descInput = document.getElementById('new_category_description');
+    const name = nameInput.value.trim();
+    const description = descInput.value.trim();
+    
+    if (!name) {
+        alert('يرجى إدخال اسم الفئة');
+        nameInput.focus();
+        return;
+    }
+    
+    // الحصول على CSRF Token من الكوكيز
+    function getCookie(cookieName) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, cookieName.length + 1) === (cookieName + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(cookieName.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    const csrftoken = getCookie('csrftoken') || document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+    
+    // تعطيل الزر أثناء الإرسال
+    const submitBtn = document.getElementById('addCategoryBtn');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>جاري الإضافة...';
+    submitBtn.disabled = true;
+    
+    fetch('{% url "smart_pricing:api_create_category" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify({
+            name: name,
+            description: description
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok: ' + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // إضافة الفئة الجديدة للقائمة واختيارها
+            const select = document.getElementById('product_category');
+            const option = new Option(data.category.name, data.category.id, true, true);
+            select.add(option);
+            
+            // مسح الحقول
+            nameInput.value = '';
+            descInput.value = '';
+            
+            // إغلاق الـ Modal
+            closeCategoryModal();
+            
+            // إظهار رسالة نجاح
+            alert('تم إضافة الفئة بنجاح: ' + data.category.name);
+        } else {
+            alert(data.error || 'خطأ في إنشاء الفئة');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('خطأ في الاتصال بالخادم: ' + error.message);
+    })
+    .finally(() => {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+}
+
+// إصلاح القوائم المنسدلة عند تحميل الصفحة
+document.addEventListener('DOMContentLoaded', function() {
+    // إزالة أي backdrop عالق فوراً
+    cleanupModalBackdrop();
+    
+    // تفعيل جميع القوائم المنسدلة
+    document.querySelectorAll('select, .form-select').forEach(function(el) {
+        el.style.pointerEvents = 'auto';
+        el.style.cursor = 'pointer';
+        el.style.position = 'relative';
+        el.style.zIndex = '100';
+    });
+});
+
+// دالة تنظيف الـ backdrop - تحافظ على backdrop الخاص بنا
+function cleanupModalBackdrop() {
+    // لا تفعل شيء إذا كان modal الفئة مفتوح
+    if (categoryModalOpen) return;
+    
+    // إزالة جميع الـ backdrops من Bootstrap فقط
+    document.querySelectorAll('.modal-backdrop').forEach(function(el) {
+        if (el.id !== 'categoryModalBackdrop') {
+            el.remove();
+        }
+    });
+    
+    // إعادة الـ body للحالة الطبيعية
+    if (!categoryModalOpen) {
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+        document.body.style.pointerEvents = 'auto';
+    }
+}
+
+// تشغيل التنظيف عند الضغط على Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeCategoryModal();
+    }
+});
+
+// حل نهائي - تنظيف شامل عند تحميل الصفحة
+window.addEventListener('load', function() {
+    setTimeout(function() {
+        // لا تفعل شيء إذا كان modal الفئة مفتوح
+        if (categoryModalOpen) return;
+        
+        // إزالة backdrop من Bootstrap فقط
+        document.querySelectorAll('.modal-backdrop').forEach(function(el) {
+            if (el.id !== 'categoryModalBackdrop') {
+                el.remove();
+            }
+        });
+        
+        // إصلاح body فقط إذا لم يكن modal مفتوح
+        if (!categoryModalOpen) {
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = 'auto';
+        }
+        
+        console.log('Bootstrap backdrop cleanup completed');
+    }, 100);
+});
+
+// تنظيف Bootstrap backdrop فقط
+(function() {
+    var cleanBootstrapBackdrop = function() {
+        // لا تفعل شيء إذا كان modal الفئة مفتوح
+        if (typeof categoryModalOpen !== 'undefined' && categoryModalOpen) return;
+        
+        document.querySelectorAll('.modal-backdrop').forEach(function(el) {
+            if (el.id !== 'categoryModalBackdrop') {
+                el.remove();
+            }
+        });
+        if (typeof categoryModalOpen === 'undefined' || !categoryModalOpen) {
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = 'auto';
+            document.body.style.pointerEvents = 'auto';
+        }
+    };
+    
+    cleanBootstrapBackdrop();
+    setTimeout(cleanBootstrapBackdrop, 100);
+})();
+
+// تحسين زر الحفظ
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.querySelector('form');
+    var saveBtn = document.getElementById('saveButton');
+    
+    if (form && saveBtn) {
+        // تحقق من صحة النموذج قبل الإرسال
+        form.addEventListener('submit', function(e) {
+            var nameField = document.querySelector('input[name="name"]');
+            var locationField = document.getElementById('product_location');
+            var createProducts = document.getElementById('create_finished_products');
+            
+            // التحقق من الاسم
+            if (!nameField.value.trim()) {
+                e.preventDefault();
+                alert('يرجى إدخال اسم العائلة');
+                nameField.focus();
+                return false;
+            }
+            
+            // التحقق من المخزن إذا كان إنشاء المنتجات مفعلاً
+            if (createProducts && createProducts.checked) {
+                if (!locationField.value) {
+                    e.preventDefault();
+                    alert('يرجى اختيار المخزن لتخزين المنتجات');
+                    locationField.focus();
+                    return false;
+                }
+            }
+            
+            // التحقق من اختيار مقاسات
+            var selectedSizes = document.querySelectorAll('input[name="sizes"]:checked');
+            if (selectedSizes.length === 0) {
+                e.preventDefault();
+                alert('يرجى اختيار مقاس واحد على الأقل');
+                return false;
+            }
+            
+            // إظهار حالة التحميل
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> جاري الحفظ...';
+            
+            return true;
+        });
+        
+        // تأثير hover للزر
+        saveBtn.addEventListener('mouseenter', function() {
+            this.style.transform = 'scale(1.02)';
+            this.style.boxShadow = '0 8px 25px rgba(40, 167, 69, 0.4)';
+        });
+        
+        saveBtn.addEventListener('mouseleave', function() {
+            this.style.transform = 'scale(1)';
+            this.style.boxShadow = '0 4px 15px rgba(40, 167, 69, 0.3)';
+        });
+    }
+});
+</script>
+{% endblock %}

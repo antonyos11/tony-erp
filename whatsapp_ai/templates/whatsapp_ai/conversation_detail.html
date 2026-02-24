@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .message-container {
+        max-height: 600px;
+        overflow-y: auto;
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+    }
+    
+    .message-bubble {
+        max-width: 70%;
+        padding: 12px 18px;
+        border-radius: 18px;
+        margin-bottom: 15px;
+        position: relative;
+    }
+    
+    .message-bubble.inbound {
+        background: white;
+        margin-left: auto;
+        border-bottom-left-radius: 5px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .message-bubble.outbound {
+        background: #667eea;
+        color: white;
+        margin-right: auto;
+        border-bottom-right-radius: 5px;
+    }
+    
+    .message-time {
+        font-size: 0.75rem;
+        margin-top: 5px;
+        opacity: 0.7;
+    }
+    
+    .conversation-info {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .info-item:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        color: #6c757d;
+    }
+    
+    .info-value {
+        font-weight: bold;
+    }
+    
+    .platform-badge {
+        display: inline-block;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: bold;
+        color: white;
+    }
+    
+    .platform-badge.whatsapp { background: #25D366; }
+    .platform-badge.facebook { background: #1877F2; }
+    .platform-badge.instagram { background: #E4405F; }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: bold;
+    }
+    
+    .status-badge.active { background: #ffc107; color: #000; }
+    .status-badge.closed { background: #6c757d; color: white; }
+    .status-badge.converted { background: #28a745; color: white; }
+    
+    .products-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .product-tag {
+        background: #e9ecef;
+        padding: 5px 12px;
+        border-radius: 15px;
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h3">
+                    <i class="fas fa-comments me-2"></i>
+                    {{ page_title }}
+                </h1>
+                <a href="{% url 'whatsapp_ai_web:conversations_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-right me-2"></i>
+                    العودة للمحادثات
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Conversation Info -->
+        <div class="col-md-4">
+            <div class="conversation-info">
+                <h5 class="mb-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    معلومات المحادثة
+                </h5>
+                
+                <div class="info-item">
+                    <span class="info-label">المنصة</span>
+                    <span class="platform-badge {{ conversation.platform }}">
+                        {{ conversation.get_platform_display }}
+                    </span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">الحالة</span>
+                    <span class="status-badge {{ conversation.status }}">
+                        {{ conversation.get_status_display }}
+                    </span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">اسم العميل</span>
+                    <span class="info-value">{{ conversation.customer_name|default:"-" }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">رقم الهاتف</span>
+                    <span class="info-value">{{ conversation.phone_number|default:"-" }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">عدد الرسائل</span>
+                    <span class="info-value">{{ total_messages }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">رسائل واردة</span>
+                    <span class="info-value text-success">{{ inbound_messages }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">رسائل صادرة</span>
+                    <span class="info-value text-primary">{{ outbound_messages }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">أول رسالة</span>
+                    <span class="info-value">{{ conversation.first_message_at|date:"Y/m/d H:i" }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">آخر رسالة</span>
+                    <span class="info-value">{{ conversation.last_message_at|date:"Y/m/d H:i" }}</span>
+                </div>
+                
+                {% if conversation.interested_products %}
+                <div class="mt-3">
+                    <span class="info-label d-block mb-2">المنتجات المهتم بها:</span>
+                    <div class="products-tags">
+                        {% for product in conversation.interested_products %}
+                            <span class="product-tag">{{ product }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if conversation.conversion_probability > 0 %}
+                <div class="mt-3">
+                    <span class="info-label d-block mb-2">احتمالية الشراء:</span>
+                    <div class="progress" style="height: 25px;">
+                        <div class="progress-bar bg-success" 
+                             style="width: {{ conversation.conversion_probability|floatformat:0 }}%">
+                            {{ conversation.conversion_probability|floatformat:0 }}%
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if not conversation.customer %}
+                <div class="mt-4">
+                    <button class="btn btn-success w-100" onclick="convertToCustomer({{ conversation.id }})">
+                        <i class="fas fa-user-plus me-2"></i>
+                        تحويل لعميل
+                    </button>
+                </div>
+                {% else %}
+                <div class="mt-4">
+                    <a href="{% url 'whatsapp_ai_web:customer_detail' conversation.customer.id %}" class="btn btn-info w-100">
+                        <i class="fas fa-user me-2"></i>
+                        عرض العميل
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Messages -->
+        <div class="col-md-8">
+            <div class="message-container">
+                {% for message in messages %}
+                <div class="message-bubble {{ message.direction }}">
+                    <div>{{ message.content }}</div>
+                    <div class="message-time">
+                        {{ message.created_at|date:"Y/m/d H:i" }}
+                        {% if message.direction == 'outbound' %}
+                            {% if message.read %}
+                                <i class="fas fa-check-double text-info ms-1"></i>
+                            {% elif message.delivered %}
+                                <i class="fas fa-check-double ms-1"></i>
+                            {% else %}
+                                <i class="fas fa-check ms-1"></i>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-comments fa-3x mb-3"></i>
+                    <p>لا توجد رسائل في هذه المحادثة</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function convertToCustomer(convId) {
+    if (!confirm('هل تريد تحويل هذه المحادثة إلى عميل؟')) return;
+    
+    fetch(`/social-media/conversations/${convId}/convert/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('تم التحويل بنجاح!');
+            location.reload();
+        } else {
+            alert(data.message || 'حدث خطأ');
+        }
+    })
+    .catch(error => {
+        alert('حدث خطأ في الاتصال');
+    });
+}
+</script>
+{% endblock %}

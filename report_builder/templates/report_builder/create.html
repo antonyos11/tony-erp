@@ -1,0 +1,283 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}إنشاء تقرير جديد{% endblock %}
+
+{% block extra_css %}
+<style>
+    .model-card {
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .model-card:hover, .model-card.selected {
+        border-color: #4e73df !important;
+        background: #f8f9fc;
+    }
+    .field-item {
+        padding: 8px 12px;
+        margin: 4px 0;
+        background: #f8f9fa;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+    }
+    .field-item:hover {
+        background: #e2e6ea;
+    }
+    .field-item input {
+        margin-left: 10px;
+    }
+    .step {
+        display: none;
+    }
+    .step.active {
+        display: block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-plus-circle"></i> إنشاء تقرير جديد</h5>
+        </div>
+        <div class="card-body">
+            <!-- خطوات الإنشاء -->
+            <ul class="nav nav-pills mb-4" id="createSteps">
+                <li class="nav-item">
+                    <a class="nav-link active" data-step="1">1. مصدر البيانات</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-step="2">2. الحقول</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-step="3">3. الإعدادات</a>
+                </li>
+            </ul>
+            
+            <!-- الخطوة 1: مصدر البيانات -->
+            <div class="step active" id="step1">
+                <h6 class="mb-3">اختر مصدر البيانات:</h6>
+                
+                <div class="row">
+                    {% for model in available_models %}
+                    <div class="col-md-4 col-lg-3 mb-3">
+                        <div class="card model-card h-100" 
+                             data-model-id="{{ model.id }}"
+                             data-model-name="{{ model.model }}">
+                            <div class="card-body text-center">
+                                <i class="fas fa-database fa-2x text-primary mb-2"></i>
+                                <h6 class="mb-1">{{ model.model }}</h6>
+                                <small class="text-muted">{{ model.app }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="mt-3">
+                    <button type="button" class="btn btn-primary" onclick="nextStep(2)" disabled id="step1Next">
+                        التالي <i class="fas fa-arrow-left"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- الخطوة 2: الحقول -->
+            <div class="step" id="step2">
+                <h6 class="mb-3">اختر الحقول المطلوبة:</h6>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-muted">الحقول المتاحة</h6>
+                        <div id="availableFields" class="border p-3 rounded" style="max-height: 400px; overflow-y: auto;">
+                            <!-- يتم ملؤها ديناميكياً -->
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted">الحقول المحددة</h6>
+                        <div id="selectedFields" class="border p-3 rounded bg-light" style="min-height: 100px;">
+                            <p class="text-muted text-center" id="noFieldsMsg">اسحب الحقول هنا</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <button type="button" class="btn btn-secondary" onclick="prevStep(1)">
+                        <i class="fas fa-arrow-right"></i> السابق
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="nextStep(3)">
+                        التالي <i class="fas fa-arrow-left"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- الخطوة 3: الإعدادات -->
+            <div class="step" id="step3">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">اسم التقرير *</label>
+                            <input type="text" id="reportName" class="form-control" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">الوصف</label>
+                            <textarea id="reportDesc" class="form-control" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">نوع التقرير</label>
+                            <select id="reportType" class="form-select">
+                                <option value="table">جدول</option>
+                                <option value="chart">رسم بياني</option>
+                                <option value="pivot">جدول محوري</option>
+                                <option value="card">بطاقات</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <button type="button" class="btn btn-secondary" onclick="prevStep(2)">
+                        <i class="fas fa-arrow-right"></i> السابق
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="createReport()">
+                        <i class="fas fa-check"></i> إنشاء التقرير
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedModelId = null;
+let selectedFields = [];
+
+// اختيار النموذج
+document.querySelectorAll('.model-card').forEach(card => {
+    card.addEventListener('click', function() {
+        document.querySelectorAll('.model-card').forEach(c => c.classList.remove('selected'));
+        this.classList.add('selected');
+        selectedModelId = this.dataset.modelId;
+        document.getElementById('step1Next').disabled = false;
+        
+        // تحميل الحقول
+        loadFields(selectedModelId);
+    });
+});
+
+function loadFields(modelId) {
+    fetch(`{% url 'report_builder:get_fields' 0 %}`.replace('0', modelId))
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const container = document.getElementById('availableFields');
+                container.innerHTML = data.fields.map(f => `
+                    <div class="field-item" onclick="toggleField(this, '${f.name}', '${f.verbose_name}')">
+                        <input type="checkbox" class="form-check-input">
+                        <span>${f.verbose_name}</span>
+                        <small class="text-muted ms-auto">${f.type}</small>
+                    </div>
+                `).join('');
+            }
+        });
+}
+
+function toggleField(el, name, label) {
+    const checkbox = el.querySelector('input');
+    checkbox.checked = !checkbox.checked;
+    
+    if (checkbox.checked) {
+        selectedFields.push({ name, label });
+        updateSelectedFields();
+    } else {
+        selectedFields = selectedFields.filter(f => f.name !== name);
+        updateSelectedFields();
+    }
+}
+
+function updateSelectedFields() {
+    const container = document.getElementById('selectedFields');
+    const noMsg = document.getElementById('noFieldsMsg');
+    
+    if (selectedFields.length === 0) {
+        noMsg.style.display = 'block';
+        container.innerHTML = '<p class="text-muted text-center" id="noFieldsMsg">اسحب الحقول هنا</p>';
+    } else {
+        container.innerHTML = selectedFields.map(f => `
+            <div class="field-item">
+                <i class="fas fa-grip-vertical text-muted me-2"></i>
+                ${f.label}
+                <button type="button" class="btn btn-sm btn-outline-danger ms-auto" 
+                        onclick="removeField('${f.name}')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `).join('');
+    }
+}
+
+function removeField(name) {
+    selectedFields = selectedFields.filter(f => f.name !== name);
+    updateSelectedFields();
+    
+    // إلغاء تحديد checkbox
+    document.querySelectorAll('.field-item input').forEach(cb => {
+        if (cb.parentElement.querySelector('span')?.textContent.includes(name)) {
+            cb.checked = false;
+        }
+    });
+}
+
+function nextStep(step) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    document.getElementById('step' + step).classList.add('active');
+    
+    document.querySelectorAll('[data-step]').forEach(a => {
+        a.classList.remove('active');
+        if (a.dataset.step == step) a.classList.add('active');
+    });
+}
+
+function prevStep(step) {
+    nextStep(step);
+}
+
+function createReport() {
+    const name = document.getElementById('reportName').value;
+    if (!name) {
+        alert('الرجاء إدخال اسم التقرير');
+        return;
+    }
+    
+    fetch('{% url "report_builder:create" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            name: name,
+            description: document.getElementById('reportDesc').value,
+            report_type: document.getElementById('reportType').value,
+            content_type_id: selectedModelId,
+            columns: selectedFields.map(f => f.name)
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = `/report-builder/preview/${data.report_id}/`;
+        } else {
+            alert(data.error);
+        }
+    });
+}
+</script>
+{% endblock %}

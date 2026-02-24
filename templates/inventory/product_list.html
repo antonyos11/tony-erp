@@ -1,0 +1,317 @@
+﻿{% extends 'base_templates/modern_list.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block page_module %}inventory{% endblock %}
+{% block page_icon %}bi-box-seam-fill{% endblock %}
+{% block page_title %}{% trans 'المنتجات' %}{% endblock %}
+{% block page_subtitle %}{% trans 'إدارة المنتجات والمخزون' %}{% endblock %}
+
+{% block breadcrumb %}
+<a href="{% url 'home' %}" class="mp-breadcrumb-link">
+    <i class="bi bi-house-door"></i> {% trans 'الرئيسية' %}
+</a>
+<i class="bi bi-chevron-left"></i>
+<a href="{% url 'inventory:dashboard' %}" class="mp-breadcrumb-link">{% trans 'المخزون' %}</a>
+<i class="bi bi-chevron-left"></i>
+<span>{% trans 'المنتجات' %}</span>
+{% endblock %}
+
+{% block hero_actions %}
+<a href="{% url 'inventory:product_create' %}" class="mp-btn mp-btn-light">
+    <i class="bi bi-plus-circle-fill"></i>
+    <span>{% trans 'منتج جديد' %}</span>
+</a>
+<a href="{% url 'inventory:product_template_list' %}" class="mp-btn mp-btn-outline-light">
+    <i class="bi bi-file-earmark-text"></i>
+    <span>القوالب</span>
+</a>
+<a href="{% url 'inventory:bulk_import_products' %}" class="mp-btn mp-btn-outline-light">
+    <i class="bi bi-file-earmark-excel"></i>
+    <span>استيراد Excel</span>
+</a>
+<a href="{% url 'inventory:product_import' %}" class="mp-btn mp-btn-outline-light">
+    <i class="bi bi-upload"></i>
+    <span>{% trans 'استيراد' %}</span>
+</a>
+{% endblock %}
+
+{% block hero_stats %}
+<div class="mp-hero-stat">
+    <div class="mp-hero-stat-value">{{ stats.total|default:0|intcomma }}</div>
+    <div class="mp-hero-stat-label">{% trans 'إجمالي المنتجات' %}</div>
+</div>
+<div class="mp-hero-stat">
+    <div class="mp-hero-stat-value mp-text-success">{{ stats.in_stock|default:0|intcomma }}</div>
+    <div class="mp-hero-stat-label">{% trans 'متوفر' %}</div>
+</div>
+<div class="mp-hero-stat">
+    <div class="mp-hero-stat-value mp-text-warning">{{ stats.low_stock|default:0|intcomma }}</div>
+    <div class="mp-hero-stat-label">{% trans 'مخزون منخفض' %}</div>
+</div>
+<div class="mp-hero-stat">
+    <div class="mp-hero-stat-value mp-text-danger">{{ stats.out_of_stock|default:0|intcomma }}</div>
+    <div class="mp-hero-stat-label">{% trans 'نفد المخزون' %}</div>
+</div>
+{% endblock %}
+
+{% block filters %}
+<form method="get" class="mp-filter-form">
+<div class="row g-3">
+    <div class="col-md-4 col-lg-2">
+        <label class="mp-filter-label">{% trans 'بحث' %}</label>
+        <div class="mp-search-box">
+            <i class="bi bi-search"></i>
+            <input type="text" name="q" class="mp-search-input" 
+                   placeholder="{% trans 'اسم المنتج، الباركود...' %}"
+                   value="{{ request.GET.q }}">
+        </div>
+    </div>
+    <div class="col-md-4 col-lg-2">
+        <label class="mp-filter-label">{% trans 'نوع المنتج' %}</label>
+        <select name="product_type" class="mp-filter-select">
+            <option value="">{% trans 'جميع الأنواع' %}</option>
+            <option value="finished" {% if request.GET.product_type == 'finished' %}selected{% endif %}>{% trans 'منتج تام' %}</option>
+            <option value="raw_material" {% if request.GET.product_type == 'raw_material' %}selected{% endif %}>{% trans 'مادة خام' %}</option>
+            <option value="semi_finished" {% if request.GET.product_type == 'semi_finished' %}selected{% endif %}>{% trans 'نصف مصنع' %}</option>
+        </select>
+    </div>
+    <div class="col-md-4 col-lg-2">
+        <label class="mp-filter-label">{% trans 'الفئة' %}</label>
+        <select name="category" class="mp-filter-select">
+            <option value="">{% trans 'جميع الفئات' %}</option>
+            {% for category in categories %}
+            <option value="{{ category.pk }}" {% if request.GET.category == category.pk|stringformat:'d' %}selected{% endif %}>
+                {{ category.name }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-4 col-lg-2">
+        <label class="mp-filter-label">{% trans 'حالة المخزون' %}</label>
+        <select name="stock_status" class="mp-filter-select">
+            <option value="">{% trans 'الكل' %}</option>
+            <option value="in_stock" {% if request.GET.stock_status == 'in_stock' %}selected{% endif %}>{% trans 'متوفر' %}</option>
+            <option value="low_stock" {% if request.GET.stock_status == 'low_stock' %}selected{% endif %}>{% trans 'مخزون منخفض' %}</option>
+            <option value="out_of_stock" {% if request.GET.stock_status == 'out_of_stock' %}selected{% endif %}>{% trans 'نفد المخزون' %}</option>
+        </select>
+    </div>
+    <div class="col-md-4 col-lg-2 d-flex align-items-end gap-2">
+        <button type="submit" class="mp-btn mp-btn-primary flex-grow-1">
+            <i class="bi bi-search"></i> {% trans 'بحث' %}
+        </button>
+        <a href="{% url 'inventory:product_list' %}" class="mp-btn mp-btn-outline">
+            <i class="bi bi-x-lg"></i>
+        </a>
+    </div>
+</div>
+</form>
+{% endblock %}
+
+{% block table_headers %}
+<th class="mp-th" style="width: 5%">#</th>
+<th class="mp-th" style="width: 8%">{% trans 'الصورة' %}</th>
+<th class="mp-th" style="width: 25%">{% trans 'المنتج' %}</th>
+<th class="mp-th" style="width: 12%">{% trans 'الفئة' %}</th>
+<th class="mp-th text-center" style="width: 10%">{% trans 'المخزون' %}</th>
+<th class="mp-th text-end" style="width: 12%">{% trans 'سعر البيع' %}</th>
+<th class="mp-th text-end" style="width: 12%">{% trans 'سعر الشراء' %}</th>
+<th class="mp-th text-center" style="width: 8%">{% trans 'الحالة' %}</th>
+<th class="mp-th text-center" style="width: 8%">{% trans 'إجراءات' %}</th>
+{% endblock %}
+
+{% block table_body %}
+{% for product in products %}
+<tr class="mp-tr" data-id="{{ product.pk }}">
+    <td class="mp-td" data-label="#">{{ forloop.counter }}</td>
+    <td class="mp-td" data-label="{% trans 'الصورة' %}">
+        {% if product.image %}
+        <img src="{{ product.image.url }}" alt="{{ product.name }}" class="mp-product-img">
+        {% else %}
+        <div class="mp-product-placeholder">
+            <i class="bi bi-image"></i>
+        </div>
+        {% endif %}
+    </td>
+    <td class="mp-td" data-label="{% trans 'المنتج' %}">
+        <div class="mp-entity">
+            <div class="mp-entity-info">
+                <a href="{% url 'inventory:product_detail' product.pk %}" class="mp-entity-name">
+                    {{ product.name }}
+                </a>
+                <div class="mp-entity-sub">
+                    <span class="mp-entity-code">{{ product.sku|default:product.barcode|default:'-' }}</span>
+                </div>
+            </div>
+        </div>
+    </td>
+    <td class="mp-td" data-label="{% trans 'الفئة' %}">
+        <span class="mp-badge mp-badge-light">{{ product.category.name|default:'-' }}</span>
+    </td>
+    <td class="mp-td text-center" data-label="{% trans 'المخزون' %}">
+        {% if product.current_stock <= 0 %}
+        <span class="mp-status mp-status-danger">
+            <i class="bi bi-x-circle"></i> {{ product.current_stock|default:0 }}
+        </span>
+        {% elif product.current_stock <= product.min_stock %}
+        <span class="mp-status mp-status-warning">
+            <i class="bi bi-exclamation-triangle"></i> {{ product.current_stock }}
+        </span>
+        {% else %}
+        <span class="mp-status mp-status-success">
+            <i class="bi bi-check-circle"></i> {{ product.current_stock }}
+        </span>
+        {% endif %}
+    </td>
+    <td class="mp-td text-end" data-label="{% trans 'سعر البيع' %}">
+        <span class="mp-price">{{ product.price|floatformat:2 }}</span>
+        <span class="mp-currency">{% trans 'ج.م' %}</span>
+    </td>
+    <td class="mp-td text-end" data-label="{% trans 'سعر الشراء' %}">
+        <span class="mp-price-muted">{{ product.cost|floatformat:2 }}</span>
+    </td>
+    <td class="mp-td text-center" data-label="{% trans 'الحالة' %}">
+        {% if product.is_active %}
+        <span class="mp-status mp-status-success">{% trans 'نشط' %}</span>
+        {% else %}
+        <span class="mp-status mp-status-secondary">{% trans 'معطل' %}</span>
+        {% endif %}
+    </td>
+    <td class="mp-td text-center" data-label="{% trans 'إجراءات' %}">
+        <div class="mp-actions">
+            <a href="{% url 'inventory:product_detail' product.pk %}" class="mp-action-btn" title="{% trans 'عرض' %}">
+                <i class="bi bi-eye"></i>
+            </a>
+            <a href="{% url 'inventory:product_edit' product.pk %}" class="mp-action-btn" title="{% trans 'تعديل' %}">
+                <i class="bi bi-pencil"></i>
+            </a>
+            <a href="{% url 'inventory:product_duplicate' product.pk %}" class="mp-action-btn" title="نسخ المنتج">
+                <i class="bi bi-files"></i>
+            </a>
+            <button type="button" class="mp-action-btn mp-action-danger" 
+                    onclick="confirmDelete('{{ product.pk }}', '{{ product.name }}')"
+                    title="{% trans 'حذف' %}">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    </td>
+</tr>
+{% empty %}
+<tr>
+    <td colspan="9">
+        <div class="mp-empty-state">
+            <div class="mp-empty-icon">
+                <i class="bi bi-box-seam"></i>
+            </div>
+            <h5>{% trans 'لا توجد منتجات' %}</h5>
+            <p>{% trans 'ابدأ بإضافة منتجات جديدة إلى المخزون' %}</p>
+            <a href="{% url 'inventory:product_create' %}" class="mp-btn mp-btn-primary">
+                <i class="bi bi-plus-circle"></i> {% trans 'إضافة منتج' %}
+            </a>
+        </div>
+    </td>
+</tr>
+{% endfor %}
+{% endblock %}
+
+{% block grid_body %}
+{% for product in products %}
+<div class="mp-grid-card" data-id="{{ product.pk }}">
+    <div class="mp-grid-card-header">
+        {% if product.image %}
+        <img src="{{ product.image.url }}" alt="{{ product.name }}" class="mp-grid-card-img">
+        {% else %}
+        <div class="mp-grid-card-img-placeholder">
+            <i class="bi bi-box-seam"></i>
+        </div>
+        {% endif %}
+        {% if product.is_active %}
+        <span class="mp-grid-card-badge mp-badge-success">{% trans 'نشط' %}</span>
+        {% else %}
+        <span class="mp-grid-card-badge mp-badge-secondary">{% trans 'معطل' %}</span>
+        {% endif %}
+    </div>
+    <div class="mp-grid-card-body">
+        <h6 class="mp-grid-card-title">
+            <a href="{% url 'inventory:product_detail' product.pk %}">{{ product.name }}</a>
+        </h6>
+        <div class="mp-grid-card-meta">
+            <span><i class="bi bi-upc"></i> {{ product.sku|default:'-' }}</span>
+            <span><i class="bi bi-folder"></i> {{ product.category.name|default:'-' }}</span>
+        </div>
+        <div class="mp-grid-card-stats">
+            <div class="mp-grid-stat">
+                <span class="mp-grid-stat-label">{% trans 'المخزون' %}</span>
+                <span class="mp-grid-stat-value {% if product.current_stock <= 0 %}text-danger{% elif product.current_stock <= product.min_stock %}text-warning{% else %}text-success{% endif %}">
+                    {{ product.current_stock|default:0 }}
+                </span>
+            </div>
+            <div class="mp-grid-stat">
+                <span class="mp-grid-stat-label">{% trans 'السعر' %}</span>
+                <span class="mp-grid-stat-value">{{ product.price|floatformat:2 }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="mp-grid-card-footer">
+        <a href="{% url 'inventory:product_detail' product.pk %}" class="mp-btn mp-btn-sm mp-btn-outline">
+            <i class="bi bi-eye"></i> {% trans 'عرض' %}
+        </a>
+        <a href="{% url 'inventory:product_edit' product.pk %}" class="mp-btn mp-btn-sm mp-btn-primary">
+            <i class="bi bi-pencil"></i> {% trans 'تعديل' %}
+        </a>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block pagination %}
+{% if products.has_other_pages %}
+<div class="mp-pagination">
+    <div class="mp-pagination-info">
+        {% blocktrans with start=products.start_index end=products.end_index total=products.paginator.count %}
+        عرض {{ start }} - {{ end }} من {{ total }}
+        {% endblocktrans %}
+    </div>
+    <div class="mp-pagination-nav">
+        {% if products.has_previous %}
+        <a href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="mp-page-btn">
+            <i class="bi bi-chevron-double-right"></i>
+        </a>
+        <a href="?page={{ products.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="mp-page-btn">
+            <i class="bi bi-chevron-right"></i>
+        </a>
+        {% endif %}
+        
+        {% for num in products.paginator.page_range %}
+            {% if products.number == num %}
+            <span class="mp-page-btn mp-page-active">{{ num }}</span>
+            {% elif num > products.number|add:'-3' and num < products.number|add:'3' %}
+            <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="mp-page-btn">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+        
+        {% if products.has_next %}
+        <a href="?page={{ products.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="mp-page-btn">
+            <i class="bi bi-chevron-left"></i>
+        </a>
+        <a href="?page={{ products.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="mp-page-btn">
+            <i class="bi bi-chevron-double-left"></i>
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+function confirmDelete(id, name) {
+    if (confirm('{% trans "هل أنت متأكد من حذف المنتج:" %} ' + name + '?')) {
+        window.location.href = '{% url "inventory:product_delete" 0 %}'.replace('0', id);
+    }
+}
+</script>
+{% endblock %}
+

@@ -1,0 +1,169 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تعيين المستخدمين{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h4 class="mb-0"><i class="fas fa-user-plus text-info"></i> تعيين المستخدمين</h4>
+        </div>
+    </div>
+    
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">الفريق</label>
+                    <select class="form-select" name="team">
+                        <option value="">الكل</option>
+                        {% for team in teams %}
+                        <option value="{{ team.id }}" {% if request.GET.team == team.id|stringformat:"i" %}selected{% endif %}>{{ team.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">الدور</label>
+                    <select class="form-select" name="role">
+                        <option value="">الكل</option>
+                        {% for role in roles %}
+                        <option value="{{ role.id }}" {% if request.GET.role == role.id|stringformat:"i" %}selected{% endif %}>{{ role.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-filter"></i> تصفية
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>المستخدم</th>
+                        <th>البريد الإلكتروني</th>
+                        <th>الدور</th>
+                        <th>الفريق</th>
+                        <th>الحالة</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" 
+                                     style="width: 40px; height: 40px;">
+                                    {{ user.first_name|slice:":1"|upper }}{{ user.last_name|slice:":1"|upper }}
+                                </div>
+                                <div>
+                                    <div class="fw-bold">{{ user.get_full_name }}</div>
+                                    <small class="text-muted">@{{ user.username }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ user.email }}</td>
+                        <td>
+                            {% if user.crm_role %}
+                            <span class="badge bg-primary">{{ user.crm_role.name }}</span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.crm_team %}
+                            <span class="badge bg-success">{{ user.crm_team.name }}</span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.is_active %}
+                            <span class="badge bg-success">نشط</span>
+                            {% else %}
+                            <span class="badge bg-danger">غير نشط</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                    onclick="assignUser({{ user.id }}, '{{ user.get_full_name }}')">
+                                <i class="fas fa-user-cog"></i> تعيين
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            <i class="fas fa-users fa-3x mb-3 d-block"></i>
+                            لا يوجد مستخدمين
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Modal -->
+<div class="modal fade" id="assignModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" id="assignForm">
+                {% csrf_token %}
+                <input type="hidden" name="user_id" id="assign_user_id">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-user-cog text-primary"></i> تعيين المستخدم</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-user"></i> <span id="assign_user_name"></span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="assign_role" class="form-label">الدور</label>
+                        <select class="form-select" id="assign_role" name="role">
+                            <option value="">-- بدون دور --</option>
+                            {% for role in roles %}
+                            <option value="{{ role.id }}">{{ role.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="assign_team" class="form-label">الفريق</label>
+                        <select class="form-select" id="assign_team" name="team">
+                            <option value="">-- بدون فريق --</option>
+                            {% for team in teams %}
+                            <option value="{{ team.id }}">{{ team.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">حفظ التعيين</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function assignUser(id, name) {
+    document.getElementById('assign_user_id').value = id;
+    document.getElementById('assign_user_name').textContent = name;
+    new bootstrap.Modal(document.getElementById('assignModal')).show();
+}
+</script>
+{% endblock %}

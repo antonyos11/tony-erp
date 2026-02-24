@@ -1,0 +1,292 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}{% if page %}تحرير{% else %}إنشاء{% endif %} صفحة - Tony ERP{% endblock %}
+
+{% block extra_css %}
+<style>
+.page-editor {
+    display: flex;
+    height: calc(100vh - 150px);
+}
+
+.editor-main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background: #f8f9fa;
+}
+
+.editor-sidebar {
+    width: 350px;
+    border-right: 1px solid #dee2e6;
+    background: white;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.content-editor {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    min-height: 400px;
+    padding: 20px;
+}
+
+.block-item {
+    padding: 15px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    cursor: move;
+    background: white;
+}
+
+.block-item:hover {
+    border-color: #007bff;
+}
+
+.seo-preview {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.seo-preview-title {
+    color: #1a0dab;
+    font-size: 18px;
+    line-height: 1.3;
+}
+
+.seo-preview-url {
+    color: #006621;
+    font-size: 14px;
+}
+
+.seo-preview-desc {
+    color: #545454;
+    font-size: 13px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<form id="pageForm">
+    <!-- شريط العنوان -->
+    <div class="bg-white border-bottom px-4 py-3 d-flex align-items-center">
+        <a href="{% url 'cms:page_list' %}" class="btn btn-link text-dark">
+            <i class="fas fa-arrow-right"></i>
+        </a>
+        <h4 class="mb-0 me-3">{% if page %}تحرير{% else %}إنشاء{% endif %} صفحة</h4>
+        
+        <div class="ms-auto d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary" onclick="saveDraft()">
+                <i class="fas fa-save me-2"></i>حفظ كمسودة
+            </button>
+            <button type="button" class="btn btn-success" onclick="publishPage()">
+                <i class="fas fa-globe me-2"></i>نشر
+            </button>
+        </div>
+    </div>
+    
+    <div class="page-editor">
+        <!-- الشريط الجانبي -->
+        <div class="editor-sidebar">
+            <div class="mb-4">
+                <label class="form-label fw-bold">الحالة</label>
+                <select class="form-select" name="status">
+                    <option value="draft" {% if page.status == 'draft' %}selected{% endif %}>مسودة</option>
+                    <option value="published" {% if page.status == 'published' %}selected{% endif %}>منشور</option>
+                    <option value="scheduled" {% if page.status == 'scheduled' %}selected{% endif %}>مجدول</option>
+                </select>
+            </div>
+            
+            <div class="mb-4">
+                <label class="form-label fw-bold">التصنيف</label>
+                <select class="form-select" name="category_id">
+                    <option value="">بدون تصنيف</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.id }}" {% if page.category_id == cat.id %}selected{% endif %}>
+                        {{ cat.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="mb-4">
+                <label class="form-label fw-bold">الرابط الدائم (Slug)</label>
+                <input type="text" class="form-control" name="slug" value="{{ page.slug|default:'' }}">
+            </div>
+            
+            <div class="mb-4">
+                <label class="form-label fw-bold">القالب</label>
+                <select class="form-select" name="template">
+                    <option value="default">افتراضي</option>
+                    <option value="full-width" {% if page.template == 'full-width' %}selected{% endif %}>عرض كامل</option>
+                    <option value="sidebar" {% if page.template == 'sidebar' %}selected{% endif %}>مع شريط جانبي</option>
+                </select>
+            </div>
+            
+            <hr>
+            
+            <h6 class="fw-bold mb-3">
+                <i class="fas fa-search me-2"></i>إعدادات SEO
+            </h6>
+            
+            <div class="mb-3">
+                <label class="form-label">عنوان SEO</label>
+                <input type="text" class="form-control" name="meta_title" 
+                       value="{{ page.meta_title|default:'' }}" maxlength="60">
+                <small class="text-muted">60 حرف كحد أقصى</small>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">وصف SEO</label>
+                <textarea class="form-control" name="meta_description" rows="3" 
+                          maxlength="160">{{ page.meta_description|default:'' }}</textarea>
+                <small class="text-muted">160 حرف كحد أقصى</small>
+            </div>
+            
+            <div class="seo-preview">
+                <div class="seo-preview-title" id="seoTitle">عنوان الصفحة</div>
+                <div class="seo-preview-url">example.com/page/slug-here</div>
+                <div class="seo-preview-desc" id="seoDesc">وصف الصفحة سيظهر هنا...</div>
+            </div>
+        </div>
+        
+        <!-- المحرر الرئيسي -->
+        <div class="editor-main">
+            <div class="mb-3">
+                <input type="text" class="form-control form-control-lg border-0 shadow-none" 
+                       name="title" placeholder="عنوان الصفحة" 
+                       value="{{ page.title|default:'' }}" style="font-size: 2rem; font-weight: bold;">
+            </div>
+            
+            <div class="mb-3">
+                <textarea class="form-control border-0 shadow-none" name="excerpt" 
+                          placeholder="المقتطف / الوصف المختصر" rows="2">{{ page.excerpt|default:'' }}</textarea>
+            </div>
+            
+            <div class="content-editor">
+                <div id="contentEditor" contenteditable="true">{{ page.content|safe|default:'' }}</div>
+            </div>
+            
+            <!-- شريط أدوات المحرر -->
+            <div class="mt-3 p-2 bg-white rounded border">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('bold')">
+                    <i class="fas fa-bold"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('italic')">
+                    <i class="fas fa-italic"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('underline')">
+                    <i class="fas fa-underline"></i>
+                </button>
+                <span class="mx-2 border-end"></span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('formatBlock', 'h2')">
+                    <i class="fas fa-heading"></i> H2
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('formatBlock', 'h3')">
+                    <i class="fas fa-heading"></i> H3
+                </button>
+                <span class="mx-2 border-end"></span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('insertUnorderedList')">
+                    <i class="fas fa-list-ul"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('insertOrderedList')">
+                    <i class="fas fa-list-ol"></i>
+                </button>
+                <span class="mx-2 border-end"></span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertLink()">
+                    <i class="fas fa-link"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertImage()">
+                    <i class="fas fa-image"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+const pageId = {{ page.id|default:'null' }};
+
+function execCmd(command, value = null) {
+    document.execCommand(command, false, value);
+    document.getElementById('contentEditor').focus();
+}
+
+function insertLink() {
+    const url = prompt('أدخل الرابط:');
+    if (url) execCmd('createLink', url);
+}
+
+function insertImage() {
+    const url = prompt('أدخل رابط الصورة:');
+    if (url) execCmd('insertImage', url);
+}
+
+function getFormData() {
+    const form = document.getElementById('pageForm');
+    return {
+        title: form.querySelector('[name="title"]').value,
+        slug: form.querySelector('[name="slug"]').value,
+        category_id: form.querySelector('[name="category_id"]').value || null,
+        excerpt: form.querySelector('[name="excerpt"]').value,
+        content: document.getElementById('contentEditor').innerHTML,
+        status: form.querySelector('[name="status"]').value,
+        template: form.querySelector('[name="template"]').value,
+        meta_title: form.querySelector('[name="meta_title"]').value,
+        meta_description: form.querySelector('[name="meta_description"]').value,
+    };
+}
+
+function saveDraft() {
+    const data = getFormData();
+    data.status = 'draft';
+    savePage(data);
+}
+
+function publishPage() {
+    const data = getFormData();
+    data.status = 'published';
+    savePage(data);
+}
+
+function savePage(data) {
+    const url = pageId 
+        ? `/cms/pages/${pageId}/edit/` 
+        : '{% url "cms:page_create" %}';
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert('تم الحفظ بنجاح');
+            if (!pageId && result.page_id) {
+                window.location.href = `/cms/pages/${result.page_id}/edit/`;
+            }
+        } else {
+            alert('خطأ: ' + result.error);
+        }
+    });
+}
+
+// تحديث معاينة SEO
+document.querySelector('[name="title"]').addEventListener('input', function() {
+    document.getElementById('seoTitle').textContent = this.value || 'عنوان الصفحة';
+});
+
+document.querySelector('[name="meta_description"]').addEventListener('input', function() {
+    document.getElementById('seoDesc').textContent = this.value || 'وصف الصفحة سيظهر هنا...';
+});
+</script>
+{% endblock %}

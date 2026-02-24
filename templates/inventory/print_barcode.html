@@ -1,0 +1,500 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}طباعة باركود - {{ product.name }}{% endblock %}
+
+{% block extra_styles %}
+<style>
+  @media print {
+    .no-print { display: none !important; }
+    .barcode-label { page-break-inside: avoid; }
+  }
+  
+  body {
+    background: #f5f7fa;
+  }
+  
+  .print-container {
+    max-width: 900px;
+    margin: 2rem auto;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    padding: 2rem;
+  }
+  
+  .product-info {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+  }
+  
+  .barcode-options {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  
+  .barcode-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+  
+  .barcode-label {
+    background: white;
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    transition: all 0.3s;
+  }
+  
+  .barcode-label:hover {
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+  }
+  
+  .barcode-label img {
+    max-width: 100%;
+    height: auto;
+  }
+  
+  .barcode-text {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+    color: #333;
+    font-weight: bold;
+  }
+  
+  .product-name {
+    font-size: 0.75rem;
+    color: #666;
+    margin-top: 0.25rem;
+  }
+  
+  .print-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 2px solid #e9ecef;
+  }
+  
+  .label-size-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    background: #10b981;
+    color: white;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    margin-left: 0.5rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="print-container">
+  <!-- معلومات المنتج -->
+  <div class="product-info no-print">
+    <div class="d-flex align-items-center justify-content-between">
+      <div>
+        <h3 class="mb-1">{{ product.name }}</h3>
+        <div class="opacity-75">
+          <span class="me-3"><i class="bi bi-upc-scan me-1"></i>{{ product.sku }}</span>
+          {% if product.product_type == 'raw_material' %}
+          <span class="me-3"><i class="bi bi-droplet-fill me-1"></i>مادة خام</span>
+          {% endif %}
+          <span><i class="bi bi-box me-1"></i>{{ product.get_purchase_uom_display }}</span>
+        </div>
+      </div>
+      <div class="text-end">
+        <div class="fs-1 fw-bold">{{ copies }}</div>
+        <div class="small opacity-75">نسخة للطباعة</div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- خيارات الطباعة -->
+  <div class="barcode-options no-print">
+    <form method="get" id="printOptionsForm">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label small fw-bold">عدد النسخ</label>
+          <input type="number" class="form-control" name="copies" 
+                 value="{{ copies|default:1 }}" min="1" max="100"
+                 onchange="document.getElementById('printOptionsForm').submit()">
+        </div>
+        
+        <div class="col-md-3">
+          <label class="form-label small fw-bold">حجم الملصق</label>
+          <select class="form-select" name="size" 
+                  onchange="document.getElementById('printOptionsForm').submit()">
+            <option value="small" {% if size == 'small' %}selected{% endif %}>صغير (5×3 سم)</option>
+            <option value="medium" {% if size == 'medium' %}selected{% endif %}>متوسط (8×5 سم)</option>
+            <option value="large" {% if size == 'large' %}selected{% endif %}>كبير (10×7 سم)</option>
+          </select>
+        </div>
+        
+        <div class="col-md-3">
+          <label class="form-label small fw-bold">إظهار</label>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="showName" name="show_name" 
+                   {% if show_name %}checked{% endif %}
+                   onchange="document.getElementById('printOptionsForm').submit()">
+            <label class="form-check-label small" for="showName">اسم المنتج</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="showPrice" name="show_price"
+                   {% if show_price %}checked{% endif %}
+                   onchange="document.getElementById('printOptionsForm').submit()">
+            <label class="form-check-label small" for="showPrice">السعر</label>
+          </div>
+        </div>
+        
+        <div class="col-md-3">
+          <label class="form-label small fw-bold">نوع الباركود</label>
+          <select class="form-select" name="barcode_type"
+                  onchange="document.getElementById('printOptionsForm').submit()">
+            <option value="code128" {% if barcode_type == 'code128' %}selected{% endif %}>Code 128</option>
+            <option value="code39" {% if barcode_type == 'code39' %}selected{% endif %}>Code 39</option>
+            <option value="ean13" {% if barcode_type == 'ean13' %}selected{% endif %}>EAN-13</option>
+          </select>
+        </div>
+      </div>
+    </form>
+  </div>
+  
+  <!-- شبكة الباركودات -->
+  <div class="barcode-grid" id="barcodeGrid">
+    {% for i in copy_range %}
+    <div class="barcode-label">
+      <div id="barcode-{{ forloop.counter }}"></div>
+      <div class="barcode-text">{{ product.barcode }}</div>
+      {% if show_name %}
+      <div class="product-name">{{ product.name|truncatechars:30 }}</div>
+      {% endif %}
+      {% if show_price and product.price %}
+      <div class="small text-success fw-bold mt-1">{{ product.price }} ج.م</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  
+  <!-- أزرار الإجراءات -->
+  <div class="print-actions no-print">
+    <!-- طباعة مباشرة على Zebra -->
+    <div class="dropdown d-inline-block">
+      <button class="btn btn-warning btn-lg dropdown-toggle" type="button" data-bs-toggle="dropdown">
+        <i class="bi bi-upc-scan me-2"></i>طباعة Zebra
+      </button>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="#" onclick="printZebraLabel(30, 20)"><i class="bi bi-tag me-2"></i>30×20 مم (صغير)</a></li>
+        <li><a class="dropdown-item" href="#" onclick="printZebraLabel(50, 30)"><i class="bi bi-tag-fill me-2"></i>50×30 مم (متوسط)</a></li>
+        <li><a class="dropdown-item" href="#" onclick="printZebraLabel(70, 40)"><i class="bi bi-tags me-2"></i>70×40 مم (كبير)</a></li>
+        <li><a class="dropdown-item" href="#" onclick="printZebraLabel(100, 50)"><i class="bi bi-tags-fill me-2"></i>100×50 مم (عريض)</a></li>
+        <li><a class="dropdown-item" href="#" onclick="printZebraLabel(100, 100)"><i class="bi bi-aspect-ratio me-2"></i>100×100 مم (مربع)</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#zebraLabelModal">
+          <i class="bi bi-gear me-2"></i>مقاس مخصص...
+        </a></li>
+      </ul>
+    </div>
+    
+    <button onclick="printToXPrinter()" class="btn btn-success btn-lg" id="directPrintBtn">
+      <i class="bi bi-printer-fill me-2"></i>طباعة XPrinter (حرارية)
+    </button>
+    <button onclick="window.print()" class="btn btn-primary btn-lg">
+      <i class="bi bi-printer me-2"></i>طباعة عادية A4
+    </button>
+    <a href="{% url 'inventory:product_list' %}" class="btn btn-outline-secondary btn-lg">
+      <i class="bi bi-arrow-left me-2"></i>رجوع
+    </a>
+  </div>
+  
+  <!-- حالة Print Agent -->
+  <div class="text-center mt-3 no-print">
+    <small class="text-muted">
+      وكيل الطباعة: <span id="print-agent-status" class="badge bg-secondary">جاري الاتصال...</span>
+    </small>
+  </div>
+</div>
+
+<!-- ═══════════ نافذة مقاس Zebra المخصص ═══════════ -->
+<div class="modal fade" id="zebraLabelModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title"><i class="bi bi-upc-scan me-2"></i>إعدادات طباعة Zebra</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label fw-bold">العرض (مم)</label>
+            <input type="number" id="zebraLabelWidth" class="form-control" value="50" min="20" max="200">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold">الارتفاع (مم)</label>
+            <input type="number" id="zebraLabelHeight" class="form-control" value="30" min="15" max="200">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold">عدد النسخ</label>
+            <input type="number" id="zebraLabelCopies" class="form-control" value="{{ copies|default:1 }}" min="1" max="999">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold">DPI</label>
+            <select id="zebraLabelDPI" class="form-select">
+              <option value="203" selected>203 dpi</option>
+              <option value="300">300 dpi</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="mt-3">
+          <label class="form-label fw-bold">مقاسات جاهزة:</label>
+          <div class="d-flex flex-wrap gap-1">
+            <button class="btn btn-outline-secondary btn-sm" onclick="setZebraSize(30,20)">30×20</button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="setZebraSize(40,25)">40×25</button>
+            <button class="btn btn-outline-warning btn-sm" onclick="setZebraSize(50,30)">50×30</button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="setZebraSize(70,40)">70×40</button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="setZebraSize(100,50)">100×50</button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="setZebraSize(100,100)">100×100</button>
+          </div>
+        </div>
+        
+        <!-- IP الطابعة (اختياري) -->
+        <div class="mt-3">
+          <label class="form-label fw-bold">عنوان IP للطابعة (اختياري - للطباعة عبر الشبكة)</label>
+          <div class="input-group">
+            <input type="text" id="zebraPrinterIP" class="form-control" placeholder="مثال: 192.168.1.100">
+            <span class="input-group-text">:</span>
+            <input type="number" id="zebraPrinterPort" class="form-control" value="9100" style="max-width:90px">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+        <button type="button" class="btn btn-warning" onclick="printZebraCustom()">
+          <i class="bi bi-printer"></i> طباعة على Zebra
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- مكتبة JsBarcode لتوليد الباركود -->
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+
+<script>
+  // توليد الباركودات
+  document.addEventListener('DOMContentLoaded', function() {
+    const barcodeValue = '{{ product.barcode }}';
+    const barcodeType = '{{ barcode_type|default:"code128" }}';
+    const copies = {{ copies|default:1 }};
+    
+    for (let i = 1; i <= copies; i++) {
+      try {
+        JsBarcode(`#barcode-${i}`, barcodeValue, {
+          format: barcodeType.toUpperCase(),
+          width: 2,
+          height: 60,
+          displayValue: false,
+          margin: 5,
+          background: '#ffffff',
+          lineColor: '#000000'
+        });
+      } catch (error) {
+        console.error('خطأ في توليد الباركود:', error);
+        document.getElementById(`barcode-${i}`).innerHTML = 
+          '<div class="alert alert-danger">خطأ في توليد الباركود</div>';
+      }
+    }
+  });
+  
+  async function printDirect() {
+    const btn = document.getElementById('directPrintBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>جاري الطباعة...';
+    
+    try {
+      const response = await fetch('{% url "pos:print_barcode_api" %}', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+          barcode: '{{ product.barcode }}',
+          product_name: '{{ product.name|escapejs }}',
+          price: '{{ product.price|default:"" }}',
+          copies: {{ copies|default:1 }}
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-success alert-dismissible fade show mt-3';
+        alertDiv.innerHTML = `
+          <i class="bi bi-check-circle me-2"></i>${data.message}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.querySelector('.print-actions').before(alertDiv);
+        setTimeout(() => alertDiv.remove(), 5000);
+      } else {
+        alert('❌ ' + (data.error || 'فشل الطباعة'));
+      }
+    } catch (error) {
+      alert('❌ خطأ: ' + error.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+    }
+  }
+  
+  // ═══════ Zebra Barcode Label Printing ═══════
+  
+  function setZebraSize(w, h) {
+    document.getElementById('zebraLabelWidth').value = w;
+    document.getElementById('zebraLabelHeight').value = h;
+  }
+  
+  async function printZebraLabel(width, height) {
+    if (!TonyPrint.isConnected()) {
+      alert('⚠️ وكيل الطباعة غير متصل!\n\nتأكد من تشغيل agent_windows.py على جهازك.');
+      return;
+    }
+    
+    const result = await TonyPrint.printBarcodeLabel({
+      barcode: '{{ product.barcode }}',
+      product_name: '{{ product.name|escapejs }}',
+      price: '{{ product.price|default:"" }}',
+      label_width_mm: width,
+      label_height_mm: height,
+      copies: {{ copies|default:1 }},
+      dpi: 203
+    });
+    
+    if (result.success) {
+      showAlert('success', 'تم طباعة الملصق (' + width + '×' + height + ' مم) على Zebra');
+    }
+  }
+  
+  async function printZebraCustom() {
+    if (!TonyPrint.isConnected()) {
+      alert('⚠️ وكيل الطباعة غير متصل!');
+      return;
+    }
+    
+    const width = parseInt(document.getElementById('zebraLabelWidth').value) || 50;
+    const height = parseInt(document.getElementById('zebraLabelHeight').value) || 30;
+    const copies = parseInt(document.getElementById('zebraLabelCopies').value) || 1;
+    const dpi = parseInt(document.getElementById('zebraLabelDPI').value) || 203;
+    const ip = document.getElementById('zebraPrinterIP').value.trim();
+    const port = parseInt(document.getElementById('zebraPrinterPort').value) || 9100;
+    
+    const result = await TonyPrint.printBarcodeLabel({
+      barcode: '{{ product.barcode }}',
+      product_name: '{{ product.name|escapejs }}',
+      price: '{{ product.price|default:"" }}',
+      label_width_mm: width,
+      label_height_mm: height,
+      copies: copies,
+      dpi: dpi,
+      ip: ip,
+      port: port
+    });
+    
+    if (result.success) {
+      bootstrap.Modal.getInstance(document.getElementById('zebraLabelModal')).hide();
+      showAlert('success', 'تم طباعة ' + copies + ' ملصق (' + width + '×' + height + ' مم)');
+    }
+  }
+  
+  // ═══════ XPrinter (Thermal) Printing ═══════
+  
+  async function printToXPrinter() {
+    const btn = document.getElementById('directPrintBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>جاري الطباعة...';
+    
+    try {
+      // أولاً: محاولة الطباعة عبر Print Agent المحلي
+      if (TonyPrint.isConnected()) {
+        const text = [
+          '================================',
+          '  {{ product.name|escapejs }}',
+          '================================',
+          '',
+          '  باركود: {{ product.barcode }}',
+          {% if product.price %}'  السعر: {{ product.price }}',{% endif %}
+          '',
+          '================================',
+          '', ''
+        ].join('\n');
+        
+        const result = await TonyPrint.printReceipt(text, {cut_paper: true});
+        if (result.success) {
+          showAlert('success', 'تم الطباعة على XPrinter');
+          return;
+        }
+      }
+      
+      // بديل: استخدام API السيرفر
+      const response = await fetch('{% url "pos:print_barcode_api" %}', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+          barcode: '{{ product.barcode }}',
+          product_name: '{{ product.name|escapejs }}',
+          price: '{{ product.price|default:"" }}',
+          copies: {{ copies|default:1 }}
+        })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        showAlert('success', data.message || 'تمت الطباعة');
+      } else {
+        alert('❌ ' + (data.error || 'فشل الطباعة'));
+      }
+    } catch (error) {
+      alert('❌ خطأ: ' + error.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+    }
+  }
+  
+  function showAlert(type, message) {
+    const actionsEl = document.querySelector('.print-actions');
+    if (!actionsEl) return;
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-' + type + ' alert-dismissible fade show mt-3';
+    alertDiv.innerHTML = '<i class="bi bi-check-circle me-2"></i>' + message +
+      '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+    actionsEl.before(alertDiv);
+    setTimeout(() => alertDiv.remove(), 5000);
+  }
+  
+  function downloadBarcodes() {
+    alert('يمكنك استخدام طباعة المتصفح (Ctrl+P) وحفظ كـ PDF.');
+  }
+</script>
+{% endblock %}

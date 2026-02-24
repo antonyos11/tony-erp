@@ -1,0 +1,148 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تفاصيل الشحنة{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-truck me-2 text-primary"></i>شحنة #{{ shipment.tracking_number }}</h2>
+            <p class="text-muted mb-0">أمر الشراء: {{ shipment.purchase_order.po_number }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'purchases:shipment_track' shipment.pk %}" class="btn btn-primary">
+                <i class="fas fa-map-marker-alt me-1"></i> تتبع الشحنة
+            </a>
+            <a href="{% url 'purchases:shipment_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-right me-1"></i> رجوع
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <!-- معلومات الشحنة -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <h5 class="mb-4">معلومات الشحنة</h5>
+                    <div class="row g-4">
+                        <div class="col-md-4">
+                            <small class="text-muted d-block">رقم التتبع</small>
+                            <strong>{{ shipment.tracking_number }}</strong>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block">شركة الشحن</small>
+                            <strong>{{ shipment.carrier.name|default:"المورد" }}</strong>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block">الحالة</small>
+                            <span class="badge bg-{{ shipment.status_color }} fs-6">{{ shipment.get_status_display }}</span>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block">تاريخ الشحن</small>
+                            <strong>{{ shipment.shipped_date|date:"Y/m/d" }}</strong>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block">الوصول المتوقع</small>
+                            <strong>{{ shipment.expected_delivery|date:"Y/m/d" }}</strong>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block">الوصول الفعلي</small>
+                            <strong>{{ shipment.actual_delivery|date:"Y/m/d"|default:"لم يصل بعد" }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- محتويات الشحنة -->
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <h5 class="mb-4">محتويات الشحنة</h5>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>المادة</th>
+                                    <th>الكمية</th>
+                                    <th>الوزن</th>
+                                    <th>ملاحظات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in shipment.items.all %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>
+                                        <strong>{{ item.product.name }}</strong>
+                                        <br><small class="text-muted">{{ item.product.sku }}</small>
+                                    </td>
+                                    <td>{{ item.quantity }} {{ item.unit }}</td>
+                                    <td>{{ item.weight|default:"-" }} كجم</td>
+                                    <td>{{ item.notes|default:"-" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">لا توجد بيانات</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- الجدول الزمني -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-0 py-3">
+                    <h6 class="mb-0">سجل التتبع</h6>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        {% for event in shipment.tracking_events.all %}
+                        <div class="d-flex mb-3">
+                            <div class="me-3">
+                                <div class="bg-{{ event.status_color }} bg-opacity-10 rounded-circle p-2">
+                                    <i class="fas fa-{{ event.icon }} text-{{ event.status_color }}"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <strong>{{ event.get_status_display }}</strong>
+                                <div class="small text-muted">{{ event.timestamp|date:"Y/m/d H:i" }}</div>
+                                {% if event.location %}<div class="small">{{ event.location }}</div>{% endif %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p class="text-center text-muted mb-0">لا يوجد سجل</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- معلومات المورد -->
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white border-0 py-3">
+                    <h6 class="mb-0">معلومات المورد</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <small class="text-muted">اسم المورد</small>
+                        <strong class="d-block">{{ shipment.purchase_order.vendor.name }}</strong>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted">الهاتف</small>
+                        <strong class="d-block">{{ shipment.purchase_order.vendor.phone|default:"-" }}</strong>
+                    </div>
+                    <div>
+                        <small class="text-muted">العنوان</small>
+                        <strong class="d-block">{{ shipment.purchase_order.vendor.address|default:"-" }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,351 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .upload-area {
+        border: 3px dashed #dee2e6;
+        border-radius: 15px;
+        padding: 60px 30px;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        background: #fafafa;
+    }
+    .upload-area:hover, .upload-area.dragover {
+        border-color: #0d6efd;
+        background: #f0f7ff;
+    }
+    .upload-area.uploading {
+        border-color: #ffc107;
+        background: #fffbf0;
+    }
+    .upload-area.success {
+        border-color: #28a745;
+        background: #f0fff4;
+    }
+    .upload-area.error {
+        border-color: #dc3545;
+        background: #fff5f5;
+    }
+    .upload-icon {
+        font-size: 4rem;
+        color: #6c757d;
+        margin-bottom: 20px;
+    }
+    .upload-area:hover .upload-icon {
+        color: #0d6efd;
+    }
+    .result-card {
+        animation: fadeIn 0.5s ease;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .error-list {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'data_import:dashboard' %}">{% trans "استيراد البيانات" %}</a></li>
+                    <li class="breadcrumb-item active">{{ module_name }}</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="fas fa-upload me-2 text-primary"></i>
+                        {% trans "استيراد" %} {{ module_name }}
+                    </h2>
+                    <p class="text-muted mb-0">{% trans "ارفع ملف Excel لاستيراد البيانات" %}</p>
+                </div>
+                <a href="{% url 'data_import:download_template' module %}" class="btn btn-outline-primary">
+                    <i class="fas fa-download me-1"></i>
+                    {% trans "تحميل القالب" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- منطقة الرفع -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="upload-area" id="uploadArea">
+                        <input type="file" id="fileInput" accept=".xlsx,.xls" class="d-none">
+                        <i class="fas fa-cloud-upload-alt upload-icon" id="uploadIcon"></i>
+                        <h4 id="uploadTitle">{% trans "اسحب الملف هنا أو اضغط للاختيار" %}</h4>
+                        <p class="text-muted mb-0" id="uploadText">{% trans "يدعم ملفات Excel بصيغة xlsx أو xls" %}</p>
+                        
+                        <!-- Progress Bar -->
+                        <div class="progress mt-4 d-none" id="progressContainer" style="height: 25px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar" role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- نتيجة الاستيراد -->
+            <div class="card shadow-sm d-none" id="resultCard">
+                <div class="card-header" id="resultHeader">
+                    <h5 class="mb-0" id="resultTitle"></h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center mb-4" id="resultStats">
+                        <div class="col-4">
+                            <h2 class="text-success mb-0" id="successCount">0</h2>
+                            <small class="text-muted">{% trans "ناجح" %}</small>
+                        </div>
+                        <div class="col-4">
+                            <h2 class="text-danger mb-0" id="errorCount">0</h2>
+                            <small class="text-muted">{% trans "فشل" %}</small>
+                        </div>
+                        <div class="col-4">
+                            <h2 class="text-info mb-0" id="totalCount">0</h2>
+                            <small class="text-muted">{% trans "إجمالي" %}</small>
+                        </div>
+                    </div>
+                    
+                    <!-- قائمة الأخطاء -->
+                    <div class="d-none" id="errorsContainer">
+                        <h6 class="text-danger mb-3">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            {% trans "الأخطاء" %}
+                        </h6>
+                        <div class="error-list">
+                            <ul class="list-group" id="errorsList"></ul>
+                        </div>
+                    </div>
+                    
+                    <!-- أزرار -->
+                    <div class="mt-4 text-center">
+                        <button class="btn btn-primary" id="importAgainBtn">
+                            <i class="fas fa-redo me-1"></i>
+                            {% trans "استيراد ملف آخر" %}
+                        </button>
+                        <a href="{% url 'data_import:dashboard' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-right me-1"></i>
+                            {% trans "العودة للوحة التحكم" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- التعليمات -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        {% trans "تعليمات الاستيراد" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6 class="text-primary">{% trans "الخطوات:" %}</h6>
+                        <ol class="mb-0">
+                            <li>{% trans "حمل القالب من الزر أعلاه" %}</li>
+                            <li>{% trans "افتح الملف في Excel" %}</li>
+                            <li>{% trans "أضف بياناتك (لا تغير الصف الأول)" %}</li>
+                            <li>{% trans "احفظ الملف" %}</li>
+                            <li>{% trans "ارفع الملف هنا" %}</li>
+                        </ol>
+                    </div>
+                    
+                    <div class="alert alert-warning mb-0">
+                        <i class="fas fa-lightbulb me-1"></i>
+                        <strong>{% trans "نصيحة:" %}</strong>
+                        {% trans "ابدأ بعدد صغير من البيانات للتجربة، ثم أضف الباقي" %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const uploadIcon = document.getElementById('uploadIcon');
+    const uploadTitle = document.getElementById('uploadTitle');
+    const uploadText = document.getElementById('uploadText');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const resultCard = document.getElementById('resultCard');
+    const resultHeader = document.getElementById('resultHeader');
+    const resultTitle = document.getElementById('resultTitle');
+    const successCount = document.getElementById('successCount');
+    const errorCount = document.getElementById('errorCount');
+    const totalCount = document.getElementById('totalCount');
+    const errorsContainer = document.getElementById('errorsContainer');
+    const errorsList = document.getElementById('errorsList');
+    const importAgainBtn = document.getElementById('importAgainBtn');
+    
+    // Click to upload
+    uploadArea.addEventListener('click', () => fileInput.click());
+    
+    // Drag and drop
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+    
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFile(files[0]);
+        }
+    });
+    
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            handleFile(e.target.files[0]);
+        }
+    });
+    
+    // Import again button
+    importAgainBtn.addEventListener('click', () => {
+        resetUpload();
+    });
+    
+    function handleFile(file) {
+        if (!file.name.match(/\.(xlsx|xls)$/i)) {
+            alert('{% trans "يرجى اختيار ملف Excel بصيغة xlsx أو xls" %}');
+            return;
+        }
+        
+        uploadFile(file);
+    }
+    
+    function uploadFile(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // Update UI
+        uploadArea.classList.add('uploading');
+        uploadIcon.className = 'fas fa-spinner fa-spin upload-icon';
+        uploadTitle.textContent = '{% trans "جاري رفع الملف..." %}';
+        uploadText.textContent = file.name;
+        progressContainer.classList.remove('d-none');
+        resultCard.classList.add('d-none');
+        
+        const xhr = new XMLHttpRequest();
+        
+        xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 50);
+                progressBar.style.width = percent + '%';
+                progressBar.textContent = percent + '%';
+            }
+        });
+        
+        xhr.addEventListener('load', () => {
+            progressBar.style.width = '100%';
+            progressBar.textContent = '100%';
+            
+            try {
+                const response = JSON.parse(xhr.responseText);
+                
+                if (response.success) {
+                    showSuccess(response);
+                } else {
+                    showError(response.error);
+                }
+            } catch (e) {
+                showError('{% trans "حدث خطأ في معالجة الاستجابة" %}');
+            }
+        });
+        
+        xhr.addEventListener('error', () => {
+            showError('{% trans "حدث خطأ في الاتصال" %}');
+        });
+        
+        xhr.open('POST', '{% url "data_import:process_import" module %}');
+        xhr.setRequestHeader('X-CSRFToken', '{{ csrf_token }}');
+        xhr.send(formData);
+    }
+    
+    function showSuccess(response) {
+        uploadArea.classList.remove('uploading');
+        uploadArea.classList.add('success');
+        uploadIcon.className = 'fas fa-check-circle upload-icon text-success';
+        uploadTitle.textContent = '{% trans "تم الاستيراد بنجاح!" %}';
+        
+        // Show result card
+        resultCard.classList.remove('d-none');
+        resultHeader.className = 'card-header bg-success text-white';
+        resultTitle.innerHTML = '<i class="fas fa-check-circle me-2"></i>{% trans "نتيجة الاستيراد" %}';
+        
+        successCount.textContent = response.success_count;
+        errorCount.textContent = response.error_count;
+        totalCount.textContent = response.success_count + response.error_count;
+        
+        // Show errors if any
+        if (response.errors && response.errors.length > 0) {
+            errorsContainer.classList.remove('d-none');
+            errorsList.innerHTML = '';
+            response.errors.forEach(err => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item list-group-item-danger';
+                li.innerHTML = `<strong>{% trans "صف" %} ${err.row}:</strong> ${err.message}`;
+                errorsList.appendChild(li);
+            });
+        } else {
+            errorsContainer.classList.add('d-none');
+        }
+    }
+    
+    function showError(message) {
+        uploadArea.classList.remove('uploading');
+        uploadArea.classList.add('error');
+        uploadIcon.className = 'fas fa-times-circle upload-icon text-danger';
+        uploadTitle.textContent = '{% trans "حدث خطأ!" %}';
+        uploadText.textContent = message;
+        
+        resultCard.classList.remove('d-none');
+        resultHeader.className = 'card-header bg-danger text-white';
+        resultTitle.innerHTML = '<i class="fas fa-times-circle me-2"></i>{% trans "فشل الاستيراد" %}';
+        
+        document.getElementById('resultStats').classList.add('d-none');
+        errorsContainer.classList.remove('d-none');
+        errorsList.innerHTML = `<li class="list-group-item list-group-item-danger">${message}</li>`;
+    }
+    
+    function resetUpload() {
+        uploadArea.classList.remove('uploading', 'success', 'error');
+        uploadIcon.className = 'fas fa-cloud-upload-alt upload-icon';
+        uploadTitle.textContent = '{% trans "اسحب الملف هنا أو اضغط للاختيار" %}';
+        uploadText.textContent = '{% trans "يدعم ملفات Excel بصيغة xlsx أو xls" %}';
+        progressContainer.classList.add('d-none');
+        progressBar.style.width = '0%';
+        resultCard.classList.add('d-none');
+        document.getElementById('resultStats').classList.remove('d-none');
+        fileInput.value = '';
+    }
+});
+</script>
+{% endblock %}

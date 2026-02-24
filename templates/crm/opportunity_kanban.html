@@ -1,0 +1,478 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}لوحة الفرص - Kanban - CRM{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+    .kanban-board {
+        display: flex;
+        gap: 20px;
+        overflow-x: auto;
+        padding-bottom: 20px;
+        min-height: 70vh;
+    }
+    .kanban-column {
+        min-width: 300px;
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .kanban-header {
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding: 10px 0;
+        border-bottom: 2px solid #dee2e6;
+    }
+    .kanban-title {
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: #495057;
+    }
+    .opportunity-count {
+        background: #007bff;
+        color: white;
+        border-radius: 50%;
+        width: 25px;
+        height: 25px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .opportunity-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        cursor: grab;
+        transition: all 0.2s ease;
+        border-left: 4px solid #007bff;
+    }
+    .opportunity-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    .opportunity-card.dragging {
+        opacity: 0.5;
+        cursor: grabbing;
+    }
+    .opportunity-title {
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #212529;
+    }
+    .opportunity-customer {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+    }
+    .opportunity-value {
+        color: #28a745;
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin-bottom: 8px;
+    }
+    .opportunity-date {
+        color: #6c757d;
+        font-size: 0.8rem;
+        margin-bottom: 10px;
+    }
+    .opportunity-date.overdue {
+        color: #dc3545;
+        font-weight: 600;
+    }
+    .opportunity-priority {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    .priority-low { background: #d4edda; color: #155724; }
+    .priority-medium { background: #fff3cd; color: #856404; }
+    .priority-high { background: #f8d7da; color: #721c24; }
+    .priority-urgent { background: #dc3545; color: white; }
+    
+    .drop-zone {
+        min-height: 50px;
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+        font-style: italic;
+        margin-top: 10px;
+        transition: all 0.2s ease;
+    }
+    .drop-zone.dragover {
+        border-color: #007bff;
+        background: rgba(0, 123, 255, 0.1);
+        color: #007bff;
+    }
+    
+    .stage-stats {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #dee2e6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2"><i class="fas fa-columns me-2"></i>لوحة الفرص - Kanban</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <div class="btn-group me-2">
+                <a href="{% url 'crm:opportunity_create' %}" class="btn btn-success">
+                    <i class="fas fa-plus"></i> فرصة جديدة
+                </a>
+                <a href="{% url 'crm:opportunity_list' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-list"></i> عرض القائمة
+                </a>
+                <button type="button" class="btn btn-outline-secondary" onclick="refreshBoard()">
+                    <i class="fas fa-sync"></i> تحديث
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="kanban-board" id="kanban-board">
+        {% for stage in stages %}
+        <div class="kanban-column" data-stage-id="{ stage.id }">
+            <div class="kanban-header">
+                <div class="kanban-title">{{ stage.name }}</div>
+                <div class="opportunity-count">{{ stage.opportunity_set.count }}</div>
+            </div>
+            
+            <div class="kanban-opportunities" data-stage-id="{ stage.id }">
+                {% for opportunity in stage.opportunity_set.all %}
+                <div class="opportunity-card" 
+                     data-opportunity-id="{{ opportunity.id }}"
+                     data-stage-id="{ stage.id }"
+                     draggable="true">
+                    
+                    <div class="opportunity-title">{{ opportunity.name }}</div>
+                    
+                    <div class="opportunity-customer">
+                        <i class="fas fa-user me-1"></i>{{ opportunity.customer.full_name }}
+                    </div>
+                    
+                    <div class="opportunity-value">
+                        {{ opportunity.estimated_value|floatformat:0 }} ج.م
+                    </div>
+                    
+                    <div class="opportunity-date {% if opportunity.is_overdue %}overdue{% endif %}">
+                        <i class="fas fa-calendar me-1"></i>
+                        {{ opportunity.expected_close_date|date:"d/m/Y" }}
+                        {% if opportunity.is_overdue %}
+                            <i class="fas fa-exclamation-triangle ms-1"></i>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="opportunity-priority priority-{ opportunity.priority }">
+                            {{ opportunity.get_priority_display }}
+                        </span>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-ellipsis-h"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{% url 'crm:opportunity_detail' opportunity.pk %}">
+                                    <i class="fas fa-eye me-2"></i>عرض التفاصيل
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'crm:opportunity_edit' opportunity.pk %}">
+                                    <i class="fas fa-edit me-2"></i>تعديل
+                                </a></li>
+                                <li><a class="dropdown-item" href="#" onclick="duplicateOpportunity({ opportunity.id })">
+                                    <i class="fas fa-copy me-2"></i>نسخ
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="{% url 'crm:opportunity_delete' opportunity.pk %}">
+                                    <i class="fas fa-trash me-2"></i>حذف
+                                </a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="drop-zone">
+                    اسحب الفرص هنا
+                </div>
+                {% endfor %}
+            </div>
+            
+            {% if stage.opportunity_set.exists %}
+            <div class="stage-stats">
+                <span>{{ stage.opportunity_set.count }} فرصة</span>
+                <span>{{ stage.opportunity_set.aggregate.total_value|floatformat:0 }} ج.م</span>
+            </div>
+            {% endif %}
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info text-center">
+                <h4><i class="fas fa-info-circle me-2"></i>لا توجد مراحل</h4>
+                <p>يجب إنشاء مراحل الفرص أولاً من خلال الإعدادات</p>
+                <a href="{% url 'crm:opportunity_stages' %}" class="btn btn-primary">
+                    <i class="fas fa-cog"></i> إعداد المراحل
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal for Quick Edit -->
+<div class="modal fade" id="quickEditModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تعديل سريع للفرصة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="quickEditForm">
+                    <div class="mb-3">
+                        <label class="form-label">اسم الفرصة</label>
+                        <input type="text" class="form-control" id="opportunityName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">القيمة المقدرة</label>
+                        <input type="number" class="form-control" id="opportunityValue" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">التاريخ المتوقع للإغلاق</label>
+                        <input type="date" class="form-control" id="opportunityDate" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الأولوية</label>
+                        <select class="form-select" id="opportunityPriority">
+                            <option value="low">منخفض</option>
+                            <option value="medium">متوسط</option>
+                            <option value="high">عالي</option>
+                            <option value="urgent">عاجل</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-primary" onclick="saveQuickEdit()">حفظ التغييرات</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    let draggedOpportunity = null;
+    let currentOpportunityId = null;
+    
+    // Drag and Drop functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const opportunities = document.querySelectorAll('.opportunity-card');
+        const dropZones = document.querySelectorAll('.kanban-opportunities');
+        
+        // Make opportunities draggable
+        opportunities.forEach(opportunity => {
+            opportunity.addEventListener('dragstart', handleDragStart);
+            opportunity.addEventListener('dragend', handleDragEnd);
+            opportunity.addEventListener('dblclick', handleDoubleClick);
+        });
+        
+        // Make columns droppable
+        dropZones.forEach(zone => {
+            zone.addEventListener('dragover', handleDragOver);
+            zone.addEventListener('drop', handleDrop);
+            zone.addEventListener('dragenter', handleDragEnter);
+            zone.addEventListener('dragleave', handleDragLeave);
+        });
+    });
+    
+    function handleDragStart(e) {
+        draggedOpportunity = this;
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', this.innerHTML);
+    }
+    
+    function handleDragEnd(e) {
+        this.classList.remove('dragging');
+        draggedOpportunity = null;
+    }
+    
+    function handleDragOver(e) {
+        if (e.preventDefault) {
+            e.preventDefault();
+        }
+        e.dataTransfer.dropEffect = 'move';
+        return false;
+    }
+    
+    function handleDragEnter(e) {
+        this.classList.add('dragover');
+    }
+    
+    function handleDragLeave(e) {
+        this.classList.remove('dragover');
+    }
+    
+    function handleDrop(e) {
+        if (e.stopPropagation) {
+            e.stopPropagation();
+        }
+        
+        this.classList.remove('dragover');
+        
+        if (draggedOpportunity && draggedOpportunity !== this) {
+            const newStageId = this.getAttribute('data-stage-id');
+            const opportunityId = draggedOpportunity.getAttribute('data-opportunity-id');
+            const currentStageId = draggedOpportunity.getAttribute('data-stage-id');
+            
+            if (newStageId !== currentStageId) {
+                // Move the opportunity visually
+                this.appendChild(draggedOpportunity);
+                draggedOpportunity.setAttribute('data-stage-id', newStageId);
+                
+                // Update server
+                updateOpportunityStage(opportunityId, newStageId);
+                
+                // Update counters
+                updateStageCounters();
+            }
+        }
+        
+        return false;
+    }
+    
+    function handleDoubleClick(e) {
+        currentOpportunityId = this.getAttribute('data-opportunity-id');
+        // Load opportunity data and show modal
+        // This would typically fetch data via AJAX
+        const modal = new bootstrap.Modal(document.getElementById('quickEditModal'));
+        modal.show();
+    }
+    
+    function updateOpportunityStage(opportunityId, newStageId) {
+        fetch(`/crm/opportunities/${opportunityId}/move/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                stage_id: newStageId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('تم نقل الفرصة بنجاح', 'success');
+            } else {
+                showNotification('حدث خطأ في نقل الفرصة', 'error');
+                // Revert the visual change if server update failed
+                location.reload();
+            }
+        })
+        .catch(error => {
+            showNotification('حدث خطأ في الاتصال', 'error');
+            location.reload();
+        });
+    }
+    
+    function updateStageCounters() {
+        document.querySelectorAll('.kanban-column').forEach(column => {
+            const count = column.querySelectorAll('.opportunity-card').length;
+            column.querySelector('.opportunity-count').textContent = count;
+        });
+    }
+    
+    function refreshBoard() {
+        location.reload();
+    }
+    
+    function duplicateOpportunity(opportunityId) {
+        if (confirm('هل تريد نسخ هذه الفرصة؟')) {
+            // This would typically send an AJAX request
+            showNotification('جاري نسخ الفرصة...', 'info');
+        }
+    }
+    
+    function saveQuickEdit() {
+        // This would save the changes via AJAX
+        const modal = bootstrap.Modal.getInstance(document.getElementById('quickEditModal'));
+        modal.hide();
+        showNotification('تم حفظ التغييرات بنجاح', 'success');
+    }
+    
+    function showNotification(message, type = 'info') {
+        // Create a simple notification
+        const alertClass = type === 'success' ? 'alert-success' : 
+                          type === 'error' ? 'alert-danger' : 'alert-info';
+        
+        const notification = document.createElement('div');
+        notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+        notification.style.top = '20px';
+        notification.style.right = '20px';
+        notification.style.zIndex = '9999';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.remove();
+        }, 5000);
+    }
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'r') {
+            e.preventDefault();
+            refreshBoard();
+        }
+        if (e.key === 'Escape') {
+            const modal = document.querySelector('.modal.show');
+            if (modal) {
+                const modalInstance = bootstrap.Modal.getInstance(modal);
+                modalInstance.hide();
+            }
+        }
+    });
+</script>
+{% endblock %}

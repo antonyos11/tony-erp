@@ -1,0 +1,461 @@
+{% extends 'base_v2.html' %}
+{% comment %}
+════════════════════════════════════════════════════════════════════════════════
+  TONY ERP - Modern Dashboard Template v2.0
+  قالب لوحات المعلومات العصري - فائق التجاوب
+  
+  Usage:
+  {% extends 'base_templates/modern_dashboard.html' %}
+  {% block page_module %}sales{% endblock %}
+  {% block page_title %}لوحة المبيعات{% endblock %}
+════════════════════════════════════════════════════════════════════════════════
+{% endcomment %}
+{% load static %}
+{% load i18n %}
+{% load tony_erb_tags %}
+
+{% block extra_css %}
+<link href="{% static 'css/modern_pages.css' %}?v=1" rel="stylesheet">
+<style>
+/* Dashboard Specific Styles */
+.mp-dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: var(--mp-space-lg);
+    padding: 0;
+}
+
+.mp-dashboard-col-3 { grid-column: span 3; }
+.mp-dashboard-col-4 { grid-column: span 4; }
+.mp-dashboard-col-6 { grid-column: span 6; }
+.mp-dashboard-col-8 { grid-column: span 8; }
+.mp-dashboard-col-12 { grid-column: span 12; }
+
+/* KPI Cards */
+.mp-kpi-card {
+    background: var(--mp-glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--mp-glass-border);
+    border-radius: var(--mp-radius-xl);
+    padding: var(--mp-space-lg);
+    transition: all var(--mp-transition-normal);
+    position: relative;
+    overflow: hidden;
+}
+
+.mp-kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    inset-inline-start: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--kpi-color, var(--mp-primary));
+    border-radius: var(--mp-radius-sm) 0 0 var(--mp-radius-sm);
+}
+
+[dir="rtl"] .mp-kpi-card::before {
+    border-radius: 0 var(--mp-radius-sm) var(--mp-radius-sm) 0;
+}
+
+.mp-kpi-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--mp-shadow-xl);
+}
+
+.mp-kpi-card--primary { --kpi-color: var(--mp-primary); }
+.mp-kpi-card--success { --kpi-color: var(--mp-success); }
+.mp-kpi-card--warning { --kpi-color: var(--mp-warning); }
+.mp-kpi-card--danger { --kpi-color: var(--mp-danger); }
+.mp-kpi-card--info { --kpi-color: var(--mp-info); }
+.mp-kpi-card--accent { --kpi-color: var(--mp-accent); }
+
+.mp-kpi-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: var(--mp-space-md);
+}
+
+.mp-kpi-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--mp-radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    background: linear-gradient(135deg, var(--kpi-color), color-mix(in srgb, var(--kpi-color) 80%, white));
+    color: white;
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--kpi-color) 40%, transparent);
+}
+
+.mp-kpi-trend {
+    display: flex;
+    align-items: center;
+    gap: var(--mp-space-xs);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--mp-radius-full);
+}
+
+.mp-kpi-trend--up {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--mp-success);
+}
+
+.mp-kpi-trend--down {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--mp-danger);
+}
+
+.mp-kpi-value {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--kpi-color);
+    margin-bottom: var(--mp-space-xs);
+}
+
+.mp-kpi-label {
+    font-size: 0.875rem;
+    color: var(--mp-secondary);
+    font-weight: 500;
+}
+
+.mp-kpi-footer {
+    display: flex;
+    align-items: center;
+    gap: var(--mp-space-sm);
+    margin-top: var(--mp-space-md);
+    padding-top: var(--mp-space-md);
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    font-size: 0.75rem;
+    color: var(--mp-secondary);
+}
+
+[data-theme="dark"] .mp-kpi-footer {
+    border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Chart Container */
+.mp-chart-card {
+    background: var(--mp-glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--mp-glass-border);
+    border-radius: var(--mp-radius-xl);
+    overflow: hidden;
+    box-shadow: var(--mp-shadow-lg);
+}
+
+.mp-chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--mp-space-lg);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    flex-wrap: wrap;
+    gap: var(--mp-space-md);
+}
+
+[data-theme="dark"] .mp-chart-header {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.mp-chart-title {
+    font-size: 1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: var(--mp-space-sm);
+    margin: 0;
+}
+
+.mp-chart-body {
+    padding: var(--mp-space-lg);
+    min-height: 300px;
+}
+
+.mp-chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--mp-space-md);
+    padding: var(--mp-space-md) var(--mp-space-lg);
+    background: rgba(0, 0, 0, 0.02);
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .mp-chart-legend {
+    background: rgba(255, 255, 255, 0.02);
+    border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+.mp-chart-legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--mp-space-xs);
+    font-size: 0.8125rem;
+}
+
+.mp-chart-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+/* Activity Feed */
+.mp-activity-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.mp-activity-item {
+    display: flex;
+    gap: var(--mp-space-md);
+    padding: var(--mp-space-md) 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .mp-activity-item {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.mp-activity-item:last-child {
+    border-bottom: none;
+}
+
+.mp-activity-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--mp-radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.mp-activity-icon--primary { background: rgba(99, 102, 241, 0.1); color: var(--mp-primary); }
+.mp-activity-icon--success { background: rgba(16, 185, 129, 0.1); color: var(--mp-success); }
+.mp-activity-icon--warning { background: rgba(245, 158, 11, 0.1); color: var(--mp-warning); }
+.mp-activity-icon--danger { background: rgba(239, 68, 68, 0.1); color: var(--mp-danger); }
+
+.mp-activity-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.mp-activity-title {
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+
+.mp-activity-time {
+    font-size: 0.75rem;
+    color: var(--mp-secondary);
+}
+
+/* Quick Actions */
+.mp-quick-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--mp-space-md);
+}
+
+.mp-quick-action {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--mp-space-sm);
+    padding: var(--mp-space-lg);
+    background: var(--mp-glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--mp-glass-border);
+    border-radius: var(--mp-radius-xl);
+    text-decoration: none;
+    color: inherit;
+    transition: all var(--mp-transition-normal);
+}
+
+.mp-quick-action:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--mp-shadow-lg);
+    border-color: var(--mp-primary);
+}
+
+.mp-quick-action-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--mp-radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    background: var(--mp-gradient-primary);
+    color: white;
+    box-shadow: var(--mp-shadow-md);
+}
+
+.mp-quick-action-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* Progress Bars */
+.mp-progress {
+    height: 8px;
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: var(--mp-radius-full);
+    overflow: hidden;
+}
+
+[data-theme="dark"] .mp-progress {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.mp-progress-bar {
+    height: 100%;
+    border-radius: var(--mp-radius-full);
+    transition: width 1s ease-out;
+}
+
+.mp-progress-bar--primary { background: var(--mp-gradient-primary); }
+.mp-progress-bar--success { background: var(--mp-gradient-success); }
+.mp-progress-bar--warning { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.mp-progress-bar--danger { background: linear-gradient(135deg, #ef4444, #dc2626); }
+
+/* Responsive */
+@media (max-width: 1199.98px) {
+    .mp-dashboard-col-3 { grid-column: span 6; }
+    .mp-dashboard-col-4 { grid-column: span 6; }
+}
+
+@media (max-width: 991.98px) {
+    .mp-dashboard-col-3,
+    .mp-dashboard-col-4,
+    .mp-dashboard-col-6 { grid-column: span 12; }
+    
+    .mp-dashboard-col-8 { grid-column: span 12; }
+}
+
+@media (max-width: 767.98px) {
+    .mp-dashboard-grid {
+        gap: var(--mp-space-md);
+    }
+    
+    .mp-kpi-value {
+        font-size: 1.5rem;
+    }
+    
+    .mp-quick-actions {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .mp-quick-action {
+        padding: var(--mp-space-md);
+    }
+    
+    .mp-quick-action-icon {
+        width: 44px;
+        height: 44px;
+        font-size: 1.25rem;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .mp-dashboard-col-3,
+    .mp-dashboard-col-4,
+    .mp-dashboard-col-6,
+    .mp-dashboard-col-8,
+    .mp-dashboard-col-12 { grid-column: span 12; }
+}
+</style>
+{% block dashboard_extra_css %}{% endblock %}
+{% endblock %}
+
+{% block content %}
+{# ═══ Hero Section ═══ #}
+<section class="mp-hero mp-hero--{% block page_module %}default{% endblock %} mp-animate-fade">
+    <div class="mp-hero-content">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <h1 class="mp-hero-title">
+                    <i class="bi {% block page_icon %}bi-speedometer2{% endblock %} me-2"></i>
+                    {% block page_title %}{% trans 'لوحة التحكم' %}{% endblock %}
+                </h1>
+                <p class="mp-hero-subtitle mb-0">{% block page_subtitle %}{% trans 'نظرة شاملة على أداء النظام' %}{% endblock %}</p>
+            </div>
+            <div class="mp-hero-actions">
+                {% block hero_actions %}
+                <button type="button" class="mp-btn mp-btn--outline" style="color: white; border-color: rgba(255,255,255,0.5);" onclick="location.reload()">
+                    <i class="bi bi-arrow-clockwise"></i>
+                    {% trans 'تحديث' %}
+                </button>
+                {% endblock %}
+            </div>
+        </div>
+        
+        {# KPI Summary in Hero (Optional) #}
+        {% block hero_kpis %}{% endblock %}
+    </div>
+</section>
+
+{# ═══ Dashboard Grid ═══ #}
+<div class="mp-dashboard-grid mp-animate-slide">
+    {% block dashboard_content %}
+    {# Override this with your KPIs, charts, and widgets #}
+    {% endblock %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animate KPI numbers
+    const kpiValues = document.querySelectorAll('.mp-kpi-value[data-value]');
+    
+    kpiValues.forEach(el => {
+        const targetValue = parseFloat(el.dataset.value);
+        const duration = 1500;
+        const startTime = performance.now();
+        const prefix = el.dataset.prefix || '';
+        const suffix = el.dataset.suffix || '';
+        const decimals = parseInt(el.dataset.decimals) || 0;
+        
+        function animate(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const easeOut = 1 - Math.pow(1 - progress, 3);
+            const currentValue = targetValue * easeOut;
+            
+            el.textContent = prefix + currentValue.toLocaleString('ar-SA', {
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals
+            }) + suffix;
+            
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        }
+        
+        requestAnimationFrame(animate);
+    });
+    
+    // Animate progress bars
+    const progressBars = document.querySelectorAll('.mp-progress-bar[data-progress]');
+    
+    progressBars.forEach(bar => {
+        const targetWidth = bar.dataset.progress + '%';
+        setTimeout(() => {
+            bar.style.width = targetWidth;
+        }, 300);
+    });
+});
+</script>
+{% block dashboard_extra_js %}{% endblock %}
+{% endblock %}

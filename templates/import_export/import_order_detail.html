@@ -1,0 +1,405 @@
+﻿{% extends 'base_templates/modern_detail.html' %}
+
+{% block page_module %}import_export{% endblock %}
+{% load static %}
+
+{% block title %}أمر استيراد: {{ order.order_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- رأس الصفحة -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-1">
+                                <i class="fas fa-file-import text-success me-2"></i>
+                                أمر استيراد: {{ order.order_number }}
+                            </h4>
+                            <p class="text-muted mb-0">
+                                <i class="fas fa-calendar me-1"></i>
+                                {{ order.order_date|date:"Y/m/d" }}
+                                <span class="mx-2">|</span>
+                                <i class="fas fa-building me-1"></i>
+                                {{ order.supplier|default:"غير محدد" }}
+                            </p>
+                        </div>
+                        <div>
+                            <span class="badge fs-6 
+                                {% if order.status == 'draft' %}bg-secondary
+                                {% elif order.status == 'pending' %}bg-warning
+                                {% elif order.status == 'approved' %}bg-info
+                                {% elif order.status == 'shipped' %}bg-primary
+                                {% elif order.status == 'in_customs' %}bg-danger
+                                {% elif order.status == 'cleared' %}bg-success
+                                {% elif order.status == 'received' %}bg-dark
+                                {% else %}bg-secondary{% endif %}">
+                                {{ order.get_status_display }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- المعلومات الأساسية -->
+        <div class="col-md-8">
+            <!-- بيانات المورد والشحن -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0"><i class="fas fa-building me-2"></i>بيانات المورد</h6>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-sm table-borderless mb-0">
+                                <tr>
+                                    <td class="text-muted" width="40%">المورد:</td>
+                                    <td><strong>{{ order.supplier|default:"غير محدد" }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">بلد المنشأ:</td>
+                                    <td>{{ order.origin_country|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">رقم الفاتورة التجارية:</td>
+                                    <td>{{ order.commercial_invoice_number|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">رقم خطاب الاعتماد:</td>
+                                    <td>{{ order.lc_number|default:"-" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0"><i class="fas fa-ship me-2"></i>بيانات الشحن</h6>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-sm table-borderless mb-0">
+                                <tr>
+                                    <td class="text-muted" width="40%">وكيل الشحن:</td>
+                                    <td><strong>{{ order.shipping_agent|default:"غير محدد" }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">نوع الشحن:</td>
+                                    <td>{{ order.get_shipping_type_display|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">ميناء الشحن:</td>
+                                    <td>{{ order.shipping_port|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">ميناء الوصول:</td>
+                                    <td>{{ order.destination_port|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">رقم بوليصة الشحن:</td>
+                                    <td>{{ order.bill_of_lading_number|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">تاريخ الوصول المتوقع:</td>
+                                    <td>{{ order.expected_arrival|date:"Y/m/d"|default:"-" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- عناصر الاستيراد -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0"><i class="fas fa-cubes me-2"></i>عناصر الاستيراد</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>المنتج</th>
+                                    <th>الكمية</th>
+                                    <th>الوحدة</th>
+                                    <th>سعر الوحدة</th>
+                                    <th>الرمز الجمركي</th>
+                                    <th>نسبة الجمارك</th>
+                                    <th>الوزن</th>
+                                    <th>الإجمالي</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in order.items.all %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td><strong>{{ item.product|default:item.description }}</strong></td>
+                                    <td>{{ item.quantity|floatformat:2 }}</td>
+                                    <td>{{ item.unit|default:"-" }}</td>
+                                    <td>{{ item.unit_price|floatformat:2 }} {{ order.currency }}</td>
+                                    <td><code>{{ item.hs_code|default:"-" }}</code></td>
+                                    <td>{{ item.customs_rate|floatformat:2 }}%</td>
+                                    <td>{{ item.weight|floatformat:2 }} كجم</td>
+                                    <td><strong>{{ item.total_price|floatformat:2 }} {{ order.currency }}</strong></td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted py-4">
+                                        <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+                                        لا توجد عناصر
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            {% if order.items.exists %}
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="7" class="text-start"><strong>إجمالي العناصر</strong></td>
+                                    <td><strong>{{ order.total_weight|floatformat:2 }} كجم</strong></td>
+                                    <td><strong>{{ order.subtotal|floatformat:2 }} {{ order.currency }}</strong></td>
+                                </tr>
+                            </tfoot>
+                            {% endif %}
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- الشهادات -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="fas fa-certificate me-2"></i>الشهادات</h6>
+                    <a href="{% url 'import_export:import_certificate_create' %}?order={{ order.pk }}" class="btn btn-light btn-sm">
+                        <i class="fas fa-plus me-1"></i>إضافة شهادة
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>نوع الشهادة</th>
+                                    <th>رقم الشهادة</th>
+                                    <th>تاريخ الإصدار</th>
+                                    <th>تاريخ الانتهاء</th>
+                                    <th>الحالة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cert in order.certificates.all %}
+                                <tr>
+                                    <td>{{ cert.get_certificate_type_display }}</td>
+                                    <td>{{ cert.certificate_number }}</td>
+                                    <td>{{ cert.issue_date|date:"Y/m/d" }}</td>
+                                    <td>{{ cert.expiry_date|date:"Y/m/d"|default:"-" }}</td>
+                                    <td>
+                                        {% if cert.is_valid %}
+                                        <span class="badge bg-success">سارية</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">منتهية</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-3">
+                                        لا توجد شهادات مرفقة
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- الملاحظات -->
+            {% if order.notes %}
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="fas fa-sticky-note me-2"></i>الملاحظات</h6>
+                </div>
+                <div class="card-body">
+                    {{ order.notes|linebreaks }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- الشريط الجانبي -->
+        <div class="col-md-4">
+            <!-- ملخص التكاليف -->
+            <div class="card mb-4">
+                <div class="card-header bg-danger text-white">
+                    <h6 class="mb-0"><i class="fas fa-calculator me-2"></i>ملخص التكاليف</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless mb-0">
+                        <tr>
+                            <td>قيمة البضائع:</td>
+                            <td class="text-start"><strong>{{ order.subtotal|floatformat:2 }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td>تكلفة الشحن:</td>
+                            <td class="text-start">{{ order.shipping_cost|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td>تكلفة التأمين:</td>
+                            <td class="text-start">{{ order.insurance_cost|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td>الجمارك:</td>
+                            <td class="text-start">{{ order.customs_duty|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td>تكاليف أخرى:</td>
+                            <td class="text-start">{{ order.other_costs|floatformat:2 }}</td>
+                        </tr>
+                        <tr class="border-top">
+                            <td><strong>الإجمالي الكلي:</strong></td>
+                            <td class="text-start">
+                                <strong class="text-success fs-5">{{ order.total_cost|floatformat:2 }} {{ order.currency }}</strong>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- الإجراءات السريعة -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="fas fa-bolt me-2"></i>إجراءات سريعة</h6>
+                </div>
+                <div class="card-body d-grid gap-2">
+                    <a href="{% url 'import_export:import_order_edit' order.pk %}" class="btn btn-outline-primary">
+                        <i class="fas fa-edit me-2"></i>تعديل الأمر
+                    </a>
+                    
+                    {% if order.status == 'draft' %}
+                    <form method="post" action="{% url 'import_export:import_order_status' order.pk 'pending' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-warning w-100">
+                            <i class="fas fa-paper-plane me-2"></i>إرسال للمراجعة
+                        </button>
+                    </form>
+                    {% endif %}
+                    
+                    {% if order.status == 'pending' %}
+                    <form method="post" action="{% url 'import_export:import_order_status' order.pk 'approved' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="fas fa-check me-2"></i>اعتماد الأمر
+                        </button>
+                    </form>
+                    {% endif %}
+                    
+                    {% if order.status == 'approved' %}
+                    <form method="post" action="{% url 'import_export:import_order_status' order.pk 'shipped' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-ship me-2"></i>تأكيد الشحن
+                        </button>
+                    </form>
+                    {% endif %}
+                    
+                    {% if order.status == 'shipped' %}
+                    <form method="post" action="{% url 'import_export:import_order_status' order.pk 'in_customs' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger w-100">
+                            <i class="fas fa-warehouse me-2"></i>في الجمارك
+                        </button>
+                    </form>
+                    {% endif %}
+                    
+                    {% if order.status == 'in_customs' %}
+                    <form method="post" action="{% url 'import_export:import_order_status' order.pk 'cleared' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="fas fa-check-double me-2"></i>تخليص جمركي
+                        </button>
+                    </form>
+                    {% endif %}
+                    
+                    {% if order.status == 'cleared' %}
+                    <form method="post" action="{% url 'import_export:import_order_status' order.pk 'received' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-dark w-100">
+                            <i class="fas fa-box-open me-2"></i>تأكيد الاستلام
+                        </button>
+                    </form>
+                    {% endif %}
+                    
+                    <a href="{% url 'import_export:release_order_create' %}?import_order={{ order.pk }}" class="btn btn-outline-info">
+                        <i class="fas fa-file-export me-2"></i>إنشاء أمر إفراج
+                    </a>
+                    
+                    <hr>
+                    
+                    <a href="{% url 'import_export:import_order_print' order.pk %}" class="btn btn-outline-secondary" target="_blank">
+                        <i class="fas fa-print me-2"></i>طباعة
+                    </a>
+                    
+                    <a href="{% url 'import_export:import_order_delete' order.pk %}" class="btn btn-outline-danger">
+                        <i class="fas fa-trash me-2"></i>حذف
+                    </a>
+                </div>
+            </div>
+            
+            <!-- سجل التغييرات -->
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="fas fa-history me-2"></i>سجل التغييرات</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            <small class="text-muted">
+                                <i class="fas fa-plus-circle text-success me-1"></i>
+                                تم الإنشاء: {{ order.created_at|date:"Y/m/d H:i" }}
+                            </small>
+                        </li>
+                        <li>
+                            <small class="text-muted">
+                                <i class="fas fa-edit text-primary me-1"></i>
+                                آخر تحديث: {{ order.updated_at|date:"Y/m/d H:i" }}
+                            </small>
+                        </li>
+                        {% if order.created_by %}
+                        <li class="mt-2">
+                            <small class="text-muted">
+                                <i class="fas fa-user me-1"></i>
+                                بواسطة: {{ order.created_by.get_full_name|default:order.created_by.username }}
+                            </small>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- شريط التنقل السفلي -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'import_export:import_order_list' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-right me-1"></i>
+                    العودة للقائمة
+                </a>
+                <div>
+                    <a href="{% url 'import_export:import_order_edit' order.pk %}" class="btn btn-primary">
+                        <i class="fas fa-edit me-1"></i>
+                        تعديل
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

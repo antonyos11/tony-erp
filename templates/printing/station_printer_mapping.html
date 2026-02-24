@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}تعيين الطابعات — Station Printer Mapping{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-diagram-3"></i> تعيين الطابعات على المحطات</h2>
+        <div class="d-flex align-items-center gap-2">
+            <a href="{% url 'printing:printer_settings' %}" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-gear"></i> إعدادات الطابعات
+            </a>
+            <a href="{% url 'printing:dashboard' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-speedometer2"></i> لوحة التحكم
+            </a>
+        </div>
+    </div>
+
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i>
+        <strong>كيفية الاستخدام:</strong>
+        حدد الطابعة الصحيحة لكل نوع مستند على كل محطة. استخدم زر <strong>🖨️ تجربة</strong>
+        لتحديد الطابعة الفعلية (يطبع اسم الطابعة على الورق لتتعرف عليها).
+    </div>
+
+    {% if not stations %}
+    <div class="alert alert-warning text-center py-5">
+        <h4>لا توجد محطات مسجلة</h4>
+        <p>شغّل وكيل الطباعة (Print Agent) على جهاز واحد على الأقل ليظهر هنا.</p>
+    </div>
+    {% endif %}
+
+    {% for station in stations %}
+    <div class="card mb-4 {% if station.is_online %}border-success{% else %}border-danger{% endif %}"
+         data-station-id="{{ station.pk }}">
+        <div class="card-header d-flex justify-content-between align-items-center
+                    {% if station.is_online %}bg-success text-white{% else %}bg-light{% endif %}">
+            <h5 class="mb-0">
+                {% if station.is_online %}🟢{% else %}🔴{% endif %}
+                {{ station.display_name|default:station.machine_name }}
+                <small class="opacity-75">({{ station.machine_name }} — {{ station.machine_ip|default:"No IP" }})</small>
+            </h5>
+            {% if station.agent_version %}
+            <span class="badge bg-light text-dark">v{{ station.agent_version }}</span>
+            {% endif %}
+        </div>
+
+        <div class="card-body {% if not station.is_online %}opacity-50{% endif %}">
+            {% if station.is_online %}
+
+            {# ── Discovered Printers Grid ── #}
+            <h6 class="mb-3"><i class="bi bi-printer"></i> الطابعات المكتشفة:</h6>
+            <div class="row g-2 mb-4">
+                {% for p in station.discovered_printers %}
+                <div class="col-md-4 col-lg-3">
+                    <div class="card h-100
+                        {% if p.type == 'zebra' %}border-start border-warning border-4
+                        {% elif p.type == 'thermal' %}border-start border-success border-4
+                        {% else %}border-start border-primary border-4{% endif %}">
+                        <div class="card-body py-2 px-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong class="d-block">{{ p.name }}</strong>
+                                    {% if p.is_default %}<span title="Default">⭐</span>{% endif %}
+                                    <span class="badge
+                                        {% if p.type == 'zebra' %}bg-warning text-dark
+                                        {% elif p.type == 'thermal' %}bg-success
+                                        {% else %}bg-primary{% endif %}">
+                                        {{ p.type|upper }}
+                                    </span>
+                                </div>
+                                <button class="btn btn-sm
+                                    {% if p.type == 'zebra' %}btn-outline-warning
+                                    {% elif p.type == 'thermal' %}btn-outline-success
+                                    {% else %}btn-outline-primary{% endif %}"
+                                    onclick="testPrinter('{{ station.pk }}', '{{ p.name|escapejs }}', '{{ p.type }}', this)">
+                                    🖨️ تجربة
+                                </button>
+                            </div>
+                            <div class="mt-1">
+                                <small class="test-result text-muted"></small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            {# ── Document Type Mappings ── #}
+            <h6 class="mb-3"><i class="bi bi-arrow-left-right"></i> تعيين نوع المستند → الطابعة:</h6>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="min-width:200px">نوع المستند</th>
+                            <th style="min-width:250px">الطابعة</th>
+                            <th style="width:80px">النسخ</th>
+                            <th style="width:100px">إجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc_code, doc_label in document_types %}
+                        <tr>
+                            <td class="fw-bold">{{ doc_label }}</td>
+                            <td>
+                                <select class="form-select form-select-sm"
+                                        id="select-{{ station.pk }}-{{ doc_code }}"
+                                        data-doc-type="{{ doc_code }}">
+                                    <option value="">— اختر الطابعة —</option>
+                                    {% for p in station.discovered_printers %}
+                                    <option value="{{ p.name }}"
+                                        {% for m in station.printer_mappings.all %}
+                                            {% if m.document_type == doc_code and m.local_printer_name == p.name %}
+                                                selected
+                                            {% endif %}
+                                        {% endfor %}>
+                                        [{{ p.type|upper }}] {{ p.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td>
+                                <input type="number" class="form-control form-control-sm"
+                                       id="copies-{{ station.pk }}-{{ doc_code }}"
+                                       value="{% for m in station.printer_mappings.all %}{% if m.document_type == doc_code %}{{ m.copies }}{% endif %}{% endfor %}"
+                                       min="1" max="10" placeholder="1">
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-success"
+                                        onclick="saveMapping('{{ station.pk }}', '{{ doc_code }}', this)">
+                                    💾 حفظ
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% else %}
+            <div class="text-center py-4 text-danger">
+                <i class="bi bi-exclamation-triangle" style="font-size:2rem"></i>
+                <p class="mt-2">المحطة غير متصلة — شغّل وكيل الطباعة (Print Agent) على هذا الجهاز.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+const csrfToken = '{{ csrf_token }}';
+
+async function testPrinter(stationId, printerName, printerType, btn) {
+    const originalText = btn.innerHTML;
+    const resultEl = btn.closest('.card-body').querySelector('.test-result');
+    btn.disabled = true;
+    btn.innerHTML = '⏳...';
+    if (resultEl) resultEl.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+    try {
+        const resp = await fetch(`/printing/api/station/${stationId}/test-printer/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+            body: JSON.stringify({printer_name: printerName, printer_type: printerType}),
+        });
+        const data = await resp.json();
+        if (data.success) {
+            btn.innerHTML = '✅ تم!';
+            if (resultEl) resultEl.innerHTML = `<span class="text-success">✅ أُرسل (${data.test_id})</span>`;
+        } else {
+            btn.innerHTML = '❌';
+            if (resultEl) resultEl.innerHTML = `<span class="text-danger">❌ ${data.error}</span>`;
+        }
+    } catch (err) {
+        btn.innerHTML = '❌';
+        if (resultEl) resultEl.innerHTML = `<span class="text-danger">❌ خطأ في الاتصال</span>`;
+    }
+
+    setTimeout(() => { btn.disabled = false; btn.innerHTML = originalText; }, 3000);
+}
+
+async function saveMapping(stationId, docType, btn) {
+    const select = document.getElementById(`select-${stationId}-${docType}`);
+    const copiesInput = document.getElementById(`copies-${stationId}-${docType}`);
+    const printerName = select ? select.value : '';
+
+    if (!printerName) {
+        alert('اختر طابعة أولاً');
+        return;
+    }
+
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '⏳...';
+
+    try {
+        const resp = await fetch(`/printing/api/station/${stationId}/save-mapping/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+            body: JSON.stringify({
+                document_type: docType,
+                printer_name: printerName,
+                copies: parseInt(copiesInput ? copiesInput.value : '1') || 1,
+            }),
+        });
+        const data = await resp.json();
+        if (data.success) {
+            btn.innerHTML = '✅ تم!';
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-success');
+        } else {
+            btn.innerHTML = '❌';
+            alert(data.error || 'فشل الحفظ');
+        }
+    } catch (err) {
+        btn.innerHTML = '❌';
+        console.error(err);
+    }
+
+    setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        btn.classList.remove('btn-outline-success');
+        btn.classList.add('btn-success');
+    }, 2500);
+}
+</script>
+{% endblock %}

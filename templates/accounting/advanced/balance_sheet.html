@@ -1,0 +1,263 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}الميزانية العمومية - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .financial-statement {
+        font-family: 'Courier New', monospace;
+    }
+    .statement-header {
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        color: white;
+        padding: 2rem;
+        text-align: center;
+        border-radius: 15px 15px 0 0;
+    }
+    .section-title {
+        background: #f8f9fa;
+        padding: 0.75rem 1rem;
+        font-weight: bold;
+        border-right: 4px solid #007bff;
+        margin-top: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    .account-row {
+        padding: 0.5rem 1rem;
+        border-bottom: 1px dotted #dee2e6;
+        transition: background 0.2s;
+    }
+    .account-row:hover {
+        background: #f8f9fa;
+    }
+    .total-row {
+        background: #e9ecef;
+        font-weight: bold;
+        padding: 0.75rem 1rem;
+        border-top: 2px solid #007bff;
+        border-bottom: 2px solid #007bff;
+    }
+    .grand-total {
+        background: #007bff;
+        color: white;
+        font-weight: bold;
+        font-size: 1.1rem;
+        padding: 1rem;
+        border-radius: 5px;
+    }
+    .print-btn {
+        position: fixed;
+        bottom: 2rem;
+        left: 2rem;
+        z-index: 1000;
+    }
+    @media print {
+        .no-print { display: none !important; }
+        .card { border: none !important; box-shadow: none !important; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Toolbar -->
+    <div class="row mb-4 no-print">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <form method="get" class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label">تاريخ الميزانية</label>
+                            <input type="date" name="date" class="form-control" 
+                                   value="{{ selected_date|date:'Y-m-d'|default:'' }}">
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-sync"></i> تحديث
+                            </button>
+                        </div>
+                        <div class="col-md-5 text-end">
+                            <button type="button" onclick="window.print()" class="btn btn-success">
+                                <i class="fas fa-print"></i> طباعة
+                            </button>
+                            <button type="button" onclick="exportToExcel()" class="btn btn-info">
+                                <i class="fas fa-file-excel"></i> تصدير Excel
+                            </button>
+                            <button type="button" onclick="exportToPDF()" class="btn btn-danger">
+                                <i class="fas fa-file-pdf"></i> تصدير PDF
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Financial Statement -->
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card border-0 shadow-lg financial-statement">
+                <!-- Header -->
+                <div class="statement-header">
+                    <h2 class="mb-2">الميزانية العمومية</h2>
+                    <h5 class="mb-0">كما في {{ selected_date|date:"Y/m/d" }}</h5>
+                </div>
+
+                <div class="card-body p-4">
+                    <div class="row">
+                        <!-- ASSETS (Left Side) -->
+                        <div class="col-md-6">
+                            <h4 class="text-center mb-4 text-primary">الأصول</h4>
+
+                            <!-- Current Assets -->
+                            <div class="section-title">الأصول المتداولة</div>
+                            {% for asset in current_assets %}
+                            <div class="account-row d-flex justify-content-between">
+                                <span>{{ asset.name }}</span>
+                                <span>{{ asset.balance|floatformat:2 }}</span>
+                            </div>
+                            {% endfor %}
+                            <div class="total-row d-flex justify-content-between">
+                                <span>إجمالي الأصول المتداولة</span>
+                                <span>{{ total_current_assets|floatformat:2 }}</span>
+                            </div>
+
+                            <!-- Fixed Assets -->
+                            <div class="section-title">الأصول الثابتة</div>
+                            {% for asset in fixed_assets %}
+                            <div class="account-row d-flex justify-content-between">
+                                <span>{{ asset.name }}</span>
+                                <span>{{ asset.balance|floatformat:2 }}</span>
+                            </div>
+                            {% endfor %}
+                            <div class="total-row d-flex justify-content-between">
+                                <span>إجمالي الأصول الثابتة</span>
+                                <span>{{ total_fixed_assets|floatformat:2 }}</span>
+                            </div>
+
+                            <!-- Other Assets -->
+                            {% if other_assets %}
+                            <div class="section-title">أصول أخرى</div>
+                            {% for asset in other_assets %}
+                            <div class="account-row d-flex justify-content-between">
+                                <span>{{ asset.name }}</span>
+                                <span>{{ asset.balance|floatformat:2 }}</span>
+                            </div>
+                            {% endfor %}
+                            <div class="total-row d-flex justify-content-between">
+                                <span>إجمالي الأصول الأخرى</span>
+                                <span>{{ total_other_assets|floatformat:2 }}</span>
+                            </div>
+                            {% endif %}
+
+                            <!-- Total Assets -->
+                            <div class="grand-total d-flex justify-content-between mt-3">
+                                <span>إجمالي الأصول</span>
+                                <span>{{ total_assets|floatformat:2 }}</span>
+                            </div>
+                        </div>
+
+                        <!-- LIABILITIES & EQUITY (Right Side) -->
+                        <div class="col-md-6">
+                            <h4 class="text-center mb-4 text-success">الخصوم وحقوق الملكية</h4>
+
+                            <!-- Current Liabilities -->
+                            <div class="section-title">الخصوم المتداولة</div>
+                            {% for liability in current_liabilities %}
+                            <div class="account-row d-flex justify-content-between">
+                                <span>{{ liability.name }}</span>
+                                <span>{{ liability.balance|floatformat:2 }}</span>
+                            </div>
+                            {% endfor %}
+                            <div class="total-row d-flex justify-content-between">
+                                <span>إجمالي الخصوم المتداولة</span>
+                                <span>{{ total_current_liabilities|floatformat:2 }}</span>
+                            </div>
+
+                            <!-- Long-term Liabilities -->
+                            <div class="section-title">الخصوم طويلة الأجل</div>
+                            {% for liability in long_term_liabilities %}
+                            <div class="account-row d-flex justify-content-between">
+                                <span>{{ liability.name }}</span>
+                                <span>{{ liability.balance|floatformat:2 }}</span>
+                            </div>
+                            {% endfor %}
+                            <div class="total-row d-flex justify-content-between">
+                                <span>إجمالي الخصوم طويلة الأجل</span>
+                                <span>{{ total_long_term_liabilities|floatformat:2 }}</span>
+                            </div>
+
+                            <!-- Total Liabilities -->
+                            <div class="total-row bg-warning d-flex justify-content-between mt-2">
+                                <span>إجمالي الخصوم</span>
+                                <span>{{ total_liabilities|floatformat:2 }}</span>
+                            </div>
+
+                            <!-- Equity -->
+                            <div class="section-title">حقوق الملكية</div>
+                            {% for equity in equity_accounts %}
+                            <div class="account-row d-flex justify-content-between">
+                                <span>{{ equity.name }}</span>
+                                <span>{{ equity.balance|floatformat:2 }}</span>
+                            </div>
+                            {% endfor %}
+                            <div class="account-row d-flex justify-content-between">
+                                <span>صافي الربح (الخسارة)</span>
+                                <span>{{ net_income|floatformat:2 }}</span>
+                            </div>
+                            <div class="total-row d-flex justify-content-between">
+                                <span>إجمالي حقوق الملكية</span>
+                                <span>{{ total_equity|floatformat:2 }}</span>
+                            </div>
+
+                            <!-- Total Liabilities & Equity -->
+                            <div class="grand-total d-flex justify-content-between mt-3">
+                                <span>إجمالي الخصوم وحقوق الملكية</span>
+                                <span>{{ total_liabilities_equity|floatformat:2 }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Balance Check -->
+                    <div class="mt-4 text-center">
+                        {% if balance_check %}
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle"></i>
+                                الميزانية متوازنة
+                            </div>
+                        {% else %}
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                تحذير: الميزانية غير متوازنة! الفرق: {{ balance_difference|floatformat:2 }}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="card-footer bg-light text-center no-print">
+                    <small class="text-muted">
+                        تم الإنشاء بواسطة نظام Tony ERP في {{ now|date:"Y-m-d H:i" }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function exportToExcel() {
+    alert('سيتم تصدير الميزانية إلى Excel');
+    // Implementation for Excel export
+}
+
+function exportToPDF() {
+    alert('سيتم تصدير الميزانية إلى PDF');
+    // Implementation for PDF export
+}
+</script>
+{% endblock %}

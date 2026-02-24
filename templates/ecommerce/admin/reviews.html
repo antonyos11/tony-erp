@@ -1,0 +1,168 @@
+﻿{% extends 'ecommerce/admin/base_admin.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - لوحة تحكم المتجر{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-1">
+                        <i class="fas fa-star text-warning me-2"></i>
+                        {{ page_title }}
+                    </h4>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">الرئيسية</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'ecommerce:admin_dashboard' %}">المتجر</a></li>
+                            <li class="breadcrumb-item active">التقييمات</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="?approved=false" class="btn btn-{% if request.GET.approved == 'false' %}warning{% else %}outline-warning{% endif %}">
+                        <i class="fas fa-clock me-1"></i>
+                        معلقة ({{ pending_count }})
+                    </a>
+                    <a href="?approved=true" class="btn btn-{% if request.GET.approved == 'true' %}success{% else %}outline-success{% endif %}">
+                        <i class="fas fa-check me-1"></i>
+                        موافق عليها
+                    </a>
+                    <a href="{% url 'ecommerce:admin_reviews' %}" class="btn btn-{% if not request.GET.approved %}primary{% else %}outline-primary{% endif %}">
+                        الكل
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- جدول التقييمات -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="bg-dark bg-opacity-50">
+                        <tr>
+                            <th>المنتج</th>
+                            <th>العميل</th>
+                            <th>التقييم</th>
+                            <th>التعليق</th>
+                            <th>التاريخ</th>
+                            <th>الحالة</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for review in reviews %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if review.product.main_image %}
+                                        <img src="{{ review.product.main_image.url }}" alt="{{ review.product.name }}"
+                                             class="rounded me-2" style="width: 40px; height: 40px; object-fit: cover;">
+                                    {% endif %}
+                                    <a href="#">{{ review.product.name|truncatechars:30 }}</a>
+                                </div>
+                            </td>
+                            <td>
+                                <div>{{ review.user.get_full_name|default:review.user.username }}</div>
+                                <small class="text-muted">{{ review.user.email }}</small>
+                            </td>
+                            <td>
+                                <div class="text-warning">
+                                    {% for i in "12345" %}
+                                        {% if forloop.counter <= review.rating %}
+                                            <i class="fas fa-star"></i>
+                                        {% else %}
+                                            <i class="far fa-star"></i>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td>
+                                <div style="max-width: 300px;">
+                                    {{ review.comment|truncatechars:100|default:"—" }}
+                                </div>
+                            </td>
+                            <td>{{ review.created_at|date:"Y/m/d H:i" }}</td>
+                            <td>
+                                {% if review.is_approved %}
+                                    <span class="badge bg-success">موافق عليه</span>
+                                {% else %}
+                                    <span class="badge bg-warning">معلق</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    {% if not review.is_approved %}
+                                    <button type="button" class="btn btn-outline-success" 
+                                            onclick="approveReview({{ review.pk }})" title="موافقة">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                    {% endif %}
+                                    <button type="button" class="btn btn-outline-danger"
+                                            onclick="confirmDelete('{% url 'ecommerce:admin_review_delete' review.pk %}')" title="حذف">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <i class="fas fa-star fa-4x text-muted mb-3 d-block"></i>
+                                <h5 class="text-muted">لا توجد تقييمات</h5>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal تأكيد الحذف -->
+<div class="modal fade" id="deleteModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تأكيد الحذف</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>هل أنت متأكد من حذف هذا التقييم؟</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <a href="#" id="deleteBtn" class="btn btn-danger">حذف</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function approveReview(id) {
+    fetch(`/store/admin/reviews/${id}/approve/`, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    }).then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+function confirmDelete(url) {
+    document.getElementById('deleteBtn').href = url;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+{% endblock %}

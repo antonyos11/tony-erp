@@ -1,0 +1,476 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}تتبع المناديب - خريطة حية{% endblock %}
+
+{% block extra_head %}
+<style>
+    :root {
+        --panel: rgba(255,255,255,0.95);
+        --accent: #22c55e;
+        --primary: #3b82f6;
+    }
+    [data-theme="dark"] {
+        --panel: rgba(15,23,42,0.95);
+    }
+    .tracking-page {
+        display: flex;
+        height: calc(100vh - 80px);
+        gap: 0;
+    }
+    .map-section {
+        flex: 1;
+        position: relative;
+    }
+    #map {
+        width: 100%;
+        height: 100%;
+    }
+    .sidebar-section {
+        width: 360px;
+        background: var(--panel);
+        border-inline-start: 1px solid rgba(0,0,0,0.1);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .sidebar-header {
+        padding: 16px 20px;
+        background: linear-gradient(135deg, #3b82f6, #6366f1);
+        color: white;
+    }
+    .sidebar-header h5 {
+        margin: 0;
+        font-weight: 700;
+    }
+    .sidebar-stats {
+        display: flex;
+        gap: 16px;
+        margin-top: 12px;
+    }
+    .stat-item {
+        text-align: center;
+    }
+    .stat-value {
+        font-size: 24px;
+        font-weight: 700;
+    }
+    .stat-label {
+        font-size: 11px;
+        opacity: 0.8;
+    }
+    .sidebar-body {
+        flex: 1;
+        overflow-y: auto;
+    }
+    .rep-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 20px;
+        border-bottom: 1px solid rgba(0,0,0,0.06);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .rep-item:hover {
+        background: rgba(59,130,246,0.08);
+    }
+    .rep-item.active {
+        background: rgba(59,130,246,0.12);
+        border-inline-start: 3px solid var(--primary);
+    }
+    .rep-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 14px;
+        position: relative;
+        flex-shrink: 0;
+    }
+    .status-dot {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 2px solid white;
+    }
+    .status-dot.online { background: #22c55e; }
+    .status-dot.offline { background: #94a3b8; }
+    .rep-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .rep-name {
+        font-weight: 600;
+        margin-bottom: 2px;
+        color: var(--text-primary, #1f2937);
+    }
+    .rep-location {
+        font-size: 12px;
+        color: #64748b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .rep-time {
+        font-size: 11px;
+        color: #94a3b8;
+    }
+    .rep-actions {
+        display: flex;
+        gap: 6px;
+    }
+    .rep-actions button {
+        width: 32px;
+        height: 32px;
+        border: none;
+        border-radius: 8px;
+        background: rgba(59,130,246,0.1);
+        color: #3b82f6;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .rep-actions button:hover {
+        background: #3b82f6;
+        color: white;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: #94a3b8;
+    }
+    .empty-state i {
+        font-size: 48px;
+        margin-bottom: 16px;
+    }
+    .refresh-bar {
+        padding: 12px 20px;
+        background: rgba(0,0,0,0.03);
+        border-top: 1px solid rgba(0,0,0,0.06);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12px;
+        color: #64748b;
+    }
+    .btn-refresh {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 13px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .btn-refresh:hover {
+        opacity: 0.9;
+    }
+    .mobile-link-bar {
+        padding: 12px 20px;
+        background: linear-gradient(90deg, #22c55e, #10b981);
+        color: white;
+    }
+    .mobile-link-bar a {
+        color: white;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    @media (max-width: 768px) {
+        .tracking-page {
+            flex-direction: column;
+            height: auto;
+        }
+        .map-section {
+            height: 50vh;
+        }
+        .sidebar-section {
+            width: 100%;
+            height: 50vh;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tracking-page">
+    <!-- Map Section -->
+    <div class="map-section">
+        <div id="map"></div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="sidebar-section">
+        <div class="sidebar-header">
+            <h5><i class="bi bi-geo-alt-fill me-2"></i>تتبع المناديب</h5>
+            <div class="sidebar-stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="onlineCount">0</div>
+                    <div class="stat-label">متصل</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="offlineCount">0</div>
+                    <div class="stat-label">غير متصل</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="totalCount">0</div>
+                    <div class="stat-label">إجمالي</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mobile-link-bar">
+            <i class="bi bi-phone me-2"></i>
+            رابط المندوب: <a href="{% url 'sales:rep_mobile_tracker' %}" target="_blank">/sales/location/mobile/</a>
+        </div>
+        
+        <div class="sidebar-body" id="repsList">
+            <div class="empty-state">
+                <i class="bi bi-hourglass-split"></i>
+                <p>جاري تحميل المناديب...</p>
+            </div>
+        </div>
+        
+        <div class="refresh-bar">
+            <span id="lastUpdate">آخر تحديث: --</span>
+            <button class="btn-refresh" onclick="loadReps()">
+                <i class="bi bi-arrow-clockwise"></i>
+                تحديث
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Google Maps Script -->
+<script>
+let map;
+let markers = {};
+let infoWindow;
+
+function initMap() {
+    // Default center (Egypt)
+    const defaultCenter = { lat: 24.7136, lng: 46.6753 };
+    
+    map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 6,
+        center: defaultCenter,
+        styles: [
+            { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }
+        ],
+        mapTypeControl: true,
+        streetViewControl: false,
+        fullscreenControl: true,
+    });
+    
+    infoWindow = new google.maps.InfoWindow();
+    
+    // Load reps after map is ready
+    loadReps();
+    
+    // Auto-refresh every 30 seconds
+    setInterval(loadReps, 30000);
+}
+
+async function loadReps() {
+    try {
+        const response = await fetch('/sales/location/tracking/api/');
+        const data = await response.json();
+        
+        if (data.success) {
+            updateRepsList(data.users);
+            updateMarkers(data.users);
+            updateStats(data);
+            document.getElementById('lastUpdate').textContent = 'آخر تحديث: ' + new Date().toLocaleTimeString('ar-EG');
+        }
+    } catch (err) {
+        console.error('Error loading reps:', err);
+    }
+}
+
+function updateStats(data) {
+    const online = data.users.filter(u => u.is_online).length;
+    const offline = data.users.length - online;
+    document.getElementById('onlineCount').textContent = online;
+    document.getElementById('offlineCount').textContent = offline;
+    document.getElementById('totalCount').textContent = data.users.length;
+}
+
+function updateRepsList(users) {
+    const container = document.getElementById('repsList');
+    
+    if (users.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="bi bi-person-x"></i>
+                <p>لا يوجد مناديب مسجلين حالياً</p>
+                <small>أرسل رابط التتبع للمناديب لبدء التتبع</small>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = users.map(user => `
+        <div class="rep-item" onclick="focusOnRep(${user.id}, ${user.latitude}, ${user.longitude})">
+            <div class="rep-avatar">
+                ${getInitials(user.name)}
+                <span class="status-dot ${user.is_online ? 'online' : 'offline'}"></span>
+            </div>
+            <div class="rep-info">
+                <div class="rep-name">${user.name}</div>
+                <div class="rep-location">${user.customer || 'موقع غير محدد'}</div>
+                <div class="rep-time"><i class="bi bi-clock me-1"></i>${user.last_seen || '--'}</div>
+            </div>
+            <div class="rep-actions">
+                <button onclick="event.stopPropagation(); openInMaps(${user.latitude}, ${user.longitude})" title="فتح في Google Maps">
+                    <i class="bi bi-geo-alt"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function updateMarkers(users) {
+    // Clear old markers that are not in the new list
+    const currentIds = users.map(u => u.id);
+    Object.keys(markers).forEach(id => {
+        if (!currentIds.includes(parseInt(id))) {
+            markers[id].setMap(null);
+            delete markers[id];
+        }
+    });
+    
+    // Update or create markers
+    const bounds = new google.maps.LatLngBounds();
+    let hasValidLocation = false;
+    
+    users.forEach(user => {
+        if (user.latitude && user.longitude) {
+            const position = { lat: user.latitude, lng: user.longitude };
+            hasValidLocation = true;
+            bounds.extend(position);
+            
+            if (markers[user.id]) {
+                // Update existing marker
+                markers[user.id].setPosition(position);
+            } else {
+                // Create new marker
+                const marker = new google.maps.Marker({
+                    position: position,
+                    map: map,
+                    title: user.name,
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: 12,
+                        fillColor: user.is_online ? '#22c55e' : '#94a3b8',
+                        fillOpacity: 1,
+                        strokeColor: '#ffffff',
+                        strokeWeight: 3,
+                    },
+                    animation: google.maps.Animation.DROP,
+                });
+                
+                marker.addListener('click', () => {
+                    infoWindow.setContent(`
+                        <div style="padding: 8px; min-width: 180px;">
+                            <strong style="font-size: 14px;">${user.name}</strong><br>
+                            <span style="color: #666;">${user.customer || 'بدون عميل'}</span><br>
+                            <small style="color: #999;">آخر تحديث: ${user.last_seen || '--'}</small><br>
+                            <a href="https://www.google.com/maps?q=${user.latitude},${user.longitude}" target="_blank" style="color: #3b82f6; font-size: 12px;">فتح في Google Maps</a>
+                        </div>
+                    `);
+                    infoWindow.open(map, marker);
+                });
+                
+                markers[user.id] = marker;
+            }
+        }
+    });
+    
+    // Fit map to show all markers
+    if (hasValidLocation && users.length > 0) {
+        map.fitBounds(bounds);
+        if (users.length === 1) {
+            map.setZoom(15);
+        }
+    }
+}
+
+function getInitials(name) {
+    if (!name) return '??';
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+        return parts[0][0] + parts[1][0];
+    }
+    return name.substring(0, 2);
+}
+
+function focusOnRep(id, lat, lng) {
+    if (lat && lng) {
+        map.setCenter({ lat, lng });
+        map.setZoom(16);
+        
+        if (markers[id]) {
+            google.maps.event.trigger(markers[id], 'click');
+        }
+    }
+    
+    // Highlight in list
+    document.querySelectorAll('.rep-item').forEach(el => el.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+}
+
+function openInMaps(lat, lng) {
+    if (lat && lng) {
+        window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+    }
+}
+</script>
+
+<!-- Load Google Maps API -->
+<script async defer
+    src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAPS_API_KEY|default:'' }}&callback=initMap&language=ar">
+</script>
+
+<!-- Fallback if no API key -->
+<script>
+if (!window.google) {
+    // If Google Maps fails to load, show a message
+    setTimeout(() => {
+        if (!window.google) {
+            document.getElementById('map').innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: center; height: 100%; flex-direction: column; background: #f1f5f9; color: #64748b;">
+                    <i class="bi bi-map" style="font-size: 64px; margin-bottom: 16px;"></i>
+                    <h4>يرجى إضافة مفتاح Google Maps API</h4>
+                    <p>أضف GOOGLE_MAPS_API_KEY في الإعدادات</p>
+                    <p><small>أو استخدم الروابط المباشرة للخريطة</small></p>
+                </div>
+            `;
+            // Still load reps
+            loadRepsWithoutMap();
+        }
+    }, 3000);
+}
+
+async function loadRepsWithoutMap() {
+    try {
+        const response = await fetch('/sales/location/tracking/api/');
+        const data = await response.json();
+        if (data.success) {
+            updateRepsList(data.users);
+            updateStats(data);
+        }
+    } catch (err) {}
+}
+</script>
+{% endblock %}

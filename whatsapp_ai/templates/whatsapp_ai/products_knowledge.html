@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .product-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        transition: all 0.3s ease;
+        border-right: 4px solid #667eea;
+    }
+    
+    .product-card:hover {
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        transform: translateX(-5px);
+    }
+    
+    .product-name {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #333;
+    }
+    
+    .product-code {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .product-price {
+        font-size: 1.3rem;
+        font-weight: bold;
+        color: #28a745;
+    }
+    
+    .category-badge {
+        display: inline-block;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        background: #667eea;
+        color: white;
+    }
+    
+    .popularity-badge {
+        display: inline-block;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        background: #ffc107;
+        color: #000;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        color: #6c757d;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-1">
+                        <i class="fas fa-box-open me-2"></i>
+                        {{ page_title }}
+                    </h1>
+                    <small class="text-muted">إجمالي المنتجات: {{ total_products }} منتج</small>
+                </div>
+                <div>
+                    <a href="{% url 'whatsapp_ai_web:categories_manage' %}" class="btn btn-info me-2">
+                        <i class="fas fa-tags me-2"></i>
+                        إدارة الفئات
+                    </a>
+                    <button type="button" class="btn btn-success me-2" onclick="syncProducts()">
+                        <i class="fas fa-sync me-2"></i>
+                        مزامنة المنتجات
+                    </button>
+                    <a href="{% url 'whatsapp_ai_web:dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-right me-2"></i>
+                        العودة للوحة التحكم
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-4">
+                            <input type="text" name="search" class="form-control" 
+                                   placeholder="بحث بالاسم أو الكود..." 
+                                   value="{{ search_query }}">
+                        </div>
+                        <div class="col-md-3">
+                            <select name="category" class="form-select">
+                                <option value="">جميع الفئات</option>
+                                {% for cat in categories %}
+                                    <option value="{{ cat }}" {% if cat == category_filter %}selected{% endif %}>{{ cat }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search me-2"></i>
+                                بحث
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if messages %}
+    <div class="row">
+        <div class="col-12">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Products List -->
+    <div class="row">
+        {% if products %}
+            {% for product in products %}
+            <div class="col-md-6 col-lg-4">
+                <div class="product-card {% if not product.is_active %}opacity-50{% endif %}">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h5 class="product-name mb-1">{{ product.product_name }}</h5>
+                            <span class="product-code">{{ product.product_code }}</span>
+                        </div>
+                        <div class="d-flex gap-1">
+                            {% if product.category %}
+                                <span class="category-badge">{{ product.category }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if product.description %}
+                        <p class="text-muted mb-3">{{ product.description|truncatechars:100 }}</p>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        {% if product.price %}
+                            <span class="product-price">{{ product.price|floatformat:2 }} ر.س</span>
+                        {% else %}
+                            <span class="text-muted">بدون سعر</span>
+                        {% endif %}
+                        <span class="popularity-badge">
+                            <i class="fas fa-star me-1"></i>
+                            {{ product.popularity_score|floatformat:0 }}
+                        </span>
+                    </div>
+                    
+                    {% if product.times_mentioned > 0 %}
+                        <div class="mt-2 text-muted small">
+                            <i class="fas fa-comment me-1"></i>
+                            تم ذكره {{ product.times_mentioned }} مرة
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Action Buttons -->
+                    <div class="mt-3 pt-2 border-top d-flex gap-1 justify-content-end">
+                        <a href="{% url 'whatsapp_ai_web:product_edit' product.id %}" class="btn btn-sm btn-outline-primary" title="تعديل">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <button type="button" class="btn btn-sm btn-outline-{{ product.is_active|yesno:'warning,success' }}" 
+                                onclick="toggleProduct({{ product.id }}, this)" 
+                                title="{{ product.is_active|yesno:'إلغاء التفعيل,تفعيل' }}">
+                            <i class="fas fa-{{ product.is_active|yesno:'eye-slash,eye' }}"></i>
+                        </button>
+                        <a href="{% url 'whatsapp_ai_web:product_delete' product.id %}" class="btn btn-sm btn-outline-danger" title="حذف">
+                            <i class="fas fa-trash"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+            <div class="col-12 mt-4">
+                <nav aria-label="Page navigation">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if category_filter %}&category={{ category_filter }}{% endif %}">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if category_filter %}&category={{ category_filter }}{% endif %}">
+                                    <i class="fas fa-angle-right"></i> السابق
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        <li class="page-item disabled">
+                            <span class="page-link">
+                                صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}
+                            </span>
+                        </li>
+                        
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if category_filter %}&category={{ category_filter }}{% endif %}">
+                                    التالي <i class="fas fa-angle-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if category_filter %}&category={{ category_filter }}{% endif %}">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                <p class="text-center text-muted">
+                    عرض {{ page_obj.start_index }} - {{ page_obj.end_index }} من {{ page_obj.paginator.count }} منتج
+                </p>
+            </div>
+            {% endif %}
+            
+        {% else %}
+            <div class="col-12">
+                <div class="empty-state">
+                    <i class="fas fa-box-open d-block"></i>
+                    <h4>لا توجد منتجات</h4>
+                    <p class="text-muted">لم يتم إضافة أي منتجات لقاعدة المعرفة بعد</p>
+                    <button type="button" class="btn btn-success btn-lg mt-3" onclick="syncProducts()">
+                        <i class="fas fa-sync me-2"></i>
+                        مزامنة المنتجات من المخزون
+                    </button>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function syncProducts() {
+    if (!confirm('هل تريد مزامنة جميع المنتجات من المخزون إلى قاعدة المعرفة؟')) return;
+    
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>جاري المزامنة...';
+    btn.disabled = true;
+    
+    const csrfToken = getCookie('csrftoken') || '{{ csrf_token }}';
+    
+    fetch('/api/whatsapp-ai/sync/products/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (!response.ok) {
+            // إذا كانت الاستجابة ليست OK، نحاول قراءة الخطأ
+            return response.text().then(text => {
+                try {
+                    const data = JSON.parse(text);
+                    throw new Error(data.error || data.detail || 'حدث خطأ في الخادم');
+                } catch (e) {
+                    if (e.message && !e.message.includes('JSON')) {
+                        throw e;
+                    }
+                    throw new Error('حدث خطأ في الخادم. يرجى إعادة تحميل الصفحة والمحاولة مرة أخرى.');
+                }
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            alert(`تم مزامنة ${data.synced_count} منتج بنجاح!`);
+            location.reload();
+        } else {
+            alert(data.error || 'حدث خطأ');
+        }
+    })
+    .catch(error => {
+        alert('حدث خطأ: ' + error.message);
+    })
+    .finally(() => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    });
+}
+
+function toggleProduct(productId, btn) {
+    const csrfToken = getCookie('csrftoken') || '{{ csrf_token }}';
+    
+    fetch(`/social-media/products/${productId}/toggle/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // تحديث شكل الزر
+            const card = btn.closest('.product-card');
+            if (data.is_active) {
+                card.classList.remove('opacity-50');
+                btn.classList.remove('btn-outline-success');
+                btn.classList.add('btn-outline-warning');
+                btn.innerHTML = '<i class="fas fa-eye-slash"></i>';
+                btn.title = 'إلغاء التفعيل';
+            } else {
+                card.classList.add('opacity-50');
+                btn.classList.remove('btn-outline-warning');
+                btn.classList.add('btn-outline-success');
+                btn.innerHTML = '<i class="fas fa-eye"></i>';
+                btn.title = 'تفعيل';
+            }
+        } else {
+            alert(data.error || 'حدث خطأ');
+        }
+    })
+    .catch(error => {
+        alert('حدث خطأ: ' + error.message);
+    });
+}
+</script>
+{% endblock %}

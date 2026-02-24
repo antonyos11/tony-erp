@@ -1,0 +1,568 @@
+{% extends 'ecommerce/store_base_new.html' %}
+{% load static i18n %}
+
+{% block title %}صمم مرتبتك الخاصة - {{ store_settings.store_name|default:"Tony Store" }}{% endblock %}
+{% block meta_description %}صمّم مرتبتك المثالية خطوة بخطوة. اختر المقاس والمكونات وشاهد السعر مباشرة.{% endblock %}
+
+{% block extra_css %}
+<style>
+:root { --navy: #1B2A4A; --navy-light: #2a3f6e; --gold: #C8A962; --gold-light: #dfc48a; }
+
+.builder-hero { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%); padding: 2rem 0; color: white; }
+.builder-hero h1 { font-weight: 800; font-size: 1.6rem; margin-bottom: 0.3rem; }
+.builder-hero p { opacity: 0.8; margin: 0; font-size: 0.95rem; }
+
+/* Steps */
+.steps-bar { display: flex; gap: 4px; background: #f1f5f9; border-radius: 50px; padding: 4px; margin-bottom: 1.5rem; }
+.step-pill { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; border-radius: 50px; font-weight: 600; font-size: 0.85rem; color: #94a3b8; background: transparent; transition: all 0.4s; cursor: pointer; border: none; }
+.step-pill.active { background: var(--navy); color: white; box-shadow: 0 4px 15px rgba(27,42,74,0.3); }
+.step-pill.done { background: #dcfce7; color: #15803d; }
+.step-pill i { font-size: 1rem; }
+
+/* 3D Mattress */
+.mattress-preview-container { position: sticky; top: 110px; }
+.mattress-3d-wrapper { perspective: 800px; display: flex; justify-content: center; align-items: flex-end; min-height: 320px; padding: 20px 0; }
+.mattress-3d { transform-style: preserve-3d; transform: rotateX(55deg) rotateZ(-45deg); position: relative; transition: transform 0.6s cubic-bezier(0.4,0,0.2,1); }
+.mattress-3d:hover { transform: rotateX(55deg) rotateZ(-40deg) scale(1.05); }
+.mattress-layer { position: relative; border-radius: 12px; margin-bottom: -1px; transform-style: preserve-3d; animation: layerDrop 0.6s cubic-bezier(0.34,1.56,0.64,1) both; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; transition: all 0.3s ease; }
+.mattress-layer:hover { filter: brightness(1.1); transform: translateZ(5px); }
+.mattress-layer::before { content: ''; position: absolute; right: 0; bottom: 0; width: 100%; height: 15px; background: inherit; filter: brightness(0.75); transform: rotateX(90deg); transform-origin: bottom; border-radius: 0 0 12px 12px; }
+.mattress-layer::after { content: ''; position: absolute; left: 0; top: 0; width: 15px; height: 100%; background: inherit; filter: brightness(0.85); transform: rotateY(-90deg); transform-origin: left; border-radius: 12px 0 0 12px; }
+@keyframes layerDrop { 0% { opacity: 0; transform: translateY(-40px) translateZ(60px); } 100% { opacity: 1; transform: translateY(0) translateZ(0); } }
+.layer-label { position: absolute; right: -10px; top: 50%; transform: translateY(-50%) rotateZ(45deg) rotateX(-55deg); background: rgba(255,255,255,0.95); padding: 3px 10px; border-radius: 20px; font-size: 0.65rem; font-weight: 700; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.15); color: var(--navy); pointer-events: none; z-index: 10; }
+.mattress-empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 250px; color: #94a3b8; text-align: center; }
+.mattress-empty-state i { font-size: 3rem; margin-bottom: 1rem; animation: float 3s ease-in-out infinite; }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+.exploded .mattress-layer { margin-bottom: 8px; }
+.view-toggle { position: absolute; top: 10px; left: 10px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 4px 10px; font-size: 0.7rem; font-weight: 600; cursor: pointer; color: var(--navy); z-index: 10; transition: all 0.2s; }
+.view-toggle:hover { background: var(--navy); color: white; }
+
+/* Size Cards */
+.size-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.size-card { border: 2px solid #e9ecef; border-radius: 14px; padding: 1rem 0.75rem; text-align: center; cursor: pointer; transition: all 0.3s; background: white; position: relative; overflow: hidden; }
+.size-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--gold); transform: scaleX(0); transition: transform 0.3s; }
+.size-card:hover { border-color: var(--gold); transform: translateY(-3px); box-shadow: 0 8px 25px rgba(27,42,74,0.1); }
+.size-card:hover::before { transform: scaleX(1); }
+.size-card.selected { border-color: var(--navy); background: linear-gradient(135deg, #f0f4ff, #e8ecf4); box-shadow: 0 8px 25px rgba(27,42,74,0.15); }
+.size-card.selected::before { transform: scaleX(1); background: var(--navy); }
+.size-card .size-icon { width: 44px; height: 44px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 0.5rem; font-size: 1.1rem; background: #f1f5f9; color: var(--navy); transition: all 0.3s; }
+.size-card.selected .size-icon { background: var(--navy); color: white; }
+.size-card .size-name { font-weight: 700; font-size: 0.85rem; color: #1e293b; }
+.size-card .size-dims { font-size: 0.72rem; color: #94a3b8; margin: 2px 0; }
+.size-card .size-price { font-weight: 800; color: var(--gold); font-size: 0.95rem; margin-top: 4px; }
+
+/* Component Cards */
+.cat-section { margin-bottom: 1.25rem; }
+.cat-header { display: flex; align-items: center; gap: 8px; padding: 8px 0; margin-bottom: 10px; font-weight: 700; font-size: 0.95rem; color: var(--navy); }
+.cat-dot { width: 8px; height: 8px; border-radius: 50%; }
+.cat-required { font-size: 0.7rem; background: #fee2e2; color: #dc2626; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+.cat-optional { font-size: 0.7rem; background: #f0fdf4; color: #16a34a; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+
+.comp-card { border: 2px solid #f1f5f9; border-radius: 14px; padding: 12px 16px; cursor: pointer; transition: all 0.3s; background: white; display: flex; align-items: center; gap: 12px; }
+.comp-card:hover { border-color: var(--gold-light); box-shadow: 0 4px 15px rgba(0,0,0,0.06); transform: translateX(-3px); }
+.comp-card.selected { border-color: var(--navy); background: linear-gradient(135deg, #f8faff, #f0f4ff); box-shadow: 0 4px 15px rgba(27,42,74,0.1); }
+.comp-check { width: 26px; height: 26px; min-width: 26px; border: 2px solid #d1d5db; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: all 0.3s; font-size: 0.75rem; color: transparent; }
+.comp-card.selected .comp-check { background: var(--navy); border-color: var(--navy); color: white; transform: scale(1.1); }
+.comp-info { flex: 1; min-width: 0; }
+.comp-name { font-weight: 700; font-size: 0.85rem; color: #1e293b; }
+.comp-desc { font-size: 0.75rem; color: #94a3b8; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.comp-meta { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+.comp-badge { font-size: 0.65rem; padding: 1px 6px; border-radius: 20px; font-weight: 600; }
+.quality-basic { background: #f1f5f9; color: #64748b; }
+.quality-standard { background: #dbeafe; color: #2563eb; }
+.quality-premium { background: #fef3c7; color: #d97706; }
+.quality-luxury { background: #fce7f3; color: #db2777; }
+.comp-thickness { background: #f0fdf4; color: #16a34a; }
+.comp-price-tag { font-weight: 800; color: var(--gold); font-size: 0.9rem; white-space: nowrap; text-align: left; min-width: 70px; }
+
+/* Feeling Cards */
+.feeling-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.feeling-card { border: 2px solid #e9ecef; border-radius: 16px; padding: 1.2rem 1rem; text-align: center; cursor: pointer; transition: all 0.3s; background: white; position: relative; }
+.feeling-card:hover { border-color: var(--gold-light); transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,0.08); }
+.feeling-card.selected { border-color: var(--navy); background: linear-gradient(135deg, #f0f4ff, #e8ecf4); }
+.feeling-card.detected { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.15); }
+.feeling-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+.feeling-name { font-weight: 700; font-size: 0.9rem; color: #1e293b; }
+.feeling-desc { font-size: 0.75rem; color: #94a3b8; margin: 4px 0; }
+.feeling-score-bar { height: 6px; background: #e5e7eb; border-radius: 3px; margin: 8px 0; overflow: hidden; }
+.feeling-score-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+.feeling-extra-price { font-weight: 700; color: var(--gold); font-size: 0.85rem; margin-top: 4px; }
+.feeling-tags { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-top: 6px; }
+.feeling-tag { font-size: 0.62rem; padding: 2px 6px; background: #f1f5f9; border-radius: 20px; color: #64748b; }
+
+/* AI Suggestions */
+.ai-suggestions { border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; margin-top: 12px; }
+.ai-suggestions-head { background: linear-gradient(135deg, #8b5cf6, #6d28d9); padding: 12px 16px; color: white; display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.9rem; cursor: pointer; }
+.ai-suggestions-body { padding: 12px; background: #faf5ff; max-height: 400px; overflow-y: auto; }
+.ai-tip { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border-radius: 12px; margin-bottom: 8px; background: white; border: 1px solid #e9ecef; transition: all 0.3s; cursor: pointer; }
+.ai-tip:hover { border-color: #8b5cf6; box-shadow: 0 4px 12px rgba(139,92,246,0.1); }
+.ai-tip-icon { width: 32px; height: 32px; min-width: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; color: white; }
+.ai-tip-icon.info { background: #3b82f6; }
+.ai-tip-icon.tip { background: #10b981; }
+.ai-tip-icon.upgrade { background: #f59e0b; }
+.ai-tip-icon.warning { background: #ef4444; }
+.ai-tip-icon.success { background: #059669; }
+.ai-tip-icon.savings { background: #C8A962; }
+.ai-tip-icon.health { background: #ec4899; }
+.ai-tip-text { font-size: 0.8rem; color: #475569; line-height: 1.4; }
+.ai-tip-action { font-size: 0.72rem; color: #8b5cf6; font-weight: 600; margin-top: 4px; cursor: pointer; }
+
+/* Price Panel */
+.price-panel { border-radius: 20px; overflow: hidden; box-shadow: 0 10px 40px rgba(27,42,74,0.1); border: 1px solid #e2e8f0; background: white; }
+.price-panel-head { background: linear-gradient(135deg, var(--navy), var(--navy-light)); padding: 20px; color: white; text-align: center; }
+.price-panel-head h3 { margin: 0; font-weight: 700; font-size: 1rem; }
+.price-panel-body { padding: 20px; }
+.price-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 0.85rem; border-bottom: 1px solid #f1f5f9; }
+.price-row:last-child { border: none; }
+.price-row .lbl { color: #64748b; }
+.price-row .val { font-weight: 600; color: #1e293b; }
+.total-row { display: flex; justify-content: space-between; align-items: center; padding: 16px 0 8px; margin-top: 8px; border-top: 2px dashed #e2e8f0; }
+.total-row .lbl { font-size: 1.1rem; font-weight: 800; color: var(--navy); }
+.total-row .val { font-size: 1.4rem; font-weight: 900; background: linear-gradient(135deg, var(--gold), var(--gold-light)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.selected-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.sel-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: #f1f5f9; border-radius: 20px; font-size: 0.72rem; font-weight: 600; color: #475569; animation: chipIn 0.3s ease; }
+.sel-chip .dot { width: 6px; height: 6px; border-radius: 50%; }
+@keyframes chipIn { 0% { opacity: 0; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1); } }
+
+/* Section Card */
+.section-card { background: white; border-radius: 20px; border: 1px solid #e2e8f0; overflow: hidden; margin-bottom: 1.25rem; box-shadow: 0 4px 15px rgba(0,0,0,0.04); }
+.section-head { padding: 16px 20px; display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1rem; color: var(--navy); border-bottom: 1px solid #f1f5f9; }
+.section-head .step-num { width: 28px; height: 28px; background: var(--navy); color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; }
+.section-body { padding: 20px; }
+
+/* Actions */
+.action-btns { display: flex; gap: 12px; margin-top: 1.5rem; }
+.btn-save { flex: 1; background: var(--navy); color: white; border: none; padding: 14px 24px; border-radius: 50px; font-weight: 700; font-size: 0.95rem; transition: all 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-save:hover { background: var(--navy-light); transform: translateY(-2px); box-shadow: 0 8px 25px rgba(27,42,74,0.2); color: white; }
+.btn-submit { flex: 1; background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: white; border: none; padding: 14px 24px; border-radius: 50px; font-weight: 700; font-size: 0.95rem; transition: all 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-submit:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(200,169,98,0.3); color: white; }
+.btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Feeling Badge in Summary */
+.feeling-badge-summary { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 50px; font-weight: 700; font-size: 0.85rem; color: white; }
+
+@media (max-width: 991px) { .mattress-preview-container { position: relative; top: 0; } .mattress-3d-wrapper { min-height: 220px; } .size-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); } }
+@media (max-width: 576px) { .steps-bar { flex-direction: column; border-radius: 16px; } .step-pill { border-radius: 12px; } .action-btns { flex-direction: column; } .mattress-3d { transform: rotateX(55deg) rotateZ(-45deg) scale(0.8); } .feeling-grid { grid-template-columns: 1fr 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="builder-hero">
+    <div class="container">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-2" style="--bs-breadcrumb-divider:'>';"><li class="breadcrumb-item"><a href="{% url 'ecommerce:store_home' %}" class="text-white-50">الرئيسية</a></li><li class="breadcrumb-item active text-white">صمم مرتبتك</li></ol></nav>
+        <h1><i class="bi bi-sliders2 ms-2"></i> صمم مرتبتك الخاصة خطوة بخطوة</h1>
+        <p>اختر المقاس والمكونات المناسبة وشاهد المرتبة تتكون أمامك</p>
+    </div>
+</div>
+
+<div class="container py-4" id="app">
+    <div class="steps-bar">
+        <button :class="['step-pill', currentStep===1?'active':(selectedSize?'done':'')]" @click="currentStep=1"><i :class="selectedSize?'bi bi-check-circle-fill':'bi bi-rulers'"></i><span class="d-none d-sm-inline">المقاس</span></button>
+        <button :class="['step-pill', currentStep===2?'active':(selectedComponents.length>0?'done':'')]" @click="selectedSize&&(currentStep=2)"><i :class="selectedComponents.length>0?'bi bi-check-circle-fill':'bi bi-layers'"></i><span class="d-none d-sm-inline">الطبقات</span></button>
+        <button v-if="enableFeelings" :class="['step-pill', currentStep===3?'active':(selectedFeeling?'done':'')]" @click="selectedComponents.length>0&&(currentStep=3)"><i :class="selectedFeeling?'bi bi-check-circle-fill':'bi bi-heart-pulse'"></i><span class="d-none d-sm-inline">الإحساس</span></button>
+        <button :class="['step-pill', currentStep===4?'active':'']" @click="canSubmit&&(currentStep=4)"><i class="bi bi-send-check"></i><span class="d-none d-sm-inline">المراجعة</span></button>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <!-- Step 1: المقاس -->
+            <div class="section-card" v-show="currentStep===1">
+                <div class="section-head"><span class="step-num">١</span><i class="bi bi-rulers"></i> اختر مقاس المرتبة</div>
+                <div class="section-body">
+                    <div class="size-grid">
+                        <div v-for="size in sizes" :key="size.id" :class="['size-card', selectedSize&&selectedSize.id===size.id?'selected':'']" @click="selectSize(size)">
+                            <div class="size-icon"><i :class="size.icon||'bi bi-bounding-box'"></i></div>
+                            <div class="size-name">[[ size.name ]]</div>
+                            <div class="size-dims">[[ size.width ]] × [[ size.length ]] سم</div>
+                            <div class="size-price">[[ formatPrice(size.base_price) ]]</div>
+                        </div>
+                    </div>
+                    <div v-if="sizes.length===0" class="text-center text-muted py-4"><i class="bi bi-inbox fs-1 d-block mb-2"></i>لا توجد مقاسات متاحة حالياً</div>
+                </div>
+            </div>
+
+            <!-- Step 2: الطبقات -->
+            <div v-show="currentStep===2">
+                <div v-if="!selectedSize" class="section-card"><div class="section-body text-center text-muted py-5"><i class="bi bi-hand-index-thumb fs-1 d-block mb-2"></i>اختر المقاس أولاً</div></div>
+                <div v-else>
+                    <div class="cat-section" v-for="category in sortedCategories" :key="category.id">
+                        <div class="cat-header">
+                            <span class="cat-dot" :style="{background:category.color}"></span>
+                            [[ category.name ]]
+                            <span :class="category.is_required?'cat-required':'cat-optional'">[[ category.is_required?'مطلوب':'اختياري' ]]</span>
+                            <span class="badge bg-light text-dark rounded-pill ms-auto" style="font-size:0.7rem">[[ getCategorySelectedCount(category.id) ]]/[[ getComponentsByCategory(category.id).length ]]</span>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-12" v-for="component in getComponentsByCategory(category.id)" :key="component.id">
+                                <div :class="['comp-card', isSelected(component.id)?'selected':'']" @click="toggleComponent(component,category)">
+                                    <div class="comp-check"><i class="bi bi-check2"></i></div>
+                                    <div class="comp-info">
+                                        <div class="comp-name">[[ component.name ]]</div>
+                                        <div class="comp-desc" v-if="component.short_description||component.description">[[ component.short_description||component.description ]]</div>
+                                        <div class="comp-meta">
+                                            <span :class="['comp-badge','quality-'+component.quality_level]">[[ qualityLabel(component.quality_level) ]]</span>
+                                            <span class="comp-badge comp-thickness" v-if="component.thickness>0">[[ component.thickness ]] سم</span>
+                                        </div>
+                                    </div>
+                                    <div class="comp-price-tag">[[ formatPrice(getComponentPrice(component)) ]]</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: إحساس المرتبة -->
+            <div class="section-card" v-show="currentStep===3 && enableFeelings">
+                <div class="section-head"><span class="step-num">٣</span><i class="bi bi-heart-pulse"></i> إحساس المرتبة
+                    <span v-if="detectedFeeling" class="badge bg-success ms-auto" style="font-size:0.7rem"><i class="bi bi-robot ms-1"></i> تم الكشف تلقائياً</span>
+                </div>
+                <div class="section-body">
+                    <div v-if="detectingFeeling" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <div class="mt-2 text-muted">جاري تحليل المكونات...</div>
+                    </div>
+                    <div v-else>
+                        <div v-if="detectedFeeling" class="alert alert-success py-2 px-3 mb-3" style="border-radius:12px;font-size:0.85rem">
+                            <i class="bi bi-robot ms-1"></i>
+                            <strong>اقتراح الذكاء الاصطناعي:</strong> بناءً على المكونات المختارة، إحساس المرتبة المتوقع: <strong>[[ detectedFeeling.name ]]</strong> (درجة [[ detectedFeelingScore ]]/10)
+                        </div>
+                        <p class="text-muted mb-3" style="font-size:0.85rem">اختر الإحساس المناسب لراحتك أو اعتمد على اقتراحنا الذكي</p>
+                        <div class="feeling-grid">
+                            <div v-for="feeling in feelings" :key="feeling.id" 
+                                 :class="['feeling-card', selectedFeeling&&selectedFeeling.id===feeling.id?'selected':'', detectedFeeling&&detectedFeeling.id===feeling.id&&!selectedFeeling?'detected':'']" 
+                                 @click="selectFeeling(feeling)">
+                                <div class="feeling-icon" :style="{color:feeling.color}">[[ getFeelingEmoji(feeling.firmness_score) ]]</div>
+                                <div class="feeling-name">[[ feeling.name ]]</div>
+                                <div class="feeling-desc">[[ feeling.description || feeling.firmness_level_display ]]</div>
+                                <div class="feeling-score-bar">
+                                    <div class="feeling-score-fill" :style="{width:(feeling.firmness_score*10)+'%', background: getFeelingColor(feeling.firmness_score)}"></div>
+                                </div>
+                                <div style="font-size:0.7rem;color:#94a3b8">صلابة: [[ feeling.firmness_score ]]/10</div>
+                                <div v-if="parseFloat(feeling.extra_price)>0" class="feeling-extra-price">+[[ formatPrice(feeling.extra_price) ]]</div>
+                                <div class="feeling-tags" v-if="feeling.ideal_for && feeling.ideal_for.length">
+                                    <span class="feeling-tag" v-for="tag in feeling.ideal_for.slice(0,3)" :key="tag">[[ tag ]]</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: المراجعة -->
+            <div class="section-card" v-show="currentStep===4">
+                <div class="section-head"><span class="step-num" v-text="enableFeelings?'٤':'٣'"></span><i class="bi bi-clipboard-check"></i> مراجعة التصميم</div>
+                <div class="section-body">
+                    <div class="mb-3"><label class="form-label fw-bold">اسم التصميم</label><input type="text" class="form-control" v-model="designName" placeholder="مثال: مرتبة غرفة النوم الرئيسية" style="border-radius:12px"></div>
+                    <div class="mb-3"><label class="form-label fw-bold">ملاحظات إضافية</label><textarea class="form-control" v-model="designNotes" rows="3" placeholder="أي ملاحظات أو طلبات خاصة..." style="border-radius:12px"></textarea></div>
+                    
+                    <!-- إحساس المرتبة في المراجعة -->
+                    <div v-if="selectedFeeling || detectedFeeling" class="mb-3 p-3" style="background:#f8fafc;border-radius:14px;border:1px solid #e2e8f0">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <i class="bi bi-heart-pulse" style="color:var(--navy);font-size:1.1rem"></i>
+                            <span class="fw-bold" style="color:var(--navy)">إحساس المرتبة</span>
+                        </div>
+                        <span class="feeling-badge-summary" :style="{background: (selectedFeeling||detectedFeeling).color}">
+                            [[ getFeelingEmoji((selectedFeeling||detectedFeeling).firmness_score) ]]
+                            [[ (selectedFeeling||detectedFeeling).name ]]
+                            — صلابة [[ (selectedFeeling||detectedFeeling).firmness_score ]]/10
+                        </span>
+                        <div v-if="(selectedFeeling||detectedFeeling).benefits && (selectedFeeling||detectedFeeling).benefits.length" class="mt-2">
+                            <span v-for="b in (selectedFeeling||detectedFeeling).benefits" :key="b" class="feeling-tag me-1">[[ b ]]</span>
+                        </div>
+                    </div>
+                    
+                    <h6 class="fw-bold mt-4 mb-3"><i class="bi bi-list-check ms-1 text-success"></i> ملخص الطبقات</h6>
+                    <div class="table-responsive"><table class="table table-sm align-middle"><thead class="table-light"><tr><th>الطبقة</th><th>المكون</th><th>السماكة</th><th>السعر</th></tr></thead><tbody>
+                        <tr v-for="comp in orderedSelectedComponents" :key="comp.id"><td><span class="cat-dot d-inline-block me-1" :style="{background:comp._catColor}"></span>[[ comp._catName ]]</td><td class="fw-bold">[[ comp.name ]]</td><td>[[ comp.thickness>0?comp.thickness+' سم':'—' ]]</td><td class="fw-bold" style="color:var(--gold)">[[ formatPrice(getComponentPrice(comp)) ]]</td></tr>
+                    </tbody><tfoot><tr class="fw-bold"><td colspan="2">الإجمالي</td><td>[[ totalThickness ]] سم</td><td style="color:var(--gold);font-size:1.1rem">[[ formatPrice(totalPrice) ]]</td></tr></tfoot></table></div>
+                </div>
+            </div>
+
+            <div class="action-btns">
+                <button class="btn-save" @click="saveDesign" :disabled="!canSubmit"><i class="bi bi-save"></i> حفظ مسودة</button>
+                <button class="btn-submit" @click="submitForApproval" :disabled="!canSubmit"><i class="bi bi-send-check"></i> إرسال للتصنيع</button>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <div class="col-lg-5">
+            <div class="mattress-preview-container">
+                <div class="section-card" style="position:relative">
+                    <div class="section-head"><i class="bi bi-eye"></i> معاينة المرتبة <span v-if="totalThickness>0" class="badge bg-light text-dark ms-auto" style="font-size:0.75rem">الارتفاع: [[ totalThickness ]] سم</span></div>
+                    <div style="position:relative;padding:15px">
+                        <button class="view-toggle" @click="exploded=!exploded"><i :class="exploded?'bi bi-layers':'bi bi-layers-half'"></i> [[ exploded?'مدمج':'مفكك' ]]</button>
+                        <div class="mattress-3d-wrapper">
+                            <div v-if="orderedSelectedComponents.length===0" class="mattress-empty-state"><i class="bi bi-box-seam"></i><div class="fw-bold">ابدأ باختيار الطبقات</div><div style="font-size:0.85rem">شاهد المرتبة تتكون أمامك</div></div>
+                            <div v-else :class="['mattress-3d',exploded?'exploded':'']" :style="{width:mattressWidth+'px'}">
+                                <div v-for="(comp,idx) in orderedSelectedComponents" :key="'layer-'+comp.id" class="mattress-layer" :style="getLayerStyle(comp,idx)" :title="comp.name+' ('+comp.thickness+' سم)'" @mouseenter="highlightLayer=comp.id" @mouseleave="highlightLayer=null">
+                                    <div class="layer-label" v-show="highlightLayer===comp.id||exploded">[[ comp.name ]] — [[ comp.thickness ]] سم</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="price-panel mt-3">
+                    <div class="price-panel-head"><h3><i class="bi bi-receipt ms-2"></i> ملخص التصميم</h3></div>
+                    <div class="price-panel-body">
+                        <div class="price-row"><span class="lbl">المقاس:</span><span class="val">[[ selectedSize?selectedSize.name:'—' ]]</span></div>
+                        <div class="price-row" v-if="selectedSize"><span class="lbl">الأبعاد:</span><span class="val">[[ selectedSize.width ]] × [[ selectedSize.length ]] سم</span></div>
+                        <div class="price-row"><span class="lbl">سعر الأساس:</span><span class="val">[[ formatPrice(selectedSize?selectedSize.base_price:0) ]]</span></div>
+                        <div class="price-row"><span class="lbl">المكونات ([[ selectedComponents.length ]]):</span><span class="val" style="color:var(--gold)">[[ formatPrice(componentsTotal) ]]</span></div>
+                        <div class="price-row" v-if="feelingExtraPrice>0"><span class="lbl">إحساس المرتبة:</span><span class="val" style="color:#10b981">+[[ formatPrice(feelingExtraPrice) ]]</span></div>
+                        <div class="price-row"><span class="lbl">عدد الطبقات:</span><span class="val">[[ layerCount ]]</span></div>
+                        <div class="price-row"><span class="lbl">الارتفاع الكلي:</span><span class="val">[[ totalThickness ]] سم</span></div>
+                        <div class="price-row" v-if="selectedFeeling||detectedFeeling"><span class="lbl">الإحساس:</span><span class="val"><span class="feeling-badge-summary" style="font-size:0.75rem;padding:3px 10px" :style="{background:(selectedFeeling||detectedFeeling).color}">[[ (selectedFeeling||detectedFeeling).name ]]</span></span></div>
+                        <div class="total-row"><span class="lbl">الإجمالي</span><span class="val">[[ formatPrice(totalPrice) ]]</span></div>
+                        <div v-if="selectedComponents.length>0" class="selected-chips">
+                            <span class="sel-chip" v-for="comp in orderedSelectedComponents" :key="'chip-'+comp.id"><span class="dot" :style="{background:comp._catColor}"></span>[[ comp.name ]]</span>
+                        </div>
+                        <div v-if="missingRequired.length>0" class="alert alert-warning mt-3 mb-0 py-2 px-3" style="font-size:0.8rem;border-radius:12px">
+                            <i class="bi bi-exclamation-triangle ms-1"></i><strong>طبقات مطلوبة:</strong>
+                            <span v-for="(cat,i) in missingRequired" :key="cat.id">[[ cat.name ]]<span v-if="i !== missingRequired.length-1">، </span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- اقتراحات الذكاء الاصطناعي -->
+                <div class="ai-suggestions mt-3" v-if="enableAI && aiSuggestions.length>0">
+                    <div class="ai-suggestions-head" @click="showAISuggestions=!showAISuggestions">
+                        <i class="bi bi-stars"></i> اقتراحات ذكية
+                        <span class="badge bg-white text-dark ms-auto" style="font-size:0.7rem">[[ aiSuggestions.length ]]</span>
+                        <i :class="showAISuggestions?'bi bi-chevron-up':'bi bi-chevron-down'" style="font-size:0.7rem"></i>
+                    </div>
+                    <div class="ai-suggestions-body" v-show="showAISuggestions">
+                        <div class="ai-tip" v-for="tip in aiSuggestions" :key="tip.id" @click="applyAISuggestion(tip)">
+                            <div :class="['ai-tip-icon', tip.style]"><i :class="tip.icon"></i></div>
+                            <div>
+                                <div class="ai-tip-text">[[ tip.message ]]</div>
+                                <div class="ai-tip-action" v-if="tip.suggested_component">
+                                    <i class="bi bi-plus-circle ms-1"></i> إضافة [[ tip.suggested_component.name ]]
+                                </div>
+                                <div class="ai-tip-action" v-if="tip.suggested_feeling">
+                                    <i class="bi bi-heart-pulse ms-1"></i> اختيار إحساس [[ tip.suggested_feeling.name ]]
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+const {createApp}=Vue;
+const _builderCsrf='{{ csrf_token }}';
+axios.defaults.headers.common['X-CSRFToken']=_builderCsrf;
+
+const app = createApp({
+    delimiters:['[[',']]'],
+    data(){return{
+        sizes:[],categories:[],components:[],feelings:[],
+        selectedSize:null,selectedComponents:[],selectedFeeling:null,
+        detectedFeeling:null,detectedFeelingScore:5,detectingFeeling:false,
+        currentStep:1,designName:'',designNotes:'',
+        exploded:false,highlightLayer:null,saving:false,
+        enableFeelings:{{ enable_feelings|yesno:"true,false" }},
+        enableFeelingDetection:{{ enable_feeling_detection|yesno:"true,false" }},
+        enableAI:{{ enable_ai|yesno:"true,false" }},
+        aiSuggestions:[],showAISuggestions:true,
+    }},
+    computed:{
+        sortedCategories(){return[...this.categories].sort((a,b)=>a.layer_order-b.layer_order)},
+        orderedSelectedComponents(){return[...this.selectedComponents].sort((a,b)=>(a._layerOrder||0)-(b._layerOrder||0))},
+        componentsTotal(){return this.selectedComponents.reduce((s,c)=>s+this.getComponentPrice(c),0)},
+        feelingExtraPrice(){
+            const f=this.selectedFeeling||this.detectedFeeling;
+            return f?parseFloat(f.extra_price||0):0;
+        },
+        totalPrice(){return(this.selectedSize?parseFloat(this.selectedSize.base_price):0)+this.componentsTotal+this.feelingExtraPrice},
+        totalThickness(){return this.selectedComponents.reduce((s,c)=>s+parseFloat(c.thickness||0),0)},
+        layerCount(){return this.selectedComponents.filter(c=>parseFloat(c.thickness||0)>0).length},
+        canSubmit(){return this.selectedSize&&this.selectedComponents.length>0&&this.missingRequired.length===0},
+        missingRequired(){return this.categories.filter(cat=>cat.is_required&&!this.selectedComponents.some(c=>c.category===cat.id))},
+        mattressWidth(){if(!this.selectedSize)return 160;return Math.min(200,Math.max(120,parseFloat(this.selectedSize.width)*1.1))},
+    },
+    watch:{
+        selectedComponents:{
+            handler(){
+                if(this.enableFeelingDetection&&this.selectedComponents.length>0){
+                    this.autoDetectFeeling();
+                }
+                if(this.enableAI){
+                    this.fetchAISuggestions();
+                }
+            },
+            deep:true
+        }
+    },
+    methods:{
+        formatPrice(p){return parseFloat(p||0).toLocaleString('ar-EG',{minimumFractionDigits:0,maximumFractionDigits:0})+' ج.م'},
+        qualityLabel(l){return{basic:'أساسي',standard:'قياسي',premium:'ممتاز',luxury:'فاخر'}[l]||l},
+        getFeelingEmoji(score){
+            if(score<=2)return'☁️';if(score<=4)return'🛏️';if(score<=6)return'⚖️';
+            if(score<=8)return'💪';return'🪨';
+        },
+        getFeelingColor(score){
+            if(score<=3)return'#4ade80';if(score<=6)return'#fbbf24';return'#ef4444';
+        },
+        async loadData(){
+            try{
+                const promises=[
+                    axios.get('/ecommerce/mattress-builder/api/sizes/'),
+                    axios.get('/ecommerce/mattress-builder/api/categories/'),
+                    axios.get('/ecommerce/mattress-builder/api/components/'),
+                ];
+                if(this.enableFeelings){
+                    promises.push(axios.get('/ecommerce/mattress-builder/api/feelings/'));
+                }
+                const results=await Promise.all(promises);
+                this.sizes=results[0].data.results||results[0].data;
+                this.categories=results[1].data.results||results[1].data;
+                this.components=results[2].data.results||results[2].data;
+                if(results[3]){
+                    this.feelings=results[3].data.results||results[3].data;
+                }
+            }catch(e){console.error('Load error:',e)}
+        },
+        selectSize(size){
+            this.selectedSize=size;
+            setTimeout(()=>{this.currentStep=2},300);
+            if(this.enableAI)this.fetchAISuggestions();
+        },
+        selectFeeling(feeling){
+            this.selectedFeeling=feeling;
+        },
+        toggleComponent(component,category){
+            const idx=this.selectedComponents.findIndex(c=>c.id===component.id);
+            if(idx>-1){this.selectedComponents.splice(idx,1)}
+            else{
+                const catComps=this.selectedComponents.filter(c=>c.category===category.id);
+                if(catComps.length>=(category.max_selections||1)){
+                    const lastIdx=this.selectedComponents.findIndex(c=>c.id===catComps[catComps.length-1].id);
+                    this.selectedComponents.splice(lastIdx,1);
+                }
+                component._catName=category.name;component._catColor=category.color;component._layerOrder=category.layer_order;
+                this.selectedComponents.push(component);
+            }
+        },
+        isSelected(id){return this.selectedComponents.some(c=>c.id===id)},
+        getComponentsByCategory(catId){return this.components.filter(c=>c.category===catId)},
+        getCategorySelectedCount(catId){return this.selectedComponents.filter(c=>c.category===catId).length},
+        getComponentPrice(comp){
+            if(!this.selectedSize)return parseFloat(comp.base_price);
+            const area=(parseFloat(this.selectedSize.width)*parseFloat(this.selectedSize.length))/10000;
+            if(comp.pricing_type==='fixed')return parseFloat(comp.base_price);
+            if(comp.pricing_type==='per_sqm')return parseFloat(comp.price_per_sqm)*area;
+            return parseFloat(comp.base_price)+parseFloat(comp.price_per_sqm)*area;
+        },
+        getLayerStyle(comp,idx){
+            const thickness=parseFloat(comp.thickness||2);
+            const heightPx=Math.max(12,thickness*4);
+            const colors={base:'#8B7355',springs:'#4A90D9',support:'#7C5CBF',foam:'#F5C542',comfort:'#48BB78',fabric:'#E76F8A',padding:'#A0AEC0',cooling:'#63B3ED',extras:'#4FD1C5'};
+            const catType=this.getCategoryType(comp.category);
+            const bg=colors[catType]||comp._catColor||'#94a3b8';
+            let bgStyle=bg;const pattern=comp.texture_pattern;
+            if(pattern==='dots')bgStyle=`radial-gradient(circle,rgba(255,255,255,0.2) 1px,transparent 1px),${bg}`;
+            else if(pattern==='zigzag'||pattern==='lines')bgStyle=`repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(255,255,255,0.15) 3px,rgba(255,255,255,0.15) 6px),${bg}`;
+            else if(pattern==='waves')bgStyle=`repeating-linear-gradient(135deg,transparent,transparent 4px,rgba(255,255,255,0.1) 4px,rgba(255,255,255,0.1) 8px),${bg}`;
+            else if(pattern==='quilted')bgStyle=`repeating-conic-gradient(rgba(255,255,255,0.08) 0% 25%,transparent 0% 50%) 0 0/10px 10px,${bg}`;
+            else if(pattern==='knit'||pattern==='fabric'||pattern==='silk')bgStyle=`linear-gradient(0deg,rgba(255,255,255,0.05) 50%,transparent 50%),${bg}`;
+            return{height:heightPx+'px',background:bgStyle,backgroundSize:pattern==='dots'?'8px 8px':undefined,animationDelay:(idx*0.1)+'s'};
+        },
+        getCategoryType(catId){const cat=this.categories.find(c=>c.id===catId);return cat?cat.category_type:''},
+        
+        // كشف الإحساس التلقائي
+        async autoDetectFeeling(){
+            if(!this.enableFeelingDetection||this.selectedComponents.length===0)return;
+            this.detectingFeeling=true;
+            try{
+                const res=await axios.post('/ecommerce/mattress-builder/api/feelings/detect/',{
+                    component_ids:this.selectedComponents.map(c=>c.id)
+                });
+                if(res.data.feeling){
+                    this.detectedFeeling=res.data.feeling;
+                    this.detectedFeelingScore=res.data.calculated_score;
+                }
+            }catch(e){console.error('Detect feeling error:',e)}
+            this.detectingFeeling=false;
+        },
+        
+        // جلب اقتراحات AI
+        async fetchAISuggestions(){
+            if(!this.enableAI)return;
+            try{
+                const categoryTypes=this.selectedComponents.map(c=>this.getCategoryType(c.category));
+                const res=await axios.post('/ecommerce/mattress-builder/api/ai-recommendations/get_suggestions/',{
+                    size_id:this.selectedSize?this.selectedSize.id:null,
+                    component_ids:this.selectedComponents.map(c=>c.id),
+                    category_types:[...new Set(categoryTypes)],
+                    total_price:this.totalPrice,
+                    total_thickness:this.totalThickness,
+                    feeling_score:this.detectedFeelingScore,
+                    trigger:this.selectedComponents.length>0?'on_component_add':'on_size_select',
+                });
+                this.aiSuggestions=res.data.suggestions||[];
+            }catch(e){console.error('AI suggestions error:',e)}
+        },
+        
+        // تطبيق اقتراح AI
+        applyAISuggestion(tip){
+            if(tip.suggested_component){
+                const comp=this.components.find(c=>c.id===tip.suggested_component.id);
+                if(comp&&!this.isSelected(comp.id)){
+                    const cat=this.categories.find(c=>c.id===comp.category);
+                    if(cat){
+                        this.toggleComponent(comp,cat);
+                    }
+                }
+            }
+            if(tip.suggested_feeling){
+                const feeling=this.feelings.find(f=>f.id===tip.suggested_feeling.id);
+                if(feeling)this.selectFeeling(feeling);
+            }
+        },
+        
+        async saveDesign(){
+            if(!this.canSubmit||this.saving)return;
+            const name=this.designName||prompt('أدخل اسم التصميم:','تصميمي الجديد');
+            if(!name)return;this.saving=true;
+            try{
+                const feelingId=(this.selectedFeeling||this.detectedFeeling)?(this.selectedFeeling||this.detectedFeeling).id:null;
+                const res=await axios.post('/ecommerce/mattress-builder/api/designs/',{
+                    design_name:name,mattress_size:this.selectedSize.id,notes:this.designNotes,
+                    feeling_type:feelingId,
+                    design_data:{
+                        size:this.selectedSize,
+                        components:this.selectedComponents.map(c=>({id:c.id,name:c.name,category:c.category,thickness:c.thickness,price:this.getComponentPrice(c)})),
+                        feeling:this.selectedFeeling||this.detectedFeeling,
+                        total_thickness:this.totalThickness,
+                        total_price:this.totalPrice
+                    }
+                });
+                for(let i=0;i<this.selectedComponents.length;i++){
+                    const comp=this.selectedComponents[i];
+                    await axios.post(`/ecommerce/mattress-builder/api/designs/${res.data.id}/add_component/`,{component_id:comp.id,layer_position:i+1,quantity:1});
+                }
+                alert('تم حفظ التصميم بنجاح! ✓');
+                window.location.href='/ecommerce/mattress-builder/my-designs/';
+            }catch(e){console.error('Save error:',e);alert('حدث خطأ: '+(e.response?.data?.detail||e.response?.data?.error||'حاول مرة أخرى'))}
+            this.saving=false;
+        },
+        async submitForApproval(){
+            if(!this.canSubmit)return;this.currentStep=4;
+            if(!this.designName)return;
+            if(confirm('هل تريد إرسال التصميم للتصنيع؟\nسيتم مراجعته والتواصل معك.'))await this.saveDesign();
+        },
+    },
+    mounted(){this.loadData()}
+});
+app.mount('#app');
+</script>
+{% endblock %}

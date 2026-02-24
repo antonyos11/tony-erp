@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "دفتر الأستاذ العام" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --danger-color: #dc3545;
+        --info-color: #17a2b8;
+    }
+    .page-hero {
+        background: linear-gradient(135deg, #e17055 0%, #d63031 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    .hero-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+        flex-wrap: wrap;
+    }
+    .btn-hero {
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        background: rgba(255,255,255,0.2);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.3);
+        cursor: pointer;
+    }
+    .btn-hero:hover {
+        background: rgba(255,255,255,0.3);
+        color: white;
+        transform: translateY(-1px);
+    }
+    .filter-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        margin-bottom: 2rem;
+    }
+    .account-info-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    .account-info-card .account-name {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    .account-info-card .account-balance {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    .section-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .gl-table { width: 100%; border-collapse: collapse; }
+    .gl-table th {
+        padding: 1rem 1.25rem;
+        background: #f8f9fa;
+        font-weight: 600;
+        color: var(--primary-color);
+        text-align: right;
+        border-bottom: 2px solid #e9ecef;
+    }
+    .gl-table th.amount-col { text-align: center; }
+    .gl-table td {
+        padding: 0.85rem 1.25rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .gl-table tr:hover { background: rgba(0, 212, 170, 0.03); }
+    .gl-table tr.account-header {
+        background: rgba(30, 58, 95, 0.05);
+    }
+    .gl-table tr.account-header td {
+        font-weight: 700;
+        color: var(--primary-color);
+        font-size: 1.05rem;
+    }
+    .account-code {
+        font-family: monospace;
+        background: #f8f9fa;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-left: 0.5rem;
+    }
+    .amount-cell { text-align: center; font-weight: 600; }
+    .debit-amount { color: var(--success-color); }
+    .credit-amount { color: var(--danger-color); }
+    .je-ref {
+        font-family: monospace;
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    .empty-state { text-align: center; padding: 3rem; color: #6c757d; }
+    .empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+    .badge-balance {
+        font-size: 1rem;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+    }
+
+    [data-bs-theme="dark"] .section-card,
+    [data-bs-theme="dark"] .filter-card,
+    [data-bs-theme="dark"] .account-info-card { background: #1a1d21; }
+    [data-bs-theme="dark"] .section-header,
+    [data-bs-theme="dark"] .gl-table th { background: #2d3238; }
+    [data-bs-theme="dark"] .account-code { background: #2d3238; color: #adb5bd; }
+
+    @media print {
+        .page-hero, .hero-actions, .filter-card, nav, .sidebar, .navbar, footer, .no-print, .pagination { display: none !important; }
+        .container { max-width: 100% !important; padding: 0 !important; }
+        .section-card { box-shadow: none !important; border: 1px solid #dee2e6; }
+        .account-info-card { box-shadow: none !important; border: 1px solid #dee2e6; }
+        .gl-table th, .gl-table td { padding: 0.5rem 0.75rem; font-size: 0.85rem; }
+        body { font-size: 12px; }
+        .print-header { display: block !important; text-align: center; margin-bottom: 1rem; }
+    }
+    .print-header { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="print-header">
+        <h2>{% trans "دفتر الأستاذ العام" %}</h2>
+        {% if selected_account %}
+        <p>{{ selected_account.code }} - {{ selected_account.name }}</p>
+        {% endif %}
+        <p>{% now "Y/m/d" %}</p>
+    </div>
+
+    <div class="page-hero">
+        <h1 class="h2 mb-2">
+            <i class="fas fa-book me-2"></i>
+            {% trans "دفتر الأستاذ العام" %}
+        </h1>
+        <p class="mb-0 opacity-75">{% trans "عرض حركات الحسابات وتفاصيل القيود المحاسبية" %}</p>
+        <div class="hero-actions">
+            <a href="javascript:void(0)" onclick="window.print()" class="btn-hero">
+                <i class="fas fa-print"></i> {% trans "طباعة" %}
+            </a>
+            <a href="javascript:void(0)" onclick="window.print()" class="btn-hero">
+                <i class="fas fa-file-pdf"></i> {% trans "تصدير PDF" %}
+            </a>
+            <a href="{% url 'accounting:export_general_ledger_excel' %}" class="btn-hero">
+                <i class="fas fa-file-excel"></i> {% trans "تصدير Excel" %}
+            </a>
+        </div>
+    </div>
+
+    {# ==================== فلتر الحساب ==================== #}
+    <div class="filter-card no-print">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label fw-bold">{% trans "اختر الحساب" %}</label>
+                <select name="account" class="form-select" onchange="this.form.submit()">
+                    <option value="">-- {% trans "جميع الحسابات" %} --</option>
+                    {% for acc in accounts %}
+                    <option value="{{ acc.id }}" {% if selected_account and selected_account.id == acc.id %}selected{% endif %}>
+                        {{ acc.code }} - {{ acc.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-bold">{% trans "من تاريخ" %}</label>
+                <input type="date" name="date_from" value="{{ date_from|default:'' }}" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-bold">{% trans "إلى تاريخ" %}</label>
+                <input type="date" name="date_to" value="{{ date_to|default:'' }}" class="form-control">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search me-1"></i> {% trans "عرض" %}
+                </button>
+            </div>
+        </form>
+    </div>
+
+    {% if selected_account %}
+    {# ==================== وضع حساب محدد ==================== #}
+    <div class="account-info-card">
+        <div>
+            <span class="account-code" style="font-size: 1rem;">{{ selected_account.code }}</span>
+            <span class="account-name">{{ selected_account.name }}</span>
+            <div class="text-muted mt-1" style="font-size: 0.85rem;">
+                {% trans "النوع:" %} {{ selected_account.get_account_type_display|default:selected_account.account_type }}
+            </div>
+        </div>
+        <div>
+            <span class="badge-balance badge {% if balance >= 0 %}bg-success{% else %}bg-danger{% endif %}">
+                {% trans "الرصيد:" %} {{ balance|floatformat:2|intcomma }}
+            </span>
+        </div>
+    </div>
+
+    <div class="section-card">
+        <div class="section-header">
+            <h5 class="mb-0"><i class="fas fa-list me-2 text-primary"></i> {% trans "الحركات" %}</h5>
+            <span class="badge bg-primary">{{ total_count }} {% trans "حركة" %}</span>
+        </div>
+        {% if entries %}
+        <div class="table-responsive"><table class="gl-table">
+            <thead>
+                <tr>
+                    <th style="width: 12%;">{% trans "التاريخ" %}</th>
+                    <th style="width: 12%;">{% trans "رقم القيد" %}</th>
+                    <th style="width: 36%;">{% trans "البيان" %}</th>
+                    <th class="amount-col" style="width: 15%;">{% trans "مدين" %}</th>
+                    <th class="amount-col" style="width: 15%;">{% trans "دائن" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in entries %}
+                <tr>
+                    <td>{{ item.journal_entry.date|date:"Y/m/d" }}</td>
+                    <td><span class="je-ref">{{ item.journal_entry.id }}</span></td>
+                    <td>{{ item.journal_entry.description|default:"-" }}</td>
+                    {% if item.type == "debit" %}
+                    <td class="amount-cell debit-amount">{{ item.amount|floatformat:2|intcomma }}</td>
+                    <td class="amount-cell">-</td>
+                    {% else %}
+                    <td class="amount-cell">-</td>
+                    <td class="amount-cell credit-amount">{{ item.amount|floatformat:2|intcomma }}</td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-inbox d-block"></i>
+            <p>{% trans "لا توجد حركات لهذا الحساب في الفترة المحددة" %}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if total_pages > 1 %}
+    <nav class="mt-3 no-print">
+        <ul class="pagination justify-content-center">
+            {% if page > 1 %}
+            <li class="page-item">
+                <a class="page-link" href="?account={{ selected_account.id }}&page={{ page|add:"-1" }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">
+                    {% trans "السابق" %}
+                </a>
+            </li>
+            {% endif %}
+            <li class="page-item active"><span class="page-link">{{ page }} / {{ total_pages }}</span></li>
+            {% if page < total_pages %}
+            <li class="page-item">
+                <a class="page-link" href="?account={{ selected_account.id }}&page={{ page|add:"1" }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">
+                    {% trans "التالي" %}
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% elif accounts_data %}
+    {# ==================== الوضع الافتراضي: ملخص جميع الحسابات ==================== #}
+    <div class="section-card">
+        <div class="section-header">
+            <h5 class="mb-0"><i class="fas fa-list me-2 text-primary"></i> {% trans "ملخص الحسابات" %}</h5>
+            <span class="badge bg-primary">{{ accounts_data|length }} {% trans "حساب" %}</span>
+        </div>
+        <div class="table-responsive"><table class="gl-table">
+            <thead>
+                <tr>
+                    <th style="width: 12%;">{% trans "الكود" %}</th>
+                    <th style="width: 38%;">{% trans "اسم الحساب" %}</th>
+                    <th class="amount-col" style="width: 20%;">{% trans "الرصيد" %}</th>
+                    <th class="amount-col" style="width: 15%;">{% trans "عدد الحركات" %}</th>
+                    <th style="width: 15%;">{% trans "إجراء" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in accounts_data %}
+                <tr>
+                    <td><span class="account-code">{{ item.account.code }}</span></td>
+                    <td>{{ item.account.name }}</td>
+                    <td class="amount-cell {% if item.balance >= 0 %}debit-amount{% else %}credit-amount{% endif %}">
+                        {{ item.balance|floatformat:2|intcomma }}
+                    </td>
+                    <td class="amount-cell">{{ item.items|length }}</td>
+                    <td>
+                        <a href="?account={{ item.account.id }}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye me-1"></i> {% trans "عرض" %}
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+    </div>
+
+    {% else %}
+    {# ==================== لا توجد بيانات ==================== #}
+    <div class="section-card">
+        <div class="empty-state">
+            <i class="fas fa-inbox d-block"></i>
+            <h5>{% trans "لا توجد بيانات" %}</h5>
+            <p>{% trans "لم يتم العثور على حسابات نشطة. يرجى إنشاء حسابات أولاً." %}</p>
+            <a href="{% url 'accounting:chart_of_accounts' %}" class="btn btn-primary mt-2">
+                <i class="fas fa-sitemap me-1"></i> {% trans "إدارة شجرة الحسابات" %}
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Print/export handled by href links and window.print() */
+</script>
+{% endblock %}

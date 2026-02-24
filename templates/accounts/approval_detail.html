@@ -1,0 +1,90 @@
+{% extends 'base_v2.html' %}
+{% block extra_css %}
+<style>
+    .detail-card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    .history-item { border-right: 3px solid #dee2e6; padding: 10px 15px 10px 0; margin-right: 10px; position: relative; }
+    .history-item::before { content: ''; position: absolute; right: -7px; top: 14px; width: 11px; height: 11px; border-radius: 50%; border: 2px solid white; }
+    .history-item.approved::before { background: #28a745; }
+    .history-item.rejected::before { background: #dc3545; }
+    .history-item.pending::before { background: #ffc107; }
+    .action-card { background: #f8f9fa; border-radius: 12px; padding: 20px; border: 2px dashed #dee2e6; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-1"><i class="bi bi-file-earmark-check me-2"></i>{{ page_title }}</h4>
+            <p class="text-muted mb-0">
+                <a href="{% url 'accounts:approval_list' %}">طلبات الموافقة</a> / طلب #{{ approval.pk }}
+            </p>
+        </div>
+        <span class="badge bg-{% if approval.status == 'approved' %}success{% elif approval.status == 'rejected' %}danger{% elif approval.status == 'cancelled' %}secondary{% else %}warning{% endif %} fs-6">{{ approval.get_status_display }}</span>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="detail-card">
+                <h5 class="mb-3">بيانات الطلب</h5>
+                <div class="table-responsive"><table class="table table-borderless">
+                    <tr><td class="text-muted" style="width:40%">سير العمل:</td><td>{{ approval.workflow.name }}</td></tr>
+                    <tr><td class="text-muted">نوع المستند:</td><td>{{ approval.get_document_type_display }}</td></tr>
+                    <tr><td class="text-muted">رقم المستند:</td><td>{{ approval.document_id }}</td></tr>
+                    <tr><td class="text-muted">مقدم الطلب:</td><td>{{ approval.requested_by }}</td></tr>
+                    <tr><td class="text-muted">تاريخ الطلب:</td><td>{{ approval.created_at|date:"Y/m/d H:i" }}</td></tr>
+                    <tr><td class="text-muted">الخطوة الحالية:</td><td>{{ approval.current_step|default:"منتهي" }}</td></tr>
+                    {% if approval.notes %}<tr><td class="text-muted">ملاحظات:</td><td>{{ approval.notes }}</td></tr>{% endif %}
+                </table></div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            {% if can_act %}
+            <div class="detail-card">
+                <h5 class="mb-3"><i class="bi bi-lightning me-1"></i>اتخاذ إجراء</h5>
+                <form method="post" action="{% url 'accounts:approval_action' approval.pk %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">الإجراء</label>
+                        <select name="action" class="form-select" required>
+                            <option value="">اختر الإجراء</option>
+                            <option value="approve">موافقة</option>
+                            <option value="reject">رفض</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">ملاحظات</label>
+                        <textarea name="notes" class="form-control" rows="3" placeholder="أضف ملاحظاتك هنا..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-check-circle me-1"></i>تنفيذ</button>
+                </form>
+            </div>
+            {% else %}
+            <div class="action-card text-center text-muted">
+                <i class="bi bi-hourglass-split fs-1 d-block mb-2"></i>
+                {% if approval.status == 'pending' %}
+                <p>هذا الطلب في انتظار موافقة شخص آخر</p>
+                {% else %}
+                <p>تم الانتهاء من هذا الطلب</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if history %}
+    <div class="detail-card">
+        <h5 class="mb-3">سجل الإجراءات</h5>
+        {% for h in history %}
+        <div class="history-item {{ h.action }}">
+            <div class="d-flex justify-content-between">
+                <strong>{{ h.get_action_display }} - {{ h.user }}</strong>
+                <small class="text-muted">{{ h.created_at|date:"Y/m/d H:i" }}</small>
+            </div>
+            {% if h.notes %}<p class="text-muted mb-0 mt-1">{{ h.notes }}</p>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

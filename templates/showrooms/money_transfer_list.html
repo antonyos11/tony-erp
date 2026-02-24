@@ -1,0 +1,172 @@
+{% extends 'base_v2.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'تحويلات الأموال بين المعارض' %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-arrow-left-right me-2"></i>{% trans 'تحويلات الأموال بين المعارض' %}</h2>
+            <p class="text-muted mb-0">{% trans 'إدارة ومتابعة تحويلات الأموال بين الفروع' %}</p>
+        </div>
+        <a href="{% url 'showrooms:money_transfer_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>{% trans 'تحويل جديد' %}
+        </a>
+    </div>
+
+    <!-- إحصائيات سريعة -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="rounded-circle bg-warning bg-opacity-10 p-3 me-3">
+                        <i class="bi bi-hourglass-split text-warning" style="font-size: 1.5rem;"></i>
+                    </div>
+                    <div>
+                        <h4 class="mb-0">{{ pending_count }}</h4>
+                        <small class="text-muted">{% trans 'قيد الانتظار' %}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="rounded-circle bg-success bg-opacity-10 p-3 me-3">
+                        <i class="bi bi-check-circle text-success" style="font-size: 1.5rem;"></i>
+                    </div>
+                    <div>
+                        <h4 class="mb-0">{{ completed_today }}</h4>
+                        <small class="text-muted">{% trans 'مكتمل اليوم' %}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="rounded-circle bg-primary bg-opacity-10 p-3 me-3">
+                        <i class="bi bi-cash-stack text-primary" style="font-size: 1.5rem;"></i>
+                    </div>
+                    <div>
+                        <h4 class="mb-0">{{ total_pending_amount|floatformat:0 }}</h4>
+                        <small class="text-muted">{% trans 'مبلغ قيد الانتظار' %}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- فلاتر -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <select name="status" class="form-select">
+                        <option value="">{% trans 'جميع الحالات' %}</option>
+                        {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <select name="showroom" class="form-select">
+                        <option value="">{% trans 'جميع المعارض' %}</option>
+                        {% for s in showrooms %}
+                        <option value="{{ s.id }}" {% if current_showroom == s.id|stringformat:"s" %}selected{% endif %}>
+                            {{ s.name_ar|default:s.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-outline-primary w-100">
+                        <i class="bi bi-funnel me-1"></i>{% trans 'تصفية' %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- جدول التحويلات -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% trans 'رقم التحويل' %}</th>
+                            <th>{% trans 'من' %}</th>
+                            <th>{% trans 'إلى' %}</th>
+                            <th>{% trans 'المبلغ' %}</th>
+                            <th>{% trans 'الطريقة' %}</th>
+                            <th>{% trans 'الحالة' %}</th>
+                            <th>{% trans 'التاريخ' %}</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in transfers %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'showrooms:money_transfer_detail' t.pk %}" class="fw-bold text-decoration-none">
+                                    {{ t.transfer_number }}
+                                </a>
+                            </td>
+                            <td>
+                                <i class="bi bi-shop text-danger me-1"></i>
+                                {{ t.from_showroom.name_ar|default:t.from_showroom.name }}
+                            </td>
+                            <td>
+                                <i class="bi bi-shop text-success me-1"></i>
+                                {{ t.to_showroom.name_ar|default:t.to_showroom.name }}
+                            </td>
+                            <td><strong>{{ t.amount|floatformat:2 }}</strong> ج.م</td>
+                            <td>
+                                {% if t.transfer_method == 'cash' %}
+                                <span class="badge bg-success">{% trans 'نقدي' %}</span>
+                                {% elif t.transfer_method == 'bank' %}
+                                <span class="badge bg-primary">{% trans 'بنكي' %}</span>
+                                {% elif t.transfer_method == 'cheque' %}
+                                <span class="badge bg-info">{% trans 'شيك' %}</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ t.get_transfer_method_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if t.status == 'pending' %}
+                                <span class="badge bg-warning text-dark">{% trans 'قيد الانتظار' %}</span>
+                                {% elif t.status == 'approved' %}
+                                <span class="badge bg-info">{% trans 'معتمد' %}</span>
+                                {% elif t.status == 'completed' %}
+                                <span class="badge bg-success">{% trans 'مكتمل' %}</span>
+                                {% elif t.status == 'rejected' %}
+                                <span class="badge bg-danger">{% trans 'مرفوض' %}</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{% trans 'ملغي' %}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ t.transfer_date|date:"Y-m-d" }}</td>
+                            <td>
+                                <a href="{% url 'showrooms:money_transfer_detail' t.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5">
+                                <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+                                <p class="text-muted mt-2">{% trans 'لا توجد تحويلات' %}</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

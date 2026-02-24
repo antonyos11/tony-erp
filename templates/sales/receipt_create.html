@@ -1,0 +1,352 @@
+﻿{% extends 'base_templates/_form_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'إنشاء إيصال تحصيل' %}{% endblock %}
+{% block form_hero_icon %}bi-cash-coin{% endblock %}
+{% block form_hero_title %}{% trans 'إيصال تحصيل نقدي' %}{% endblock %}
+{% block form_hero_subtitle %}{% trans 'تسجيل عملية تحصيل من العميل' %}{% endblock %}
+
+{% block form_content %}
+<style>
+  .receipt-preview {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    text-align: center;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .receipt-preview.has-data {
+    border-style: solid;
+    border-color: var(--success);
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  }
+  .receipt-preview .receipt-icon {
+    width: 80px;
+    height: 80px;
+    background: var(--success);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    margin-bottom: 1rem;
+  }
+  .receipt-preview .receipt-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 0.5rem;
+  }
+  .receipt-preview .receipt-amount {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--success);
+  }
+  .customer-balance-card {
+    background: linear-gradient(135deg, var(--primary) 0%, #2d5a87 100%);
+    color: white;
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .customer-balance-card .balance-amount {
+    font-size: 2rem;
+    font-weight: 700;
+  }
+  .allocation-row {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    transition: var(--transition);
+  }
+  .allocation-row:hover {
+    border-color: var(--primary);
+  }
+  .allocation-row.selected {
+    border-color: var(--success);
+    background: rgba(16, 185, 129, 0.05);
+  }
+  .allocation-check {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--success);
+  }
+  .payment-methods {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+  .payment-method-btn {
+    padding: 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    background: var(--bg-card);
+    cursor: pointer;
+    text-align: center;
+    transition: var(--transition);
+  }
+  .payment-method-btn:hover {
+    border-color: var(--primary);
+  }
+  .payment-method-btn.active {
+    border-color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.1);
+  }
+  .payment-method-btn i {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    display: block;
+  }
+</style>
+
+<form method="post" id="receipt-form" novalidate>
+  {% csrf_token %}
+
+  <div class="row g-4">
+    <!-- Left Column - Form -->
+    <div class="col-lg-8">
+      <!-- Customer Selection -->
+      <div class="form-section">
+        <div class="section-header">
+          <i class="bi bi-person-badge section-icon"></i>
+          <div class="section-title">{% trans 'معلومات العميل' %}</div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label">{% trans 'العميل' %} <span class="text-danger">*</span></label>
+            <select name="customer" id="customer-select" class="form-select" required>
+              <option value="">{% trans 'اختر العميل...' %}</option>
+              {% for customer in customers %}
+              <option value="{{ customer.pk }}"
+                data-balance="{{ customer.balance }}"
+                data-phone="{ customer.phone|default:'' }">
+                {{ customer.name }} ({{ customer.balance|floatformat:2 }})
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{% trans 'التاريخ' %}</label>
+            <input type="date" name="date" class="form-control" value="{ today|date:'Y-m-d' }}" required>
+          </div>
+        </div>
+
+        <!-- Customer Balance Card -->
+        <div id="customer-balance-card" class="customer-balance-card mt-3" style="display: none;">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="small opacity-75">{% trans 'رصيد العميل الحالي' %}</div>
+              <div class="balance-amount" id="customer-balance">0.00</div>
+            </div>
+            <span class="badge bg-warning" id="balance-status">{% trans 'مدين' %}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Amount -->
+      <div class="form-section">
+        <div class="section-header">
+          <i class="bi bi-cash-coin section-icon"></i>
+          <div class="section-title">{% trans 'مبلغ التحصيل' %}</div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">{% trans 'المبلغ' %} <span class="text-danger">*</span></label>
+            <div class="input-group input-group-lg">
+              <input type="number" name="amount" id="payment-amount" class="form-control" 
+                     placeholder="0.00" min="0" step="0.01" required>
+              <span class="input-group-text">{% trans 'ج.م' %}</span>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">{% trans 'رقم الإيصال' %}</label>
+            <input type="text" name="receipt_number" class="form-control form-control-lg" 
+                   value="{ next_number }}" readonly>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Method -->
+      <div class="form-section">
+        <div class="section-header">
+          <i class="bi bi-wallet2 section-icon"></i>
+          <div class="section-title">{% trans 'طريقة الدفع' %}</div>
+        </div>
+        <div class="payment-methods">
+          <label class="payment-method-btn active">
+            <input type="radio" name="method" value="cash" checked hidden>
+            <i class="bi bi-cash text-success"></i>
+            <div>{% trans 'نقدي' %}</div>
+          </label>
+          <label class="payment-method-btn">
+            <input type="radio" name="method" value="card" hidden>
+            <i class="bi bi-credit-card text-primary"></i>
+            <div>{% trans 'بطاقة' %}</div>
+          </label>
+          <label class="payment-method-btn">
+            <input type="radio" name="method" value="bank" hidden>
+            <i class="bi bi-bank text-info"></i>
+            <div>{% trans 'تحويل' %}</div>
+          </label>
+          <label class="payment-method-btn">
+            <input type="radio" name="method" value="check" hidden>
+            <i class="bi bi-file-text text-warning"></i>
+            <div>{% trans 'شيك' %}</div>
+          </label>
+        </div>
+
+        <!-- Bank/Check Details (shown conditionally) -->
+        <div id="bank-details" class="row g-3 mt-3" style="display: none;">
+          <div class="col-md-6">
+            <label class="form-label">{% trans 'رقم المرجع/الشيك' %}</label>
+            <input type="text" name="reference" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">{% trans 'البنك' %}</label>
+            <input type="text" name="bank_name" class="form-control">
+          </div>
+        </div>
+      </div>
+
+      <!-- وجهة الدفع/التحصيل -->
+      {% include 'partials/_payment_destination.html' %}
+
+      <!-- Invoice Allocation -->
+      <div class="form-section">
+        <div class="section-header">
+          <i class="bi bi-receipt section-icon"></i>
+          <div class="section-title">{% trans 'توزيع على الفواتير' %}</div>
+        </div>
+        <div id="invoices-container">
+          <p class="text-muted text-center py-4">
+            <i class="bi bi-info-circle me-1"></i>{% trans 'اختر العميل لعرض الفواتير المستحقة' %}
+          </p>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="form-section">
+        <div class="section-header">
+          <i class="bi bi-sticky section-icon"></i>
+          <div class="section-title">{% trans 'ملاحظات' %}</div>
+        </div>
+        <textarea name="notes" class="form-control" rows="3" placeholder="{% trans 'أضف ملاحظات إضافية...' %}"></textarea>
+      </div>
+    </div>
+
+    <!-- Right Column - Preview -->
+    <div class="col-lg-4">
+      <div class="sticky-top" style="top: 100px;">
+        <div class="receipt-preview" id="receipt-preview">
+          <div class="receipt-icon">
+            <i class="bi bi-cash-coin"></i>
+          </div>
+          <div class="receipt-number" id="preview-number">{{ next_number }}</div>
+          <div class="receipt-amount" id="preview-amount">0.00</div>
+          <div class="text-muted mt-2">{% trans 'إيصال تحصيل' %}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block form_actions_left %}
+<a href="{% url 'sales:invoice_list' %}" class="btn btn-outline-secondary">
+  <i class="bi bi-x-circle me-1"></i>{% trans 'إلغاء' %}
+</a>
+{% endblock %}
+
+{% block form_actions_right %}
+<button type="submit" form="receipt-form" name="save_print" class="btn btn-outline-primary">
+  <i class="bi bi-printer me-1"></i>{% trans 'حفظ وطباعة' %}
+</button>
+<button type="submit" form="receipt-form" class="btn btn-success">
+  <i class="bi bi-check-circle me-1"></i>{% trans 'تسجيل الإيصال' %}
+</button>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Payment method selection
+  document.querySelectorAll('.payment-method-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.payment-method-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      
+      const method = this.querySelector('input').value;
+      const bankDetails = document.getElementById('bank-details');
+      bankDetails.style.display = (method === 'bank' || method === 'check') ? 'flex' : 'none';
+    });
+  });
+
+  // Customer selection
+  document.getElementById('customer-select').addEventListener('change', function() {
+    const option = this.options[this.selectedIndex];
+    const balanceCard = document.getElementById('customer-balance-card');
+    
+    if (this.value) {
+      const balance = parseFloat(option.dataset.balance) || 0;
+      balanceCard.style.display = 'block';
+      document.getElementById('customer-balance').textContent = balance.toFixed(2);
+      document.getElementById('balance-status').textContent = balance > 0 ? '{% trans "مدين" %}' : '{% trans "دائن" %}';
+      document.getElementById('balance-status').className = 'badge ' + (balance > 0 ? 'bg-warning' : 'bg-success');
+      
+      // Load unpaid invoices for customer (AJAX would be here in real implementation)
+      loadCustomerInvoices(this.value);
+    } else {
+      balanceCard.style.display = 'none';
+    }
+  });
+
+  // Amount input
+  document.getElementById('payment-amount').addEventListener('input', function() {
+    const amount = parseFloat(this.value) || 0;
+    document.getElementById('preview-amount').textContent = amount.toFixed(2);
+    
+    const preview = document.getElementById('receipt-preview');
+    if (amount > 0) {
+      preview.classList.add('has-data');
+    } else {
+      preview.classList.remove('has-data');
+    }
+  });
+
+  function loadCustomerInvoices(customerId) {
+    // This would be an AJAX call in real implementation
+    const container = document.getElementById('invoices-container');
+    container.innerHTML = `
+      <div class="allocation-row">
+        <div class="d-flex align-items-center gap-3">
+          <input type="checkbox" name="allocate[]" class="allocation-check" value="1">
+          <div class="flex-grow-1">
+            <div class="fw-medium">INV-2024-001</div>
+            <div class="small text-muted">2024/01/15 - {% trans 'المتبقي' %}: 1,500.00</div>
+          </div>
+          <input type="number" name="allocation_amount[]" class="form-control form-control-sm" style="width: 120px;" placeholder="المبلغ">
+        </div>
+      </div>
+      <div class="allocation-row">
+        <div class="d-flex align-items-center gap-3">
+          <input type="checkbox" name="allocate[]" class="allocation-check" value="2">
+          <div class="flex-grow-1">
+            <div class="fw-medium">INV-2024-002</div>
+            <div class="small text-muted">2024/01/20 - {% trans 'المتبقي' %}: 3,200.00</div>
+          </div>
+          <input type="number" name="allocation_amount[]" class="form-control form-control-sm" style="width: 120px;" placeholder="المبلغ">
+        </div>
+      </div>
+    `;
+  }
+</script>
+{% endblock %}
+

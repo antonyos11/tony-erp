@@ -1,0 +1,899 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+{% load crispy_forms_tags %}
+
+{% block title %}{% if form.instance.pk %}{% trans 'تعديل عقد التقسيط' %}{% else %}{% trans 'عقد تقسيط جديد' %}{% endif %}{% endblock %}
+
+{% block extra_head %}
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+        --secondary-gradient: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
+        --success-gradient: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+        --glass-bg: rgba(255, 255, 255, 0.85);
+        --glass-border: rgba(255, 255, 255, 0.4);
+        --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    }
+    
+    .form-wrapper {
+        position: relative;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #f0f9ff 0%, #faf5ff 50%, #fdf4ff 100%);
+        padding-bottom: 40px;
+    }
+    
+    .form-wrapper::before {
+        content: '';
+        position: fixed;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: 
+            radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: 0;
+    }
+    
+    .form-content {
+        position: relative;
+        z-index: 1;
+    }
+    
+    /* Hero Header */
+    .form-hero {
+        background: var(--primary-gradient);
+        color: white;
+        padding: 40px;
+        border-radius: 28px;
+        margin-bottom: 32px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 20px 40px rgba(99, 102, 241, 0.25);
+    }
+    
+    .form-hero::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: 
+            radial-gradient(ellipse at 20% 0%, rgba(255,255,255,0.3) 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 100%, rgba(255,255,255,0.1) 0%, transparent 40%);
+        pointer-events: none;
+    }
+    
+    .form-hero-icon {
+        width: 70px;
+        height: 70px;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        margin-bottom: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .form-hero h1 {
+        font-size: 2rem;
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+    
+    .form-hero p {
+        opacity: 0.9;
+        font-size: 1.1rem;
+        margin: 0;
+    }
+    
+    /* Form Cards */
+    .form-section {
+        background: var(--glass-bg);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--glass-border);
+        border-radius: 24px;
+        padding: 32px;
+        margin-bottom: 24px;
+        box-shadow: var(--card-shadow);
+        transition: all 0.3s;
+    }
+    
+    .form-section:hover {
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+    }
+    
+    .section-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 28px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid rgba(99, 102, 241, 0.1);
+    }
+    
+    .section-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+        color: white;
+    }
+    
+    .section-icon.primary { background: var(--primary-gradient); box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3); }
+    .section-icon.success { background: var(--success-gradient); box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3); }
+    .section-icon.info { background: var(--secondary-gradient); box-shadow: 0 8px 20px rgba(14, 165, 233, 0.3); }
+    
+    .section-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin: 0;
+    }
+    
+    .section-subtitle {
+        font-size: 0.9rem;
+        color: #64748b;
+        margin: 4px 0 0 0;
+    }
+    
+    /* Form Controls */
+    .form-label {
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .form-label i {
+        color: #6366f1;
+        font-size: 0.9rem;
+    }
+    
+    .form-control, .form-select {
+        border: 2px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 14px 18px;
+        font-size: 1rem;
+        transition: all 0.3s;
+        background: rgba(255, 255, 255, 0.8);
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+        background: white;
+    }
+    
+    .form-control::placeholder {
+        color: #9ca3af;
+    }
+    
+    /* Calculator Card */
+    .calculator-card {
+        background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+        border: 2px solid rgba(16, 185, 129, 0.2);
+        border-radius: 20px;
+        padding: 28px;
+        margin-top: 24px;
+    }
+    
+    .calculator-title {
+        font-weight: 700;
+        color: #065f46;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+        font-size: 1.1rem;
+    }
+    
+    .calculator-title i {
+        font-size: 1.3rem;
+    }
+    
+    .calc-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px dashed rgba(16, 185, 129, 0.2);
+    }
+    
+    .calc-row:last-child {
+        border-bottom: none;
+        padding-top: 16px;
+        margin-top: 8px;
+        border-top: 2px solid rgba(16, 185, 129, 0.3);
+    }
+    
+    .calc-label {
+        color: #374151;
+        font-weight: 500;
+    }
+    
+    .calc-value {
+        font-weight: 700;
+        color: #10b981;
+        font-size: 1.1rem;
+    }
+    
+    .calc-value.total {
+        font-size: 1.4rem;
+        color: #065f46;
+    }
+    
+    /* Plan Cards */
+    .plan-selector {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 20px;
+        margin-bottom: 24px;
+    }
+    
+    .plan-card {
+        background: white;
+        border: 2px solid #e5e7eb;
+        border-radius: 20px;
+        padding: 24px;
+        cursor: pointer;
+        transition: all 0.3s;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .plan-card:hover {
+        border-color: #6366f1;
+        transform: translateY(-4px);
+        box-shadow: 0 12px 30px rgba(99, 102, 241, 0.15);
+    }
+    
+    .plan-card.selected {
+        border-color: #6366f1;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+    }
+    
+    .plan-card.selected::after {
+        content: '\F26B';
+        font-family: 'bootstrap-icons';
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        width: 32px;
+        height: 32px;
+        background: var(--success-gradient);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+    }
+    
+    .plan-name {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 8px;
+    }
+    
+    .plan-duration {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(99, 102, 241, 0.1);
+        color: #6366f1;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 16px;
+    }
+    
+    .plan-details {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+    
+    .plan-detail-item {
+        text-align: center;
+        padding: 12px;
+        background: #f8fafc;
+        border-radius: 12px;
+    }
+    
+    .plan-detail-value {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+    
+    .plan-detail-label {
+        font-size: 0.8rem;
+        color: #64748b;
+        margin-top: 4px;
+    }
+    
+    /* Form Actions */
+    .form-actions {
+        display: flex;
+        gap: 16px;
+        justify-content: flex-end;
+        padding-top: 24px;
+        margin-top: 24px;
+        border-top: 2px solid rgba(0, 0, 0, 0.05);
+    }
+    
+    .btn-modern {
+        padding: 16px 32px;
+        border-radius: 16px;
+        font-weight: 700;
+        font-size: 1rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        border: none;
+        cursor: pointer;
+    }
+    
+    .btn-modern:hover {
+        transform: translateY(-3px);
+    }
+    
+    .btn-primary-modern {
+        background: var(--primary-gradient);
+        color: white;
+        box-shadow: 0 10px 30px rgba(99, 102, 241, 0.3);
+    }
+    
+    .btn-primary-modern:hover {
+        box-shadow: 0 15px 40px rgba(99, 102, 241, 0.4);
+        color: white;
+    }
+    
+    .btn-secondary-modern {
+        background: #f1f5f9;
+        color: #475569;
+    }
+    
+    .btn-secondary-modern:hover {
+        background: #e2e8f0;
+        color: #1e293b;
+    }
+    
+    /* File Upload */
+    .file-upload-zone {
+        border: 2px dashed #d1d5db;
+        border-radius: 16px;
+        padding: 32px;
+        text-align: center;
+        transition: all 0.3s;
+        cursor: pointer;
+        background: rgba(255, 255, 255, 0.5);
+    }
+    
+    .file-upload-zone:hover {
+        border-color: #6366f1;
+        background: rgba(99, 102, 241, 0.05);
+    }
+    
+    .file-upload-zone i {
+        font-size: 2.5rem;
+        color: #9ca3af;
+        margin-bottom: 12px;
+    }
+    
+    .file-upload-zone p {
+        color: #6b7280;
+        margin: 0;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .form-hero {
+            padding: 28px;
+            border-radius: 20px;
+        }
+        
+        .form-hero h1 {
+            font-size: 1.5rem;
+        }
+        
+        .form-section {
+            padding: 24px;
+            border-radius: 20px;
+        }
+        
+        .form-actions {
+            flex-direction: column;
+        }
+        
+        .btn-modern {
+            width: 100%;
+            justify-content: center;
+        }
+        
+        .plan-selector {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    /* Animations */
+    .fade-in-up {
+        animation: fadeInUp 0.6s ease-out forwards;
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .stagger-1 { animation-delay: 0.1s; opacity: 0; }
+    .stagger-2 { animation-delay: 0.2s; opacity: 0; }
+    .stagger-3 { animation-delay: 0.3s; opacity: 0; }
+    .stagger-4 { animation-delay: 0.4s; opacity: 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-wrapper">
+    <div class="form-content">
+        <div class="container-fluid py-4">
+            <!-- Hero Header -->
+            <div class="form-hero fade-in-up">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <div class="form-hero-icon">
+                            <i class="bi bi-file-earmark-plus"></i>
+                        </div>
+                        <h1>{% if form.instance.pk %}{% trans 'تعديل عقد التقسيط' %}{% else %}{% trans 'إنشاء عقد تقسيط جديد' %}{% endif %}</h1>
+                        <p>{% trans 'أدخل بيانات العقد والعميل لإنشاء خطة تقسيط مخصصة' %}</p>
+                    </div>
+                    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                        <a href="{% url 'installments:contracts_list' %}" class="btn btn-light btn-lg">
+                            <i class="bi bi-arrow-right me-2"></i>{% trans 'العودة للقائمة' %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <form method="post" enctype="multipart/form-data" id="contract-form">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-lg-8">
+                        <!-- Customer & Plan Section -->
+                        <div class="form-section fade-in-up stagger-1">
+                            <div class="section-header">
+                                <div class="section-icon primary">
+                                    <i class="bi bi-person-badge"></i>
+                                </div>
+                                <div>
+                                    <h3 class="section-title">{% trans 'بيانات العميل والخطة' %}</h3>
+                                    <p class="section-subtitle">{% trans 'اختر العميل وخطة التقسيط المناسبة' %}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <label class="form-label">
+                                        <i class="bi bi-person"></i>
+                                        {% trans 'العميل' %} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.customer }}
+                                    {% if form.customer.errors %}
+                                        <div class="text-danger small mt-1">{{ form.customer.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label class="form-label">
+                                        <i class="bi bi-shop"></i>
+                                        {% trans 'المعرض' %}
+                                    </label>
+                                    {{ form.showroom }}
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label class="form-label">
+                                        <i class="bi bi-receipt"></i>
+                                        {% trans 'الفاتورة المرتبطة' %}
+                                    </label>
+                                    {{ form.invoice }}
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label class="form-label">
+                                        <i class="bi bi-calendar3"></i>
+                                        {% trans 'تاريخ البداية' %} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.start_date }}
+                                </div>
+                            </div>
+                            
+                            <hr class="my-4">
+                            
+                            <label class="form-label mb-3">
+                                <i class="bi bi-collection"></i>
+                                {% trans 'خطة التقسيط' %} <span class="text-danger">*</span>
+                            </label>
+                            
+                            <div class="plan-selector">
+                                {% for plan in plans %}
+                                <div class="plan-card" data-plan-id="{{ plan.id }}" data-interest="{{ plan.annual_interest_rate }}" data-duration="{{ plan.duration_months }}" data-min-down="{{ plan.min_down_payment_percentage }}">
+                                    <div class="plan-name">{{ plan.name }}</div>
+                                    <div class="plan-duration">
+                                        <i class="bi bi-clock"></i>
+                                        {{ plan.duration_months }} {% trans 'شهر' %}
+                                    </div>
+                                    <div class="plan-details">
+                                        <div class="plan-detail-item">
+                                            <div class="plan-detail-value">{{ plan.annual_interest_rate }}%</div>
+                                            <div class="plan-detail-label">{% trans 'الفائدة السنوية' %}</div>
+                                        </div>
+                                        <div class="plan-detail-item">
+                                            <div class="plan-detail-value">{{ plan.min_down_payment_percentage }}%</div>
+                                            <div class="plan-detail-label">{% trans 'الحد الأدنى للمقدم' %}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <div class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    {% trans 'لا توجد خطط تقسيط متاحة' %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            
+                            <div style="display: none;">
+                                {{ form.plan }}
+                            </div>
+                        </div>
+                        
+                        <!-- Financial Details -->
+                        <div class="form-section fade-in-up stagger-2">
+                            <div class="section-header">
+                                <div class="section-icon success">
+                                    <i class="bi bi-cash-coin"></i>
+                                </div>
+                                <div>
+                                    <h3 class="section-title">{% trans 'التفاصيل المالية' %}</h3>
+                                    <p class="section-subtitle">{% trans 'حدد المبلغ الإجمالي والمقدم' %}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <label class="form-label">
+                                        <i class="bi bi-currency-dollar"></i>
+                                        {% trans 'المبلغ الإجمالي' %} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.principal_amount }}
+                                    {% if form.principal_amount.errors %}
+                                        <div class="text-danger small mt-1">{{ form.principal_amount.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label class="form-label">
+                                        <i class="bi bi-wallet2"></i>
+                                        {% trans 'المقدم' %} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.down_payment }}
+                                    <small class="text-muted" id="min-down-hint"></small>
+                                    {% if form.down_payment.errors %}
+                                        <div class="text-danger small mt-1">{{ form.down_payment.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Calculator -->
+                            <div class="calculator-card" id="calculator" style="display: none;">
+                                <div class="calculator-title">
+                                    <i class="bi bi-calculator"></i>
+                                    {% trans 'ملخص الحسابات' %}
+                                </div>
+                                <div class="calc-row">
+                                    <span class="calc-label">{% trans 'المبلغ الممول' %}</span>
+                                    <span class="calc-value" id="calc-financed">0.00</span>
+                                </div>
+                                <div class="calc-row">
+                                    <span class="calc-label">{% trans 'إجمالي الفوائد' %}</span>
+                                    <span class="calc-value" id="calc-interest">0.00</span>
+                                </div>
+                                <div class="calc-row">
+                                    <span class="calc-label">{% trans 'القسط الشهري' %}</span>
+                                    <span class="calc-value" id="calc-monthly">0.00</span>
+                                </div>
+                                <div class="calc-row">
+                                    <span class="calc-label">{% trans 'الإجمالي المستحق' %}</span>
+                                    <span class="calc-value total" id="calc-total">0.00</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Customer Documents -->
+                        <div class="form-section fade-in-up stagger-3">
+                            <div class="section-header">
+                                <div class="section-icon info">
+                                    <i class="bi bi-file-earmark-person"></i>
+                                </div>
+                                <div>
+                                    <h3 class="section-title">{% trans 'بيانات التعريف' %}</h3>
+                                    <p class="section-subtitle">{% trans 'معلومات الهوية والتواصل' %}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <label class="form-label">
+                                        <i class="bi bi-credit-card-2-front"></i>
+                                        {% trans 'رقم الهوية' %}
+                                    </label>
+                                    {{ form.national_id }}
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label class="form-label">
+                                        <i class="bi bi-image"></i>
+                                        {% trans 'صورة الهوية' %}
+                                    </label>
+                                    {{ form.national_id_image }}
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label class="form-label">
+                                        <i class="bi bi-telephone"></i>
+                                        {% trans 'رقم الهاتف' %}
+                                    </label>
+                                    {{ form.phone }}
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label class="form-label">
+                                        <i class="bi bi-telephone-plus"></i>
+                                        {% trans 'هاتف بديل' %}
+                                    </label>
+                                    {{ form.alternative_phone }}
+                                </div>
+                                
+                                <div class="col-12">
+                                    <label class="form-label">
+                                        <i class="bi bi-geo-alt"></i>
+                                        {% trans 'العنوان' %}
+                                    </label>
+                                    {{ form.address }}
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label class="form-label">
+                                        <i class="bi bi-building"></i>
+                                        {% trans 'عنوان العمل' %}
+                                    </label>
+                                    {{ form.work_address }}
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label class="form-label">
+                                        <i class="bi bi-telephone-forward"></i>
+                                        {% trans 'هاتف العمل' %}
+                                    </label>
+                                    {{ form.work_phone }}
+                                </div>
+                                
+                                <div class="col-12">
+                                    <label class="form-label">
+                                        <i class="bi bi-chat-left-text"></i>
+                                        {% trans 'ملاحظات' %}
+                                    </label>
+                                    {{ form.notes }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Sidebar Summary -->
+                    <div class="col-lg-4">
+                        <div class="form-section fade-in-up stagger-2" style="position: sticky; top: 20px;">
+                            <div class="section-header">
+                                <div class="section-icon primary">
+                                    <i class="bi bi-clipboard-check"></i>
+                                </div>
+                                <div>
+                                    <h3 class="section-title">{% trans 'ملخص العقد' %}</h3>
+                                </div>
+                            </div>
+                            
+                            <div class="summary-content">
+                                <div class="summary-item d-flex justify-content-between py-3 border-bottom">
+                                    <span class="text-muted">{% trans 'العميل' %}</span>
+                                    <span class="fw-bold" id="summary-customer">-</span>
+                                </div>
+                                <div class="summary-item d-flex justify-content-between py-3 border-bottom">
+                                    <span class="text-muted">{% trans 'خطة التقسيط' %}</span>
+                                    <span class="fw-bold" id="summary-plan">-</span>
+                                </div>
+                                <div class="summary-item d-flex justify-content-between py-3 border-bottom">
+                                    <span class="text-muted">{% trans 'المدة' %}</span>
+                                    <span class="fw-bold" id="summary-duration">-</span>
+                                </div>
+                                <div class="summary-item d-flex justify-content-between py-3 border-bottom">
+                                    <span class="text-muted">{% trans 'المبلغ' %}</span>
+                                    <span class="fw-bold" id="summary-amount">-</span>
+                                </div>
+                                <div class="summary-item d-flex justify-content-between py-3 border-bottom">
+                                    <span class="text-muted">{% trans 'المقدم' %}</span>
+                                    <span class="fw-bold" id="summary-down">-</span>
+                                </div>
+                                <div class="summary-item d-flex justify-content-between py-3">
+                                    <span class="text-muted">{% trans 'القسط الشهري' %}</span>
+                                    <span class="fw-bold text-success fs-5" id="summary-monthly">-</span>
+                                </div>
+                            </div>
+                            
+                            <div class="form-actions flex-column border-0 pt-3 mt-3">
+                                <button type="submit" class="btn-modern btn-primary-modern w-100 mb-3">
+                                    <i class="bi bi-check-circle"></i>
+                                    {% if form.instance.pk %}{% trans 'حفظ التعديلات' %}{% else %}{% trans 'إنشاء العقد' %}{% endif %}
+                                </button>
+                                <a href="{% url 'installments:contracts_list' %}" class="btn-modern btn-secondary-modern w-100 text-center text-decoration-none">
+                                    <i class="bi bi-x-circle"></i>
+                                    {% trans 'إلغاء' %}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const planCards = document.querySelectorAll('.plan-card');
+    const planInput = document.getElementById('id_plan');
+    const principalInput = document.getElementById('principal-amount') || document.getElementById('id_principal_amount');
+    const downPaymentInput = document.getElementById('down-payment') || document.getElementById('id_down_payment');
+    const calculator = document.getElementById('calculator');
+    const customerSelect = document.getElementById('id_customer');
+    
+    let selectedPlan = null;
+    
+    // Plan selection
+    planCards.forEach(card => {
+        card.addEventListener('click', function() {
+            planCards.forEach(c => c.classList.remove('selected'));
+            this.classList.add('selected');
+            
+            const planId = this.dataset.planId;
+            if (planInput) {
+                planInput.value = planId;
+            }
+            
+            selectedPlan = {
+                id: planId,
+                name: this.querySelector('.plan-name').textContent,
+                interest: parseFloat(this.dataset.interest),
+                duration: parseInt(this.dataset.duration),
+                minDown: parseFloat(this.dataset.minDown)
+            };
+            
+            updateSummary();
+            updateCalculator();
+            
+            // Update min down payment hint
+            const hint = document.getElementById('min-down-hint');
+            if (hint && principalInput) {
+                const minDown = (parseFloat(principalInput.value) || 0) * (selectedPlan.minDown / 100);
+                hint.textContent = `الحد الأدنى: ${minDown.toFixed(2)} ج.م (${selectedPlan.minDown}%)`;
+            }
+        });
+    });
+    
+    // Calculate on input change
+    if (principalInput) {
+        principalInput.addEventListener('input', updateCalculator);
+    }
+    if (downPaymentInput) {
+        downPaymentInput.addEventListener('input', updateCalculator);
+    }
+    if (customerSelect) {
+        customerSelect.addEventListener('change', updateSummary);
+    }
+    
+    function updateCalculator() {
+        if (!selectedPlan || !principalInput || !downPaymentInput) return;
+        
+        const principal = parseFloat(principalInput.value) || 0;
+        const downPayment = parseFloat(downPaymentInput.value) || 0;
+        
+        if (principal <= 0) {
+            calculator.style.display = 'none';
+            return;
+        }
+        
+        calculator.style.display = 'block';
+        
+        const financed = principal - downPayment;
+        const monthlyRate = selectedPlan.interest / 100 / 12;
+        const duration = selectedPlan.duration;
+        
+        let monthlyPayment, totalInterest;
+        
+        if (monthlyRate > 0) {
+            monthlyPayment = financed * (monthlyRate * Math.pow(1 + monthlyRate, duration)) / (Math.pow(1 + monthlyRate, duration) - 1);
+            totalInterest = (monthlyPayment * duration) - financed;
+        } else {
+            monthlyPayment = financed / duration;
+            totalInterest = 0;
+        }
+        
+        const totalAmount = financed + totalInterest;
+        
+        document.getElementById('calc-financed').textContent = financed.toFixed(2) + ' ج.م';
+        document.getElementById('calc-interest').textContent = totalInterest.toFixed(2) + ' ج.م';
+        document.getElementById('calc-monthly').textContent = monthlyPayment.toFixed(2) + ' ج.م';
+        document.getElementById('calc-total').textContent = totalAmount.toFixed(2) + ' ج.م';
+        
+        // Update summary
+        document.getElementById('summary-monthly').textContent = monthlyPayment.toFixed(2) + ' ج.م';
+    }
+    
+    function updateSummary() {
+        // Customer
+        if (customerSelect && customerSelect.options[customerSelect.selectedIndex]) {
+            document.getElementById('summary-customer').textContent = 
+                customerSelect.options[customerSelect.selectedIndex].text || '-';
+        }
+        
+        // Plan
+        if (selectedPlan) {
+            document.getElementById('summary-plan').textContent = selectedPlan.name;
+            document.getElementById('summary-duration').textContent = selectedPlan.duration + ' شهر';
+        }
+        
+        // Amounts
+        if (principalInput) {
+            document.getElementById('summary-amount').textContent = 
+                (parseFloat(principalInput.value) || 0).toFixed(2) + ' ج.م';
+        }
+        if (downPaymentInput) {
+            document.getElementById('summary-down').textContent = 
+                (parseFloat(downPaymentInput.value) || 0).toFixed(2) + ' ج.م';
+        }
+    }
+    
+    // Initialize with existing values
+    if (planInput && planInput.value) {
+        const selectedCard = document.querySelector(`.plan-card[data-plan-id="${planInput.value}"]`);
+        if (selectedCard) {
+            selectedCard.click();
+        }
+    }
+    
+    updateSummary();
+});
+</script>
+{% endblock %}

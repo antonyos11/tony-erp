@@ -1,0 +1,234 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load currency_tags %}
+
+{% block title %}لوحة تحكم الرواتب{% endblock %}
+
+{% block extra_css %}
+<style>
+    .payroll-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    .payroll-stat {
+        text-align: center;
+    }
+    .payroll-stat .stat-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    .payroll-stat .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    .action-btn {
+        margin: 5px;
+        min-width: 150px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="h3 mb-4">
+                <i class="fas fa-money-bill-wave me-2"></i>
+                لوحة تحكم الرواتب
+            </h1>
+        </div>
+    </div>
+    
+    <!-- بطاقة الإحصائيات الرئيسية -->
+    <div class="row">
+        <div class="col-12">
+            <div class="payroll-card">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="payroll-stat">
+                            <div class="stat-number">{{ current_month_payrolls }}</div>
+                            <div class="stat-label">رواتب الشهر الحالي</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="payroll-stat">
+                            <div class="stat-number">{{ approved_payrolls }}</div>
+                            <div class="stat-label">رواتب معتمدة</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="payroll-stat">
+                            <div class="stat-number">{{ total_salary_expense|currency_format }}</div>
+                            <div class="stat-label">إجمالي المصروفات ({% currency_symbol %})</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- إجراءات سريعة -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-cogs me-2"></i>
+                        إجراءات الرواتب
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <a href="{% url 'hr:payroll_generate' %}" class="btn btn-success action-btn">
+                                <i class="fas fa-calculator"></i><br>
+                                <small>حساب الرواتب</small>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'hr:payroll_list' %}" class="btn btn-primary action-btn">
+                                <i class="fas fa-list"></i><br>
+                                <small>عرض الرواتب</small>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-warning action-btn" onclick="approveAllPayrolls()">
+                                <i class="fas fa-check-double"></i><br>
+                                <small>اعتماد الكل</small>
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'hr:payroll_report' %}" class="btn btn-info action-btn">
+                                <i class="fas fa-file-pdf"></i><br>
+                                <small>تقرير الرواتب</small>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- معلومات إضافية -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-clock me-2"></i>
+                        الأنشطة الحديثة
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item">
+                            <i class="fas fa-plus-circle text-success me-2"></i>
+                            تم إنشاء رواتب الشهر الحالي
+                            <small class="text-muted float-end">منذ ساعة</small>
+                        </div>
+                        <div class="list-group-item">
+                            <i class="fas fa-check-circle text-primary me-2"></i>
+                            تم اعتماد رواتب قسم المحاسبة
+                            <small class="text-muted float-end">منذ ساعتين</small>
+                        </div>
+                        <div class="list-group-item">
+                            <i class="fas fa-money-bill-wave text-info me-2"></i>
+                            تم دفع رواتب الشهر الماضي
+                            <small class="text-muted float-end">أمس</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>
+                        توزيع الرواتب حسب الأقسام
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="payrollChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- نصائح وإرشادات -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <h6><i class="fas fa-lightbulb me-2"></i>نصائح مفيدة:</h6>
+                <ul class="mb-0">
+                    <li>تأكد من مراجعة سجلات الحضور قبل حساب الرواتب</li>
+                    <li>يتم إنشاء القيود المحاسبية تلقائياً عند اعتماد الرواتب</li>
+                    <li>يمكن تصدير كشوفات الرواتب بصيغة PDF أو Excel</li>
+                    <li>تحقق من الإعدادات المحاسبية للرواتب في إعدادات النظام</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// رسم بياني لتوزيع الرواتب
+const ctx = document.getElementById('payrollChart').getContext('2d');
+const payrollChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        labels: ['المحاسبة', 'الموارد البشرية', 'المبيعات', 'الإدارة'],
+        datasets: [{
+            data: [30, 25, 35, 10],
+            backgroundColor: [
+                '#FF6384',
+                '#36A2EB',
+                '#FFCE56',
+                '#4BC0C0'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+function approveAllPayrolls() {
+    if (confirm('هل تريد اعتماد جميع الرواتب المحسوبة؟\n\nسيتم إنشاء القيود المحاسبية المطلوبة.')) {
+        // إرسال طلب AJAX لاعتماد جميع الرواتب
+        fetch('{% url "hr:payroll_list" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{ csrf_token }',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'approve_all'
+            })
+        }).then(response => {
+            if (response.ok) {
+                alert('تم اعتماد جميع الرواتب بنجاح');
+                location.reload();
+            } else {
+                alert('حدث خطأ أثناء اعتماد الرواتب');
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

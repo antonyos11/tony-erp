@@ -1,0 +1,139 @@
+{% extends 'base_v2.html' %}
+{% load static i18n humanize %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-1"><i class="bi bi-phone me-2"></i>{{ page_title|default:"أجهزة نقاط البيع" }}</h4>
+            <p class="text-muted mb-0">إدارة أجهزة POS في الفروع</p>
+        </div>
+        <a href="{% url 'branches:pos_device_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>إضافة جهاز
+        </a>
+    </div>
+
+    <!-- الإحصائيات -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="card border-0 bg-light">
+                <div class="card-body text-center">
+                    <h3 class="text-primary mb-0">{{ stats.total_devices|default:0 }}</h3>
+                    <small class="text-muted">إجمالي الأجهزة</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-0 bg-light">
+                <div class="card-body text-center">
+                    <h3 class="text-success mb-0">{{ stats.active|default:0 }}</h3>
+                    <small class="text-muted">أجهزة نشطة</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-0 bg-light">
+                <div class="card-body text-center">
+                    <h3 class="text-warning mb-0">{{ stats.offline|default:0 }}</h3>
+                    <small class="text-muted">غير متصلة</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-0 bg-light">
+                <div class="card-body text-center">
+                    <h3 class="text-info mb-0">{{ stats.branches_with_pos|default:0 }}</h3>
+                    <small class="text-muted">فروع مجهزة</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- الفلاتر -->
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <form method="get" class="row g-2 align-items-center">
+                <div class="col-md-3">
+                    <select name="branch" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">كل الفروع</option>
+                        {% for b in branches %}
+                        <option value="{{ b.pk }}" {% if request.GET.branch == b.pk|stringformat:"s" %}selected{% endif %}>{{ b.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">كل الحالات</option>
+                        <option value="active" {% if request.GET.status == "active" %}selected{% endif %}>نشط</option>
+                        <option value="inactive" {% if request.GET.status == "inactive" %}selected{% endif %}>غير نشط</option>
+                        <option value="maintenance" {% if request.GET.status == "maintenance" %}selected{% endif %}>صيانة</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <input type="text" name="q" class="form-control form-control-sm" placeholder="بحث..." value="{{ request.GET.q }}">
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-search"></i></button>
+                    <a href="{% url 'branches:pos_device_list' %}" class="btn btn-sm btn-outline-secondary">إعادة</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- الجدول -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>اسم الجهاز</th>
+                            <th>الفرع</th>
+                            <th>الرقم التسلسلي</th>
+                            <th>IP</th>
+                            <th>آخر اتصال</th>
+                            <th>الحالة</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in devices %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <i class="bi bi-phone text-primary me-1"></i>
+                                {{ d.name }}
+                            </td>
+                            <td>{{ d.branch.name }}</td>
+                            <td><code>{{ d.serial_number|default:"-" }}</code></td>
+                            <td><code>{{ d.ip_address|default:"-" }}</code></td>
+                            <td>{{ d.last_seen|date:"Y-m-d H:i"|default:"-" }}</td>
+                            <td>
+                                {% if d.is_active %}
+                                <span class="badge bg-success">نشط</span>
+                                {% else %}
+                                <span class="badge bg-secondary">غير نشط</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'branches:pos_device_update' d.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+                                <a href="{% url 'branches:pos_device_delete' d.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-5">
+                                <i class="bi bi-phone fs-1 d-block mb-2 opacity-50"></i>
+                                لا توجد أجهزة
+                                <a href="{% url 'branches:pos_device_create' %}" class="d-block mt-2">إضافة جهاز جديد</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

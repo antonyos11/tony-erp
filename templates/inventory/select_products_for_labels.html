@@ -1,0 +1,484 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'اختيار المنتجات للملصقات' %}{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root {
+    --primary: #1e3a5f;
+    --primary-dark: #152a45;
+    --accent: #00d4aa;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --bg-light: #f8fafc;
+    --border-color: #e2e8f0;
+    --text-secondary: #64748b;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+    --radius: 8px;
+    --radius-lg: 12px;
+    --transition: all 0.2s ease;
+  }
+  
+  .page-hero {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+    margin-bottom: 2rem;
+  }
+  .page-hero h1 { margin: 0; font-weight: 700; }
+  .page-hero p { margin: 0.5rem 0 0; opacity: 0.9; }
+  
+  .selection-layout {
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 2rem;
+  }
+  
+  .products-panel {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .products-panel .header {
+    background: var(--bg-light);
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .search-filter-row {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    background: #fafbfc;
+  }
+  
+  .product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    padding: 1.5rem;
+    max-height: 600px;
+    overflow-y: auto;
+  }
+  
+  .product-card {
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 1rem;
+    cursor: pointer;
+    transition: var(--transition);
+    position: relative;
+  }
+  .product-card:hover { border-color: var(--primary); box-shadow: var(--shadow-md); }
+  .product-card.selected { border-color: var(--accent); background: #f0fdfa; }
+  .product-card .check-indicator {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    transition: var(--transition);
+  }
+  .product-card.selected .check-indicator {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: white;
+  }
+  .product-card .product-image {
+    width: 100%;
+    height: 100px;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.75rem;
+    font-size: 2rem;
+    color: var(--text-secondary);
+  }
+  .product-card .product-name { font-weight: 600; margin-bottom: 0.25rem; font-size: 0.95rem; }
+  .product-card .product-sku { font-size: 0.8rem; color: var(--text-secondary); }
+  .product-card .product-stock { font-size: 0.8rem; margin-top: 0.5rem; color: var(--text-secondary); }
+  
+  .selected-panel {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 200px);
+    display: flex;
+    flex-direction: column;
+  }
+  .selected-panel .header {
+    background: var(--bg-light);
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .selected-panel .header h5 { margin: 0; }
+  
+  .selected-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+  }
+  .selected-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    margin-bottom: 0.75rem;
+  }
+  .selected-item .info { flex: 1; }
+  .selected-item .info .name { font-weight: 600; font-size: 0.9rem; }
+  .selected-item .info .sku { font-size: 0.75rem; color: var(--text-secondary); }
+  .selected-item .qty-input {
+    width: 60px;
+    text-align: center;
+  }
+  .selected-item .remove-btn {
+    color: var(--danger);
+    border: none;
+    background: none;
+    cursor: pointer;
+  }
+  
+  .label-settings {
+    padding: 1rem;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-light);
+  }
+  
+  .action-footer {
+    padding: 1rem;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    gap: 0.5rem;
+  }
+  
+  .empty-selection {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-secondary);
+  }
+  .empty-selection i { font-size: 3rem; opacity: 0.3; margin-bottom: 1rem; }
+  
+  @media (max-width: 991px) {
+    .selection-layout { grid-template-columns: 1fr; }
+    .selected-panel { position: relative; max-height: 400px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Page Header -->
+  <div class="page-hero">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1><i class="bi bi-tags me-2"></i>{% trans 'اختيار المنتجات للملصقات' %}</h1>
+        <p>{% trans 'اختر المنتجات التي تريد طباعة ملصقات لها' %}</p>
+      </div>
+      <a href="{% url 'inventory:product_list' %}" class="btn btn-light">
+        <i class="bi bi-arrow-right me-1"></i>{% trans 'العودة للمخزون' %}
+      </a>
+    </div>
+  </div>
+  
+  <div class="selection-layout">
+    <!-- Products Panel -->
+    <div class="products-panel">
+      <div class="header">
+        <h5 class="mb-0"><i class="bi bi-box-seam me-2"></i>{% trans 'المنتجات المتاحة' %}</h5>
+        <span class="badge bg-primary" id="totalCount">{{ products.count|default:'50' }} {% trans 'منتج' %}</span>
+      </div>
+      
+      <!-- Search & Filters -->
+      <div class="search-filter-row">
+        <div class="row g-2">
+          <div class="col-md-4">
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input type="text" class="form-control" id="searchProducts" placeholder="{% trans 'بحث بالاسم أو الكود...' %}">
+            </div>
+          </div>
+          <div class="col-md-3">
+            <select class="form-select" id="filterCategory">
+              <option value="">{% trans 'جميع الفئات' %}</option>
+              <option value="raw">{% trans 'مواد خام' %}</option>
+              <option value="finished">{% trans 'منتجات تامة' %}</option>
+              <option value="parts">{% trans 'قطع غيار' %}</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <select class="form-select" id="filterWarehouse">
+              <option value="">{% trans 'جميع المستودعات' %}</option>
+              <option value="1">{% trans 'المستودع الرئيسي' %}</option>
+              <option value="2">{% trans 'مستودع الفرع' %}</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <button class="btn btn-outline-primary w-100" onclick="selectAll()">
+              <i class="bi bi-check-all me-1"></i>{% trans 'تحديد الكل' %}
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Products Grid -->
+      <div class="product-grid" id="productsGrid">
+        {% for product in products %}
+        <div class="product-card" data-id="{{ product.pk }}" data-name="{{ product.name }}" data-sku="{ product.sku }}" onclick="toggleProduct(this)">
+          <div class="check-indicator"><i class="bi bi-check"></i></div>
+          <div class="product-image"><i class="bi bi-box"></i></div>
+          <div class="product-name">{{ product.name }}</div>
+          <div class="product-sku">{{ product.sku }}</div>
+          <div class="product-stock"><i class="bi bi-box-seam me-1"></i>{{ product.stock }} {% trans 'متوفر' %}</div>
+        </div>
+        {% empty %}
+        <!-- Sample Products -->
+        <div class="product-card" data-id="1" data-name="{% trans 'منتج A' %}" data-sku="PRD-001" onclick="toggleProduct(this)">
+          <div class="check-indicator"><i class="bi bi-check"></i></div>
+          <div class="product-image"><i class="bi bi-box"></i></div>
+          <div class="product-name">{% trans 'منتج A' %}</div>
+          <div class="product-sku">PRD-001</div>
+          <div class="product-stock"><i class="bi bi-box-seam me-1"></i>150 {% trans 'متوفر' %}</div>
+        </div>
+        <div class="product-card" data-id="2" data-name="{% trans 'منتج B' %}" data-sku="PRD-002" onclick="toggleProduct(this)">
+          <div class="check-indicator"><i class="bi bi-check"></i></div>
+          <div class="product-image"><i class="bi bi-box"></i></div>
+          <div class="product-name">{% trans 'منتج B' %}</div>
+          <div class="product-sku">PRD-002</div>
+          <div class="product-stock"><i class="bi bi-box-seam me-1"></i>85 {% trans 'متوفر' %}</div>
+        </div>
+        <div class="product-card" data-id="3" data-name="{% trans 'منتج C' %}" data-sku="PRD-003" onclick="toggleProduct(this)">
+          <div class="check-indicator"><i class="bi bi-check"></i></div>
+          <div class="product-image"><i class="bi bi-box"></i></div>
+          <div class="product-name">{% trans 'منتج C' %}</div>
+          <div class="product-sku">PRD-003</div>
+          <div class="product-stock"><i class="bi bi-box-seam me-1"></i>320 {% trans 'متوفر' %}</div>
+        </div>
+        <div class="product-card" data-id="4" data-name="{% trans 'منتج D' %}" data-sku="PRD-004" onclick="toggleProduct(this)">
+          <div class="check-indicator"><i class="bi bi-check"></i></div>
+          <div class="product-image"><i class="bi bi-box"></i></div>
+          <div class="product-name">{% trans 'منتج D' %}</div>
+          <div class="product-sku">PRD-004</div>
+          <div class="product-stock"><i class="bi bi-box-seam me-1"></i>45 {% trans 'متوفر' %}</div>
+        </div>
+        <div class="product-card" data-id="5" data-name="{% trans 'منتج E' %}" data-sku="PRD-005" onclick="toggleProduct(this)">
+          <div class="check-indicator"><i class="bi bi-check"></i></div>
+          <div class="product-image"><i class="bi bi-box"></i></div>
+          <div class="product-name">{% trans 'منتج E' %}</div>
+          <div class="product-sku">PRD-005</div>
+          <div class="product-stock"><i class="bi bi-box-seam me-1"></i>200 {% trans 'متوفر' %}</div>
+        </div>
+        <div class="product-card" data-id="6" data-name="{% trans 'منتج F' %}" data-sku="PRD-006" onclick="toggleProduct(this)">
+          <div class="check-indicator"><i class="bi bi-check"></i></div>
+          <div class="product-image"><i class="bi bi-box"></i></div>
+          <div class="product-name">{% trans 'منتج F' %}</div>
+          <div class="product-sku">PRD-006</div>
+          <div class="product-stock"><i class="bi bi-box-seam me-1"></i>75 {% trans 'متوفر' %}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    
+    <!-- Selected Panel -->
+    <div class="selected-panel">
+      <div class="header">
+        <h5><i class="bi bi-check-circle me-2"></i>{% trans 'المنتجات المختارة' %} <span class="badge bg-primary ms-2" id="selectedCount">0</span></h5>
+      </div>
+      
+      <div class="selected-list" id="selectedList">
+        <div class="empty-selection" id="emptyState">
+          <i class="bi bi-inbox d-block"></i>
+          <p class="mb-0">{% trans 'لم تختر أي منتج بعد' %}</p>
+          <small>{% trans 'انقر على المنتجات لإضافتها' %}</small>
+        </div>
+      </div>
+      
+      <!-- Label Settings -->
+      <div class="label-settings">
+        <h6 class="mb-3"><i class="bi bi-sliders me-2"></i>{% trans 'إعدادات الملصق' %}</h6>
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label small">{% trans 'حجم الملصق' %}</label>
+            <select class="form-select form-select-sm" name="label_size">
+              <option value="small">{% trans 'صغير' %} (40x30mm)</option>
+              <option value="medium" selected>{% trans 'متوسط' %} (60x40mm)</option>
+              <option value="large">{% trans 'كبير' %} (100x50mm)</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label small">{% trans 'نوع الباركود' %}</label>
+            <select class="form-select form-select-sm" name="barcode_type">
+              <option value="code128">Code 128</option>
+              <option value="ean13">EAN-13</option>
+              <option value="qr">QR Code</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="showPrice" checked>
+              <label class="form-check-label small" for="showPrice">{% trans 'عرض السعر' %}</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="showSku" checked>
+              <label class="form-check-label small" for="showSku">{% trans 'عرض الكود' %}</label>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Actions -->
+      <div class="action-footer">
+        <button class="btn btn-outline-secondary flex-fill" onclick="clearSelection()">
+          <i class="bi bi-x-lg me-1"></i>{% trans 'مسح' %}
+        </button>
+        <button class="btn btn-primary flex-fill" onclick="generateLabels()" id="generateBtn" disabled>
+          <i class="bi bi-printer me-1"></i>{% trans 'إنشاء الملصقات' %}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let selectedProducts = [];
+  
+  function toggleProduct(card) {
+    const id = card.dataset.id;
+    const name = card.dataset.name;
+    const sku = card.dataset.sku;
+    
+    if (card.classList.contains('selected')) {
+      card.classList.remove('selected');
+      selectedProducts = selectedProducts.filter(p => p.id !== id);
+    } else {
+      card.classList.add('selected');
+      selectedProducts.push({ id, name, sku, qty: 1 });
+    }
+    
+    renderSelectedList();
+  }
+  
+  function renderSelectedList() {
+    const list = document.getElementById('selectedList');
+    const emptyState = document.getElementById('emptyState');
+    const count = document.getElementById('selectedCount');
+    const btn = document.getElementById('generateBtn');
+    
+    count.textContent = selectedProducts.length;
+    btn.disabled = selectedProducts.length === 0;
+    
+    if (selectedProducts.length === 0) {
+      list.innerHTML = `
+        <div class="empty-selection" id="emptyState">
+          <i class="bi bi-inbox d-block"></i>
+          <p class="mb-0">{% trans 'لم تختر أي منتج بعد' %}</p>
+          <small>{% trans 'انقر على المنتجات لإضافتها' %}</small>
+        </div>
+      `;
+      return;
+    }
+    
+    list.innerHTML = selectedProducts.map(p => `
+      <div class="selected-item" data-id="${p.id}">
+        <div class="info">
+          <div class="name">${p.name}</div>
+          <div class="sku">${p.sku}</div>
+        </div>
+        <input type="number" class="form-control form-control-sm qty-input" 
+               value="${p.qty}" min="1" onchange="updateQty('${p.id}', this.value)">
+        <button class="remove-btn" onclick="removeProduct('${p.id}')">
+          <i class="bi bi-trash"></i>
+        </button>
+      </div>
+    `).join('');
+  }
+  
+  function updateQty(id, qty) {
+    const product = selectedProducts.find(p => p.id === id);
+    if (product) product.qty = parseInt(qty) || 1;
+  }
+  
+  function removeProduct(id) {
+    selectedProducts = selectedProducts.filter(p => p.id !== id);
+    document.querySelector(`.product-card[data-id="${id}"]`)?.classList.remove('selected');
+    renderSelectedList();
+  }
+  
+  function clearSelection() {
+    selectedProducts = [];
+    document.querySelectorAll('.product-card.selected').forEach(card => card.classList.remove('selected'));
+    renderSelectedList();
+  }
+  
+  function selectAll() {
+    document.querySelectorAll('.product-card:not(.selected)').forEach(card => {
+      card.classList.add('selected');
+      selectedProducts.push({
+        id: card.dataset.id,
+        name: card.dataset.name,
+        sku: card.dataset.sku,
+        qty: 1
+      });
+    });
+    renderSelectedList();
+  }
+  
+  function generateLabels() {
+    if (selectedProducts.length === 0) return;
+    
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{% url "inventory:batch_labels" %}';
+    
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = '{{ csrf_token }}';
+    form.appendChild(csrfInput);
+    
+    selectedProducts.forEach(p => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'products';
+      input.value = JSON.stringify(p);
+      form.appendChild(input);
+    });
+    
+    document.body.appendChild(form);
+    form.submit();
+  }
+  
+  // Search functionality
+  document.getElementById('searchProducts').addEventListener('input', function(e) {
+    const query = e.target.value.toLowerCase();
+    document.querySelectorAll('.product-card').forEach(card => {
+      const name = card.dataset.name.toLowerCase();
+      const sku = card.dataset.sku.toLowerCase();
+      card.style.display = (name.includes(query) || sku.includes(query)) ? '' : 'none';
+    });
+  });
+</script>
+{% endblock %}
+

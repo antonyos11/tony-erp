@@ -1,0 +1,347 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}إقفال سنة مالية{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">
+                <i class="bi bi-lock-fill text-danger me-2"></i>
+                إقفال سنة مالية
+            </h2>
+            <p class="text-muted mb-0">إغلاق نهائي للسنة المالية وترحيل الأرصدة</p>
+        </div>
+        <div>
+            <a href="{% url 'accounting:fiscal_year_create' %}" class="btn btn-outline-primary">
+                <i class="bi bi-calendar-plus me-2"></i>
+                سنة مالية جديدة
+            </a>
+        </div>
+    </div>
+
+    <!-- Alert Messages -->
+    {% if error %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <strong>خطأ:</strong> {{ error }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    {% if closure %}
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i>
+        <strong>تم الإقفال بنجاح!</strong>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    <!-- Main Content -->
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Fiscal Year Info Card -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-calendar-range me-2"></i>
+                        معلومات السنة المالية
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if active_fiscal_year %}
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center mb-3">
+                                <i class="bi bi-tag-fill text-primary fs-4 me-3"></i>
+                                <div>
+                                    <small class="text-muted d-block">اسم السنة</small>
+                                    <strong class="fs-5">{{ active_fiscal_year.name }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center mb-3">
+                                <i class="bi bi-calendar-check text-success fs-4 me-3"></i>
+                                <div>
+                                    <small class="text-muted d-block">الفترة المالية</small>
+                                    <strong>{{ active_fiscal_year.start_date|date:"d M Y" }}</strong>
+                                    <i class="bi bi-arrow-left-right mx-2"></i>
+                                    <strong>{{ active_fiscal_year.end_date|date:"d M Y" }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Status Info -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-journal-text text-info fs-4 me-3"></i>
+                                <div>
+                                    <small class="text-muted d-block">القيود غير المرحلة</small>
+                                    <span class="badge {% if unposted_entries == 0 %}bg-success{% else %}bg-warning{% endif %} fs-6">
+                                        {{ unposted_entries }} قيد
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-shield-check text-success fs-4 me-3"></i>
+                                <div>
+                                    <small class="text-muted d-block">حالة الإقفال</small>
+                                    <span class="badge {% if active_fiscal_year.is_closed %}bg-secondary{% else %}bg-info{% endif %} fs-6">
+                                        {% if active_fiscal_year.is_closed %}مغلقة{% else %}مفتوحة{% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Warning if unposted entries exist -->
+                    {% if unposted_entries > 0 %}
+                    <div class="alert alert-warning mt-4 mb-0" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <strong>تنبيه:</strong> يجب ترحيل جميع القيود قبل إقفال السنة المالية.
+                        <a href="{% url 'accounting:journal_drafts_list' %}" class="alert-link">عرض القيود غير المرحلة</a>
+                    </div>
+                    {% endif %}
+
+                    {% else %}
+                    <div class="alert alert-warning mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        لا توجد سنة مالية نشطة حالياً. 
+                        <a href="{% url 'accounting:fiscal_year_create' %}" class="alert-link">إنشاء سنة مالية جديدة</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Closure Results Card (if closed) -->
+            {% if closure %}
+            <div class="card shadow-sm mb-4 border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        نتائج الإقفال
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-6 mb-3">
+                            <div class="p-3 bg-light rounded">
+                                <i class="bi bi-cash-stack text-success fs-1 mb-2"></i>
+                                <h6 class="text-muted">صافي الربح / الخسارة</h6>
+                                <h4 class="mb-0 {% if closure.net_income >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ closure.net_income|floatformat:2 }} ج.م
+                                </h4>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="p-3 bg-light rounded">
+                                <i class="bi bi-file-earmark-text text-primary fs-1 mb-2"></i>
+                                <h6 class="text-muted">رقم قيد الإقفال</h6>
+                                <h4 class="mb-0">
+                                    <a href="{% url 'accounting:journal_detail' closure.journal_entry.id %}">
+                                        {{ closure.journal_entry.number }}
+                                    </a>
+                                </h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Action Card -->
+            <div class="card shadow-sm mb-4 {% if can_close %}border-danger{% endif %}">
+                <div class="card-header {% if can_close %}bg-danger text-white{% else %}bg-secondary text-white{% endif %}">
+                    <h5 class="mb-0">
+                        <i class="bi bi-gear-fill me-2"></i>
+                        إجراءات الإقفال
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if can_close and active_fiscal_year %}
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle me-2"></i>
+                        <strong>جاهز للإقفال</strong>
+                        <p class="mb-0 small mt-2">جميع الشروط متوفرة لإتمام عملية الإقفال</p>
+                    </div>
+                    
+                    <form method="post" id="closeYearForm">
+                        {% csrf_token %}
+                        <button type="button" class="btn btn-danger w-100 btn-lg" data-bs-toggle="modal" data-bs-target="#confirmCloseModal">
+                            <i class="bi bi-lock-fill me-2"></i>
+                            تنفيذ الإقفال
+                        </button>
+                    </form>
+
+                    {% elif active_fiscal_year.is_closed %}
+                    <div class="alert alert-secondary mb-0">
+                        <i class="bi bi-lock-fill me-2"></i>
+                        السنة المالية مغلقة مسبقاً
+                    </div>
+                    
+                    {% elif active_fiscal_year %}
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        قم بترحيل جميع القيود أولاً
+                    </div>
+                    
+                    {% else %}
+                    <div class="alert alert-warning mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        لا توجد سنة مالية نشطة
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Info Card -->
+            <div class="card shadow-sm border-info">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0">
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                        معلومات هامة
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-primary">ما هو إقفال السنة المالية؟</h6>
+                    <p class="small text-muted">
+                        عملية محاسبية تتم في نهاية السنة المالية لإغلاق حسابات الإيرادات والمصروفات 
+                        وترحيل صافي الربح أو الخسارة إلى حساب الأرباح المبقاة.
+                    </p>
+                    
+                    <hr>
+                    
+                    <h6 class="text-primary">خطوات الإقفال:</h6>
+                    <ol class="small text-muted mb-0">
+                        <li>التحقق من عدم وجود قيود غير مرحلة</li>
+                        <li>حساب صافي الربح/الخسارة</li>
+                        <li>إنشاء قيد الإقفال الآلي</li>
+                        <li>ترحيل الأرصدة للفترة القادمة</li>
+                        <li>إغلاق السنة المالية</li>
+                    </ol>
+                    
+                    <hr>
+                    
+                    <div class="alert alert-warning small mb-0">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <strong>تنبيه:</strong> عملية الإقفال لا يمكن التراجع عنها. تأكد من مراجعة جميع القيود قبل الإقفال.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal fade" id="confirmCloseModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    تأكيد إقفال السنة المالية
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="bi bi-shield-exclamation me-2"></i>
+                    <strong>تحذير:</strong> هذه العملية لا يمكن التراجع عنها!
+                </div>
+                
+                <p class="mb-3">أنت على وشك إقفال السنة المالية:</p>
+                
+                {% if active_fiscal_year %}
+                <div class="bg-light p-3 rounded mb-3">
+                    <div class="row">
+                        <div class="col-6">
+                            <small class="text-muted">السنة المالية:</small><br>
+                            <strong>{{ active_fiscal_year.name }}</strong>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">الفترة:</small><br>
+                            <strong>{{ active_fiscal_year.start_date|date:"Y-m-d" }}</strong><br>
+                            <strong>{{ active_fiscal_year.end_date|date:"Y-m-d" }}</strong>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <p class="mb-2">سيتم تنفيذ الإجراءات التالية:</p>
+                <ul class="small">
+                    <li>إغلاق جميع حسابات الإيرادات والمصروفات</li>
+                    <li>إنشاء قيد إقفال آلي</li>
+                    <li>ترحيل صافي الربح/الخسارة إلى حساب الأرباح المبقاة</li>
+                    <li>منع أي تعديلات على القيود في هذه السنة</li>
+                </ul>
+                
+                <div class="form-check mt-3">
+                    <input class="form-check-input" type="checkbox" id="confirmCheck">
+                    <label class="form-check-label" for="confirmCheck">
+                        أؤكد أنني راجعت جميع البيانات وأريد المتابعة
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>
+                    إلغاء
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmCloseBtn" disabled>
+                    <i class="bi bi-lock-fill me-2"></i>
+                    تأكيد الإقفال
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Enable confirm button when checkbox is checked
+document.getElementById('confirmCheck')?.addEventListener('change', function() {
+    document.getElementById('confirmCloseBtn').disabled = !this.checked;
+});
+
+// Submit form on confirm
+document.getElementById('confirmCloseBtn')?.addEventListener('click', function() {
+    document.getElementById('closeYearForm').submit();
+});
+</script>
+
+<style>
+.card {
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1) !important;
+}
+
+.badge {
+    font-weight: 500;
+}
+
+.alert {
+    border-left: 4px solid currentColor;
+}
+
+.bg-light {
+    background-color: #f8f9fa !important;
+}
+</style>
+{% endblock %}
+

@@ -1,0 +1,362 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}لوحة تحكم الأهداف والتارجت{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.css" rel="stylesheet">
+<style>
+.stats-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.stats-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+}
+
+.stats-card h3 {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.stats-card p {
+    opacity: 0.9;
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+.target-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+}
+
+.target-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.progress-bar {
+    height: 8px;
+    border-radius: 4px;
+}
+
+.achievement-badge {
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 20px;
+}
+
+.priority-badge {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+}
+
+.chart-container {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    margin-bottom: 25px;
+}
+
+.section-title {
+    color: #2c3e50;
+    font-weight: bold;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 3px solid #3498db;
+    display: inline-block;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">🎯 لوحة تحكم الأهداف والتارجت</h1>
+            <p class="text-muted">متابعة الأهداف الفردية والجماعية والإنجازات</p>
+        </div>
+        <div>
+            <a href="{% url 'hr:target_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> هدف جديد
+            </a>
+            <a href="{% url 'hr:targets_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-list"></i> جميع الأهداف
+            </a>
+        </div>
+    </div>
+
+    <!-- إحصائيات سريعة -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6">
+            <div class="stats-card" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+                <div class="d-flex align-items-center">
+                    <div>
+                        <h3>{{ total_active_targets }}</h3>
+                        <p>الأهداف النشطة</p>
+                    </div>
+                    <div class="ms-auto">
+                        <i class="fas fa-bullseye fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="stats-card" style="background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);">
+                <div class="d-flex align-items-center">
+                    <div>
+                        <h3>{{ completed_targets }}</h3>
+                        <p>الأهداف المكتملة</p>
+                    </div>
+                    <div class="ms-auto">
+                        <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="stats-card" style="background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);">
+                <div class="d-flex align-items-center">
+                    <div>
+                        <h3>{{ overdue_targets }}</h3>
+                        <p>أهداف متأخرة</p>
+                    </div>
+                    <div class="ms-auto">
+                        <i class="fas fa-exclamation-triangle fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="stats-card" style="background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);">
+                <div class="d-flex align-items-center">
+                    <div>
+                        <h3>{{ target_categories.count }}</h3>
+                        <p>فئات الأهداف</p>
+                    </div>
+                    <div class="ms-auto">
+                        <i class="fas fa-tags fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- أهدافي الشخصية -->
+        <div class="col-lg-8">
+            <div class="chart-container">
+                <h4 class="section-title">📊 أهدافي الشخصية</h4>
+                
+                {% if user_targets %}
+                    {% for target in user_targets %}
+                    <div class="target-card card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title mb-1">{{ target.title }}</h5>
+                                <div class="d-flex gap-2">
+                                    {% if target.priority == 'critical' %}
+                                        <span class="priority-badge bg-danger text-white">حرج</span>
+                                    {% elif target.priority == 'high' %}
+                                        <span class="priority-badge bg-warning text-white">عالي</span>
+                                    {% elif target.priority == 'medium' %}
+                                        <span class="priority-badge bg-info text-white">متوسط</span>
+                                    {% else %}
+                                        <span class="priority-badge bg-secondary text-white">منخفض</span>
+                                    {% endif %}
+                                    
+                                    {% if target.performance_level == 'excellence' %}
+                                        <span class="achievement-badge bg-success text-white">متميز</span>
+                                    {% elif target.performance_level == 'achieved' %}
+                                        <span class="achievement-badge bg-primary text-white">محقق</span>
+                                    {% elif target.performance_level == 'acceptable' %}
+                                        <span class="achievement-badge bg-warning text-white">مقبول</span>
+                                    {% else %}
+                                        <span class="achievement-badge bg-danger text-white">دون المستوى</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <p class="text-muted mb-3">{{ target.category.name }} • {{ target.get_target_period_display }}</p>
+                            
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-sm">التقدم</span>
+                                    <span class="text-sm font-weight-bold">{{ target.current_value }} / {{ target.target_value }} {{ target.unit }}</span>
+                                </div>
+                                
+                                {% with percentage=target.achievement_percentage %}
+                                <div class="progress">
+                                    {% if percentage >= 100 %}
+                                        <div class="progress-bar bg-success" style="width: 100%">{{ percentage|floatformat:1 }}%</div>
+                                    {% elif percentage >= 80 %}
+                                        <div class="progress-bar bg-info" style="width: { percentage }%">{{ percentage|floatformat:1 }}%</div>
+                                    {% elif percentage >= 60 %}
+                                        <div class="progress-bar bg-warning" style="width: { percentage }%">{{ percentage|floatformat:1 }}%</div>
+                                    {% else %}
+                                        <div class="progress-bar bg-danger" style="width: { percentage }%">{{ percentage|floatformat:1 }}%</div>
+                                    {% endif %}
+                                </div>
+                                {% endwith %}
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">
+                                    <i class="fas fa-calendar"></i>
+                                    المتبقي: {{ target.remaining_days }} يوم
+                                </small>
+                                <a href="{% url 'hr:target_detail' target.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye"></i> عرض
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-bullseye fa-4x text-muted mb-3"></i>
+                        <h5>لا توجد أهداف شخصية</h5>
+                        <p class="text-muted">اطلب من المدير تحديد أهداف لك</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- الإحصائيات والرسوم البيانية -->
+        <div class="col-lg-4">
+            <!-- أهداف الفريق -->
+            <div class="chart-container mb-4">
+                <h4 class="section-title">👥 أهداف الفرق</h4>
+                
+                {% if team_targets %}
+                    {% for team_target in team_targets %}
+                    <div class="card mb-2">
+                        <div class="card-body py-3">
+                            <h6 class="card-title mb-1">{{ team_target.team_name }}</h6>
+                            <p class="text-muted small mb-2">{{ team_target.title }}</p>
+                            
+                            {% with percentage=team_target.achievement_percentage %}
+                            <div class="progress progress-sm">
+                                {% if percentage >= 100 %}
+                                    <div class="progress-bar bg-success" style="width: 100%"></div>
+                                {% elif percentage >= 80 %}
+                                    <div class="progress-bar bg-info" style="width: { percentage }%"></div>
+                                {% else %}
+                                    <div class="progress-bar bg-warning" style="width: { percentage }%"></div>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted">{{ percentage|floatformat:1 }}%</small>
+                            {% endwith %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-users fa-3x text-muted mb-2"></i>
+                        <p class="text-muted">لا توجد أهداف فريق</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- إحصائيات الإنجاز -->
+            <div class="chart-container">
+                <h4 class="section-title">📈 إحصائيات الإنجاز</h4>
+                
+                {% if achievement_stats %}
+                    <canvas id="achievementChart" width="400" height="300"></canvas>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-chart-pie fa-3x text-muted mb-2"></i>
+                        <p class="text-muted">لا توجد بيانات كافية</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// رسم بياني لإحصائيات الإنجاز
+{% if achievement_stats %}
+const ctx = document.getElementById('achievementChart').getContext('2d');
+
+const achievementData = {
+    labels: [{% for stat in achievement_stats %}'{ stat.target.title|truncatechars:15 }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+    datasets: [{
+        label: 'نسبة الإنجاز %',
+        data: [{% for stat in achievement_stats %}{ stat.percentage|floatformat:1 }{% if not forloop.last %},{% endif %}{% endfor %}],
+        backgroundColor: [
+            {% for stat in achievement_stats %}
+                {% if stat.percentage >= 100 %}'rgba(40, 167, 69, 0.8)'
+                {% elif stat.percentage >= 80 %}'rgba(23, 162, 184, 0.8)'  
+                {% elif stat.percentage >= 60 %}'rgba(255, 193, 7, 0.8)'
+                {% else %}'rgba(220, 53, 69, 0.8)'
+                {% endif %}
+                {% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        borderColor: [
+            {% for stat in achievement_stats %}
+                {% if stat.percentage >= 100 %}'rgba(40, 167, 69, 1)'
+                {% elif stat.percentage >= 80 %}'rgba(23, 162, 184, 1)'
+                {% elif stat.percentage >= 60 %}'rgba(255, 193, 7, 1)'
+                {% else %}'rgba(220, 53, 69, 1)'
+                {% endif %}
+                {% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        borderWidth: 2
+    }]
+};
+
+const config = {
+    type: 'doughnut',
+    data: achievementData,
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'bottom',
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return context.label + ': ' + context.parsed + '%';
+                    }
+                }
+            }
+        }
+    }
+};
+
+new Chart(ctx, config);
+{% endif %}
+
+// تحديث الصفحة كل 5 دقائق لبيانات حية
+setTimeout(() => {
+    location.reload();
+}, 300000);
+</script>
+{% endblock %}

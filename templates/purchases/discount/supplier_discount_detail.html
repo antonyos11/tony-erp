@@ -1,0 +1,194 @@
+﻿{% extends 'base_templates/modern_detail.html' %}
+
+{% block page_module %}purchases{% endblock %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "تفاصيل إشعار الخصم" %} - {{ note.number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="{% url 'purchases:supplier_discount_list' %}">{% trans "خصم مكتسب" %}</a></li>
+                    <li class="breadcrumb-item active">{{ note.number }}</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="bi bi-check2-circle text-success me-2"></i>
+                {{ note.number }}
+            </h1>
+        </div>
+        <div class="d-flex gap-2">
+            {% if note.status == 'draft' %}
+            <a href="{% url 'purchases:supplier_discount_edit' note.pk %}" class="btn btn-outline-primary">
+                <i class="bi bi-pencil me-1"></i>
+                {% trans "تعديل" %}
+            </a>
+            <form method="post" action="{% url 'purchases:supplier_discount_post' note.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success" onclick="return confirm('{% trans "هل تريد ترحيل هذا الإشعار؟" %}')">
+                    <i class="bi bi-check2-circle me-1"></i>
+                    {% trans "ترحيل" %}
+                </button>
+            </form>
+            {% endif %}
+            
+            {% if note.status != 'cancelled' %}
+            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#cancelModal">
+                <i class="bi bi-x-circle me-1"></i>
+                {% trans "إلغاء" %}
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Main Details -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{% trans "بيانات الإشعار" %}</h5>
+                    {% if note.status == 'draft' %}
+                    <span class="badge bg-secondary">{% trans "مسودة" %}</span>
+                    {% elif note.status == 'posted' %}
+                    <span class="badge bg-success">{% trans "مرحّل" %}</span>
+                    {% else %}
+                    <span class="badge bg-danger">{% trans "ملغى" %}</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <label class="text-muted small">{% trans "المورد" %}</label>
+                            <div class="fw-bold">{{ note.supplier.name }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">{% trans "التاريخ" %}</label>
+                            <div class="fw-bold">{{ note.date|date:"Y-m-d" }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">{% trans "فاتورة الشراء المرتبطة" %}</label>
+                            <div class="fw-bold">
+                                {% if note.bill %}
+                                <a href="{% url 'purchases:purchase_detail' note.bill.pk %}">{{ note.bill.number }}</a>
+                                {% else %}
+                                <span class="text-muted">{% trans "خصم عام على الحساب" %}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">{% trans "رقم إشعار المورد" %}</label>
+                            <div class="fw-bold">
+                                {% if note.supplier_note_number %}
+                                {{ note.supplier_note_number }}
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">{% trans "سبب الخصم" %}</label>
+                            <div>
+                                <span class="badge bg-success-subtle text-success-emphasis">
+                                    {{ note.get_reason_display }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="text-muted small">{% trans "قيمة الخصم" %}</label>
+                            <div class="h3 text-primary mb-0">
+                                {{ note.amount|floatformat:2 }} EGP
+                                {% if note.is_percentage %}
+                                <small class="text-muted">({{ note.percentage_value }}%)</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% if note.notes %}
+                        <div class="col-12">
+                            <label class="text-muted small">{% trans "ملاحظات" %}</label>
+                            <div>{{ note.notes }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {% if note.journal_entry %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">{% trans "القيد المحاسبي" %}</h5>
+                </div>
+                <div class="card-body">
+                    <a href="{% url 'accounting:journal_entry_detail' note.journal_entry.pk %}" class="btn btn-outline-primary">
+                        <i class="bi bi-journal-text me-1"></i>
+                        {{ note.journal_entry.number }}
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">{% trans "سجل التدقيق" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="text-muted small">{% trans "أنشأه" %}</label>
+                        <div>{% if note.created_by %}{{ note.created_by.get_full_name|default:note.created_by.username }}{% else %}-{% endif %}</div>
+                        <small class="text-muted">{{ note.created_at|date:"Y-m-d H:i" }}</small>
+                    </div>
+                    {% if note.posted_by %}
+                    <div class="mb-3">
+                        <label class="text-muted small">{% trans "رحّله" %}</label>
+                        <div>{{ note.posted_by.get_full_name|default:note.posted_by.username }}</div>
+                        <small class="text-muted">{{ note.posted_at|date:"Y-m-d H:i" }}</small>
+                    </div>
+                    {% endif %}
+                    {% if note.cancelled_by %}
+                    <div class="mb-3">
+                        <label class="text-muted small text-danger">{% trans "ألغاه" %}</label>
+                        <div>{{ note.cancelled_by.get_full_name|default:note.cancelled_by.username }}</div>
+                        <small class="text-muted">{{ note.cancelled_at|date:"Y-m-d H:i" }}</small>
+                        {% if note.cancellation_reason %}
+                        <div class="mt-1 text-danger small">{{ note.cancellation_reason }}</div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cancel Modal -->
+<div class="modal fade" id="cancelModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'purchases:supplier_discount_cancel' note.pk %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "إلغاء الإشعار" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "سبب الإلغاء" %}</label>
+                        <textarea name="reason" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "إغلاق" %}</button>
+                    <button type="submit" class="btn btn-danger">{% trans "تأكيد الإلغاء" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,111 @@
+﻿{% extends 'base_templates/_list_professional.html' %}
+
+{% block hero_icon %}bi-arrow-left-right{% endblock %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">
+            <i class="bi bi-check-square text-primary me-2"></i>
+            {{ title }}
+        </h1>
+        <a href="{% url 'import_export:financial_approval_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i> {% trans "طلب موافقة مالية" %}
+        </a>
+    </div>
+
+    <!-- الفلاتر -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <select name="status" class="form-select">
+                        <option value="">{% trans "جميع الحالات" %}</option>
+                        {% for value, label in statuses %}
+                        <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-secondary">
+                        <i class="bi bi-filter me-1"></i> {% trans "فلترة" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- الجدول -->
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>{% trans "رقم الموافقة" %}</th>
+                        <th>{% trans "طلب التصدير" %}</th>
+                        <th>{% trans "المبلغ المطلوب" %}</th>
+                        <th>{% trans "المبلغ الموافق عليه" %}</th>
+                        <th>{% trans "مقدم الطلب" %}</th>
+                        <th>{% trans "الحالة" %}</th>
+                        <th class="text-center">{% trans "إجراءات" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for approval in approvals %}
+                    <tr>
+                        <td><code>{{ approval.number }}</code></td>
+                        <td>
+                            <a href="{% url 'import_export:export_order_detail' approval.export_order.pk %}">
+                                {{ approval.export_order.number }}
+                            </a>
+                        </td>
+                        <td>{{ approval.requested_amount|floatformat:2 }} {{ approval.currency.code|default:"" }}</td>
+                        <td>{{ approval.approved_amount|floatformat:2 }}</td>
+                        <td>{% if approval.requested_by %}{{ approval.requested_by.get_full_name|default:approval.requested_by.username }}{% else %}-{% endif %}</td>
+                        <td>
+                            {% if approval.status == 'pending' %}
+                            <span class="badge bg-warning">{{ approval.get_status_display }}</span>
+                            {% elif approval.status == 'approved' %}
+                            <span class="badge bg-success">{{ approval.get_status_display }}</span>
+                            {% elif approval.status == 'rejected' %}
+                            <span class="badge bg-danger">{{ approval.get_status_display }}</span>
+                            {% elif approval.status == 'conditional' %}
+                            <span class="badge bg-info">{{ approval.get_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'import_export:financial_approval_detail' approval.pk %}" 
+                                   class="btn btn-outline-primary">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                {% if approval.status == 'pending' %}
+                                <a href="{% url 'import_export:financial_approval_action' approval.pk 'approve' %}" 
+                                   class="btn btn-outline-success" title="{% trans 'موافقة' %}">
+                                    <i class="bi bi-check-lg"></i>
+                                </a>
+                                <a href="{% url 'import_export:financial_approval_action' approval.pk 'reject' %}" 
+                                   class="btn btn-outline-danger" title="{% trans 'رفض' %}">
+                                    <i class="bi bi-x-lg"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5">
+                            <i class="bi bi-inbox display-4 text-muted"></i>
+                            <p class="text-muted mt-2">{% trans "لا توجد موافقات مالية" %}</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,138 @@
+﻿{% extends 'base_templates/modern_detail.html' %}
+
+{% block page_module %}inventory{% endblock %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-1">
+                <i class="bi bi-diagram-3 text-primary me-2"></i>
+                {{ page_title }}
+            </h3>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">الرئيسية</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'inventory:bom_list' %}">قوائم المواد</a></li>
+                    <li class="breadcrumb-item active">{{ bom.product.name }}</li>
+                </ol>
+            </nav>
+        </div>
+        <a href="{% url 'inventory:bom_edit' bom.pk %}" class="btn btn-primary">
+            <i class="bi bi-pencil me-1"></i> تعديل
+        </a>
+    </div>
+    
+    <div class="row">
+        <!-- معلومات المنتج -->
+        <div class="col-md-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">معلومات المنتج</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <th>المنتج:</th>
+                            <td>{{ bom.product.name }}</td>
+                        </tr>
+                        <tr>
+                            <th>الكود:</th>
+                            <td>{{ bom.product.sku|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th>الحالة:</th>
+                            <td>
+                                {% if bom.is_active %}
+                                <span class="badge bg-success">نشط</span>
+                                {% else %}
+                                <span class="badge bg-secondary">غير نشط</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            
+            {% if bom.notes %}
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h6 class="mb-0">ملاحظات</h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ bom.notes }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- المكونات -->
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">مكونات قائمة المواد</h6>
+                    <div>
+                        <span class="badge bg-primary me-2">{{ components.count }} مكون</span>
+                        <a href="{% url 'inventory:bom_add_item' bom.pk %}" class="btn btn-success btn-sm">
+                            <i class="bi bi-plus-lg me-1"></i>
+                            إضافة مكون
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>المادة الخام</th>
+                                    <th>الكمية</th>
+                                    <th>الوحدة</th>
+                                    <th>التكلفة</th>
+                                    <th>إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for component in components %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>{{ component.material.name }}</td>
+                                    <td>{{ component.quantity }}</td>
+                                    <td>{{ component.material.unit|default:"-" }}</td>
+                                    <td>{{ component.unit_cost|floatformat:2|default:"0.00" }} ج.م</td>
+                                    <td>
+                                        <form method="post" action="{% url 'inventory:bom_delete_item' bom.pk component.pk %}" 
+                                              class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا المكون؟');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <i class="bi bi-box-seam display-4 text-muted"></i>
+                                        <p class="mt-2 text-muted">لا توجد مكونات مضافة بعد</p>
+                                        <a href="{% url 'inventory:bom_add_item' bom.pk %}" class="btn btn-success">
+                                            <i class="bi bi-plus-lg me-1"></i>
+                                            إضافة أول مكون
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

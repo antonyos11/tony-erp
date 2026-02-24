@@ -1,0 +1,1031 @@
+openapi: 3.0.3
+info:
+  title: Tony ERP API
+  description: |
+    نظام Tony ERP - واجهة برمجة التطبيقات الشاملة
+    
+    نظام إدارة أعمال متكامل يشمل:
+    - إدارة المخزون والمنتجات
+    - المبيعات والفواتير
+    - المشتريات والموردين
+    - المحاسبة والتقارير المالية
+    - إدارة الموارد البشرية
+    - نقاط البيع (POS)
+    - إدارة علاقات العملاء (CRM)
+    - الإنتاج والتصنيع
+    - إدارة الأسطول
+    - الشحن والتوصيل
+    - والمزيد...
+  version: "2.0.0"
+  contact:
+    name: Tony ERP Support
+    email: support@tonyerp.com
+
+servers:
+  - url: http://72.62.176.249/api
+    description: Production Server
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token authentication. Get token from /api/token/
+    
+  schemas:
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 200
+        sku:
+          type: string
+          maxLength: 50
+        barcode:
+          type: string
+          maxLength: 50
+        category:
+          type: integer
+        price:
+          type: number
+          format: decimal
+        cost:
+          type: number
+          format: decimal
+        quantity:
+          type: integer
+        min_stock:
+          type: integer
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - name
+
+    Customer:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 200
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          maxLength: 20
+        address:
+          type: string
+        city:
+          type: string
+        country:
+          type: string
+        tax_number:
+          type: string
+        credit_limit:
+          type: number
+          format: decimal
+        balance:
+          type: number
+          format: decimal
+          readOnly: true
+        is_active:
+          type: boolean
+      required:
+        - name
+
+    Supplier:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 200
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        address:
+          type: string
+        contact_person:
+          type: string
+        tax_number:
+          type: string
+        payment_terms:
+          type: integer
+        is_active:
+          type: boolean
+      required:
+        - name
+
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        invoice_number:
+          type: string
+          readOnly: true
+        customer:
+          type: integer
+        date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        subtotal:
+          type: number
+          format: decimal
+        tax_amount:
+          type: number
+          format: decimal
+        discount:
+          type: number
+          format: decimal
+        total:
+          type: number
+          format: decimal
+        paid_amount:
+          type: number
+          format: decimal
+        status:
+          type: string
+          enum: [draft, sent, paid, partial, overdue, cancelled]
+        notes:
+          type: string
+      required:
+        - customer
+
+    PurchaseBill:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        bill_number:
+          type: string
+        supplier:
+          type: integer
+        date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        total:
+          type: number
+          format: decimal
+        status:
+          type: string
+          enum: [draft, received, paid, partial, cancelled]
+      required:
+        - supplier
+
+    Location:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+        code:
+          type: string
+        type:
+          type: string
+          enum: [warehouse, store, virtual]
+        address:
+          type: string
+        is_active:
+          type: boolean
+      required:
+        - name
+
+    Stock:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        product:
+          type: integer
+        location:
+          type: integer
+        quantity:
+          type: integer
+        reserved_quantity:
+          type: integer
+        available_quantity:
+          type: integer
+          readOnly: true
+
+    POSOrder:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        order_number:
+          type: string
+        customer:
+          type: integer
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              product_id:
+                type: integer
+              quantity:
+                type: integer
+              price:
+                type: number
+        subtotal:
+          type: number
+          format: decimal
+        tax:
+          type: number
+          format: decimal
+        discount:
+          type: number
+          format: decimal
+        total:
+          type: number
+          format: decimal
+        payment_method:
+          type: string
+          enum: [cash, card, transfer, credit]
+        status:
+          type: string
+          enum: [pending, completed, cancelled]
+        created_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+
+    PaginatedResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          nullable: true
+        previous:
+          type: string
+          nullable: true
+        results:
+          type: array
+          items: {}
+
+paths:
+  /token/:
+    post:
+      summary: Get JWT Token
+      description: Authenticate and get JWT access and refresh tokens
+      tags:
+        - Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+              required:
+                - username
+                - password
+      responses:
+        '200':
+          description: Successful authentication
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access:
+                    type: string
+                    description: JWT access token
+                  refresh:
+                    type: string
+                    description: JWT refresh token
+        '401':
+          description: Invalid credentials
+
+  /products/:
+    get:
+      summary: List Products
+      description: Get list of all products with pagination
+      tags:
+        - Products
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: integer
+        - name: is_active
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Product'
+    post:
+      summary: Create Product
+      description: Create a new product
+      tags:
+        - Products
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Product'
+      responses:
+        '201':
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Validation error
+
+  /products/{id}/:
+    get:
+      summary: Get Product
+      description: Get a specific product by ID
+      tags:
+        - Products
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: Product not found
+    put:
+      summary: Update Product
+      description: Update a product
+      tags:
+        - Products
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Product'
+      responses:
+        '200':
+          description: Product updated
+        '404':
+          description: Product not found
+    delete:
+      summary: Delete Product
+      description: Delete a product
+      tags:
+        - Products
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Product deleted
+        '404':
+          description: Product not found
+
+  /customers/:
+    get:
+      summary: List Customers
+      description: Get list of all customers
+      tags:
+        - Customers
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Customer'
+    post:
+      summary: Create Customer
+      tags:
+        - Customers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Customer'
+      responses:
+        '201':
+          description: Customer created
+
+  /customers/{id}/:
+    get:
+      summary: Get Customer
+      tags:
+        - Customers
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+    put:
+      summary: Update Customer
+      tags:
+        - Customers
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Customer'
+      responses:
+        '200':
+          description: Customer updated
+    delete:
+      summary: Delete Customer
+      tags:
+        - Customers
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Customer deleted
+
+  /suppliers/:
+    get:
+      summary: List Suppliers
+      tags:
+        - Suppliers
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Supplier'
+    post:
+      summary: Create Supplier
+      tags:
+        - Suppliers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Supplier'
+      responses:
+        '201':
+          description: Supplier created
+
+  /suppliers/{id}/:
+    get:
+      summary: Get Supplier
+      tags:
+        - Suppliers
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful response
+    put:
+      summary: Update Supplier
+      tags:
+        - Suppliers
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Supplier'
+      responses:
+        '200':
+          description: Supplier updated
+    delete:
+      summary: Delete Supplier
+      tags:
+        - Suppliers
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Supplier deleted
+
+  /invoices/:
+    get:
+      summary: List Invoices
+      tags:
+        - Sales
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, sent, paid, partial, overdue, cancelled]
+        - name: customer
+          in: query
+          schema:
+            type: integer
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Successful response
+    post:
+      summary: Create Invoice
+      tags:
+        - Sales
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Invoice'
+      responses:
+        '201':
+          description: Invoice created
+
+  /invoices/{id}/:
+    get:
+      summary: Get Invoice
+      tags:
+        - Sales
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful response
+    put:
+      summary: Update Invoice
+      tags:
+        - Sales
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Invoice'
+      responses:
+        '200':
+          description: Invoice updated
+    delete:
+      summary: Delete Invoice
+      tags:
+        - Sales
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Invoice deleted
+
+  /purchases/:
+    get:
+      summary: List Purchase Bills
+      tags:
+        - Purchases
+      responses:
+        '200':
+          description: Successful response
+    post:
+      summary: Create Purchase Bill
+      tags:
+        - Purchases
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PurchaseBill'
+      responses:
+        '201':
+          description: Purchase bill created
+
+  /purchases/{id}/:
+    get:
+      summary: Get Purchase Bill
+      tags:
+        - Purchases
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful response
+    put:
+      summary: Update Purchase Bill
+      tags:
+        - Purchases
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Purchase bill updated
+    delete:
+      summary: Delete Purchase Bill
+      tags:
+        - Purchases
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Purchase bill deleted
+
+  /locations/:
+    get:
+      summary: List Locations/Warehouses
+      tags:
+        - Inventory
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Location'
+    post:
+      summary: Create Location
+      tags:
+        - Inventory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Location'
+      responses:
+        '201':
+          description: Location created
+
+  /stock/:
+    get:
+      summary: List Stock
+      tags:
+        - Inventory
+      parameters:
+        - name: product
+          in: query
+          schema:
+            type: integer
+        - name: location
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful response
+
+  /pos/orders/list/:
+    get:
+      summary: List POS Orders
+      tags:
+        - POS
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Successful response
+
+  /pos/orders/create/:
+    post:
+      summary: Create POS Order
+      description: Create a new point of sale order
+      tags:
+        - POS
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/POSOrder'
+      responses:
+        '201':
+          description: Order created
+        '400':
+          description: Validation error
+
+  /revenues/:
+    get:
+      summary: List Revenues
+      tags:
+        - Accounting
+      responses:
+        '200':
+          description: Successful response
+    post:
+      summary: Create Revenue
+      tags:
+        - Accounting
+      responses:
+        '201':
+          description: Revenue created
+
+  /expenses/:
+    get:
+      summary: List Expenses
+      tags:
+        - Accounting
+      responses:
+        '200':
+          description: Successful response
+    post:
+      summary: Create Expense
+      tags:
+        - Accounting
+      responses:
+        '201':
+          description: Expense created
+
+  /companies/:
+    get:
+      summary: List Companies
+      tags:
+        - Settings
+      responses:
+        '200':
+          description: Successful response
+
+  /audit-logs/:
+    get:
+      summary: List Audit Logs
+      description: Get system audit logs for tracking changes
+      tags:
+        - System
+      parameters:
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: user
+          in: query
+          schema:
+            type: integer
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Successful response
+
+  /crm/customers/:
+    get:
+      summary: List CRM Customers
+      tags:
+        - CRM
+      responses:
+        '200':
+          description: Successful response
+    post:
+      summary: Create CRM Customer
+      tags:
+        - CRM
+      responses:
+        '201':
+          description: Customer created
+
+  /crm/opportunities/:
+    get:
+      summary: List Opportunities
+      tags:
+        - CRM
+      responses:
+        '200':
+          description: Successful response
+    post:
+      summary: Create Opportunity
+      tags:
+        - CRM
+      responses:
+        '201':
+          description: Opportunity created
+
+  /crm/activities/:
+    get:
+      summary: List Activities
+      tags:
+        - CRM
+      responses:
+        '200':
+          description: Successful response
+    post:
+      summary: Create Activity
+      tags:
+        - CRM
+      responses:
+        '201':
+          description: Activity created
+
+  /crm/tickets/:
+    get:
+      summary: List Support Tickets
+      tags:
+        - CRM
+      responses:
+        '200':
+          description: Successful response
+    post:
+      summary: Create Support Ticket
+      tags:
+        - CRM
+      responses:
+        '201':
+          description: Ticket created
+
+tags:
+  - name: Authentication
+    description: JWT token authentication
+  - name: Products
+    description: Product management
+  - name: Customers
+    description: Customer management
+  - name: Suppliers
+    description: Supplier management
+  - name: Sales
+    description: Sales and invoices
+  - name: Purchases
+    description: Purchase bills and orders
+  - name: Inventory
+    description: Stock and warehouse management
+  - name: POS
+    description: Point of Sale operations
+  - name: Accounting
+    description: Revenues and expenses
+  - name: CRM
+    description: Customer Relationship Management
+  - name: System
+    description: System utilities and logs
+  - name: Settings
+    description: System settings and configuration

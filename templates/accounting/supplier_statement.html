@@ -1,0 +1,77 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load i18n %}
+{% block title %}كشف حساب مورد - {{ supplier.name }}{% endblock %}
+{% block content %}
+<div class="container py-3">
+  <h3 class="mb-3 d-flex justify-content-between align-items-center">
+    <span>كشف حساب مورد: <span class="text-primary">{{ supplier.name }}</span></span>
+    <span>
+      <a href="{% url 'purchases:supplier_payment_create' supplier.id %}" class="btn btn-sm btn-success">+ دفعة مورد</a>
+    </span>
+  </h3>
+  <form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+      <label class="form-label">من</label>
+      <input type="date" name="date_from" value="{{ date_from|date:'Y-m-d' }}" class="form-control form-control-sm">
+    </div>
+    <div class="col-auto">
+      <label class="form-label">إلى</label>
+      <input type="date" name="date_to" value="{{ date_to|date:'Y-m-d' }}" class="form-control form-control-sm">
+    </div>
+    <div class="col-auto align-self-end">
+      <button class="btn btn-sm btn-primary">تصفية</button>
+      <a href="?" class="btn btn-sm btn-secondary">إعادة تعيين</a>
+    </div>
+  </form>
+  <div class="row mb-3">
+    <div class="col-md-3">
+      <div class="card small"><div class="card-body"><strong>رصيد افتتاحي:</strong> {{ opening_balance }}</div></div>
+    </div>
+    <div class="col-md-3">
+      <div class="card small"><div class="card-body"><strong>الرصيد الحالي:</strong> {{ balance }}</div></div>
+    </div>
+    <div class="col-md-6">
+      <div class="card small"><div class="card-body p-2">
+        <div class="d-flex flex-wrap small">
+          <div class="me-3">0-30: {{ aging.bucket_0_30 }}</div>
+          <div class="me-3">31-60: {{ aging.bucket_31_60 }}</div>
+          <div class="me-3">61-90: {{ aging.bucket_61_90 }}</div>
+          <div class="me-3">90+: {{ aging.bucket_90_plus }}</div>
+          <div class="me-3">إجمالي: {{ aging.total }}</div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm table-bordered align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>التاريخ</th><th>الرقم</th><th>البيان</th><th class="text-success">مدين</th><th class="text-danger">دائن</th><th>المتبقي</th><th>الرصيد</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="fw-bold bg-light">
+          <td colspan="3">رصيد افتتاحي</td>
+          <td colspan="2"></td>
+          <td></td>
+          <td>{{ opening_balance }}</td>
+        </tr>
+        {% for row in timeline %}
+          <tr class="{% if row.type == 'bill' and row.remaining == 0 %}table-success{% endif %}">
+            <td>{{ row.date }}</td>
+            <td>{{ row.number }}</td>
+            <td>{{ row.description }}</td>
+            <td>{% if row.debit %}{{ row.debit }}{% endif %}</td>
+            <td>{% if row.credit %}{{ row.credit }}{% endif %}</td>
+            <td>{% if row.type == 'bill' %}{{ row.remaining }}{% endif %}</td>
+            <td>{{ row.balance }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7" class="text-center text-muted">لا توجد حركات في الفترة المحددة</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% with unallocated=timeline|dictsort:"id" %}{% endwith %}
+</div>
+{% endblock %}

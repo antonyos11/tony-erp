@@ -1,0 +1,214 @@
+﻿{% extends 'base_templates/modern_detail.html' %}
+
+{% block page_module %}import_export{% endblock %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">
+            <i class="bi bi-box-arrow-up-right text-primary me-2"></i>
+            {{ order.number }}
+        </h1>
+        <div>
+            {% if order.status == 'draft' or order.status == 'pending' %}
+            <a href="{% url 'import_export:export_order_edit' order.pk %}" class="btn btn-outline-primary">
+                <i class="bi bi-pencil me-1"></i> {% trans "تعديل" %}
+            </a>
+            {% endif %}
+            <a href="{% url 'import_export:export_order_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-right me-1"></i> {% trans "عودة" %}
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- معلومات الطلب -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">{% trans "معلومات الطلب" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">{% trans "رقم الطلب" %}</label>
+                            <p class="mb-0 fw-bold"><code>{{ order.number }}</code></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">{% trans "الحالة" %}</label>
+                            <p class="mb-0">
+                                <span class="badge bg-{% if order.status == 'delivered' %}success{% elif order.status == 'shipped' %}primary{% elif order.status == 'pending' %}warning{% else %}secondary{% endif %} fs-6">
+                                    {{ order.get_status_display }}
+                                </span>
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">{% trans "العميل" %}</label>
+                            <p class="mb-0">{{ order.customer.name|default:"-" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">{% trans "تاريخ الطلب" %}</label>
+                            <p class="mb-0">{{ order.order_date|date:"Y/m/d" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">{% trans "دولة الوجهة" %}</label>
+                            <p class="mb-0">{{ order.destination_country.name|default:"-" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">{% trans "وكيل الشحن" %}</label>
+                            <p class="mb-0">{{ order.shipping_agent.name|default:"-" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- البنود -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">{% trans "البنود" %}</h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>#</th>
+                                <th>{% trans "المنتج" %}</th>
+                                <th>{% trans "الكمية" %}</th>
+                                <th>{% trans "السعر" %}</th>
+                                <th>{% trans "الإجمالي" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>
+                                    {{ item.product.name|default:item.description }}
+                                    {% if item.hs_code %}<br><small class="text-muted">HS: {{ item.hs_code }}</small>{% endif %}
+                                </td>
+                                <td>{{ item.quantity }} {{ item.unit }}</td>
+                                <td>{{ item.unit_price|floatformat:2 }}</td>
+                                <td>{{ item.total_amount|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">{% trans "لا توجد بنود" %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <th colspan="4" class="text-start">{% trans "المجموع الفرعي" %}</th>
+                                <th>{{ order.subtotal|floatformat:2 }}</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- الشهادات -->
+            {% if certificates %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header d-flex justify-content-between">
+                    <h5 class="mb-0">{% trans "الشهادات" %}</h5>
+                    <a href="{% url 'import_export:export_certificate_create_for_order' order.pk %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-plus"></i>
+                    </a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "النوع" %}</th>
+                                <th>{% trans "الرقم" %}</th>
+                                <th>{% trans "الحالة" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cert in certificates %}
+                            <tr>
+                                <td>{{ cert.get_certificate_type_display }}</td>
+                                <td>{{ cert.number }}</td>
+                                <td><span class="badge bg-secondary">{{ cert.get_status_display }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-lg-4">
+            <!-- التكاليف -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">{% trans "ملخص التكاليف" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>{% trans "المجموع الفرعي" %}</span>
+                        <span>{{ order.subtotal|floatformat:2 }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>{% trans "تكلفة الشحن" %}</span>
+                        <span>{{ order.shipping_cost|floatformat:2 }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>{% trans "التأمين" %}</span>
+                        <span>{{ order.insurance_cost|floatformat:2 }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>{% trans "الجمارك" %}</span>
+                        <span>{{ order.customs_cost|floatformat:2 }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>{% trans "أخرى" %}</span>
+                        <span>{{ order.other_costs|floatformat:2 }}</span>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between fw-bold fs-5">
+                        <span>{% trans "الإجمالي" %}</span>
+                        <span>{{ order.total_amount|floatformat:2 }} {{ order.currency.code|default:"" }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- إجراءات سريعة -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">{% trans "إجراءات" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'import_export:financial_approval_create_for_order' order.pk %}" class="btn btn-outline-primary">
+                            <i class="bi bi-check-square me-1"></i> {% trans "طلب موافقة مالية" %}
+                        </a>
+                        <a href="{% url 'import_export:pre_export_invoice_create_for_order' order.pk %}" class="btn btn-outline-info">
+                            <i class="bi bi-file-earmark-text me-1"></i> {% trans "إنشاء فاتورة مبدئية" %}
+                        </a>
+                        <a href="{% url 'import_export:export_certificate_create_for_order' order.pk %}" class="btn btn-outline-success">
+                            <i class="bi bi-award me-1"></i> {% trans "إضافة شهادة" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ملاحظات -->
+            {% if order.notes %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">{% trans "ملاحظات" %}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ order.notes }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% load i18n humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" dir="rtl">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h1 class="h3 mb-0 text-gray-800">{{ title }}</h1>
+            <div class="dropdown">
+                <button class="btn btn-primary dropdown-toggle" type="button" id="periodDropdown" data-bs-toggle="dropdown">
+                    {% trans "الفترة" %}: {{ period }} {% trans "يوم" %}
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="?period=30">30 {% trans "يوم" %}</a></li>
+                    <li><a class="dropdown-item" href="?period=90">90 {% trans "يوم" %}</a></li>
+                    <li><a class="dropdown-item" href="?period=180">180 {% trans "يوم" %}</a></li>
+                    <li><a class="dropdown-item" href="?period=365">365 {% trans "يوم" %}</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="row mb-4">
+        {% for stat in supplier_stats|slice:":4" %}
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">{{ stat.supplier__name }}</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stat.total_changes }} {% trans "تغيير" %}</div>
+                            <div class="small mt-2 {% if stat.avg_change > 0 %}text-danger{% else %}text-success{% endif %}">
+                                <i class="fas fa-caret-{% if stat.avg_change > 0 %}up{% else %}down{% endif %}"></i>
+                                {{ stat.avg_change|floatformat:2 }}% {% trans "متوسط التغير" %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Chart -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">{% trans "تحليل تقلبات الأسعار" %}</h6>
+        </div>
+        <div class="card-body">
+            <canvas id="trendsChart" style="height: 300px;"></canvas>
+        </div>
+    </div>
+
+    <!-- Recent Changes -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">{% trans "آخر تغييرات الأسعار للموردين" %}</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="bg-light">
+                        <tr>
+                            <th>{% trans "المورد" %}</th>
+                            <th>{% trans "المنتج" %}</th>
+                            <th>{% trans "السعر القديم" %}</th>
+                            <th>{% trans "السعر الجديد" %}</th>
+                            <th>{% trans "التغير" %}</th>
+                            <th>{% trans "التاريخ" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in changes %}
+                        <tr>
+                            <td>{{ record.supplier.name|default:"—" }}</td>
+                            <td>{{ record.product.name }}</td>
+                            <td>{{ record.old_price|floatformat:2 }}</td>
+                            <td>{{ record.new_price|floatformat:2 }}</td>
+                            <td>
+                                <span class="{% if record.price_change > 0 %}text-danger{% else %}text-success{% endif %}">
+                                    {{ record.change_percentage|floatformat:2 }}%
+                                </span>
+                            </td>
+                            <td>{{ record.changed_at|date:"Y-m-d" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">{% trans "لا يوجد بيانات" %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    const chartData = {{ chart_data|safe }};
+    const ctx = document.getElementById('trendsChart').getContext('2d');
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartData.map(d => d.date),
+            datasets: [{
+                label: '{% trans "نسبة التغير في السعر (%)" %}',
+                data: chartData.map(d => d.change_percentage),
+                borderColor: '#4e73df',
+                backgroundColor: 'rgba(78, 115, 223, 0.05)',
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: false }
+            }
+        }
+    });
+</script>
+{% endblock %}

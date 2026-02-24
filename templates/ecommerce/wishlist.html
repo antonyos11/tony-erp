@@ -1,0 +1,424 @@
+﻿{% extends 'ecommerce/store_base_new.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'قائمة الأمنيات' %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .wishlist-container {
+        background: var(--card-bg);
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: var(--card-shadow);
+    }
+    
+    .wishlist-item {
+        display: flex;
+        gap: 1.5rem;
+        padding: 1.5rem 0;
+        border-bottom: 1px solid var(--border-color);
+        align-items: center;
+    }
+    
+    .wishlist-item:first-child {
+        padding-top: 0;
+    }
+    
+    .wishlist-item:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    
+    .item-image {
+        width: 120px;
+        height: 120px;
+        object-fit: cover;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+    }
+    
+    .item-image:hover {
+        transform: scale(1.05);
+    }
+    
+    .item-details {
+        flex: 1;
+    }
+    
+    .item-name {
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--text-color);
+        text-decoration: none;
+    }
+    
+    .item-name:hover {
+        color: var(--primary-color);
+    }
+    
+    .item-category {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .item-price {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .item-old-price {
+        text-decoration: line-through;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        margin-right: 0.5rem;
+    }
+    
+    .stock-status {
+        margin-top: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .in-stock {
+        color: #28a745;
+    }
+    
+    .out-of-stock {
+        color: #dc3545;
+    }
+    
+    .item-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .btn-add-cart {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        border: none;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-add-cart:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(var(--primary-rgb), 0.4);
+        color: white;
+    }
+    
+    .btn-add-cart:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .btn-remove {
+        color: var(--text-muted);
+        background: transparent;
+        border: 1px solid var(--border-color);
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-remove:hover {
+        color: #dc3545;
+        border-color: #dc3545;
+        background: rgba(220, 53, 69, 0.1);
+    }
+    
+    .empty-wishlist {
+        text-align: center;
+        padding: 4rem 2rem;
+    }
+    
+    .empty-icon {
+        font-size: 5rem;
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+    }
+    
+    .wishlist-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--primary-color);
+    }
+    
+    .wishlist-count {
+        background: var(--primary-color);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+    }
+    
+    @media (max-width: 768px) {
+        .wishlist-item {
+            flex-direction: column;
+            text-align: center;
+        }
+        
+        .item-actions {
+            width: 100%;
+            flex-direction: row;
+        }
+        
+        .item-actions button,
+        .item-actions a {
+            flex: 1;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- عنوان الصفحة -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-heart me-2"></i>{% trans 'قائمة الأمنيات' %}</h2>
+        <a href="{% url 'ecommerce:product_list' %}" class="btn btn-outline-primary">
+            <i class="bi bi-shop me-1"></i>{% trans 'تصفح المنتجات' %}
+        </a>
+    </div>
+    
+    <div class="wishlist-container">
+        {% if wishlist_items %}
+        <div class="wishlist-header">
+            <h5 class="mb-0">
+                <i class="bi bi-list-check me-2"></i>
+                {% trans 'المنتجات المحفوظة' %}
+            </h5>
+            <span class="wishlist-count">{{ wishlist_items.count }} {% trans 'منتج' %}</span>
+        </div>
+        
+        {% for item in wishlist_items %}
+        <div class="wishlist-item" id="wishlist-item-{ item.id }">
+            <a href="{% url 'ecommerce:product_detail' item.product.id %}">
+                {% if item.product.main_image %}
+                <img src="{{ item.product.main_image.url }}" alt="{ item.product.name }}" class="item-image">
+                {% else %}
+                <div class="item-image bg-dark bg-opacity-50 d-flex align-items-center justify-content-center">
+                    <i class="bi bi-image text-muted fs-1"></i>
+                </div>
+                {% endif %}
+            </a>
+            
+            <div class="item-details">
+                <a href="{% url 'ecommerce:product_detail' item.product.id %}" class="item-name d-block">
+                    {{ item.product.name }}
+                </a>
+                
+                {% if item.product.category %}
+                <div class="item-category">
+                    <i class="bi bi-tag me-1"></i>{{ item.product.category.name }}
+                </div>
+                {% endif %}
+                
+                <div class="item-price">
+                    {% if item.product.compare_price %}
+                    <span class="item-old-price">{{ item.product.compare_price }} {{ currency_symbol }}</span>
+                    {% endif %}
+                    {{ item.product.price }} {{ currency_symbol }}
+                </div>
+                
+                <div class="stock-status">
+                    {% if item.product.is_in_stock %}
+                    <span class="in-stock">
+                        <i class="bi bi-check-circle me-1"></i>{% trans 'متوفر' %}
+                    </span>
+                    {% else %}
+                    <span class="out-of-stock">
+                        <i class="bi bi-x-circle me-1"></i>{% trans 'غير متوفر' %}
+                    </span>
+                    {% endif %}
+                </div>
+                
+                <small class="text-muted d-block mt-2">
+                    <i class="bi bi-clock me-1"></i>
+                    {% trans 'أضيف في' %} {{ item.added_at|date:"Y/m/d" }}
+                </small>
+            </div>
+            
+            <div class="item-actions">
+                {% if item.product.is_in_stock %}
+                <button class="btn-add-cart" onclick="addToCart({ item.product.id })">
+                    <i class="bi bi-cart-plus me-1"></i>{% trans 'أضف للسلة' %}
+                </button>
+                {% else %}
+                <button class="btn-add-cart" disabled>
+                    <i class="bi bi-cart-x me-1"></i>{% trans 'غير متوفر' %}
+                </button>
+                {% endif %}
+                
+                <button class="btn-remove" onclick="removeFromWishlist({ item.id })">
+                    <i class="bi bi-trash me-1"></i>{% trans 'إزالة' %}
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+        
+        <!-- أزرار إضافية -->
+        <div class="d-flex justify-content-between mt-4 pt-3 border-top">
+            <button class="btn btn-outline-danger" onclick="clearWishlist()">
+                <i class="bi bi-trash me-1"></i>{% trans 'مسح الكل' %}
+            </button>
+            <button class="btn btn-primary" onclick="addAllToCart()">
+                <i class="bi bi-cart-plus me-1"></i>{% trans 'إضافة الكل للسلة' %}
+            </button>
+        </div>
+        
+        {% else %}
+        <div class="empty-wishlist">
+            <i class="bi bi-heart empty-icon"></i>
+            <h4>{% trans 'قائمة الأمنيات فارغة' %}</h4>
+            <p class="text-muted">{% trans 'أضف المنتجات التي تعجبك لحفظها هنا' %}</p>
+            <a href="{% url 'ecommerce:product_list' %}" class="btn btn-primary btn-lg mt-3">
+                <i class="bi bi-shop me-2"></i>{% trans 'تصفح المنتجات' %}
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function addToCart(productId) {
+    fetch("{% url 'ecommerce:cart_add' %}", {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{ csrf_token }',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            product_id: productId,
+            quantity: 1
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // تحديث عداد السلة
+            const cartBadge = document.querySelector('.cart-count');
+            if (cartBadge) {
+                cartBadge.textContent = data.cart_count;
+            }
+            showToast("{% trans 'تمت الإضافة للسلة' %}", 'success');
+        } else {
+            showToast(data.message || "{% trans 'حدث خطأ' %}", 'error');
+        }
+    });
+}
+
+function removeFromWishlist(itemId) {
+    if (confirm("{% trans 'هل تريد إزالة هذا المنتج من قائمة الأمنيات؟' %}")) {
+        fetch(`/ecommerce/wishlist/remove/${itemId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{ csrf_token }',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById(`wishlist-item-${itemId}`).remove();
+                showToast("{% trans 'تم الحذف من قائمة الأمنيات' %}", 'success');
+                
+                // إعادة تحميل الصفحة إذا أصبحت القائمة فارغة
+                if (document.querySelectorAll('.wishlist-item').length === 0) {
+                    location.reload();
+                }
+            }
+        });
+    }
+}
+
+function clearWishlist() {
+    if (confirm("{% trans 'هل تريد مسح كل المنتجات من قائمة الأمنيات؟' %}")) {
+        fetch('/ecommerce/wishlist/clear/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{ csrf_token }',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+}
+
+function addAllToCart() {
+    fetch('/ecommerce/wishlist/add-all-to-cart/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{ csrf_token }',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(`{% trans 'تم إضافة' %} ${data.added_count} {% trans 'منتج للسلة' %}`, 'success');
+            // تحديث عداد السلة
+            const cartBadge = document.querySelector('.cart-count');
+            if (cartBadge) {
+                cartBadge.textContent = data.cart_count;
+            }
+        }
+    });
+}
+
+function showToast(message, type) {
+    // إنشاء Toast notification
+    const toast = document.createElement('div');
+    toast.className = `toast-notification ${type}`;
+    toast.innerHTML = `
+        <i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-circle'} me-2"></i>
+        ${message}
+    `;
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        background: ${type === 'success' ? '#28a745' : '#dc3545'};
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 10px;
+        z-index: 9999;
+        animation: slideIn 0.3s ease;
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+</script>
+
+<style>
+@keyframes slideIn {
+    from { transform: translateX(-100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+@keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(-100%); opacity: 0; }
+}
+</style>
+{% endblock %}
+

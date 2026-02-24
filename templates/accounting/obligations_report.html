@@ -1,0 +1,499 @@
+﻿{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "تقرير الالتزامات" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+    }
+    
+    .page-hero {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    
+    .hero-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+    
+    .btn-hero {
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        background: rgba(255,255,255,0.2);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+    
+    .btn-hero:hover {
+        background: rgba(255,255,255,0.3);
+        color: white;
+    }
+    
+    /* Summary Cards */
+    .summary-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .summary-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .summary-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 4px;
+        height: 100%;
+    }
+    
+    .summary-card.total::before { background: var(--primary-color); }
+    .summary-card.overdue::before { background: var(--danger-color); }
+    .summary-card.due-soon::before { background: var(--warning-color); }
+    .summary-card.current::before { background: var(--success-color); }
+    
+    .card-icon {
+        width: 45px;
+        height: 45px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .summary-card.total .card-icon { background: rgba(30, 58, 95, 0.15); color: var(--primary-color); }
+    .summary-card.overdue .card-icon { background: rgba(220, 53, 69, 0.15); color: var(--danger-color); }
+    .summary-card.due-soon .card-icon { background: rgba(255, 193, 7, 0.15); color: #b38600; }
+    .summary-card.current .card-icon { background: rgba(40, 167, 69, 0.15); color: var(--success-color); }
+    
+    .card-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin-bottom: 0.25rem;
+    }
+    
+    .card-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    /* Filter Bar */
+    .filter-bar {
+        background: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        margin-bottom: 1.5rem;
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    
+    .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .filter-group label {
+        font-weight: 500;
+        color: #666;
+        white-space: nowrap;
+    }
+    
+    .filter-select {
+        padding: 0.5rem 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        min-width: 150px;
+    }
+    
+    /* Obligations Table */
+    .table-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .table-header {
+        background: #f8f9fa;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .table-header h5 {
+        margin: 0;
+        color: var(--primary-color);
+    }
+    
+    .obligations-table {
+        width: 100%;
+    }
+    
+    .obligations-table th {
+        padding: 1rem 1.25rem;
+        background: #f8f9fa;
+        font-weight: 600;
+        color: var(--primary-color);
+        text-align: right;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .obligations-table td {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #e9ecef;
+        vertical-align: middle;
+    }
+    
+    .obligations-table tr:hover {
+        background: rgba(0, 212, 170, 0.03);
+    }
+    
+    .vendor-info {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .vendor-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #e74c3c, #c0392b);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+    }
+    
+    .vendor-name { font-weight: 600; color: var(--primary-color); }
+    .vendor-code { font-size: 0.85rem; color: #6c757d; }
+    
+    .status-badge {
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    
+    .status-overdue { background: rgba(220, 53, 69, 0.15); color: var(--danger-color); }
+    .status-due-soon { background: rgba(255, 193, 7, 0.15); color: #b38600; }
+    .status-current { background: rgba(40, 167, 69, 0.15); color: var(--success-color); }
+    
+    .days-indicator {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .days-indicator.overdue { color: var(--danger-color); }
+    .days-indicator.due-soon { color: #b38600; }
+    
+    .amount-cell {
+        font-weight: 600;
+        font-size: 1.05rem;
+    }
+    
+    .action-btns {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .btn-action {
+        width: 36px;
+        height: 36px;
+        border: none;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-action.pay { background: rgba(0, 212, 170, 0.15); color: var(--accent-color); }
+    .btn-action.view { background: rgba(30, 58, 95, 0.1); color: var(--primary-color); }
+    
+    .btn-action:hover { transform: scale(1.1); }
+    
+    /* Progress Bar */
+    .aging-progress {
+        display: flex;
+        height: 30px;
+        border-radius: 8px;
+        overflow: hidden;
+        margin-top: 1.5rem;
+    }
+    
+    .aging-segment {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    
+    .aging-segment.current { background: var(--success-color); }
+    .aging-segment.days-30 { background: var(--warning-color); color: #333; }
+    .aging-segment.days-60 { background: #fd7e14; }
+    .aging-segment.days-90 { background: var(--danger-color); }
+    
+    [data-bs-theme="dark"] .summary-card,
+    [data-bs-theme="dark"] .filter-bar,
+    [data-bs-theme="dark"] .table-card {
+        background: #1a1d21;
+    }
+    
+    [data-bs-theme="dark"] .table-header,
+    [data-bs-theme="dark"] .obligations-table th {
+        background: #2d3238;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Hero Section -->
+    <div class="page-hero">
+        <h1 class="h2 mb-2">
+            <i class="fas fa-file-invoice-dollar me-2"></i>
+            {% trans "تقرير الالتزامات المالية" %}
+        </h1>
+        <p class="mb-0 opacity-75">
+            {% trans "متابعة جميع الالتزامات المستحقة وتواريخ السداد" %}
+        </p>
+        <div class="hero-actions">
+            <a href="#" class="btn-hero">
+                <i class="fas fa-download"></i>
+                {% trans "تصدير PDF" %}
+            </a>
+            <a href="#" class="btn-hero">
+                <i class="fas fa-file-excel"></i>
+                {% trans "تصدير Excel" %}
+            </a>
+        </div>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="summary-row">
+        <div class="summary-card total">
+            <div class="card-icon">
+                <i class="fas fa-coins"></i>
+            </div>
+            <div class="card-value">485,000</div>
+            <div class="card-label">{% trans "إجمالي الالتزامات" %}</div>
+        </div>
+        <div class="summary-card overdue">
+            <div class="card-icon">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div class="card-value">125,000</div>
+            <div class="card-label">{% trans "متأخرة" %}</div>
+        </div>
+        <div class="summary-card due-soon">
+            <div class="card-icon">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="card-value">180,000</div>
+            <div class="card-label">{% trans "مستحقة خلال 30 يوم" %}</div>
+        </div>
+        <div class="summary-card current">
+            <div class="card-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="card-value">180,000</div>
+            <div class="card-label">{% trans "غير مستحقة" %}</div>
+        </div>
+    </div>
+    
+    <!-- Aging Progress -->
+    <div class="aging-progress">
+        <div class="aging-segment current" style="width: 37%;">37% {% trans "جارية" %}</div>
+        <div class="aging-segment days-30" style="width: 26%;">26% (30 {% trans "يوم" %})</div>
+        <div class="aging-segment days-60" style="width: 18%;">18% (60 {% trans "يوم" %})</div>
+        <div class="aging-segment days-90" style="width: 19%;">19% (+90 {% trans "يوم" %})</div>
+    </div>
+    
+    <!-- Filter Bar -->
+    <div class="filter-bar mt-4">
+        <div class="filter-group">
+            <label>{% trans "الحالة:" %}</label>
+            <select class="filter-select">
+                <option>{% trans "الكل" %}</option>
+                <option>{% trans "متأخرة" %}</option>
+                <option>{% trans "مستحقة قريباً" %}</option>
+                <option>{% trans "جارية" %}</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>{% trans "المورد:" %}</label>
+            <select class="filter-select">
+                <option>{% trans "جميع الموردين" %}</option>
+                <option>{% trans "شركة الإمداد" %}</option>
+                <option>{% trans "مؤسسة النور" %}</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>{% trans "الفترة:" %}</label>
+            <select class="filter-select">
+                <option>{% trans "الشهر الحالي" %}</option>
+                <option>{% trans "3 أشهر" %}</option>
+                <option>{% trans "6 أشهر" %}</option>
+                <option>{% trans "سنة" %}</option>
+            </select>
+        </div>
+    </div>
+    
+    <!-- Obligations Table -->
+    <div class="table-card">
+        <div class="table-header">
+            <h5>
+                <i class="fas fa-list me-2"></i>
+                {% trans "تفاصيل الالتزامات" %}
+            </h5>
+            <span class="badge bg-primary">12 {% trans "التزام" %}</span>
+        </div>
+        <div class="table-responsive"><table class="obligations-table">
+            <thead>
+                <tr>
+                    <th>{% trans "المورد" %}</th>
+                    <th>{% trans "رقم الفاتورة" %}</th>
+                    <th>{% trans "تاريخ الاستحقاق" %}</th>
+                    <th>{% trans "الحالة" %}</th>
+                    <th>{% trans "المبلغ" %}</th>
+                    <th>{% trans "الإجراءات" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <div class="vendor-info">
+                            <div class="vendor-avatar">ش.إ</div>
+                            <div>
+                                <div class="vendor-name">{% trans "شركة الإمداد" %}</div>
+                                <div class="vendor-code">SUP-001</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>INV-2025-0892</td>
+                    <td>
+                        <div class="days-indicator overdue">
+                            <i class="fas fa-calendar-times"></i>
+                            15/05/2025 ({% trans "متأخر 40 يوم" %})
+                        </div>
+                    </td>
+                    <td><span class="status-badge status-overdue">{% trans "متأخرة" %}</span></td>
+                    <td class="amount-cell">45,000</td>
+                    <td>
+                        <div class="action-btns">
+                            <button class="btn-action pay" title="{% trans 'سداد' %}">
+                                <i class="fas fa-credit-card"></i>
+                            </button>
+                            <button class="btn-action view" title="{% trans 'عرض' %}">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <div class="vendor-info">
+                            <div class="vendor-avatar">م.ن</div>
+                            <div>
+                                <div class="vendor-name">{% trans "مؤسسة النور" %}</div>
+                                <div class="vendor-code">SUP-005</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>INV-2025-1023</td>
+                    <td>
+                        <div class="days-indicator due-soon">
+                            <i class="fas fa-clock"></i>
+                            10/07/2025 ({% trans "خلال 15 يوم" %})
+                        </div>
+                    </td>
+                    <td><span class="status-badge status-due-soon">{% trans "قريبة" %}</span></td>
+                    <td class="amount-cell">32,500</td>
+                    <td>
+                        <div class="action-btns">
+                            <button class="btn-action pay" title="{% trans 'سداد' %}">
+                                <i class="fas fa-credit-card"></i>
+                            </button>
+                            <button class="btn-action view" title="{% trans 'عرض' %}">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <div class="vendor-info">
+                            <div class="vendor-avatar">ت.ع</div>
+                            <div>
+                                <div class="vendor-name">{% trans "توريدات عامة" %}</div>
+                                <div class="vendor-code">SUP-012</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>INV-2025-1156</td>
+                    <td>
+                        <div class="days-indicator">
+                            <i class="fas fa-calendar-check text-success"></i>
+                            15/08/2025
+                        </div>
+                    </td>
+                    <td><span class="status-badge status-current">{% trans "جارية" %}</span></td>
+                    <td class="amount-cell">78,000</td>
+                    <td>
+                        <div class="action-btns">
+                            <button class="btn-action pay" title="{% trans 'سداد' %}">
+                                <i class="fas fa-credit-card"></i>
+                            </button>
+                            <button class="btn-action view" title="{% trans 'عرض' %}">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table></div>
+    </div>
+</div>
+{% endblock %}
+

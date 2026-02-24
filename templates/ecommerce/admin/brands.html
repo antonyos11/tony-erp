@@ -1,0 +1,143 @@
+﻿{% extends 'ecommerce/admin/base_admin.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{{ page_title }} - إدارة المتجر{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-1">
+                <i class="bi bi-award text-primary me-2"></i>
+                {{ page_title }}
+            </h3>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">الرئيسية</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'ecommerce:admin_dashboard' %}">المتجر</a></li>
+                    <li class="breadcrumb-item active">العلامات التجارية</li>
+                </ol>
+            </nav>
+        </div>
+        <a href="{% url 'ecommerce:admin_brand_add' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i> إضافة علامة تجارية
+        </a>
+    </div>
+    
+    <!-- قائمة العلامات التجارية -->
+    <div class="card shadow-sm">
+        <div class="card-body">
+            {% if brands %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 60px;">الشعار</th>
+                            <th>الاسم</th>
+                            <th>الرابط</th>
+                            <th class="text-center">الترتيب</th>
+                            <th class="text-center">مميزة</th>
+                            <th class="text-center">الحالة</th>
+                            <th style="width: 120px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for brand in brands %}
+                        <tr>
+                            <td>
+                                {% if brand.logo %}
+                                <img src="{{ brand.logo.url }}" alt="{{ brand.name }}" 
+                                     style="width: 50px; height: 50px; object-fit: contain;">
+                                {% else %}
+                                <div class="bg-dark bg-opacity-50 rounded d-flex align-items-center justify-content-center" 
+                                     style="width: 50px; height: 50px;">
+                                    <i class="bi bi-building text-muted"></i>
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>{{ brand.name }}</strong>
+                                {% if brand.website %}
+                                <br><small class="text-muted">{{ brand.website|truncatechars:40 }}</small>
+                                {% endif %}
+                            </td>
+                            <td><code>{{ brand.slug }}</code></td>
+                            <td class="text-center">{{ brand.sort_order }}</td>
+                            <td class="text-center">
+                                {% if brand.is_featured %}
+                                <span class="badge bg-warning text-dark"><i class="bi bi-star-fill"></i></span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if brand.is_active %}
+                                <span class="badge bg-success">مفعلة</span>
+                                {% else %}
+                                <span class="badge bg-secondary">معطلة</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'ecommerce:admin_brand_edit' brand.pk %}" 
+                                       class="btn btn-outline-primary" title="تعديل">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-outline-danger" 
+                                            onclick="confirmDelete({{ brand.pk }}, '{{ brand.name }}')"
+                                            title="حذف">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-award display-1 text-muted mb-3 d-block"></i>
+                <h5 class="text-muted">لا توجد علامات تجارية</h5>
+                <p class="text-muted mb-3">ابدأ بإضافة العلامات التجارية لعرضها في المتجر</p>
+                <a href="{% url 'ecommerce:admin_brand_add' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-lg me-1"></i> إضافة علامة تجارية
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تأكيد الحذف</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>هل أنت متأكد من حذف العلامة التجارية: <strong id="brandName"></strong>؟</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">حذف</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDelete(id, name) {
+    document.getElementById('brandName').textContent = name;
+    document.getElementById('deleteForm').action = '/store/admin/brands/' + id + '/delete/';
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+{% endblock %}

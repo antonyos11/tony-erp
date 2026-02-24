@@ -1,0 +1,693 @@
+{% extends "base.html" %}
+{% load i18n static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --pipeline-waiting: #6c757d;
+        --pipeline-ready: #17a2b8;
+        --pipeline-progress: #ffc107;
+        --pipeline-completed: #28a745;
+        --pipeline-failed: #dc3545;
+    }
+
+    .pipeline-container {
+        width: 100%;
+        overflow-x: auto;
+        padding: 1rem;
+    }
+
+    .pipeline-grid {
+        display: flex;
+        gap: 0.5rem;
+        min-width: max-content;
+    }
+
+    .pipeline-column {
+        min-width: 260px;
+        max-width: 320px;
+        flex: 1;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 2px solid #dee2e6;
+    }
+
+    .pipeline-column-header {
+        padding: 0.75rem 1rem;
+        font-weight: bold;
+        text-align: center;
+        border-bottom: 2px solid #dee2e6;
+        background: #e9ecef;
+        border-radius: 6px 6px 0 0;
+        font-size: 0.95rem;
+    }
+
+    .pipeline-column-body {
+        padding: 0.5rem;
+        min-height: 200px;
+        max-height: calc(100vh - 280px);
+        overflow-y: auto;
+    }
+
+    /* ── Card Styles ── */
+    .pipeline-card {
+        background: white;
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        border-right: 4px solid var(--pipeline-waiting);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        position: relative;
+    }
+
+    .pipeline-card[data-status="waiting"] {
+        border-right-color: var(--pipeline-waiting);
+        opacity: 0.5;
+    }
+    .pipeline-card[data-status="ready"] {
+        border-right-color: var(--pipeline-ready);
+        opacity: 0.85;
+    }
+    .pipeline-card[data-status="in_progress"] {
+        border-right-color: var(--pipeline-progress);
+        animation: pulse-glow 2s infinite;
+    }
+    .pipeline-card[data-status="completed"] {
+        border-right-color: var(--pipeline-completed);
+        opacity: 1;
+    }
+    .pipeline-card[data-status="failed"] {
+        border-right-color: var(--pipeline-failed);
+        background: #fff5f5;
+    }
+
+    @keyframes pulse-glow {
+        0%, 100% { box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        50% { box-shadow: 0 0 12px rgba(255, 193, 7, 0.5); }
+    }
+
+    .pipeline-card .order-number {
+        font-weight: bold;
+        font-size: 0.85rem;
+        color: #333;
+    }
+    .pipeline-card .product-name {
+        font-size: 0.8rem;
+        color: #666;
+        margin-top: 2px;
+    }
+    .pipeline-card .status-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        color: white;
+        margin-top: 4px;
+    }
+    .badge-waiting { background: var(--pipeline-waiting); }
+    .badge-ready { background: var(--pipeline-ready); }
+    .badge-in_progress { background: var(--pipeline-progress); color: #333; }
+    .badge-completed { background: var(--pipeline-completed); }
+    .badge-failed { background: var(--pipeline-failed); }
+
+    .failure-banner {
+        background: #fee2e2;
+        border: 1px solid #fca5a5;
+        border-radius: 4px;
+        padding: 4px 8px;
+        margin-top: 6px;
+        font-size: 0.75rem;
+        color: #991b1b;
+    }
+    .failure-banner i { margin-left: 4px; }
+
+    .print-status {
+        margin-top: 6px;
+        font-size: 0.75rem;
+        padding: 3px 8px;
+        border-radius: 4px;
+    }
+    .print-pending { background: #fef3c7; color: #92400e; }
+    .print-printing { background: #dbeafe; color: #1e40af; animation: pulse-glow 1.5s infinite; }
+    .print-printed { background: #d1fae5; color: #065f46; }
+    .print-error { background: #fee2e2; color: #991b1b; }
+
+    .card-actions {
+        margin-top: 8px;
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+    .card-actions .btn {
+        font-size: 0.7rem;
+        padding: 2px 8px;
+    }
+
+    /* Progress bar */
+    .order-progress {
+        height: 4px;
+        background: #e9ecef;
+        border-radius: 2px;
+        margin-top: 6px;
+        overflow: hidden;
+    }
+    .order-progress-fill {
+        height: 100%;
+        background: var(--pipeline-completed);
+        transition: width 0.5s ease;
+    }
+
+    /* Overall stats */
+    .pipeline-stats {
+        display: flex;
+        gap: 1rem;
+        padding: 0.75rem 1rem;
+        background: white;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        flex-wrap: wrap;
+    }
+    .stat-item {
+        text-align: center;
+    }
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    .stat-label {
+        font-size: 0.8rem;
+        color: #666;
+    }
+
+    /* Connection indicator */
+    .ws-status {
+        position: fixed;
+        bottom: 1rem;
+        left: 1rem;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        z-index: 1000;
+    }
+    .ws-connected { background: #d1fae5; color: #065f46; }
+    .ws-disconnected { background: #fee2e2; color: #991b1b; }
+
+    /* Failure modal */
+    .modal-failure .form-select,
+    .modal-failure .form-control {
+        font-size: 0.9rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0">
+            <i class="bi bi-kanban me-2"></i>{{ page_title }}
+        </h4>
+        <div>
+            <button class="btn btn-sm btn-outline-secondary" onclick="refreshPipeline()">
+                <i class="bi bi-arrow-clockwise"></i> تحديث
+            </button>
+            <span class="badge bg-info ms-2" id="boardCount">0</span> أمر نشط
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="pipeline-stats" id="pipelineStats">
+        <div class="stat-item">
+            <div class="stat-value text-warning" id="statInProgress">0</div>
+            <div class="stat-label">قيد التنفيذ</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value text-success" id="statCompleted">0</div>
+            <div class="stat-label">مكتمل</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value text-danger" id="statFailed">0</div>
+            <div class="stat-label">متوقف</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value text-info" id="statReady">0</div>
+            <div class="stat-label">جاهز</div>
+        </div>
+    </div>
+
+    <!-- Pipeline Grid -->
+    <div class="pipeline-container">
+        <div class="pipeline-grid" id="pipelineGrid">
+            <!-- Columns rendered by JS -->
+        </div>
+    </div>
+</div>
+
+<!-- WebSocket Status -->
+<div class="ws-status ws-disconnected" id="wsStatus">
+    <i class="bi bi-wifi-off"></i> غير متصل
+</div>
+
+<!-- Failure Reason Modal -->
+<div class="modal fade modal-failure" id="failureModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>تسجيل عطل</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="failStageId">
+                <div class="mb-3">
+                    <label class="form-label">تصنيف العطل</label>
+                    <select class="form-select" id="failCategory">
+                        {% for val, label in failure_categories %}
+                        <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">وصف المشكلة</label>
+                    <textarea class="form-control" id="failReason" rows="3" 
+                              placeholder="اشرح سبب التوقف..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-danger" onclick="submitFailure()">
+                    <i class="bi bi-exclamation-circle"></i> تسجيل العطل
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // ──────────────────────────────────────────
+    // Configuration
+    // ──────────────────────────────────────────
+    const PIPELINE_DATA = {{ dashboard_data_json|safe }};
+    const USER_ALLOWED_WC_IDS = {{ user_allowed_wc_ids|safe }};
+    const USER_ID = {{ user_id }};
+    const CSRF_TOKEN = '{{ csrf_token }}';
+
+    let pipelineSocket = null;
+    let reconnectTimer = null;
+
+    // ──────────────────────────────────────────
+    // WebSocket Connection
+    // ──────────────────────────────────────────
+    function connectWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = protocol + '//' + window.location.host + '/ws/production/pipeline/';
+
+        try {
+            pipelineSocket = new WebSocket(wsUrl);
+        } catch (e) {
+            console.warn('WebSocket not available, using AJAX fallback');
+            return;
+        }
+
+        pipelineSocket.onopen = function() {
+            document.getElementById('wsStatus').className = 'ws-status ws-connected';
+            document.getElementById('wsStatus').innerHTML = '<i class="bi bi-wifi"></i> متصل';
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+        };
+
+        pipelineSocket.onclose = function() {
+            document.getElementById('wsStatus').className = 'ws-status ws-disconnected';
+            document.getElementById('wsStatus').innerHTML = '<i class="bi bi-wifi-off"></i> غير متصل';
+            reconnectTimer = setTimeout(connectWebSocket, 3000);
+        };
+
+        pipelineSocket.onmessage = function(event) {
+            var msg = JSON.parse(event.data);
+
+            if (msg.type === 'full_snapshot') {
+                renderPipeline(msg.data);
+            } else if (msg.type === 'stage_update') {
+                handleStageUpdate(msg.data);
+            } else if (msg.type === 'action_result') {
+                handleActionResult(msg);
+            }
+        };
+
+        pipelineSocket.onerror = function(err) {
+            console.error('WebSocket error:', err);
+        };
+    }
+
+    // ──────────────────────────────────────────
+    // Rendering
+    // ──────────────────────────────────────────
+    function renderPipeline(data) {
+        var grid = document.getElementById('pipelineGrid');
+        grid.innerHTML = '';
+
+        var columns = data.columns || [];
+        var boards = data.boards || [];
+
+        // Update stats
+        updateStats(boards);
+        document.getElementById('boardCount').textContent = boards.length;
+
+        columns.forEach(function(col) {
+            var colEl = document.createElement('div');
+            colEl.className = 'pipeline-column';
+            colEl.dataset.wcId = col.id;
+
+            // Header
+            var header = document.createElement('div');
+            header.className = 'pipeline-column-header';
+            header.innerHTML = '<i class="bi bi-gear me-1"></i>' + col.name;
+            colEl.appendChild(header);
+
+            // Body
+            var body = document.createElement('div');
+            body.className = 'pipeline-column-body';
+
+            // Find all stage entries for this work center across all boards
+            boards.forEach(function(board) {
+                var stage = null;
+                for (var i = 0; i < board.stages.length; i++) {
+                    if (board.stages[i].work_center_id === col.id) {
+                        stage = board.stages[i];
+                        break;
+                    }
+                }
+                if (stage) {
+                    body.appendChild(createCard(board, stage));
+                }
+            });
+
+            colEl.appendChild(body);
+            grid.appendChild(colEl);
+        });
+    }
+
+    function createCard(board, stage) {
+        var card = document.createElement('div');
+        card.className = 'pipeline-card';
+        card.dataset.status = stage.status;
+        card.dataset.stageId = stage.id;
+        card.dataset.boardId = board.id;
+        card.id = 'stage-' + stage.id;
+
+        var html = '';
+        html += '<div class="order-number">' + board.order_number + '</div>';
+        html += '<div class="product-name">' + board.product_name + '</div>';
+        html += '<div class="product-name">SKU: ' + board.product_sku + ' | ' + board.planned_quantity + ' وحدة</div>';
+        html += '<span class="status-badge badge-' + stage.status + '">' + stage.status_display + '</span>';
+
+        // Progress bar
+        html += '<div class="order-progress">';
+        html += '<div class="order-progress-fill" style="width: ' + board.overall_progress + '%"></div>';
+        html += '</div>';
+
+        // Failure banner (visible across all columns when any stage fails)
+        if (stage.status === 'failed' && stage.failure_reason) {
+            html += '<div class="failure-banner">';
+            html += '<i class="bi bi-exclamation-triangle-fill"></i> ';
+            html += '<strong>' + getCategoryLabel(stage.failure_category) + ':</strong> ';
+            html += stage.failure_reason;
+            html += '</div>';
+        }
+
+        // Check if ANY stage on this board has failed (cross-department notification)
+        var failedStages = [];
+        for (var i = 0; i < board.stages.length; i++) {
+            if (board.stages[i].status === 'failed') {
+                failedStages.push(board.stages[i]);
+            }
+        }
+        if (failedStages.length > 0 && stage.status !== 'failed') {
+            failedStages.forEach(function(fs) {
+                html += '<div class="failure-banner" style="opacity: 0.7;">';
+                html += '<i class="bi bi-broadcast"></i> ';
+                html += 'عطل في ' + fs.work_center_name + ': ' + (fs.failure_reason || 'غير محدد');
+                html += '</div>';
+            });
+        }
+
+        // Print status (for final stage)
+        if (stage.print_status) {
+            html += '<div class="print-status print-' + stage.print_status + '">';
+            var printLabels = {
+                'pending': '&#9203; في انتظار الطباعة',
+                'printing': '&#128424; جاري الطباعة...',
+                'printed': '&#9989; تم الطباعة',
+                'print_error': '&#10060; خطأ في الطباعة'
+            };
+            html += printLabels[stage.print_status] || stage.print_status;
+            html += '</div>';
+        }
+
+        // Action buttons (only for authorized users)
+        var canAct = USER_ALLOWED_WC_IDS.indexOf(stage.work_center_id) !== -1;
+        if (canAct) {
+            html += '<div class="card-actions">';
+
+            if (stage.status === 'ready') {
+                html += '<button class="btn btn-sm btn-info" onclick="startStage(' + stage.id + ')">';
+                html += '<i class="bi bi-play-fill"></i> بدء</button>';
+            }
+
+            if (stage.status === 'in_progress') {
+                html += '<button class="btn btn-sm btn-success" onclick="completeStage(' + stage.id + ')">';
+                html += '<i class="bi bi-check-lg"></i> إكمال</button>';
+                html += '<button class="btn btn-sm btn-danger" onclick="showFailModal(' + stage.id + ')">';
+                html += '<i class="bi bi-x-circle"></i> عطل</button>';
+            }
+
+            if (stage.status === 'failed') {
+                html += '<button class="btn btn-sm btn-warning" onclick="startStage(' + stage.id + ')">';
+                html += '<i class="bi bi-arrow-repeat"></i> إعادة</button>';
+            }
+
+            if (stage.print_status === 'print_error' || stage.print_status === 'printed') {
+                html += '<button class="btn btn-sm btn-outline-primary" onclick="reprintBarcode(' + stage.id + ')">';
+                html += '<i class="bi bi-printer"></i> إعادة طباعة</button>';
+            }
+
+            html += '</div>';
+        }
+
+        // Duration
+        if (stage.duration_minutes) {
+            html += '<div style="font-size: 0.7rem; color: #999; margin-top: 4px;">';
+            html += '&#9201; ' + stage.duration_minutes + ' دقيقة</div>';
+        }
+
+        card.innerHTML = html;
+        return card;
+    }
+
+    function updateStats(boards) {
+        var inProgress = 0, completed = 0, failed = 0, ready = 0;
+
+        boards.forEach(function(board) {
+            board.stages.forEach(function(s) {
+                if (s.status === 'in_progress') inProgress++;
+                else if (s.status === 'completed') completed++;
+                else if (s.status === 'failed') failed++;
+                else if (s.status === 'ready') ready++;
+            });
+        });
+
+        document.getElementById('statInProgress').textContent = inProgress;
+        document.getElementById('statCompleted').textContent = completed;
+        document.getElementById('statFailed').textContent = failed;
+        document.getElementById('statReady').textContent = ready;
+    }
+
+    function getCategoryLabel(cat) {
+        var labels = {
+            'machine_breakdown': 'عطل ماكينة',
+            'material_shortage': 'نقص مواد',
+            'quality_issue': 'مشكلة جودة',
+            'power_outage': 'انقطاع كهرباء',
+            'labor_shortage': 'نقص عمالة',
+            'other': 'أخرى'
+        };
+        return labels[cat] || cat;
+    }
+
+    // ──────────────────────────────────────────
+    // Real-time Update Handler
+    // ──────────────────────────────────────────
+    function handleStageUpdate(data) {
+        // Request full snapshot for simplicity and consistency
+        if (pipelineSocket && pipelineSocket.readyState === WebSocket.OPEN) {
+            pipelineSocket.send(JSON.stringify({ action: 'refresh' }));
+        }
+
+        // Show notification
+        var event = data.event;
+        var notifications = {
+            'stage_started': 'بدأ العمل في ' + data.work_center_name + ' - أمر ' + data.order_number,
+            'stage_completed': 'اكتمل ' + data.work_center_name + ' - أمر ' + data.order_number,
+            'stage_ready': 'جاهز: ' + data.work_center_name + ' - أمر ' + data.order_number,
+            'stage_failed': 'عطل في ' + data.work_center_name + ': ' + data.failure_reason,
+            'printing_started': 'بدأت طباعة الباركود - أمر ' + data.order_number,
+            'print_completed': 'اكتملت الطباعة - أمر ' + data.order_number,
+            'reprinting': 'إعادة طباعة - أمر ' + data.order_number
+        };
+
+        var msg = notifications[event];
+        if (msg) {
+            showToast(msg, event.indexOf('fail') !== -1 ? 'danger' : 'info');
+        }
+    }
+
+    function handleActionResult(msg) {
+        if (msg.success === false) {
+            showToast(msg.message, 'danger');
+        }
+    }
+
+    // ──────────────────────────────────────────
+    // Actions (via WebSocket for real-time)
+    // ──────────────────────────────────────────
+    function startStage(stageId) {
+        sendAction('start_stage', { stage_id: stageId, user_id: USER_ID });
+    }
+
+    function completeStage(stageId) {
+        if (!confirm('هل تريد إكمال هذه المرحلة؟')) return;
+        sendAction('complete_stage', { stage_id: stageId, user_id: USER_ID });
+    }
+
+    function showFailModal(stageId) {
+        document.getElementById('failStageId').value = stageId;
+        document.getElementById('failReason').value = '';
+        document.getElementById('failCategory').value = 'other';
+        new bootstrap.Modal(document.getElementById('failureModal')).show();
+    }
+
+    function submitFailure() {
+        var stageId = parseInt(document.getElementById('failStageId').value);
+        var reason = document.getElementById('failReason').value;
+        var category = document.getElementById('failCategory').value;
+
+        if (!reason.trim()) {
+            alert('يرجى وصف سبب العطل');
+            return;
+        }
+
+        sendAction('fail_stage', {
+            stage_id: stageId,
+            user_id: USER_ID,
+            reason: reason,
+            category: category
+        });
+
+        bootstrap.Modal.getInstance(document.getElementById('failureModal')).hide();
+    }
+
+    function reprintBarcode(stageId) {
+        if (!confirm('هل تريد إعادة طباعة الباركود؟')) return;
+        sendAction('reprint', { stage_id: stageId, user_id: USER_ID });
+    }
+
+    function sendAction(action, data) {
+        if (pipelineSocket && pipelineSocket.readyState === WebSocket.OPEN) {
+            data.action = action;
+            pipelineSocket.send(JSON.stringify(data));
+        } else {
+            // Fallback to HTTP
+            fallbackHTTP(action, data);
+        }
+    }
+
+    function fallbackHTTP(action, data) {
+        var urls = {
+            'start_stage': '/production/pipeline/stage/' + data.stage_id + '/start/',
+            'complete_stage': '/production/pipeline/stage/' + data.stage_id + '/complete/',
+            'fail_stage': '/production/pipeline/stage/' + data.stage_id + '/fail/',
+            'reprint': '/production/pipeline/stage/' + data.stage_id + '/reprint/'
+        };
+
+        var url = urls[action];
+        if (!url) return;
+
+        var formData = new FormData();
+        formData.append('csrfmiddlewaretoken', CSRF_TOKEN);
+        if (data.reason) formData.append('reason', data.reason);
+        if (data.category) formData.append('category', data.category);
+
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.success) {
+                refreshPipeline();
+            } else {
+                showToast(result.message, 'danger');
+            }
+        })
+        .catch(function(err) { showToast('خطأ في الاتصال', 'danger'); });
+    }
+
+    function refreshPipeline() {
+        if (pipelineSocket && pipelineSocket.readyState === WebSocket.OPEN) {
+            pipelineSocket.send(JSON.stringify({ action: 'refresh' }));
+        } else {
+            // Fallback AJAX
+            fetch('/production/pipeline/api/data/')
+                .then(function(r) { return r.json(); })
+                .then(function(data) { renderPipeline(data); })
+                .catch(function(err) { console.error(err); });
+        }
+    }
+
+    // ──────────────────────────────────────────
+    // Toast Notifications
+    // ──────────────────────────────────────────
+    function showToast(message, type) {
+        type = type || 'info';
+        var container = document.getElementById('toastContainer') || createToastContainer();
+        var toast = document.createElement('div');
+        toast.className = 'alert alert-' + type + ' alert-dismissible fade show';
+        toast.style.cssText = 'min-width: 300px; margin-bottom: 0.5rem; font-size: 0.85rem;';
+        toast.innerHTML = message +
+            '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+        container.appendChild(toast);
+
+        setTimeout(function() {
+            if (toast.parentNode) toast.remove();
+        }, 5000);
+    }
+
+    function createToastContainer() {
+        var container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.style.cssText = 'position: fixed; top: 1rem; left: 1rem; z-index: 9999; max-width: 400px;';
+        document.body.appendChild(container);
+        return container;
+    }
+
+    // ──────────────────────────────────────────
+    // Initialization
+    // ──────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function() {
+        renderPipeline(PIPELINE_DATA);
+        connectWebSocket();
+
+        // Auto-refresh every 30s as fallback
+        setInterval(function() {
+            if (!pipelineSocket || pipelineSocket.readyState !== WebSocket.OPEN) {
+                refreshPipeline();
+            }
+        }, 30000);
+    });
+</script>
+{% endblock %}

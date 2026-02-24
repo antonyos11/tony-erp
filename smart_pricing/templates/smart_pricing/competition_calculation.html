@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% load i18n humanize static %}
+
+{% block title %}{{ title }} | {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="h3 gradient-text fw-bold">
+                <i class="bi bi-calculator me-2"></i>{{ title }}
+            </h1>
+            <p class="text-muted">{% trans "تحليل ومقارنة أسعار المنتجات مع المنافسين لتحديد السعر الأمثل" %}</p>
+        </div>
+    </div>
+
+    <!-- Selection Form -->
+    <div class="card glass-card mb-4">
+        <div class="card-body">
+            <form method="post" class="row g-3">
+                {% csrf_token %}
+                <div class="col-md-8">
+                    <label for="product_id" class="form-label">{% trans "اختر المنتج" %}</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-box-seam"></i></span>
+                        <select name="product_id" id="product_id" class="form-select border-start-0" required>
+                            <option value="">{% trans "--- اختر المنتج للتحليل ---" %}</option>
+                            {% for product in products %}
+                            <option value="{{ product.id }}" {% if selected_product and selected_product.id == product.id %}selected{% endif %}>
+                                {{ product.name }} ({{ product.code }}) - {% trans "الحالي" %}: {{ product.price|floatformat:2 }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="bi bi-lightning-charge me-2"></i>{% trans "تحليل وحساب" %}
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if result %}
+    <div class="row">
+        <!-- Results Summary -->
+        <div class="col-md-4">
+            <div class="card glass-card h-100">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="card-title mb-0">{% trans "ملخص التحليل" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if result.has_data %}
+                        <div class="text-center mb-4">
+                            <h6 class="text-muted mb-2">{% trans "سعرنا الحالي" %}</h6>
+                            <div class="display-6 fw-bold text-primary">{{ result.our_price|floatformat:2 }}</div>
+                        </div>
+                        
+                        <div class="text-center mb-4">
+                            <h6 class="text-muted mb-2">{% trans "متوسط السوق" %}</h6>
+                            <div class="display-6 fw-bold text-info">{{ result.average_competitor_price|floatformat:2 }}</div>
+                        </div>
+
+                        <hr>
+
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span>{% trans "الفجوة السعرية" %}</span>
+                            <span class="badge {% if result.price_gap > 0 %}bg-danger{% else %}bg-success{% endif %} rounded-pill p-2">
+                                {{ result.price_gap }}%
+                            </span>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>{% trans "الموقع التسويقي" %}</span>
+                            <span class="fw-bold">{{ result.market_position }}</span>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            {{ result.message }}
+                        </div>
+                        <div class="text-center mt-3">
+                            <a href="{% url 'smart_pricing:add_competitor_price' %}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-plus-lg me-1"></i>{% trans "إضافة أسعار منافسين" %}
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Competitor Details -->
+        <div class="col-md-8">
+            <div class="card glass-card h-100">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">{% trans "مقارنة المنافسين" %}</h5>
+                    <span class="badge bg-soft-primary text-primary">{{ result.comparisons|length }} {% trans "منافسين" %}</span>
+                </div>
+                <div class="card-body">
+                    {% if result.has_data %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "المنافس" %}</th>
+                                        <th>{% trans "السعر" %}</th>
+                                        <th>{% trans "الفرق" %}</th>
+                                        <th>{% trans "الحالة" %}</th>
+                                        <th>{% trans "تاريخ التسجيل" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for comp in result.comparisons %}
+                                    <tr>
+                                        <td class="fw-bold">{{ comp.competitor }}</td>
+                                        <td>{{ comp.competitor_price|floatformat:2 }}</td>
+                                        <td>
+                                            <span class="{% if comp.difference_percentage > 0 %}text-danger{% else %}text-success{% endif %}">
+                                                {{ comp.difference_percentage }}%
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if comp.position == 'أعلى' %}
+                                                <span class="badge bg-soft-danger text-danger">{% trans "أغلى منا" %}</span>
+                                            {% elif comp.position == 'أقل' %}
+                                                <span class="badge bg-soft-success text-success">{% trans "أرخص منا" %}</span>
+                                            {% else %}
+                                                <span class="badge bg-soft-warning text-warning">{% trans "مساوٍ" %}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-muted small">{{ comp.recorded_at|date:"Y-m-d" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5 text-muted">
+                            <i class="bi bi-graph-up display-1 opacity-25"></i>
+                            <p class="mt-3">{% trans "لا توجد بيانات للمقارنة" %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

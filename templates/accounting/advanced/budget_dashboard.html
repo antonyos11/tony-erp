@@ -1,0 +1,359 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}لوحة معلومات الموازنات - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .budget-card {
+        border-radius: 15px;
+        overflow: hidden;
+        transition: all 0.3s;
+    }
+    .budget-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    }
+    .progress-custom {
+        height: 25px;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+    .variance-positive { color: #28a745; }
+    .variance-negative { color: #dc3545; }
+    .over-budget {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+    }
+    .under-budget {
+        background: #d1ecf1;
+        border-left: 4px solid #17a2b8;
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mb-0">
+                <i class="fas fa-chart-pie text-primary"></i>
+                لوحة معلومات الموازنات
+            </h2>
+            <p class="text-muted mt-2">مقارنة المبالغ الفعلية مع المدرجة بالموازنة</p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">السنة المالية</label>
+                            <select name="fiscal_year" class="form-select">
+                                <option value="">-- جميع السنوات --</option>
+                                {% for fy in fiscal_years %}
+                                    <option value="{{ fy.id }}" {% if request.GET.fiscal_year == fy.id|stringformat:"s" %}selected{% endif %}>
+                                        {{ fy.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">الشهر</label>
+                            <select name="month" class="form-select">
+                                <option value="">-- جميع الأشهر --</option>
+                                {% for m in "123456789012"|make_list %}
+                                    <option value="{{ forloop.counter }}" {% if request.GET.month == forloop.counter|stringformat:"s" %}selected{% endif %}>
+                                        الشهر {{ forloop.counter }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-filter"></i> تطبيق الفلتر
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card budget-card border-0 shadow-sm bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50 mb-2">إجمالي الموازنة</h6>
+                            <h3 class="mb-0">{{ total_budgeted|floatformat:2 }}</h3>
+                        </div>
+                        <i class="fas fa-wallet fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card budget-card border-0 shadow-sm bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50 mb-2">إجمالي الفعلي</h6>
+                            <h3 class="mb-0">{{ total_actual|floatformat:2 }}</h3>
+                        </div>
+                        <i class="fas fa-money-bill-wave fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card budget-card border-0 shadow-sm {% if variance >= 0 %}bg-danger{% else %}bg-info{% endif %} text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50 mb-2">الفرق (الانحراف)</h6>
+                            <h3 class="mb-0">{{ variance|floatformat:2 }}</h3>
+                            <small class="text-white-50">{{ variance_pct|floatformat:1 }}%</small>
+                        </div>
+                        <i class="fas {% if variance >= 0 %}fa-arrow-up{% else %}fa-arrow-down{% endif %} fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Over Budget Items -->
+    {% if over_budget_items %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        البنود الأكثر تجاوزاً للموازنة
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>الحساب</th>
+                                    <th>مركز التكلفة</th>
+                                    <th>الموازنة</th>
+                                    <th>الفعلي</th>
+                                    <th>الانحراف</th>
+                                    <th>النسبة</th>
+                                    <th>التقدم</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in over_budget_items %}
+                                <tr>
+                                    <td><strong>{{ item.account.name }}</strong></td>
+                                    <td>{{ item.cost_center.name|default:"-" }}</td>
+                                    <td>{{ item.budgeted_amount|floatformat:2 }}</td>
+                                    <td>{{ item.actual_amount|floatformat:2 }}</td>
+                                    <td class="variance-negative">
+                                        <strong>{{ item.variance_amount|floatformat:2 }}</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-danger">
+                                            {{ item.variance_percentage|floatformat:1 }}%
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="progress progress-custom">
+                                            {% widthratio item.actual_amount item.budgeted_amount 100 as percent %}
+                                            <div class="progress-bar bg-danger" 
+                                                 style="width: {% if percent > 100 %}100{% else %}{{ percent }}{% endif %}%">
+                                                {{ percent }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- All Budget Items -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list"></i>
+                        جميع بنود الموازنة
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if budget_items %}
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="budgetTable">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th>الحساب</th>
+                                        <th>مركز التكلفة</th>
+                                        <th>السنة المالية</th>
+                                        <th>الشهر</th>
+                                        <th>المدرج بالموازنة</th>
+                                        <th>الفعلي</th>
+                                        <th>الانحراف</th>
+                                        <th>التقدم</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in budget_items %}
+                                    <tr class="{% if item.variance_amount > 0 %}over-budget{% elif item.variance_amount < 0 %}under-budget{% endif %}">
+                                        <td>{{ item.account.name }}</td>
+                                        <td>{{ item.cost_center.name|default:"-" }}</td>
+                                        <td>{{ item.fiscal_year.name }}</td>
+                                        <td>{{ item.month }}</td>
+                                        <td>{{ item.budgeted_amount|floatformat:2 }}</td>
+                                        <td>{{ item.actual_amount|floatformat:2 }}</td>
+                                        <td class="{% if item.variance_amount > 0 %}variance-negative{% else %}variance-positive{% endif %}">
+                                            <strong>{{ item.variance_amount|floatformat:2 }}</strong>
+                                            <br>
+                                            <small>({{ item.variance_percentage|floatformat:1 }}%)</small>
+                                        </td>
+                                        <td>
+                                            {% widthratio item.actual_amount item.budgeted_amount 100 as percent %}
+                                            <div class="progress progress-custom">
+                                                <div class="progress-bar {% if percent > 100 %}bg-danger{% elif percent > 80 %}bg-warning{% else %}bg-success{% endif %}" 
+                                                     style="width: {% if percent > 100 %}100{% else %}{{ percent }}{% endif %}%">
+                                                    {{ percent }}%
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">لا توجد بيانات موازنة متاحة</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0">الموازنة مقابل الفعلي</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="budgetVsActualChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0">توزيع الانحرافات</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="varianceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Initialize DataTable
+    if ($.fn.DataTable) {
+        $('#budgetTable').DataTable({
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/ar.json'
+            },
+            pageLength: 25,
+            order: [[6, 'desc']] // Sort by variance
+        });
+    }
+
+    // Budget vs Actual Chart
+    const ctx1 = document.getElementById('budgetVsActualChart');
+    if (ctx1) {
+        new Chart(ctx1, {
+            type: 'bar',
+            data: {
+                labels: ['الموازنة', 'الفعلي'],
+                datasets: [{
+                    label: 'المبلغ',
+                    data: [{{ total_budgeted }}, {{ total_actual }}],
+                    backgroundColor: ['#007bff', '#28a745']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    }
+
+    // Variance Chart
+    const ctx2 = document.getElementById('varianceChart');
+    if (ctx2) {
+        // Calculate absolute value of variance in JavaScript
+        const variance = {{ variance|default:0 }};
+        const absVariance = Math.abs(variance);
+        
+        new Chart(ctx2, {
+            type: 'doughnut',
+            data: {
+                labels: ['ضمن الموازنة', 'متجاوز للموازنة'],
+                datasets: [{
+                    data: [
+                        variance < 0 ? absVariance : 0,
+                        variance > 0 ? variance : 0
+                    ],
+                    backgroundColor: ['#17a2b8', '#dc3545']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

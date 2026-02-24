@@ -1,0 +1,150 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load i18n %}
+
+{% block title %}{% trans "تقرير الإيرادات" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-cash-coin me-2"></i>{% trans "تقرير الإيرادات" %}</h2>
+        <a href="{% url 'eservices:reports_dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i>{% trans "العودة" %}
+        </a>
+    </div>
+
+    <!-- فلاتر -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "من تاريخ" %}</label>
+                    <input type="date" name="date_from" class="form-control" value="{{ request.GET.date_from }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "إلى تاريخ" %}</label>
+                    <input type="date" name="date_to" class="form-control" value="{{ request.GET.date_to }}">
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">{% trans "بحث" %}</button>
+                    <a href="{% url 'eservices:revenue_report' %}" class="btn btn-outline-secondary">{% trans "إعادة" %}</a>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="button" onclick="window.print()" class="btn btn-success w-100">
+                        <i class="bi bi-printer me-1"></i>{% trans "طباعة" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ملخص الإيرادات -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <i class="bi bi-cash-stack display-4 mb-2"></i>
+                    <h4>{% trans "إجمالي الرسوم المحصلة" %}</h4>
+                    <h2>{{ total_fees|floatformat:2|default:0 }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <i class="bi bi-activity display-4 mb-2"></i>
+                    <h4>{% trans "عدد المعاملات المكتملة" %}</h4>
+                    <h2>{{ completed_count|default:0 }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <i class="bi bi-calculator display-4 mb-2"></i>
+                    <h4>{% trans "متوسط الرسوم" %}</h4>
+                    <h2>{{ avg_fee|floatformat:2|default:0 }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- إيرادات حسب الخدمة -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">{% trans "الإيرادات حسب الخدمة" %}</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% trans "الخدمة" %}</th>
+                            <th>{% trans "عدد المعاملات" %}</th>
+                            <th>{% trans "إجمالي المبالغ" %}</th>
+                            <th>{% trans "إجمالي الرسوم" %}</th>
+                            <th>{% trans "نسبة الإيرادات" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in revenue_by_service %}
+                        <tr>
+                            <td>{{ item.service__name }}</td>
+                            <td>{{ item.count }}</td>
+                            <td>{{ item.total_amount|floatformat:0 }}</td>
+                            <td>{{ item.total_fees|floatformat:2 }}</td>
+                            <td>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar bg-success" 
+                                         style="width: {{ item.percentage }}%;">
+                                        {{ item.percentage|floatformat:1 }}%
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4">{% trans "لا توجد بيانات" %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- إيرادات يومية -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">{% trans "الإيرادات اليومية" %}</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% trans "التاريخ" %}</th>
+                            <th>{% trans "عدد المعاملات" %}</th>
+                            <th>{% trans "المبالغ" %}</th>
+                            <th>{% trans "الرسوم" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in daily_revenue %}
+                        <tr>
+                            <td>{{ item.date|date:"Y/m/d" }}</td>
+                            <td>{{ item.count }}</td>
+                            <td>{{ item.total_amount|floatformat:0 }}</td>
+                            <td><strong class="text-success">{{ item.total_fees|floatformat:2 }}</strong></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-4">{% trans "لا توجد بيانات" %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

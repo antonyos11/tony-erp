@@ -1,0 +1,172 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تقرير استهلاك المواد{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        margin-bottom: 20px;
+    }
+    .material-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .consumption-bar {
+        height: 10px;
+        border-radius: 5px;
+        background: #e5e7eb;
+        overflow: hidden;
+    }
+    .consumption-bar .fill {
+        height: 100%;
+        border-radius: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-cubes me-2 text-orange"></i>تقرير استهلاك المواد</h2>
+            <p class="text-muted mb-0">تحليل استهلاك المواد الخام في الإنتاج</p>
+        </div>
+        <div class="d-flex gap-2">
+            <input type="date" class="form-control" style="width: 150px;" name="start_date">
+            <input type="date" class="form-control" style="width: 150px;" name="end_date">
+            <button class="btn btn-primary">تطبيق</button>
+        </div>
+    </div>
+
+    <!-- ملخص -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="report-card text-center">
+                <i class="fas fa-box fa-2x text-primary mb-3"></i>
+                <h3 class="mb-1">{{ total_materials|default:"45" }}</h3>
+                <p class="text-muted mb-0">نوع مادة مستخدمة</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="report-card text-center">
+                <i class="fas fa-weight fa-2x text-success mb-3"></i>
+                <h3 class="mb-1">{{ total_quantity|default:"15,840" }} كجم</h3>
+                <p class="text-muted mb-0">إجمالي الاستهلاك</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="report-card text-center">
+                <i class="fas fa-coins fa-2x text-warning mb-3"></i>
+                <h3 class="mb-1">{{ total_cost|default:"285,000" }} ج.م</h3>
+                <p class="text-muted mb-0">إجمالي التكلفة</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="report-card text-center">
+                <i class="fas fa-chart-line fa-2x text-info mb-3"></i>
+                <h3 class="mb-1">{{ efficiency|default:"94" }}%</h3>
+                <p class="text-muted mb-0">كفاءة الاستهلاك</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- أكثر المواد استهلاكاً -->
+    <div class="report-card">
+        <h5 class="mb-4">أكثر المواد استهلاكاً</h5>
+        <div class="table-responsive">
+            <table class="table">
+                <thead class="bg-light">
+                    <tr>
+                        <th style="width: 40%">المادة</th>
+                        <th>الكمية المستهلكة</th>
+                        <th>التكلفة</th>
+                        <th>نسبة الاستهلاك</th>
+                        <th>الحالة</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for material in materials %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="material-icon bg-{ material.color|default:'primary' } bg-opacity-10 me-3">
+                                    <i class="fas fa-{ material.icon|default:'cube' }} text-{ material.color|default:'primary' }"></i>
+                                </div>
+                                <div>
+                                    <strong>{{ material.name }}</strong>
+                                    <div class="small text-muted">{{ material.category }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ material.quantity }} {{ material.unit }}</td>
+                        <td>{{ material.cost }} ج.م</td>
+                        <td style="width: 150px;">
+                            <div class="consumption-bar">
+                                <div class="fill bg-primary" style="width: { material.percentage }%"></div>
+                            </div>
+                            <small class="text-muted">{{ material.percentage }}%</small>
+                        </td>
+                        <td>
+                            {% if material.stock_level == 'low' %}
+                            <span class="badge bg-danger">مخزون منخفض</span>
+                            {% elif material.stock_level == 'medium' %}
+                            <span class="badge bg-warning">مخزون متوسط</span>
+                            {% else %}
+                            <span class="badge bg-success">مخزون كافي</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">لا توجد بيانات</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- استهلاك حسب المنتج -->
+    <div class="report-card">
+        <h5 class="mb-4">استهلاك المواد حسب المنتج</h5>
+        <div class="table-responsive">
+            <table class="table">
+                <thead class="bg-light">
+                    <tr>
+                        <th>المنتج</th>
+                        <th>عدد الوحدات</th>
+                        <th>المواد المستهلكة</th>
+                        <th>التكلفة الإجمالية</th>
+                        <th>تكلفة الوحدة</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in product_consumption %}
+                    <tr>
+                        <td><strong>{{ product.name }}</strong></td>
+                        <td>{{ product.units }}</td>
+                        <td>{{ product.materials_count }} نوع</td>
+                        <td>{{ product.total_cost }} ج.م</td>
+                        <td>{{ product.unit_cost }} ج.م</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">لا توجد بيانات</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,392 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+{% load currency_tags %}
+
+{% block title %}{% trans "مفردات المرتب - البدلات والخصومات" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .payroll-items-header {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 30px;
+        margin-bottom: 25px;
+        box-shadow: 0 10px 40px rgba(16, 185, 129, 0.3);
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 25px;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        border: 1px solid #f1f5f9;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+    }
+    
+    .stat-card .stat-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        margin: 0 auto 15px;
+    }
+    
+    .stat-card.allowance .stat-icon {
+        background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+        color: #16a34a;
+    }
+    
+    .stat-card.deduction .stat-icon {
+        background: linear-gradient(135deg, #fee2e2, #fecaca);
+        color: #dc2626;
+    }
+    
+    .stat-card .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 5px;
+    }
+    
+    .stat-card .stat-label {
+        color: #64748b;
+        font-size: 0.95rem;
+    }
+    
+    .quick-action-card {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        text-decoration: none;
+        color: #1f2937;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+    
+    .quick-action-card:hover {
+        border-color: #10b981;
+        transform: translateX(-5px);
+        color: #1f2937;
+    }
+    
+    .quick-action-card .action-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+    }
+    
+    .quick-action-card.green .action-icon {
+        background: #dcfce7;
+        color: #16a34a;
+    }
+    
+    .quick-action-card.red .action-icon {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+    
+    .quick-action-card.blue .action-icon {
+        background: #dbeafe;
+        color: #2563eb;
+    }
+    
+    .quick-action-card.orange .action-icon {
+        background: #ffedd5;
+        color: #ea580c;
+    }
+    
+    .recent-list {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+    }
+    
+    .recent-list h5 {
+        font-weight: 700;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #f1f5f9;
+    }
+    
+    .recent-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid #f8fafc;
+    }
+    
+    .recent-item:last-child {
+        border-bottom: none;
+    }
+    
+    .recent-item .item-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 12px;
+    }
+    
+    .badge-active {
+        background: #dcfce7;
+        color: #16a34a;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+    }
+    
+    .badge-inactive {
+        background: #f1f5f9;
+        color: #64748b;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="payroll-items-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="h2 mb-2">
+                    <i class="bi bi-cash-stack me-2"></i>
+                    {% trans "مفردات المرتب" %}
+                </h1>
+                <p class="mb-0 opacity-90">
+                    {% trans "إدارة البدلات والخصومات للموظفين" %}
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <a href="{% url 'hr:payroll_dashboard' %}" class="btn btn-light">
+                    <i class="bi bi-arrow-right me-1"></i>
+                    {% trans "العودة للرواتب" %}
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stats Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card allowance">
+                <div class="stat-icon">
+                    <i class="bi bi-plus-circle-fill"></i>
+                </div>
+                <div class="stat-number">{{ allowance_types_count }}</div>
+                <div class="stat-label">{% trans "أنواع البدلات" %}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card deduction">
+                <div class="stat-icon">
+                    <i class="bi bi-dash-circle-fill"></i>
+                </div>
+                <div class="stat-number">{{ deduction_types_count }}</div>
+                <div class="stat-label">{% trans "أنواع الخصومات" %}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card allowance">
+                <div class="stat-icon">
+                    <i class="bi bi-people-fill"></i>
+                </div>
+                <div class="stat-number">{{ employee_allowances_count }}</div>
+                <div class="stat-label">{% trans "بدلات موظفين نشطة" %}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card deduction">
+                <div class="stat-icon">
+                    <i class="bi bi-person-dash-fill"></i>
+                </div>
+                <div class="stat-number">{{ employee_deductions_count }}</div>
+                <div class="stat-label">{% trans "خصومات موظفين نشطة" %}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <h5 class="mb-3">
+                <i class="bi bi-lightning-charge-fill text-warning me-2"></i>
+                {% trans "إجراءات سريعة" %}
+            </h5>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'hr:allowance_type_list' %}" class="quick-action-card green">
+                <div class="action-icon">
+                    <i class="bi bi-list-check"></i>
+                </div>
+                <div>
+                    <h6 class="mb-1">{% trans "أنواع البدلات" %}</h6>
+                    <small class="text-muted">{% trans "عرض وإدارة" %}</small>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'hr:deduction_type_list' %}" class="quick-action-card red">
+                <div class="action-icon">
+                    <i class="bi bi-list-ul"></i>
+                </div>
+                <div>
+                    <h6 class="mb-1">{% trans "أنواع الخصومات" %}</h6>
+                    <small class="text-muted">{% trans "عرض وإدارة" %}</small>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'hr:employee_allowance_list' %}" class="quick-action-card blue">
+                <div class="action-icon">
+                    <i class="bi bi-person-plus-fill"></i>
+                </div>
+                <div>
+                    <h6 class="mb-1">{% trans "بدلات الموظفين" %}</h6>
+                    <small class="text-muted">{% trans "إضافة ومتابعة" %}</small>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'hr:employee_deduction_list' %}" class="quick-action-card orange">
+                <div class="action-icon">
+                    <i class="bi bi-person-dash-fill"></i>
+                </div>
+                <div>
+                    <h6 class="mb-1">{% trans "خصومات الموظفين" %}</h6>
+                    <small class="text-muted">{% trans "إضافة ومتابعة" %}</small>
+                </div>
+            </a>
+        </div>
+    </div>
+    
+    <!-- Recent Lists -->
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="recent-list">
+                <h5>
+                    <i class="bi bi-plus-circle text-success me-2"></i>
+                    {% trans "أحدث أنواع البدلات" %}
+                </h5>
+                {% if recent_allowance_types %}
+                    {% for item in recent_allowance_types %}
+                    <div class="recent-item">
+                        <div class="d-flex align-items-center">
+                            <div class="item-icon" style="background: #dcfce7; color: #16a34a;">
+                                <i class="bi bi-cash"></i>
+                            </div>
+                            <div>
+                                <strong>{{ item.name }}</strong>
+                                <br>
+                                <small class="text-muted">{{ item.code }}</small>
+                            </div>
+                        </div>
+                        <div>
+                            {% if item.is_active %}
+                                <span class="badge-active">{% trans "نشط" %}</span>
+                            {% else %}
+                                <span class="badge-inactive">{% trans "غير نشط" %}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center py-4">{% trans "لا توجد بدلات بعد" %}</p>
+                {% endif %}
+                <div class="text-center mt-3">
+                    <a href="{% url 'hr:allowance_type_create' %}" class="btn btn-success btn-sm">
+                        <i class="bi bi-plus-lg me-1"></i>
+                        {% trans "إضافة بدل جديد" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="recent-list">
+                <h5>
+                    <i class="bi bi-dash-circle text-danger me-2"></i>
+                    {% trans "أحدث أنواع الخصومات" %}
+                </h5>
+                {% if recent_deduction_types %}
+                    {% for item in recent_deduction_types %}
+                    <div class="recent-item">
+                        <div class="d-flex align-items-center">
+                            <div class="item-icon" style="background: #fee2e2; color: #dc2626;">
+                                <i class="bi bi-percent"></i>
+                            </div>
+                            <div>
+                                <strong>{{ item.name }}</strong>
+                                <br>
+                                <small class="text-muted">{{ item.code }}</small>
+                            </div>
+                        </div>
+                        <div>
+                            {% if item.is_active %}
+                                <span class="badge-active">{% trans "نشط" %}</span>
+                            {% else %}
+                                <span class="badge-inactive">{% trans "غير نشط" %}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center py-4">{% trans "لا توجد خصومات بعد" %}</p>
+                {% endif %}
+                <div class="text-center mt-3">
+                    <a href="{% url 'hr:deduction_type_create' %}" class="btn btn-danger btn-sm">
+                        <i class="bi bi-plus-lg me-1"></i>
+                        {% trans "إضافة خصم جديد" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="row g-4 mt-4">
+        <div class="col-md-6">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <h3 class="text-success mb-2">{{ total_allowances|currency_format }}</h3>
+                    <p class="text-muted mb-0">{% trans "إجمالي البدلات الشهرية النشطة" %}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-danger">
+                <div class="card-body text-center">
+                    <h3 class="text-danger mb-2">{{ total_deductions|currency_format }}</h3>
+                    <p class="text-muted mb-0">{% trans "إجمالي الخصومات الشهرية النشطة" %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

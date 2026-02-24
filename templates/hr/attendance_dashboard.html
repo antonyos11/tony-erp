@@ -1,0 +1,340 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}لوحة تحكم الحضور والانصراف{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --att-ink: #0f172a;
+        --att-muted: #64748b;
+        --att-card-border: rgba(226, 232, 240, 0.85);
+        --att-shadow: 0 14px 45px rgba(15, 23, 42, 0.08);
+        --att-radius-lg: 22px;
+        --att-radius-md: 16px;
+    }
+
+    .att-hero {
+        background:
+            radial-gradient(circle at 15% 20%, rgba(16, 185, 129, 0.20), transparent 35%),
+            radial-gradient(circle at 85% 10%, rgba(59, 130, 246, 0.22), transparent 32%),
+            linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #334155 100%);
+        border-radius: 28px;
+        padding: 26px;
+        color: #fff;
+        box-shadow: 0 25px 70px rgba(15, 23, 42, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        position: relative;
+        overflow: hidden;
+    }
+    .att-hero::before {
+        content: '';
+        position: absolute;
+        inset: -80px -120px auto auto;
+        width: 420px;
+        height: 420px;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, transparent 60%);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    .hero-title {
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        margin: 0;
+    }
+    .hero-subtitle { color: rgba(255,255,255,0.85); margin-top: 6px; }
+
+    .hero-time {
+        text-align: center;
+        padding: 14px 18px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.10);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        backdrop-filter: blur(14px);
+    }
+    .time-display {
+        font-size: 2.4rem;
+        font-weight: 900;
+        letter-spacing: -1px;
+        line-height: 1.05;
+    }
+    .date-display { color: rgba(255,255,255,0.85); font-weight: 600; margin-top: 4px; }
+
+    .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: stretch;
+    }
+    .action-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        border: none;
+        border-radius: 18px;
+        padding: 14px 18px;
+        min-width: 200px;
+        font-weight: 900;
+        font-size: 1.05rem;
+        transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease;
+        box-shadow: 0 12px 35px rgba(0,0,0,0.22), inset 0 -2px 8px rgba(0,0,0,0.12);
+        position: relative;
+        overflow: hidden;
+        color: #fff;
+        user-select: none;
+    }
+    .action-btn::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to bottom, rgba(255,255,255,0.22), transparent 55%);
+        pointer-events: none;
+    }
+    .action-btn:hover { transform: translateY(-3px); box-shadow: 0 18px 55px rgba(0,0,0,0.30); filter: saturate(1.05); }
+    .action-btn:active { transform: translateY(-1px); }
+
+    .action-checkin { background: linear-gradient(135deg, #10b981 0%, #059669 55%, #047857 100%); }
+    .action-checkout { background: linear-gradient(135deg, #ef4444 0%, #dc2626 55%, #b91c1c 100%); }
+
+    .stat-card {
+        border: 1px solid var(--att-card-border);
+        border-radius: var(--att-radius-lg);
+        background: linear-gradient(135deg, #f8fafc 0%, #ffffff 70%);
+        box-shadow: var(--att-shadow);
+        overflow: hidden;
+        position: relative;
+        transition: transform 0.35s ease, box-shadow 0.35s ease;
+        height: 100%;
+    }
+    .stat-card:hover { transform: translateY(-6px); box-shadow: 0 22px 65px rgba(15, 23, 42, 0.12); }
+    .stat-card .stat-inner { padding: 18px 18px; }
+    .stat-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        box-shadow: 0 10px 26px rgba(0,0,0,0.18);
+        flex: 0 0 auto;
+    }
+    .stat-label { color: var(--att-muted); font-weight: 700; font-size: 0.95rem; }
+    .stat-value { color: var(--att-ink); font-weight: 900; font-size: 2.1rem; line-height: 1; }
+
+    .stat-present .stat-icon { background: linear-gradient(135deg, #10b981, #059669); }
+    .stat-checkout .stat-icon { background: linear-gradient(135deg, #0ea5e9, #0284c7); }
+    .stat-absent .stat-icon { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+    .stat-total .stat-icon { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+
+    .glass-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        border-radius: var(--att-radius-lg);
+        box-shadow: var(--att-shadow);
+        overflow: hidden;
+    }
+    .glass-card .card-header {
+        background: transparent;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.7);
+        padding: 16px 18px;
+    }
+    .glass-card .card-body { padding: 18px; }
+
+    .late-header {
+        background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+        color: #111827;
+        border-bottom: none;
+    }
+
+    @media (max-width: 768px) {
+        .att-hero { padding: 18px; border-radius: 22px; }
+        .time-display { font-size: 2.0rem; }
+        .hero-time { width: 100%; }
+        .action-btn { width: 100%; min-width: 0; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="att-hero mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+                <h1 class="h3 hero-title">
+                    <i class="fas fa-clock me-2"></i>
+                    لوحة تحكم الحضور والانصراف
+                </h1>
+                <div class="hero-subtitle">متابعة الحضور اليوم وتسجيل الحضور/الانصراف بسرعة</div>
+            </div>
+            <div class="hero-time">
+                <div id="current-time" class="time-display"></div>
+                <div id="current-date" class="date-display"></div>
+            </div>
+        </div>
+
+        <div class="hero-actions mt-3">
+            <form method="post" action="{% url 'hr:check_in' %}" class="m-0">
+                {% csrf_token %}
+                <button type="submit" class="action-btn action-checkin" data-action="checkin">
+                    <i class="fas fa-sign-in-alt"></i>
+                    تسجيل حضور
+                </button>
+            </form>
+
+            <form method="post" action="{% url 'hr:check_out' %}" class="m-0">
+                {% csrf_token %}
+                <button type="submit" class="action-btn action-checkout" data-action="checkout">
+                    <i class="fas fa-sign-out-alt"></i>
+                    تسجيل انصراف
+                </button>
+            </form>
+
+            <a href="{% url 'hr:manual_attendance_entry' %}" class="btn btn-light fw-bold px-4" style="border-radius: 18px;">
+                <i class="fas fa-edit me-2"></i>
+                إدخال يدوي
+            </a>
+            <a href="{% url 'hr:attendance_records' %}" class="btn btn-outline-light fw-bold px-4" style="border-radius: 18px;">
+                <i class="fas fa-list me-2"></i>
+                عرض السجلات
+            </a>
+        </div>
+    </div>
+    
+    <!-- إحصائيات اليوم -->
+    <div class="row g-4 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card stat-present">
+                <div class="stat-inner d-flex align-items-center justify-content-between gap-3">
+                    <div>
+                        <div class="stat-label">حضر اليوم</div>
+                        <div class="stat-value">{{ today_checkins }}</div>
+                    </div>
+                    <div class="stat-icon"><i class="fas fa-user-check"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card stat-checkout">
+                <div class="stat-inner d-flex align-items-center justify-content-between gap-3">
+                    <div>
+                        <div class="stat-label">انصرف اليوم</div>
+                        <div class="stat-value">{{ today_checkouts }}</div>
+                    </div>
+                    <div class="stat-icon"><i class="fas fa-sign-out-alt"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card stat-absent">
+                <div class="stat-inner d-flex align-items-center justify-content-between gap-3">
+                    <div>
+                        <div class="stat-label">غائب اليوم</div>
+                        <div class="stat-value">{{ absent_today }}</div>
+                    </div>
+                    <div class="stat-icon"><i class="fas fa-user-times"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card stat-total">
+                <div class="stat-inner d-flex align-items-center justify-content-between gap-3">
+                    <div>
+                        <div class="stat-label">إجمالي الموظفين</div>
+                        <div class="stat-value">{{ total_employees }}</div>
+                    </div>
+                    <div class="stat-icon"><i class="fas fa-users"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- الموظفون المتأخرون -->
+    {% if late_employees %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card glass-card">
+                <div class="card-header late-header">
+                    <h5 class="card-title mb-0 text-dark">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        الموظفون المتأخرون اليوم
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>الموظف</th>
+                                    <th>القسم</th>
+                                    <th>وقت الحضور المطلوب</th>
+                                    <th>وقت الحضور الفعلي</th>
+                                    <th>التأخير</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for late in late_employees %}
+                                <tr>
+                                    <td>{{ late.employee.arabic_name }}</td>
+                                    <td>{{ late.employee.department.name }}</td>
+                                    <td>{{ late.expected_time }}</td>
+                                    <td>{{ late.actual_time }}</td>
+                                    <td class="text-danger">{{ late.late_minutes }} دقيقة</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateTime() {
+    const now = new Date();
+    
+    // تحديث الوقت
+    const timeOptions = {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    };
+    document.getElementById('current-time').textContent = now.toLocaleTimeString('ar-SA', timeOptions);
+    
+    // تحديث التاريخ
+    const dateOptions = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    };
+    document.getElementById('current-date').textContent = now.toLocaleDateString('ar-SA', dateOptions);
+}
+
+// تحديث الوقت كل ثانية
+setInterval(updateTime, 1000);
+updateTime(); // تحديث فوري عند تحميل الصفحة
+
+// تأكيد قبل تسجيل الحضور/الانصراف (اعتماداً على data-action لتفادي مشاكل النص)
+document.querySelectorAll('.action-btn[data-action]').forEach((button) => {
+    button.addEventListener('click', (e) => {
+        const type = button.getAttribute('data-action');
+        const label = type === 'checkin' ? 'الحضور' : 'الانصراف';
+        if (!confirm(`هل تريد تأكيد تسجيل ${label}؟`)) {
+            e.preventDefault();
+        }
+    });
+});
+</script>
+{% endblock %}

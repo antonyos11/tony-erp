@@ -1,0 +1,212 @@
+{% extends 'ecommerce/store_base.html' %}
+{% load static i18n %}
+
+{% block title %}تتبع الطلب{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="text-center mb-5">
+                <i class="bi bi-search display-1 text-primary"></i>
+                <h2 class="mt-3">تتبع طلبك</h2>
+                <p class="text-muted">أدخل رقم الطلب لمعرفة حالته</p>
+            </div>
+
+            <!-- نموذج البحث -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body p-4">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">رقم الطلب</label>
+                            <input type="text" name="request_number" class="form-control form-control-lg text-center" 
+                                   placeholder="مثال: MNT-20251224-ABC123" dir="ltr"
+                                   value="{{ request.POST.request_number|default_if_none:'' }}{{ request.GET.request_number|default_if_none:'' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">رقم الهاتف (اختياري للتحقق)</label>
+                            <input type="text" name="phone" class="form-control" 
+                                   placeholder="05xxxxxxxx" dir="ltr"
+                                   value="{{ request.POST.phone|default_if_none:'' }}{{ request.GET.phone|default_if_none:'' }}">
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-search me-2"></i>
+                                بحث
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- رسالة خطأ -->
+            {% if error %}
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-circle me-2"></i>
+                {{ error }}
+            </div>
+            {% endif %}
+
+            <!-- نتيجة البحث -->
+            {% if service_request %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="bi bi-receipt me-2"></i>
+                            {{ service_request.request_number }}
+                        </span>
+                        <span class="badge 
+                            {% if service_request.status == 'completed' %}bg-success
+                            {% elif service_request.status == 'cancelled' or service_request.status == 'rejected' %}bg-danger
+                            {% elif service_request.status == 'in_progress' %}bg-info
+                            {% else %}bg-warning text-dark{% endif %}">
+                            {{ service_request.get_status_display }}
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- تفاصيل الطلب -->
+                    <div class="table-responsive"><table class="table table-borderless">
+                        <tr>
+                            <td class="text-muted" width="40%">نوع الخدمة:</td>
+                            <td>
+                                {% if service_request.request_type == 'maintenance' %}
+                                <i class="bi bi-tools text-warning me-1"></i>
+                                {% else %}
+                                <i class="bi bi-stars text-info me-1"></i>
+                                {% endif %}
+                                {{ service_request.get_request_type_display }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">العنوان:</td>
+                            <td>{{ service_request.title }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">التاريخ المفضل:</td>
+                            <td>{{ service_request.preferred_date }}</td>
+                        </tr>
+                        {% if service_request.preferred_time_from %}
+                        <tr>
+                            <td class="text-muted">الوقت:</td>
+                            <td>{{ service_request.preferred_time_from }} - {{ service_request.preferred_time_to }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if service_request.assigned_worker %}
+                        <tr>
+                            <td class="text-muted">الفني المعين:</td>
+                            <td>{{ service_request.assigned_worker }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if service_request.final_price %}
+                        <tr>
+                            <td class="text-muted">السعر النهائي:</td>
+                            <td class="fw-bold">{{ service_request.final_price }} ر.س</td>
+                        </tr>
+                        {% elif service_request.estimated_price %}
+                        <tr>
+                            <td class="text-muted">السعر التقديري:</td>
+                            <td>{{ service_request.estimated_price }} ر.س</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <td class="text-muted">تاريخ الطلب:</td>
+                            <td>{{ service_request.created_at|date:"Y/m/d H:i" }}</td>
+                        </tr>
+                    </table></div>
+
+                    <!-- مراحل الطلب -->
+                    <hr>
+                    <h6 class="mb-3">
+                        <i class="bi bi-diagram-3 me-2"></i>
+                        مراحل الطلب
+                    </h6>
+                    <div class="progress-tracker">
+                        {% with status=service_request.status %}
+                        <div class="step {% if status in 'pending,confirmed,assigned,in_progress,completed' %}active{% endif %}">
+                            <div class="step-icon"><i class="bi bi-check"></i></div>
+                            <span>تم الاستلام</span>
+                        </div>
+                        <div class="step {% if status in 'confirmed,assigned,in_progress,completed' %}active{% endif %}">
+                            <div class="step-icon"><i class="bi bi-check"></i></div>
+                            <span>تم التأكيد</span>
+                        </div>
+                        <div class="step {% if status in 'assigned,in_progress,completed' %}active{% endif %}">
+                            <div class="step-icon"><i class="bi bi-check"></i></div>
+                            <span>تم التعيين</span>
+                        </div>
+                        <div class="step {% if status in 'in_progress,completed' %}active{% endif %}">
+                            <div class="step-icon"><i class="bi bi-check"></i></div>
+                            <span>قيد التنفيذ</span>
+                        </div>
+                        <div class="step {% if status == 'completed' %}active{% endif %}">
+                            <div class="step-icon"><i class="bi bi-check"></i></div>
+                            <span>مكتمل</span>
+                        </div>
+                        {% endwith %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- رابط العودة -->
+            <div class="text-center mt-4">
+                <a href="{% url 'home_services:services_home' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-right me-2"></i>
+                    العودة للخدمات المنزلية
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.progress-tracker {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+}
+.progress-tracker::before {
+    content: '';
+    position: absolute;
+    top: 15px;
+    left: 10%;
+    right: 10%;
+    height: 3px;
+    background-color: #e9ecef;
+}
+.progress-tracker .step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    flex: 1;
+}
+.progress-tracker .step-icon {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    background-color: #e9ecef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+    z-index: 1;
+}
+.progress-tracker .step.active .step-icon {
+    background-color: #198754;
+    color: white;
+}
+.progress-tracker .step span {
+    font-size: 12px;
+    text-align: center;
+    color: #6c757d;
+}
+.progress-tracker .step.active span {
+    color: #198754;
+    font-weight: bold;
+}
+</style>
+{% endblock %}

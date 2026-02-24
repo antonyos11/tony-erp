@@ -1,0 +1,275 @@
+﻿{% extends 'ecommerce/admin/base_admin.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - لوحة تحكم المتجر{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-1">
+                        <i class="fas fa-shopping-bag text-primary me-2"></i>
+                        {{ page_title }}
+                    </h4>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">الرئيسية</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'ecommerce:admin_dashboard' %}">المتجر</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'ecommerce:admin_orders' %}">الطلبات</a></li>
+                            <li class="breadcrumb-item active">{{ order.order_number }}</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div>
+                    <a href="{% url 'ecommerce:admin_orders' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-right me-1"></i>
+                        العودة للطلبات
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- تفاصيل الطلب -->
+        <div class="col-lg-8">
+            <!-- معلومات الطلب -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle text-primary me-2"></i>
+                        معلومات الطلب
+                    </h6>
+                    <div>
+                        {% if order.status == 'pending' %}
+                            <span class="badge bg-warning fs-6">قيد الانتظار</span>
+                        {% elif order.status == 'confirmed' %}
+                            <span class="badge bg-info fs-6">مؤكد</span>
+                        {% elif order.status == 'processing' %}
+                            <span class="badge bg-primary fs-6">قيد المعالجة</span>
+                        {% elif order.status == 'shipped' %}
+                            <span class="badge bg-info fs-6">تم الشحن</span>
+                        {% elif order.status == 'delivered' %}
+                            <span class="badge bg-success fs-6">تم التسليم</span>
+                        {% elif order.status == 'cancelled' %}
+                            <span class="badge bg-danger fs-6">ملغي</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="text-muted small">رقم الطلب</label>
+                            <div class="fw-bold">{{ order.order_number }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">تاريخ الطلب</label>
+                            <div>{{ order.created_at|date:"Y/m/d H:i" }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">حالة الدفع</label>
+                            <div>
+                                {% if order.payment_status == 'pending' %}
+                                    <span class="badge bg-warning">في انتظار الدفع</span>
+                                {% elif order.payment_status == 'paid' %}
+                                    <span class="badge bg-success">مدفوع</span>
+                                {% elif order.payment_status == 'failed' %}
+                                    <span class="badge bg-danger">فشل الدفع</span>
+                                {% elif order.payment_status == 'refunded' %}
+                                    <span class="badge bg-secondary">مسترجع</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% if order.invoice %}
+                        <div class="col-md-6">
+                            <label class="text-muted small">رقم الفاتورة</label>
+                            <div>
+                                <a href="#">{{ order.invoice.invoice_number }}</a>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- منتجات الطلب -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0">
+                        <i class="fas fa-box text-info me-2"></i>
+                        منتجات الطلب
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table mb-0">
+                            <thead class="bg-dark bg-opacity-50">
+                                <tr>
+                                    <th>المنتج</th>
+                                    <th class="text-center">الكمية</th>
+                                    <th class="text-center">السعر</th>
+                                    <th class="text-center">المجموع</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in items %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if item.product and item.product.main_image %}
+                                                <img src="{{ item.product.main_image.url }}" alt="{{ item.product_name }}"
+                                                     class="rounded me-2" style="width: 50px; height: 50px; object-fit: cover;">
+                                            {% else %}
+                                                <div class="bg-dark bg-opacity-50 rounded me-2 d-flex align-items-center justify-content-center"
+                                                     style="width: 50px; height: 50px;">
+                                                    <i class="fas fa-image text-muted"></i>
+                                                </div>
+                                            {% endif %}
+                                            <div>{{ item.product_name }}</div>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">{{ item.quantity }}</td>
+                                    <td class="text-center">{{ item.unit_price|floatformat:2 }}</td>
+                                    <td class="text-center fw-bold">{{ item.subtotal|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="bg-dark bg-opacity-50">
+                                <tr>
+                                    <td colspan="3" class="text-start">المجموع الفرعي</td>
+                                    <td class="text-center">{{ order.subtotal|floatformat:2 }}</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="3" class="text-start">تكلفة الشحن</td>
+                                    <td class="text-center">{{ order.shipping_cost|floatformat:2 }}</td>
+                                </tr>
+                                {% if order.discount %}
+                                <tr>
+                                    <td colspan="3" class="text-start text-danger">الخصم</td>
+                                    <td class="text-center text-danger">-{{ order.discount|floatformat:2 }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if order.tax %}
+                                <tr>
+                                    <td colspan="3" class="text-start">الضريبة</td>
+                                    <td class="text-center">{{ order.tax|floatformat:2 }}</td>
+                                </tr>
+                                {% endif %}
+                                <tr class="fw-bold">
+                                    <td colspan="3" class="text-start">الإجمالي</td>
+                                    <td class="text-center text-primary fs-5">{{ order.total|floatformat:2 }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ملاحظات العميل -->
+            {% if order.customer_notes %}
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0">
+                        <i class="fas fa-comment text-warning me-2"></i>
+                        ملاحظات العميل
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ order.customer_notes }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- الشريط الجانبي -->
+        <div class="col-lg-4">
+            <!-- معلومات العميل -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0">
+                        <i class="fas fa-user text-primary me-2"></i>
+                        معلومات العميل
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="text-muted small">الاسم</label>
+                        <div class="fw-bold">{{ order.customer_name }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-muted small">الهاتف</label>
+                        <div>
+                            <a href="tel:{{ order.customer_phone }}">{{ order.customer_phone }}</a>
+                        </div>
+                    </div>
+                    {% if order.customer_email %}
+                    <div class="mb-3">
+                        <label class="text-muted small">البريد الإلكتروني</label>
+                        <div>
+                            <a href="mailto:{{ order.customer_email }}">{{ order.customer_email }}</a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- عنوان الشحن -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0">
+                        <i class="fas fa-map-marker-alt text-danger me-2"></i>
+                        عنوان الشحن
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-1">{{ order.shipping_address }}</p>
+                    <p class="mb-1">{{ order.shipping_city }}</p>
+                    <p class="mb-0">{{ order.shipping_country }}</p>
+                </div>
+            </div>
+
+            <!-- تحديث الحالة -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0">
+                        <i class="fas fa-edit text-success me-2"></i>
+                        تحديث الحالة
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'ecommerce:admin_order_update_status' order.pk %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">حالة الطلب</label>
+                            <select name="status" class="form-select">
+                                {% for code, name in status_choices %}
+                                    <option value="{{ code }}" {% if order.status == code %}selected{% endif %}>{{ name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">حالة الدفع</label>
+                            <select name="payment_status" class="form-select">
+                                {% for code, name in payment_status_choices %}
+                                    <option value="{{ code }}" {% if order.payment_status == code %}selected{% endif %}>{{ name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">ملاحظات الإدارة</label>
+                            <textarea name="admin_notes" class="form-control" rows="3">{{ order.admin_notes }}</textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-save me-1"></i>
+                            تحديث الحالة
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

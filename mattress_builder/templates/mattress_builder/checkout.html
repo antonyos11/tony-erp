@@ -1,0 +1,121 @@
+{% extends 'ecommerce/store_base_new.html' %}
+{% load static i18n %}
+{% block title %}الدفع - {{ design.design_name }}{% endblock %}
+{% block extra_css %}
+<style>
+:root{--navy:#1B2A4A;--navy-light:#2a3f6e;--gold:#C8A962;--gold-light:#dfc48a}
+.page-hero{background:linear-gradient(135deg,var(--navy),var(--navy-light));padding:2rem 0;color:#fff}
+.page-hero h1{font-weight:800;font-size:1.4rem;margin-bottom:.3rem}
+.page-hero p{opacity:.8;margin:0;font-size:.9rem}
+.checkout-card{border:1px solid #e2e8f0;border-radius:20px;background:#fff;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,.04)}
+.checkout-card-head{background:linear-gradient(135deg,var(--navy),var(--navy-light));padding:16px 20px;color:#fff;font-weight:700}
+.checkout-card-body{padding:24px}
+.summary-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:.9rem}
+.summary-row:last-child{border:none}
+.summary-row .lbl{color:#64748b}
+.summary-row .val{font-weight:700;color:#1e293b}
+.total-row{font-size:1.2rem;border-top:2px dashed #e2e8f0;padding-top:16px;margin-top:8px}
+.total-row .val{color:var(--gold);font-weight:900}
+.btn-pay{background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;padding:14px 30px;border-radius:50px;font-weight:800;font-size:1rem;width:100%;transition:all .3s}
+.btn-pay:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(16,185,129,.3);color:#fff}
+.duplicate-alert{background:#fff7ed;border:1px solid #fed7aa;border-radius:16px;padding:16px;margin-bottom:1.5rem}
+.duplicate-alert h6{color:#ea580c;font-weight:700}
+.payment-method{border:2px solid #e2e8f0;border-radius:14px;padding:14px 18px;cursor:pointer;transition:all .3s}
+.payment-method:hover{border-color:var(--gold)}
+.payment-method.selected{border-color:var(--navy);background:#f0f4ff}
+.form-control,.form-select{border-radius:12px;border:1px solid #e2e8f0;padding:10px 14px}
+.form-control:focus,.form-select:focus{border-color:var(--navy);box-shadow:0 0 0 3px rgba(27,42,74,.1)}
+.publish-section{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:16px;padding:16px}
+.comp-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#f1f5f9;border-radius:20px;font-size:.75rem;font-weight:600;color:#475569;margin:2px}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-hero"><div class="container">
+<nav aria-label="breadcrumb"><ol class="breadcrumb mb-2" style="--bs-breadcrumb-divider:'>';"><li class="breadcrumb-item"><a href="{% url 'ecommerce:store_home' %}" class="text-white-50">الرئيسية</a></li><li class="breadcrumb-item"><a href="{% url 'ecommerce:mattress_builder:my_designs' %}" class="text-white-50">تصميماتي</a></li><li class="breadcrumb-item active text-white">الدفع</li></ol></nav>
+<h1><i class="bi bi-credit-card ms-2"></i> إتمام الطلب</h1>
+<p>{{ design.design_name }}</p>
+</div></div>
+<div class="container py-4">
+{% if duplicates %}
+<div class="duplicate-alert">
+<h6><i class="bi bi-info-circle ms-1"></i> تصميم مشابه موجود!</h6>
+<p class="mb-2" style="font-size:.85rem">يوجد تصميمات مشابهة لتصميمك، يمكنك شراؤها مباشرة:</p>
+{% for dup in duplicates %}
+<div class="d-flex align-items-center gap-2 mb-2 p-2 bg-white rounded-3">
+<span class="fw-bold">{{ dup.published_name|default:dup.design_name }}</span>
+<span class="text-muted">بواسطة {{ dup.customer.get_full_name|default:dup.customer.username }}</span>
+<span class="fw-bold" style="color:var(--gold)">{{ dup.final_price|floatformat:0 }} ج.م</span>
+<a href="{% url 'ecommerce:mattress_builder:checkout_design' dup.id %}" class="btn btn-sm btn-outline-success ms-auto">شراء</a>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+<form id="checkoutForm" method="post" action="{% url 'ecommerce:mattress_builder:place_mattress_order' design.id %}">
+{% csrf_token %}
+<div class="row g-4">
+<div class="col-lg-7">
+<div class="checkout-card mb-3">
+<div class="checkout-card-head"><i class="bi bi-person ms-1"></i> بيانات التسليم</div>
+<div class="checkout-card-body">
+<div class="mb-3"><label class="form-label fw-bold">الاسم الكامل</label><input type="text" class="form-control" name="customer_name" value="{{ request.user.get_full_name|default:request.user.username }}" required></div>
+<div class="row g-3 mb-3">
+<div class="col-md-6"><label class="form-label fw-bold">رقم الهاتف</label><input type="text" class="form-control" name="customer_phone" required></div>
+<div class="col-md-6"><label class="form-label fw-bold">البريد الإلكتروني</label><input type="email" class="form-control" name="customer_email" value="{{ request.user.email }}"></div>
+</div>
+<div class="mb-3"><label class="form-label fw-bold">عنوان التسليم</label><textarea class="form-control" name="shipping_address" rows="2" required></textarea></div>
+<div class="mb-3"><label class="form-label fw-bold">المدينة</label><input type="text" class="form-control" name="shipping_city" value="القاهرة"></div>
+<div class="mb-3"><label class="form-label fw-bold">ملاحظات</label><textarea class="form-control" name="customer_notes" rows="2"></textarea></div>
+</div></div>
+<div class="checkout-card mb-3">
+<div class="checkout-card-head"><i class="bi bi-credit-card ms-1"></i> طريقة الدفع</div>
+<div class="checkout-card-body">
+<div class="row g-2">
+<div class="col-6 col-md-4"><div class="payment-method selected" onclick="selectPayment(this,'cash')"><input type="radio" name="payment_method" value="cash" checked style="display:none"><i class="bi bi-cash-coin d-block text-center fs-3 mb-1" style="color:var(--gold)"></i><div class="text-center fw-bold" style="font-size:.8rem">كاش عند التسليم</div></div></div>
+<div class="col-6 col-md-4"><div class="payment-method" onclick="selectPayment(this,'visa')"><input type="radio" name="payment_method" value="visa" style="display:none"><i class="bi bi-credit-card-2-back d-block text-center fs-3 mb-1 text-primary"></i><div class="text-center fw-bold" style="font-size:.8rem">فيزا / ماستركارد</div></div></div>
+<div class="col-6 col-md-4"><div class="payment-method" onclick="selectPayment(this,'instapay')"><input type="radio" name="payment_method" value="instapay" style="display:none"><i class="bi bi-phone d-block text-center fs-3 mb-1 text-success"></i><div class="text-center fw-bold" style="font-size:.8rem">إنستاباي</div></div></div>
+</div>
+</div></div>
+{% if is_own and not design.published_name %}
+<div class="publish-section mb-3">
+<h6 class="fw-bold mb-2"><i class="bi bi-globe2 ms-1 text-success"></i> انشر تصميمك واكسب 10% عمولة!</h6>
+<p class="text-muted mb-2" style="font-size:.8rem">سمّي مرتبتك وانشرها للجمهور. كل عميل يشتري تصميمك تحصل على <strong style="color:var(--gold)">10% عمولة</strong> تلقائياً.</p>
+<div class="mb-2"><label class="form-label fw-bold" style="font-size:.85rem">اسم المرتبة (سيظهر للعملاء)</label><input type="text" class="form-control" name="published_name" placeholder="مثال: مرتبة الأحلام، مرتبة سحاب الراحة..."></div>
+<div class="form-check"><input class="form-check-input" type="checkbox" name="make_public" id="makePublic" checked><label class="form-check-label fw-bold" for="makePublic" style="font-size:.85rem">نشر التصميم لتصميمات المجتمع</label></div>
+</div>
+{% endif %}
+</div>
+<div class="col-lg-5">
+<div class="checkout-card" style="position:sticky;top:110px">
+<div class="checkout-card-head"><i class="bi bi-receipt ms-1"></i> ملخص الطلب</div>
+<div class="checkout-card-body">
+<h6 class="fw-bold mb-3">{{ design.design_name }}</h6>
+{% if is_community %}<div class="alert alert-info py-2 px-3 mb-3" style="font-size:.8rem;border-radius:12px"><i class="bi bi-person-heart ms-1"></i> تصميم بواسطة: <strong>{{ original_designer.get_full_name|default:original_designer.username }}</strong></div>{% endif %}
+<div class="summary-row"><span class="lbl">المقاس:</span><span class="val">{{ design.mattress_size.name }}</span></div>
+<div class="summary-row"><span class="lbl">الأبعاد:</span><span class="val">{{ design.mattress_size.width }}×{{ design.mattress_size.length }} سم</span></div>
+{% if design.feeling_type %}<div class="summary-row"><span class="lbl">الإحساس:</span><span class="val" style="color:{{ design.feeling_type.color }}">{{ design.feeling_type.name }}</span></div>{% endif %}
+<div class="summary-row"><span class="lbl">الطبقات:</span><span class="val">{% for dc in design.design_components.all %}<span class="comp-chip">{{ dc.component.name }}</span>{% endfor %}</span></div>
+<div class="summary-row"><span class="lbl">سعر المقاس:</span><span class="val">{{ design.base_price|floatformat:0 }} ج.م</span></div>
+<div class="summary-row"><span class="lbl">سعر المكونات:</span><span class="val">{{ design.components_price|floatformat:0 }} ج.م</span></div>
+{% if design.feeling_type and design.feeling_type.extra_price > 0 %}<div class="summary-row"><span class="lbl">سعر الإحساس:</span><span class="val">{{ design.feeling_type.extra_price|floatformat:0 }} ج.م</span></div>{% endif %}
+<div class="summary-row total-row"><span class="lbl">الإجمالي:</span><span class="val">{{ design.final_price|floatformat:0 }} ج.م</span></div>
+<div class="mt-3 mb-2 text-muted" style="font-size:.75rem"><i class="bi bi-clock ms-1"></i> مدة التصنيع المتوقعة: {{ design.estimated_production_days }} أيام</div>
+<button type="submit" class="btn-pay mt-3" id="payBtn"><i class="bi bi-lock-fill ms-1"></i> تأكيد الطلب والدفع</button>
+</div></div>
+</div></div></form></div>
+<script>
+function selectPayment(el,val){
+document.querySelectorAll('.payment-method').forEach(e=>{e.classList.remove('selected');e.querySelector('input').checked=false});
+el.classList.add('selected');el.querySelector('input').checked=true;
+}
+document.getElementById('checkoutForm').addEventListener('submit',function(e){
+e.preventDefault();
+const btn=document.getElementById('payBtn');
+btn.disabled=true;btn.innerHTML='<span class="spinner-border spinner-border-sm ms-1"></span> جاري المعالجة...';
+fetch(this.action,{method:'POST',body:new FormData(this),headers:{'X-CSRFToken':'{{ csrf_token }}'}})
+.then(r=>r.json()).then(data=>{
+if(data.success){alert(data.message);window.location.href=data.redirect;}
+else{alert(data.message||'حدث خطأ');btn.disabled=false;btn.innerHTML='<i class="bi bi-lock-fill ms-1"></i> تأكيد الطلب والدفع';}
+}).catch(()=>{alert('خطأ في الاتصال');btn.disabled=false;btn.innerHTML='<i class="bi bi-lock-fill ms-1"></i> تأكيد الطلب والدفع';});
+});
+</script>
+{% endblock %}

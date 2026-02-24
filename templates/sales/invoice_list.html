@@ -1,0 +1,174 @@
+﻿{% extends 'base_templates/_list_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'الفواتير' %}{% endblock %}
+{% block hero_icon %}bi-receipt{% endblock %}
+{% block hero_title %}{% trans 'فواتير المبيعات' %}{% endblock %}
+{% block hero_subtitle %}{% trans 'إدارة ومتابعة فواتير البيع والتحصيلات' %}{% endblock %}
+
+{% block add_button_url %}{% url 'sales:invoice_create' %}{% endblock %}
+{% block add_button_text %}{% trans 'فاتورة جديدة' %}{% endblock %}
+
+{% block stats_cards %}
+<div class="col-6 col-lg-3">
+  <div class="stat-card">
+    <div class="stat-icon primary">
+      <i class="bi bi-receipt"></i>
+    </div>
+    <div class="stat-content">
+      <div class="stat-value">{{ stats.total|default:0 }}</div>
+      <div class="stat-label">{% trans 'إجمالي الفواتير' %}</div>
+    </div>
+  </div>
+</div>
+<div class="col-6 col-lg-3">
+  <div class="stat-card">
+    <div class="stat-icon success">
+      <i class="bi bi-check-circle"></i>
+    </div>
+    <div class="stat-content">
+      <div class="stat-value">{{ stats.paid|default:0 }}</div>
+      <div class="stat-label">{% trans 'مدفوعة' %}</div>
+    </div>
+  </div>
+</div>
+<div class="col-6 col-lg-3">
+  <div class="stat-card">
+    <div class="stat-icon warning">
+      <i class="bi bi-clock"></i>
+    </div>
+    <div class="stat-content">
+      <div class="stat-value">{{ stats.partial|default:0 }}</div>
+      <div class="stat-label">{% trans 'دفع جزئي' %}</div>
+    </div>
+  </div>
+</div>
+<div class="col-6 col-lg-3">
+  <div class="stat-card">
+    <div class="stat-icon danger">
+      <i class="bi bi-exclamation-circle"></i>
+    </div>
+    <div class="stat-content">
+      <div class="stat-value">{{ stats.unpaid|default:0 }}</div>
+      <div class="stat-label">{% trans 'غير مدفوعة' %}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block filter_fields %}
+<div class="col-md-3">
+  <label class="form-label small">{% trans 'الحالة' %}</label>
+  <select name="status" class="form-select form-select-sm">
+    <option value="">{% trans 'الكل' %}</option>
+    <option value="paid" {% if request.GET.status == 'paid' %}selected{% endif %}>{% trans 'مدفوعة' %}</option>
+    <option value="partial" {% if request.GET.status == 'partial' %}selected{% endif %}>{% trans 'دفع جزئي' %}</option>
+    <option value="unpaid" {% if request.GET.status == 'unpaid' %}selected{% endif %}>{% trans 'غير مدفوعة' %}</option>
+    <option value="overdue" {% if request.GET.status == 'overdue' %}selected{% endif %}>{% trans 'متأخرة' %}</option>
+  </select>
+</div>
+<div class="col-md-3">
+  <label class="form-label small">{% trans 'العميل' %}</label>
+  <select name="customer" class="form-select form-select-sm">
+    <option value="">{% trans 'الكل' %}</option>
+    {% for customer in customers %}
+    <option value="{{ customer.pk }}" {% if request.GET.customer == customer.pk|stringformat:'d' %}selected{% endif %}>
+      {{ customer.name }}
+    </option>
+    {% endfor %}
+  </select>
+</div>
+<div class="col-md-3">
+  <label class="form-label small">{% trans 'من تاريخ' %}</label>
+  <input type="date" name="from_date" class="form-control form-control-sm" value="{{ request.GET.from_date }}">
+</div>
+<div class="col-md-3">
+  <label class="form-label small">{% trans 'إلى تاريخ' %}</label>
+  <input type="date" name="to_date" class="form-control form-control-sm" value="{{ request.GET.to_date }}">
+</div>
+{% endblock %}
+
+{% block table_headers %}
+<th style="width: 5%">#</th>
+<th style="width: 12%">{% trans 'رقم الفاتورة' %}</th>
+<th style="width: 18%">{% trans 'العميل' %}</th>
+<th class="text-center" style="width: 10%">{% trans 'التاريخ' %}</th>
+<th class="text-end" style="width: 12%">{% trans 'المبلغ' %}</th>
+<th class="text-end" style="width: 10%">{% trans 'المدفوع' %}</th>
+<th class="text-center" style="width: 10%">{% trans 'الحالة' %}</th>
+<th class="text-center" style="width: 13%">{% trans 'الإجراءات' %}</th>
+{% endblock %}
+
+{% block table_rows %}
+{% for invoice in invoices %}
+<tr>
+  <td>{{ forloop.counter }}</td>
+  <td>
+    <a href="{% url 'sales:invoice_detail' invoice.pk %}" class="fw-semibold text-primary">
+      {{ invoice.invoice_number }}
+    </a>
+  </td>
+  <td>
+    <div class="d-flex align-items-center gap-2">
+      <div class="avatar-sm bg-success-subtle text-success">
+        <i class="bi bi-person"></i>
+      </div>
+      <div>
+        <div class="fw-medium">{{ invoice.customer.name }}</div>
+        <div class="small text-muted">{{ invoice.customer.phone|default:'' }}</div>
+      </div>
+    </div>
+  </td>
+  <td class="text-center">{{ invoice.date|date:"Y/m/d" }}</td>
+  <td class="text-end fw-medium">{{ invoice.total|floatformat:2 }}</td>
+  <td class="text-end">
+    <span class="{% if invoice.paid_amount >= invoice.total %}text-success{% elif invoice.paid_amount > 0 %}text-warning{% else %}text-muted{% endif %}">
+      {{ invoice.paid_amount|floatformat:2 }}
+    </span>
+  </td>
+  <td class="text-center">
+    {% if invoice.payment_status == 'paid' %}
+    <span class="badge badge-status approved">{% trans 'مدفوعة' %}</span>
+    {% elif invoice.payment_status == 'partial' %}
+    <span class="badge badge-status pending">{% trans 'جزئي' %}</span>
+    {% elif invoice.is_overdue %}
+    <span class="badge badge-status cancelled">{% trans 'متأخرة' %}</span>
+    {% else %}
+    <span class="badge badge-status draft">{% trans 'غير مدفوعة' %}</span>
+    {% endif %}
+  </td>
+  <td class="text-center">
+    <div class="btn-group btn-group-sm">
+      <a href="{% url 'sales:invoice_detail' invoice.pk %}" class="btn btn-outline-primary" title="{% trans 'عرض' %}">
+        <i class="bi bi-eye"></i>
+      </a>
+      <a href="{% url 'sales:invoice_edit' invoice.pk %}" class="btn btn-outline-secondary" title="{% trans 'تعديل' %}">
+        <i class="bi bi-pencil"></i>
+      </a>
+      <a href="{% url 'sales:invoice_print' invoice.pk %}" class="btn btn-outline-info" title="{% trans 'طباعة' %}" target="_blank">
+        <i class="bi bi-printer"></i>
+      </a>
+      {% if invoice.payment_status != 'paid' %}
+      <a href="{% url 'sales:invoice_add_payment' invoice.pk %}" class="btn btn-outline-success" title="{% trans 'تحصيل' %}">
+        <i class="bi bi-cash"></i>
+      </a>
+      {% endif %}
+    </div>
+  </td>
+</tr>
+{% empty %}
+<tr>
+  <td colspan="8">
+    <div class="empty-state">
+      <i class="bi bi-receipt"></i>
+      <h5>{% trans 'لا توجد فواتير' %}</h5>
+      <p>{% trans 'ابدأ بإنشاء فاتورة مبيعات جديدة' %}</p>
+      <a href="{% url 'sales:invoice_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i>{% trans 'إنشاء فاتورة' %}
+      </a>
+    </div>
+  </td>
+</tr>
+{% endfor %}
+{% endblock %}

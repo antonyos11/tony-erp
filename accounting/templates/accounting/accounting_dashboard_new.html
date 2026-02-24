@@ -1,0 +1,587 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+{% load accounting_tags %}
+
+{% block title %}{% trans "لوحة المحاسبة" %} - {{ user_role_label }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-blue: #3b82f6;
+        --primary-green: #10b981;
+        --primary-orange: #f59e0b;
+        --primary-purple: #8b5cf6;
+        --bg-light: #f8fafc;
+        --bg-white: #ffffff;
+        --text-dark: #1e293b;
+        --text-muted: #64748b;
+        --border-color: #e2e8f0;
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+
+    body {
+        background: var(--bg-light);
+        font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
+    }
+
+    /* Header Section */
+    .dashboard-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .dashboard-title {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .dashboard-subtitle {
+        font-size: 1rem;
+        opacity: 0.9;
+    }
+
+    /* Search Bar */
+    .search-container {
+        position: relative;
+        max-width: 600px;
+        margin: 0 auto 2rem;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 1rem 3rem 1rem 1.5rem;
+        border: 2px solid var(--border-color);
+        border-radius: 12px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: white;
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: var(--primary-blue);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .search-icon {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+    }
+
+    .search-shortcut {
+        position: absolute;
+        right: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: var(--bg-light);
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+    }
+
+    /* Tabs Navigation */
+    .tabs-container {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-md);
+    }
+
+    .nav-tabs {
+        border: none;
+        gap: 0.5rem;
+    }
+
+    .nav-tabs .nav-link {
+        border: none;
+        background: transparent;
+        color: var(--text-dark);
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .nav-tabs .nav-link:hover {
+        background: var(--bg-light);
+    }
+
+    .nav-tabs .nav-link.active {
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .nav-tabs .nav-link i {
+        font-size: 1.25rem;
+    }
+
+    /* Tab Content */
+    .tab-content {
+        padding: 1rem 0;
+    }
+
+    /* Groups Grid */
+    .groups-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    /* Group Card */
+    .group-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: var(--shadow-md);
+        transition: all 0.3s ease;
+        border-top: 4px solid transparent;
+    }
+
+    .group-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .group-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    .group-icon {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        font-size: 1.25rem;
+        color: white;
+    }
+
+    .group-title {
+        font-size: 1.125rem;
+        font-weight: 700;
+        color: var(--text-dark);
+        margin: 0;
+    }
+
+    /* Items List */
+    .items-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .item-link {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        border-radius: 8px;
+        color: var(--text-dark);
+        text-decoration: none;
+        transition: all 0.2s ease;
+        margin-bottom: 0.5rem;
+        position: relative;
+    }
+
+    .item-link:hover {
+        background: var(--bg-light);
+        color: var(--primary-blue);
+        transform: translateX(-4px);
+    }
+
+    .item-icon {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        background: var(--bg-light);
+        font-size: 1rem;
+        flex-shrink: 0;
+    }
+
+    .item-content {
+        flex: 1;
+    }
+
+    .item-label {
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+
+    .item-shortcut {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        background: var(--bg-light);
+        padding: 0.125rem 0.375rem;
+        border-radius: 4px;
+        margin-top: 0.25rem;
+        display: inline-block;
+    }
+
+    .item-badge {
+        min-width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 0 0.5rem;
+        flex-shrink: 0;
+    }
+
+    .badge-primary {
+        background: #ef4444;
+        color: white;
+    }
+
+    .badge-live {
+        background: #10b981;
+        color: white;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+
+    /* Advanced Settings */
+    .advanced-settings {
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+        color: white;
+    }
+
+    .advanced-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+
+    .advanced-items {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 0.75rem;
+    }
+
+    .advanced-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+
+    .advanced-item:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        transform: translateX(-4px);
+    }
+
+    /* RTL Support */
+    [dir="rtl"] .item-link:hover {
+        transform: translateX(4px);
+    }
+
+    [dir="rtl"] .advanced-item:hover {
+        transform: translateX(4px);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .groups-container {
+            grid-template-columns: 1fr;
+        }
+
+        .dashboard-title {
+            font-size: 1.5rem;
+        }
+
+        .nav-tabs .nav-link {
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+        }
+
+        .advanced-items {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Tab Color Variants */
+    .nav-link.active[data-color="blue"] {
+        background: var(--primary-blue);
+    }
+
+    .nav-link.active[data-color="green"] {
+        background: var(--primary-green);
+    }
+
+    .nav-link.active[data-color="orange"] {
+        background: var(--primary-orange);
+    }
+
+    .nav-link.active[data-color="purple"] {
+        background: var(--primary-purple);
+    }
+
+    .group-card[data-tab="daily_basics"] {
+        border-top-color: var(--primary-blue);
+    }
+
+    .group-card[data-tab="invoices_movement"] {
+        border-top-color: var(--primary-green);
+    }
+
+    .group-card[data-tab="review_adjustments"] {
+        border-top-color: var(--primary-orange);
+    }
+
+    .group-card[data-tab="reports_statements"] {
+        border-top-color: var(--primary-purple);
+    }
+
+    .group-icon[data-tab="daily_basics"] {
+        background: var(--primary-blue);
+    }
+
+    .group-icon[data-tab="invoices_movement"] {
+        background: var(--primary-green);
+    }
+
+    .group-icon[data-tab="review_adjustments"] {
+        background: var(--primary-orange);
+    }
+
+    .group-icon[data-tab="reports_statements"] {
+        background: var(--primary-purple);
+    }
+
+    /* No Results */
+    .no-results {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-muted);
+    }
+
+    .no-results i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper" dir="rtl">
+    <!-- Header -->
+    <div class="dashboard-header">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 text-center">
+                    <h1 class="dashboard-title">
+                        <i class="bi bi-speedometer2"></i>
+                        {% trans "لوحة المحاسبة" %}
+                    </h1>
+                    <p class="dashboard-subtitle">
+                        {% trans "الدور:" %} <strong>{{ user_role_label }}</strong>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Search Bar -->
+        <div class="search-container">
+            <input 
+                type="text" 
+                class="search-input" 
+                id="globalSearch"
+                placeholder="{% trans 'ابحث عن أي شاشة...' %}"
+                autocomplete="off"
+            >
+            <i class="bi bi-search search-icon"></i>
+            <span class="search-shortcut">Ctrl+K</span>
+        </div>
+
+        <!-- Tabs Navigation -->
+        <div class="tabs-container">
+            <ul class="nav nav-tabs" id="accountingTabs" role="tablist">
+                {% for tab_id, tab_data in tabs.items %}
+                <li class="nav-item" role="presentation">
+                    <button 
+                        class="nav-link {% if forloop.first %}active{% endif %}" 
+                        id="{{ tab_id }}-tab" 
+                        data-bs-toggle="tab" 
+                        data-bs-target="#{{ tab_id }}" 
+                        type="button" 
+                        role="tab"
+                        data-color="{% if tab_data.color == '#3b82f6' %}blue{% elif tab_data.color == '#10b981' %}green{% elif tab_data.color == '#f59e0b' %}orange{% elif tab_data.color == '#8b5cf6' %}purple{% endif %}"
+                    >
+                        <i class="{{ tab_data.icon }}"></i>
+                        {{ tab_data.label }}
+                    </button>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="accountingTabsContent">
+            {% for tab_id, tab_data in tabs.items %}
+            <div 
+                class="tab-pane fade {% if forloop.first %}show active{% endif %}" 
+                id="{{ tab_id }}" 
+                role="tabpanel"
+            >
+                <div class="groups-container">
+                    {% for group in structure|get_item:tab_id|get_item:"groups" %}
+                    <div class="group-card" data-tab="{{ tab_id }}">
+                        <div class="group-header">
+                            <div class="group-icon" data-tab="{{ tab_id }}">
+                                <i class="{{ group.icon }}"></i>
+                            </div>
+                            <h3 class="group-title">{{ group.label }}</h3>
+                        </div>
+                        
+                        <ul class="items-list">
+                            {% for item in group.items %}
+                            <li>
+                                <a href="{% if item.url and not item.url == '#' %}{{ item.url }}{% else %}#{% endif %}" 
+                                   class="item-link"
+                                   data-search="{{ item.label|lower }}">
+                                    <div class="item-icon">
+                                        <i class="{{ item.icon }}"></i>
+                                    </div>
+                                    <div class="item-content">
+                                        <div class="item-label">{{ item.label }}</div>
+                                        {% if item.shortcut %}
+                                        <div class="item-shortcut">{{ item.shortcut }}</div>
+                                        {% endif %}
+                                    </div>
+                                    {% if item.badge_key and badges|get_item:item.badge_key %}
+                                    <span class="item-badge badge-primary">
+                                        {{ badges|get_item:item.badge_key }}
+                                    </span>
+                                    {% elif item.badge_type == 'live' %}
+                                    <span class="item-badge badge-live">
+                                        <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i>
+                                    </span>
+                                    {% endif %}
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% empty %}
+                    <div class="col-12">
+                        <div class="no-results">
+                            <i class="bi bi-inbox"></i>
+                            <p>{% trans "لا توجد عناصر متاحة في هذا التبويب" %}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Advanced Settings (CFO Only) -->
+        {% if advanced_settings %}
+        <div class="advanced-settings">
+            <div class="advanced-title">
+                <i class="{{ advanced_settings.icon }}"></i>
+                {{ advanced_settings.label }}
+            </div>
+            <div class="advanced-items">
+                {% for item in advanced_settings.items %}
+                <a href="{% if item.url and not item.url == '#' %}{{ item.url }}{% else %}#{% endif %}" class="advanced-item">
+                    <i class="{{ item.icon }}"></i>
+                    {{ item.label }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('globalSearch');
+    const itemLinks = document.querySelectorAll('.item-link');
+    
+    // Search Functionality
+    searchInput.addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        
+        itemLinks.forEach(function(link) {
+            const searchText = link.getAttribute('data-search');
+            const parentLi = link.closest('li');
+            
+            if (searchText.includes(searchTerm)) {
+                parentLi.style.display = '';
+            } else {
+                parentLi.style.display = 'none';
+            }
+        });
+        
+        // Show/hide groups based on visible items
+        document.querySelectorAll('.group-card').forEach(function(group) {
+            const visibleItems = group.querySelectorAll('.items-list li:not([style*="display: none"])');
+            if (visibleItems.length === 0) {
+                group.style.display = 'none';
+            } else {
+                group.style.display = '';
+            }
+        });
+    });
+    
+    // Keyboard Shortcut (Ctrl+K)
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'k') {
+            e.preventDefault();
+            searchInput.focus();
+        }
+    });
+});
+</script>
+{% endblock %}

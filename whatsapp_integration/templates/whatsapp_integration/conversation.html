@@ -1,0 +1,283 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}محادثة - {{ conversation.customer_name|default:conversation.phone_number }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.chat-container {
+    height: 500px;
+    overflow-y: auto;
+    background: #e5ddd5;
+    padding: 20px;
+    border-radius: 8px;
+}
+.message {
+    max-width: 70%;
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    border-radius: 10px;
+    position: relative;
+}
+.message-incoming {
+    background: white;
+    margin-right: auto;
+    border-bottom-left-radius: 0;
+}
+.message-outgoing {
+    background: #dcf8c6;
+    margin-left: auto;
+    border-bottom-right-radius: 0;
+}
+.message-time {
+    font-size: 0.7rem;
+    color: #999;
+    text-align: right;
+    margin-top: 5px;
+}
+.intent-badge {
+    font-size: 0.65rem;
+    position: absolute;
+    top: -8px;
+    right: 10px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <a href="{% url 'whatsapp_integration:dashboard' %}" class="btn btn-outline-secondary me-2">
+                        <i class="fas fa-arrow-right"></i>
+                    </a>
+                    <h4 class="d-inline-block mb-0">
+                        <i class="fab fa-whatsapp text-success"></i>
+                        {{ conversation.customer_name|default:"محادثة" }}
+                    </h4>
+                    <span class="text-muted ms-2">{{ conversation.phone_number }}</span>
+                </div>
+                <div>
+                    {% if conversation.customer %}
+                    <a href="{% url 'admin:crm_customer_change' conversation.customer.id %}" 
+                       class="btn btn-outline-primary">
+                        <i class="fas fa-user"></i> عرض في CRM
+                    </a>
+                    {% else %}
+                    <button class="btn btn-success" id="registerCustomer">
+                        <i class="fas fa-user-plus"></i> تسجيل كعميل
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Chat -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>
+                        <span class="badge 
+                            {% if conversation.status == 'open' %}bg-warning
+                            {% elif conversation.status == 'resolved' %}bg-success
+                            {% else %}bg-secondary{% endif %}">
+                            {{ conversation.get_status_display }}
+                        </span>
+                    </span>
+                    <span class="text-muted small">
+                        بدأت {{ conversation.created_at|date:"Y/m/d H:i" }}
+                    </span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="chat-container" id="chatContainer">
+                        {% for msg in messages %}
+                        <div class="message message-{{ msg.direction }}">
+                            {% if msg.detected_intent and msg.direction == 'incoming' %}
+                            <span class="badge bg-info intent-badge">
+                                {{ msg.detected_intent }}
+                            </span>
+                            {% endif %}
+                            <div class="message-content">{{ msg.content }}</div>
+                            <div class="message-time">
+                                {{ msg.sent_at|date:"H:i" }}
+                                {% if msg.direction == 'outgoing' %}
+                                    {% if msg.read_at %}
+                                    <i class="fas fa-check-double text-primary"></i>
+                                    {% elif msg.delivered_at %}
+                                    <i class="fas fa-check-double"></i>
+                                    {% else %}
+                                    <i class="fas fa-check"></i>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center text-muted py-5">
+                            <i class="far fa-comments fa-3x mb-3"></i>
+                            <p>لا توجد رسائل</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <form id="sendMessageForm" class="d-flex gap-2">
+                        <input type="text" class="form-control" id="messageInput" 
+                               placeholder="اكتب رسالتك..." autofocus>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info Sidebar -->
+        <div class="col-md-4">
+            <!-- Customer Info -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user"></i>
+                        معلومات العميل
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive"><table class="table table-sm">
+                        <tr>
+                            <th>الاسم:</th>
+                            <td>{{ conversation.customer_name|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th>الهاتف:</th>
+                            <td dir="ltr">{{ conversation.phone_number }}</td>
+                        </tr>
+                        {% if conversation.customer %}
+                        <tr>
+                            <th>كود العميل:</th>
+                            <td>{{ conversation.customer.customer_code }}</td>
+                        </tr>
+                        <tr>
+                            <th>البريد:</th>
+                            <td>{{ conversation.customer.email|default:"-" }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <th>الحالة:</th>
+                            <td>
+                                <select class="form-select form-select-sm" id="statusSelect">
+                                    <option value="open" {% if conversation.status == 'open' %}selected{% endif %}>مفتوحة</option>
+                                    <option value="pending" {% if conversation.status == 'pending' %}selected{% endif %}>قيد الانتظار</option>
+                                    <option value="resolved" {% if conversation.status == 'resolved' %}selected{% endif %}>تم الحل</option>
+                                    <option value="closed" {% if conversation.status == 'closed' %}selected{% endif %}>مغلقة</option>
+                                </select>
+                            </td>
+                        </tr>
+                    </table></div>
+                </div>
+            </div>
+
+            <!-- Quick Templates -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bolt"></i>
+                        ردود سريعة
+                    </h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for template in templates %}
+                    <button class="list-group-item list-group-item-action quick-template" 
+                            data-body="{{ template.body }}">
+                        <strong>{{ template.name }}</strong>
+                        <small class="text-muted d-block">{{ template.body|truncatechars:50 }}</small>
+                    </button>
+                    {% empty %}
+                    <div class="list-group-item text-muted">لا توجد قوالب</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Mentioned Products -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-box"></i>
+                        المنتجات المذكورة
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="mentionedProducts">
+                        <p class="text-muted text-center">
+                            <small>سيتم عرض المنتجات المذكورة هنا</small>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Scroll to bottom of chat
+    const chatContainer = document.getElementById('chatContainer');
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+    
+    // Quick templates
+    document.querySelectorAll('.quick-template').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.getElementById('messageInput').value = this.dataset.body;
+        });
+    });
+    
+    // Send message form
+    document.getElementById('sendMessageForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const input = document.getElementById('messageInput');
+        const message = input.value.trim();
+        
+        if (!message) return;
+        
+        fetch('/whatsapp/api/conversations/{{ conversation.id }}/send_message/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ message: message })
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Add message to chat
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message message-outgoing';
+            msgDiv.innerHTML = `
+                <div class="message-content">${message}</div>
+                <div class="message-time">الآن <i class="fas fa-check"></i></div>
+            `;
+            chatContainer.appendChild(msgDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            input.value = '';
+        });
+    });
+    
+    // Status change
+    document.getElementById('statusSelect').addEventListener('change', function() {
+        fetch('/whatsapp/api/conversations/{{ conversation.id }}/', {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ status: this.value })
+        });
+    });
+});
+</script>
+{% endblock %}

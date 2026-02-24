@@ -1,0 +1,195 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'تأكيد إلغاء الدفعة' %}{% endblock %}
+
+{% block content %}
+<style>
+  .cancel-container {
+    max-width: 600px;
+    margin: 3rem auto;
+    padding: 0 1rem;
+  }
+  .cancel-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .cancel-header {
+    background: linear-gradient(135deg, var(--danger) 0%, #b91c1c 100%);
+    color: white;
+    padding: 2rem;
+    text-align: center;
+  }
+  .cancel-header i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    display: block;
+    animation: shake 0.5s ease-in-out;
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+  }
+  .cancel-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  .cancel-header p {
+    opacity: 0.9;
+    margin: 0;
+  }
+  .cancel-body {
+    padding: 2rem;
+  }
+  .payment-details {
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .payment-details-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .payment-details-row:last-child {
+    border-bottom: none;
+  }
+  .payment-details-row .label {
+    color: var(--text-muted);
+  }
+  .payment-details-row .value {
+    font-weight: 600;
+  }
+  .payment-amount-row {
+    background: rgba(239, 68, 68, 0.1);
+    margin: 0 -1.5rem;
+    padding: 1rem 1.5rem !important;
+    margin-bottom: -1.5rem;
+    border-bottom: none !important;
+  }
+  .payment-amount-row .value {
+    color: var(--danger);
+    font-size: 1.25rem;
+  }
+  .warning-box {
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    gap: 0.75rem;
+  }
+  .warning-box i {
+    color: #f59e0b;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+  }
+  .warning-box .content {
+    font-size: 0.9rem;
+  }
+  .warning-box .content strong {
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+  .reason-section {
+    margin-bottom: 1.5rem;
+  }
+  .reason-section label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: block;
+  }
+  .cancel-actions {
+    display: flex;
+    gap: 1rem;
+  }
+  .cancel-actions .btn {
+    flex: 1;
+    padding: 0.875rem;
+  }
+</style>
+
+<div class="cancel-container">
+  <div class="cancel-card">
+    <div class="cancel-header">
+      <i class="bi bi-exclamation-triangle"></i>
+      <h2>{% trans 'تأكيد إلغاء الدفعة' %}</h2>
+      <p>{% trans 'هل أنت متأكد من إلغاء هذه الدفعة؟' %}</p>
+    </div>
+    
+    <div class="cancel-body">
+      <div class="payment-details">
+        <div class="payment-details-row">
+          <span class="label">{% trans 'رقم الإيصال' %}</span>
+          <span class="value">{{ payment.receipt_number }}</span>
+        </div>
+        <div class="payment-details-row">
+          <span class="label">{% trans 'العميل' %}</span>
+          <span class="value">{{ payment.customer.name }}</span>
+        </div>
+        <div class="payment-details-row">
+          <span class="label">{% trans 'تاريخ الدفعة' %}</span>
+          <span class="value">{{ payment.date|date:"Y/m/d" }}</span>
+        </div>
+        <div class="payment-details-row">
+          <span class="label">{% trans 'طريقة الدفع' %}</span>
+          <span class="value">{{ payment.get_method_display }}</span>
+        </div>
+        <div class="payment-details-row payment-amount-row">
+          <span class="label">{% trans 'المبلغ' %}</span>
+          <span class="value">{{ payment.amount|floatformat:2 }} {% trans 'ج.م' %}</span>
+        </div>
+      </div>
+
+      <div class="warning-box">
+        <i class="bi bi-exclamation-circle"></i>
+        <div class="content">
+          <strong>{% trans 'تنبيه مهم' %}</strong>
+          {% trans 'إلغاء هذه الدفعة سيؤدي إلى:' %}
+          <ul class="mb-0 mt-1 pe-3">
+            <li>{% trans 'إعادة المبلغ لرصيد العميل المستحق' %}</li>
+            <li>{% trans 'تحديث حالة الفواتير المرتبطة' %}</li>
+            <li>{% trans 'إنشاء قيد عكسي في الحسابات' %}</li>
+          </ul>
+        </div>
+      </div>
+
+      <form method="post" id="cancel-form">
+        {% csrf_token %}
+        
+        <div class="reason-section">
+          <label for="cancel_reason">{% trans 'سبب الإلغاء' %} <span class="text-danger">*</span></label>
+          <select name="cancel_reason" id="cancel_reason" class="form-select mb-2" required>
+            <option value="">{% trans 'اختر السبب' %}</option>
+            <option value="duplicate">{% trans 'دفعة مكررة' %}</option>
+            <option value="wrong_customer">{% trans 'خطأ في العميل' %}</option>
+            <option value="wrong_amount">{% trans 'خطأ في المبلغ' %}</option>
+            <option value="wrong_method">{% trans 'خطأ في طريقة الدفع' %}</option>
+            <option value="customer_request">{% trans 'طلب العميل' %}</option>
+            <option value="other">{% trans 'سبب آخر' %}</option>
+          </select>
+          <textarea name="cancel_notes" class="form-control" rows="2" placeholder="{% trans 'ملاحظات إضافية (اختياري)' %}"></textarea>
+        </div>
+
+        <div class="cancel-actions">
+          <a href="{% url 'sales:payment_detail' payment.pk %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i>{% trans 'تراجع' %}
+          </a>
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-x-circle me-1"></i>{% trans 'تأكيد الإلغاء' %}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

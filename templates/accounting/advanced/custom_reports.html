@@ -1,0 +1,721 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}مُنشئ التقارير المخصصة - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-builder-header {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+    }
+    .field-item {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        cursor: grab;
+        transition: all 0.2s;
+    }
+    .field-item:hover {
+        border-color: #6366f1;
+        box-shadow: 0 2px 8px rgba(99,102,241,0.2);
+    }
+    .field-item.dragging {
+        opacity: 0.5;
+    }
+    .drop-zone {
+        min-height: 200px;
+        border: 2px dashed #dee2e6;
+        border-radius: 10px;
+        padding: 1rem;
+        background: #f8f9fa;
+        transition: all 0.3s;
+    }
+    .drop-zone.drag-over {
+        border-color: #6366f1;
+        background: #e0e7ff;
+    }
+    .selected-field {
+        background: #6366f1;
+        color: white;
+        border-radius: 20px;
+        padding: 0.5rem 1rem;
+        margin: 0.25rem;
+        display: inline-flex;
+        align-items: center;
+    }
+    .selected-field .remove-btn {
+        background: rgba(255,255,255,0.3);
+        border: none;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        margin-right: 0.5rem;
+        cursor: pointer;
+    }
+    .template-card {
+        border-radius: 15px;
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+    .template-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
+    .template-card.selected {
+        border: 2px solid #6366f1;
+    }
+    .preview-area {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        min-height: 400px;
+        overflow: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="report-builder-header text-center">
+        <h1 class="mb-2">
+            <i class="fas fa-magic fa-2x"></i>
+        </h1>
+        <h2>مُنشئ التقارير المخصصة</h2>
+        <p class="mb-0 opacity-75">أنشئ تقاريرك المالية المخصصة بسهولة</p>
+    </div>
+
+    <!-- Quick Templates -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h5 class="mb-3">
+                <i class="fas fa-file-alt"></i>
+                قوالب جاهزة
+            </h5>
+            <div class="row">
+                <div class="col-md-2 mb-3">
+                    <div class="card template-card border-0 shadow-sm h-100" onclick="loadTemplate('trial_balance')">
+                        <div class="card-body text-center">
+                            <i class="fas fa-balance-scale fa-2x text-primary mb-2"></i>
+                            <h6 class="mb-0">ميزان المراجعة</h6>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <div class="card template-card border-0 shadow-sm h-100" onclick="loadTemplate('account_statement')">
+                        <div class="card-body text-center">
+                            <i class="fas fa-file-invoice fa-2x text-success mb-2"></i>
+                            <h6 class="mb-0">كشف حساب</h6>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <div class="card template-card border-0 shadow-sm h-100" onclick="loadTemplate('cash_flow')">
+                        <div class="card-body text-center">
+                            <i class="fas fa-money-bill-wave fa-2x text-info mb-2"></i>
+                            <h6 class="mb-0">التدفق النقدي</h6>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <div class="card template-card border-0 shadow-sm h-100" onclick="loadTemplate('expense_analysis')">
+                        <div class="card-body text-center">
+                            <i class="fas fa-chart-pie fa-2x text-warning mb-2"></i>
+                            <h6 class="mb-0">تحليل المصروفات</h6>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <div class="card template-card border-0 shadow-sm h-100" onclick="loadTemplate('revenue_report')">
+                        <div class="card-body text-center">
+                            <i class="fas fa-chart-line fa-2x text-danger mb-2"></i>
+                            <h6 class="mb-0">تقرير الإيرادات</h6>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <div class="card template-card border-0 shadow-sm h-100" onclick="loadTemplate('custom')">
+                        <div class="card-body text-center">
+                            <i class="fas fa-plus fa-2x text-secondary mb-2"></i>
+                            <h6 class="mb-0">تقرير مخصص</h6>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Available Fields -->
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-database"></i>
+                        الحقول المتاحة
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <!-- Search -->
+                    <input type="text" class="form-control form-control-sm mb-3" 
+                           placeholder="بحث..." id="fieldSearch" onkeyup="filterFields()">
+                    
+                    <!-- Field Categories -->
+                    <div class="accordion" id="fieldsAccordion">
+                        <!-- Accounts -->
+                        <div class="accordion-item border-0">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button py-2" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#accountFields">
+                                    <i class="fas fa-folder me-2"></i>
+                                    الحسابات
+                                </button>
+                            </h2>
+                            <div id="accountFields" class="accordion-collapse collapse show">
+                                <div class="accordion-body p-2">
+                                    <div class="field-item" draggable="true" data-field="account_code">
+                                        <i class="fas fa-hashtag text-muted me-2"></i>
+                                        رمز الحساب
+                                    </div>
+                                    <div class="field-item" draggable="true" data-field="account_name">
+                                        <i class="fas fa-tag text-muted me-2"></i>
+                                        اسم الحساب
+                                    </div>
+                                    <div class="field-item" draggable="true" data-field="account_type">
+                                        <i class="fas fa-layer-group text-muted me-2"></i>
+                                        نوع الحساب
+                                    </div>
+                                    <div class="field-item" draggable="true" data-field="parent_account">
+                                        <i class="fas fa-sitemap text-muted me-2"></i>
+                                        الحساب الأب
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Amounts -->
+                        <div class="accordion-item border-0">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed py-2" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#amountFields">
+                                    <i class="fas fa-dollar-sign me-2"></i>
+                                    المبالغ
+                                </button>
+                            </h2>
+                            <div id="amountFields" class="accordion-collapse collapse">
+                                <div class="accordion-body p-2">
+                                    <div class="field-item" draggable="true" data-field="debit">
+                                        <i class="fas fa-arrow-left text-danger me-2"></i>
+                                        مدين
+                                    </div>
+                                    <div class="field-item" draggable="true" data-field="credit">
+                                        <i class="fas fa-arrow-right text-success me-2"></i>
+                                        دائن
+                                    </div>
+                                    <div class="field-item" draggable="true" data-field="balance">
+                                        <i class="fas fa-balance-scale text-info me-2"></i>
+                                        الرصيد
+                                    </div>
+                                    <div class="field-item" draggable="true" data-field="opening_balance">
+                                        <i class="fas fa-door-open text-warning me-2"></i>
+                                        الرصيد الافتتاحي
+                                    </div>
+                                    <div class="field-item" draggable="true" data-field="closing_balance">
+                                        <i class="fas fa-door-closed text-primary me-2"></i>
+                                        الرصيد الختامي
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dates -->
+                        <div class="accordion-item border-0">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed py-2" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#dateFields">
+                                    <i class="fas fa-calendar me-2"></i>
+                                    التواريخ
+                                </button>
+                            </h2>
+                            <div id="dateFields" class="accordion-collapse collapse">
+                                <div class="accordion-body p-2">
+                                    <div class="field-item" draggable="true" data-field="date">
+                                        <i class="fas fa-calendar-day text-muted me-2"></i>
+                                        التاريخ
+                                    </div>
+                                    <div class="field-item" draggable="true" data-field="month">
+                                        <i class="fas fa-calendar-alt text-muted me-2"></i>
+                                        الشهر
+                                    </div>
+                                    <div class="field-item" draggable="true" data-field="year">
+                                        <i class="fas fa-calendar text-muted me-2"></i>
+                                        السنة
+                                    </div>
+                                    <div class="field-item" draggable="true" data-field="fiscal_year">
+                                        <i class="fas fa-calendar-check text-muted me-2"></i>
+                                        السنة المالية
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Other -->
+                        <div class="accordion-item border-0">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed py-2" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#otherFields">
+                                    <i class="fas fa-ellipsis-h me-2"></i>
+                                    أخرى
+                                </button>
+                            </h2>
+                            <div id="otherFields" class="accordion-collapse collapse">
+                                <div class="accordion-body p-2">
+                                    <div class="field-item" draggable="true" data-field="description">
+                                        <i class="fas fa-align-left text-muted me-2"></i>
+                                        البيان
+                                    </div>
+                                    <div class="field-item" draggable="true" data-field="reference">
+                                        <i class="fas fa-link text-muted me-2"></i>
+                                        المرجع
+                                    </div>
+                                    <div class="field-item" draggable="true" data-field="cost_center">
+                                        <i class="fas fa-building text-muted me-2"></i>
+                                        مركز التكلفة
+                                    </div>
+                                    <div class="field-item" draggable="true" data-field="branch">
+                                        <i class="fas fa-store text-muted me-2"></i>
+                                        الفرع
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report Builder -->
+        <div class="col-md-9">
+            <!-- Report Settings -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-cog"></i>
+                        إعدادات التقرير
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">اسم التقرير</label>
+                            <input type="text" class="form-control" id="reportName" 
+                                   placeholder="أدخل اسم التقرير...">
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label class="form-label">من تاريخ</label>
+                            <input type="date" class="form-control" id="startDate">
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label class="form-label">إلى تاريخ</label>
+                            <input type="date" class="form-control" id="endDate">
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label class="form-label">التجميع</label>
+                            <select class="form-select" id="groupBy">
+                                <option value="">بدون تجميع</option>
+                                <option value="account">حسب الحساب</option>
+                                <option value="month">حسب الشهر</option>
+                                <option value="cost_center">حسب مركز التكلفة</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label class="form-label">الترتيب</label>
+                            <select class="form-select" id="orderBy">
+                                <option value="date">التاريخ</option>
+                                <option value="account">الحساب</option>
+                                <option value="amount">المبلغ</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Selected Fields -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-columns"></i>
+                        أعمدة التقرير
+                    </h6>
+                    <button class="btn btn-sm btn-light" onclick="clearFields()">
+                        <i class="fas fa-trash"></i> مسح الكل
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="drop-zone" id="selectedFields">
+                        <p class="text-muted text-center mb-0">
+                            <i class="fas fa-hand-point-left"></i>
+                            اسحب الحقول هنا لإضافتها للتقرير
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-warning">
+                    <h6 class="mb-0">
+                        <i class="fas fa-filter"></i>
+                        الفلاتر
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="filtersContainer">
+                        <div class="col-md-12">
+                            <button class="btn btn-outline-primary btn-sm" onclick="addFilter()">
+                                <i class="fas fa-plus"></i> إضافة فلتر
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="d-flex gap-2 mb-4">
+                <button class="btn btn-primary btn-lg" onclick="generateReport()">
+                    <i class="fas fa-play"></i> إنشاء التقرير
+                </button>
+                <button class="btn btn-success btn-lg" onclick="saveReport()">
+                    <i class="fas fa-save"></i> حفظ القالب
+                </button>
+                <button class="btn btn-info btn-lg" onclick="previewReport()">
+                    <i class="fas fa-eye"></i> معاينة
+                </button>
+                <div class="dropdown">
+                    <button class="btn btn-secondary btn-lg dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-download"></i> تصدير
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" onclick="exportReport('excel')"><i class="fas fa-file-excel text-success"></i> Excel</a></li>
+                        <li><a class="dropdown-item" onclick="exportReport('pdf')"><i class="fas fa-file-pdf text-danger"></i> PDF</a></li>
+                        <li><a class="dropdown-item" onclick="exportReport('csv')"><i class="fas fa-file-csv text-info"></i> CSV</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Preview Area -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-table"></i>
+                        معاينة التقرير
+                    </h6>
+                </div>
+                <div class="card-body preview-area" id="reportPreview">
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-file-alt fa-3x mb-3"></i>
+                        <p>قم بإعداد التقرير واضغط على "إنشاء التقرير" للمعاينة</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Saved Reports -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bookmark"></i>
+                        التقارير المحفوظة
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if saved_reports %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>اسم التقرير</th>
+                                        <th>تاريخ الإنشاء</th>
+                                        <th>آخر تشغيل</th>
+                                        <th>المنشئ</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for report in saved_reports %}
+                                    <tr>
+                                        <td><strong>{{ report.name }}</strong></td>
+                                        <td>{{ report.created_at|date:"Y-m-d" }}</td>
+                                        <td>{{ report.last_run|date:"Y-m-d H:i"|default:"-" }}</td>
+                                        <td>{{ report.created_by.get_full_name }}</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-primary" onclick="loadSavedReport({{ report.id }})">
+                                                <i class="fas fa-play"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-info" onclick="editReport({{ report.id }})">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" onclick="deleteReport({{ report.id }})">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center">لا توجد تقارير محفوظة</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedFields = [];
+
+$(document).ready(function() {
+    // Initialize drag and drop
+    initDragDrop();
+});
+
+function initDragDrop() {
+    const fieldItems = document.querySelectorAll('.field-item');
+    const dropZone = document.getElementById('selectedFields');
+
+    fieldItems.forEach(item => {
+        item.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', item.dataset.field);
+            item.classList.add('dragging');
+        });
+
+        item.addEventListener('dragend', () => {
+            item.classList.remove('dragging');
+        });
+    });
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('drag-over');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        const field = e.dataTransfer.getData('text/plain');
+        addField(field);
+    });
+}
+
+function addField(field) {
+    if (selectedFields.includes(field)) return;
+    
+    selectedFields.push(field);
+    updateSelectedFieldsUI();
+}
+
+function removeField(field) {
+    selectedFields = selectedFields.filter(f => f !== field);
+    updateSelectedFieldsUI();
+}
+
+function updateSelectedFieldsUI() {
+    const container = document.getElementById('selectedFields');
+    
+    if (selectedFields.length === 0) {
+        container.innerHTML = `
+            <p class="text-muted text-center mb-0">
+                <i class="fas fa-hand-point-left"></i>
+                اسحب الحقول هنا لإضافتها للتقرير
+            </p>
+        `;
+        return;
+    }
+
+    const fieldLabels = {
+        'account_code': 'رمز الحساب',
+        'account_name': 'اسم الحساب',
+        'account_type': 'نوع الحساب',
+        'parent_account': 'الحساب الأب',
+        'debit': 'مدين',
+        'credit': 'دائن',
+        'balance': 'الرصيد',
+        'opening_balance': 'الرصيد الافتتاحي',
+        'closing_balance': 'الرصيد الختامي',
+        'date': 'التاريخ',
+        'month': 'الشهر',
+        'year': 'السنة',
+        'fiscal_year': 'السنة المالية',
+        'description': 'البيان',
+        'reference': 'المرجع',
+        'cost_center': 'مركز التكلفة',
+        'branch': 'الفرع'
+    };
+
+    container.innerHTML = selectedFields.map(field => `
+        <span class="selected-field">
+            <button class="remove-btn" onclick="removeField('${field}')">&times;</button>
+            ${fieldLabels[field] || field}
+        </span>
+    `).join('');
+}
+
+function clearFields() {
+    selectedFields = [];
+    updateSelectedFieldsUI();
+}
+
+function filterFields() {
+    const search = document.getElementById('fieldSearch').value.toLowerCase();
+    document.querySelectorAll('.field-item').forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(search) ? '' : 'none';
+    });
+}
+
+function loadTemplate(template) {
+    // Mark selected template
+    document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+    event.currentTarget.classList.add('selected');
+
+    // Load template fields
+    const templates = {
+        'trial_balance': ['account_code', 'account_name', 'debit', 'credit', 'balance'],
+        'account_statement': ['date', 'reference', 'description', 'debit', 'credit', 'balance'],
+        'cash_flow': ['date', 'account_name', 'description', 'debit', 'credit'],
+        'expense_analysis': ['account_name', 'cost_center', 'month', 'debit'],
+        'revenue_report': ['account_name', 'month', 'credit'],
+        'custom': []
+    };
+
+    selectedFields = templates[template] || [];
+    updateSelectedFieldsUI();
+    
+    // Set report name
+    const names = {
+        'trial_balance': 'ميزان المراجعة',
+        'account_statement': 'كشف حساب',
+        'cash_flow': 'قائمة التدفق النقدي',
+        'expense_analysis': 'تحليل المصروفات',
+        'revenue_report': 'تقرير الإيرادات',
+        'custom': 'تقرير مخصص'
+    };
+    document.getElementById('reportName').value = names[template] || '';
+}
+
+function addFilter() {
+    const container = document.getElementById('filtersContainer');
+    const filterId = Date.now();
+    
+    const filterHtml = `
+        <div class="col-md-12 mt-2" id="filter_${filterId}">
+            <div class="input-group">
+                <select class="form-select" style="max-width: 150px;">
+                    <option>الحساب</option>
+                    <option>مركز التكلفة</option>
+                    <option>الفرع</option>
+                    <option>المبلغ</option>
+                </select>
+                <select class="form-select" style="max-width: 100px;">
+                    <option>=</option>
+                    <option>!=</option>
+                    <option>></option>
+                    <option><</option>
+                    <option>يحتوي</option>
+                </select>
+                <input type="text" class="form-control" placeholder="القيمة...">
+                <button class="btn btn-outline-danger" onclick="removeFilter('filter_${filterId}')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', filterHtml);
+}
+
+function removeFilter(filterId) {
+    document.getElementById(filterId).remove();
+}
+
+function generateReport() {
+    const preview = document.getElementById('reportPreview');
+    preview.innerHTML = `
+        <div class="text-center py-3">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2">جاري إنشاء التقرير...</p>
+        </div>
+    `;
+
+    // Simulate report generation
+    setTimeout(() => {
+        preview.innerHTML = `
+            <table class="table table-bordered table-striped">
+                <thead class="bg-primary text-white">
+                    <tr>
+                        ${selectedFields.map(f => `<th>${f}</th>`).join('')}
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        ${selectedFields.map(() => `<td>بيانات نموذجية</td>`).join('')}
+                    </tr>
+                    <tr>
+                        ${selectedFields.map(() => `<td>بيانات نموذجية</td>`).join('')}
+                    </tr>
+                </tbody>
+            </table>
+        `;
+    }, 1000);
+}
+
+function saveReport() {
+    const name = document.getElementById('reportName').value;
+    if (!name) {
+        alert('يرجى إدخال اسم التقرير');
+        return;
+    }
+    alert('تم حفظ التقرير: ' + name);
+}
+
+function previewReport() {
+    generateReport();
+}
+
+function exportReport(format) {
+    alert('سيتم تصدير التقرير بصيغة: ' + format.toUpperCase());
+}
+
+function loadSavedReport(id) {
+    alert('تحميل التقرير رقم: ' + id);
+}
+
+function editReport(id) {
+    alert('تعديل التقرير رقم: ' + id);
+}
+
+function deleteReport(id) {
+    if (confirm('هل أنت متأكد من حذف هذا التقرير؟')) {
+        alert('تم حذف التقرير');
+    }
+}
+</script>
+{% endblock %}

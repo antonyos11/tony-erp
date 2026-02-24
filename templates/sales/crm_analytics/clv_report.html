@@ -1,0 +1,459 @@
+﻿{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}تقرير القيمة الدائمة للعملاء (CLV){% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --gradient-success: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+        --gradient-warning: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        --gradient-info: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .clv-header {
+        background: var(--gradient-primary);
+        color: white;
+        padding: 2.5rem 0;
+        border-radius: 20px;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    }
+
+    .clv-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 300px;
+        height: 300px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        animation: pulse 3s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 0.5; }
+        50% { transform: scale(1.1); opacity: 0.8; }
+    }
+
+    .clv-header h1 {
+        font-size: 3rem;
+        font-weight: 700;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        margin: 0;
+        position: relative;
+        z-index: 1;
+    }
+
+    .period-info {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 0.75rem 1.5rem;
+        border-radius: 50px;
+        display: inline-block;
+        margin-top: 1rem;
+        font-size: 1.1rem;
+        backdrop-filter: blur(10px);
+        position: relative;
+        z-index: 1;
+    }
+
+    .stats-overview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2.5rem;
+    }
+
+    .stat-card {
+        background: white;
+        padding: 2rem;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        text-align: center;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--gradient-primary);
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .stat-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .stat-card h3 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0.5rem 0;
+        background: var(--gradient-primary);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .stat-card p {
+        color: #6c757d;
+        font-size: 1rem;
+        margin: 0;
+    }
+
+    .clv-table-container {
+        background: white;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .clv-table {
+        width: 100%;
+        margin: 0;
+    }
+
+    .clv-table thead {
+        background: var(--gradient-primary);
+        color: white;
+    }
+
+    .clv-table thead th {
+        padding: 1.5rem 1rem;
+        font-weight: 600;
+        text-align: center;
+        border: none;
+        font-size: 1.1rem;
+    }
+
+    .clv-table tbody tr {
+        transition: all 0.3s ease;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .clv-table tbody tr:hover {
+        background: linear-gradient(90deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+        transform: scale(1.01);
+    }
+
+    .clv-table tbody td {
+        padding: 1.25rem 1rem;
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    .customer-name {
+        font-weight: 600;
+        color: #2d3748;
+        font-size: 1.05rem;
+    }
+
+    .rank-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 45px;
+        height: 45px;
+        border-radius: 50%;
+        font-weight: 700;
+        font-size: 1.2rem;
+        color: white;
+        background: var(--gradient-info);
+        box-shadow: 0 4px 10px rgba(79, 172, 254, 0.3);
+    }
+
+    .rank-badge.gold {
+        background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.5);
+        animation: sparkle 2s ease-in-out infinite;
+    }
+
+    .rank-badge.silver {
+        background: linear-gradient(135deg, #C0C0C0 0%, #808080 100%);
+        box-shadow: 0 4px 15px rgba(192, 192, 192, 0.5);
+    }
+
+    .rank-badge.bronze {
+        background: linear-gradient(135deg, #CD7F32 0%, #8B4513 100%);
+        box-shadow: 0 4px 15px rgba(205, 127, 50, 0.5);
+    }
+
+    @keyframes sparkle {
+        0%, 100% { transform: scale(1) rotate(0deg); }
+        50% { transform: scale(1.1) rotate(5deg); }
+    }
+
+    .clv-value {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #667eea;
+    }
+
+    .clv-high {
+        color: #10b981;
+    }
+
+    .clv-medium {
+        color: #f59e0b;
+    }
+
+    .clv-low {
+        color: #ef4444;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: #6c757d;
+    }
+
+    .empty-state i {
+        font-size: 5rem;
+        color: #e9ecef;
+        margin-bottom: 1.5rem;
+    }
+
+    .export-buttons {
+        margin-bottom: 2rem;
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .export-btn {
+        padding: 0.75rem 2rem;
+        border-radius: 50px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        border: none;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .export-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.3);
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+    }
+
+    .export-btn:hover::before {
+        width: 300px;
+        height: 300px;
+    }
+
+    .export-btn i {
+        margin-left: 0.5rem;
+        transition: transform 0.3s ease;
+    }
+
+    .export-btn:hover i {
+        transform: scale(1.2) rotate(10deg);
+    }
+
+    .export-btn.pdf {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+    }
+
+    .export-btn.excel {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+    }
+
+    @media (max-width: 768px) {
+        .clv-header h1 {
+            font-size: 2rem;
+        }
+        
+        .stats-overview {
+            grid-template-columns: 1fr;
+        }
+        
+        .clv-table {
+            font-size: 0.9rem;
+        }
+        
+        .export-buttons {
+            flex-direction: column;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="clv-header text-center">
+        <h1><i class="fas fa-chart-line ms-3"></i> تقرير القيمة الدائمة للعملاء</h1>
+        <div class="period-info">
+            <i class="fas fa-calendar-alt ms-2"></i>
+            من: {{ period_start|date:"Y/m/d" }} إلى: {{ period_end|date:"Y/m/d" }}
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="stats-overview">
+        <div class="stat-card">
+            <i class="fas fa-users fa-2x" style="color: #667eea;"></i>
+            <h3>{{ total_customers }}</h3>
+            <p>إجمالي العملاء</p>
+        </div>
+        <div class="stat-card">
+            <i class="fas fa-shopping-cart fa-2x" style="color: #10b981;"></i>
+            <h3>{{ total_orders|floatformat:0 }}</h3>
+            <p>إجمالي الطلبات</p>
+        </div>
+        <div class="stat-card">
+            <i class="fas fa-dollar-sign fa-2x" style="color: #f59e0b;"></i>
+            <h3>{{ total_revenue|floatformat:2 }}</h3>
+            <p>إجمالي الإيرادات</p>
+        </div>
+        <div class="stat-card">
+            <i class="fas fa-chart-line fa-2x" style="color: #ef4444;"></i>
+            <h3>{{ average_clv|floatformat:2 }}</h3>
+            <p>متوسط القيمة الدائمة</p>
+        </div>
+    </div>
+
+    <!-- Export Buttons -->
+    <div class="export-buttons">
+        <button class="export-btn pdf" onclick="exportPDF()">
+            <span style="position: relative; z-index: 1;">
+                تصدير PDF
+                <i class="fas fa-file-pdf"></i>
+            </span>
+        </button>
+        <button class="export-btn excel" onclick="exportExcel()">
+            <span style="position: relative; z-index: 1;">
+                تصدير Excel
+                <i class="fas fa-file-excel"></i>
+            </span>
+        </button>
+    </div>
+
+    <!-- CLV Table -->
+    <div class="clv-table-container">
+        {% if clv_data %}
+        <div class="table-responsive"><table class="table clv-table mb-0">
+            <thead>
+                <tr>
+                    <th>الترتيب</th>
+                    <th>اسم العميل</th>
+                    <th>عدد الطلبات</th>
+                    <th>إجمالي المبيعات</th>
+                    <th>متوسط قيمة الطلب</th>
+                    <th>القيمة الدائمة (CLV)</th>
+                    <th>التصنيف</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for customer in clv_data %}
+                <tr>
+                    <td>
+                        <span class="rank-badge {% if forloop.counter == 1 %}gold{% elif forloop.counter == 2 %}silver{% elif forloop.counter == 3 %}bronze{% endif %}">
+                            {{ forloop.counter }}
+                        </span>
+                    </td>
+                    <td class="customer-name">{{ customer.name }}</td>
+                    <td>{{ customer.total_orders }}</td>
+                    <td>{{ customer.total_sales|floatformat:2 }}</td>
+                    <td>{{ customer.average_order_value|floatformat:2 }}</td>
+                    <td>
+                        <span class="clv-value { customer.clv_class }">
+                            {{ customer.clv|floatformat:2 }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge { customer.badge_class }">{{ customer.category_label }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-chart-line"></i>
+            <h3>لا توجد بيانات CLV</h3>
+            <p>لا توجد بيانات عملاء للفترة المحددة</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function exportPDF() {
+        window.location.href = "{% url 'sales:clv_report' %}?export=pdf&start={ period_start|date:'Y-m-d' }}&end={ period_end|date:'Y-m-d' }}";
+    }
+
+    function exportExcel() {
+        window.location.href = "{% url 'sales:clv_report' %}?export=excel&start={ period_start|date:'Y-m-d' }}&end={ period_end|date:'Y-m-d' }";
+    }
+
+    // Scroll animation
+    document.addEventListener('DOMContentLoaded', function() {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry, index) => {
+                if (entry.isIntersecting) {
+                    setTimeout(() => {
+                        entry.target.style.opacity = '1';
+                        entry.target.style.transform = 'translateY(0)';
+                    }, index * 100);
+                }
+            });
+        }, {
+            threshold: 0.1
+        });
+
+        document.querySelectorAll('.stat-card, .clv-table tbody tr').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(20px)';
+            el.style.transition = 'all 0.5s ease';
+            observer.observe(el);
+        });
+
+        // CountUp animation for stats
+        document.querySelectorAll('.stat-card h3').forEach(stat => {
+            const target = parseFloat(stat.textContent.replace(/,/g, ''));
+            if (!isNaN(target)) {
+                let current = 0;
+                const increment = target / 50;
+                const timer = setInterval(() => {
+                    current += increment;
+                    if (current >= target) {
+                        current = target;
+                        clearInterval(timer);
+                    }
+                    stat.textContent = current.toFixed(2);
+                }, 20);
+            }
+        });
+    });
+</script>
+{% endblock %}
+

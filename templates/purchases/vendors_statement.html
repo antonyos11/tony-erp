@@ -1,0 +1,107 @@
+﻿{% extends 'base_v2.html' %}
+{% load i18n %}
+{% block title %}كشف الموردين{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">كشف حساب موردين</h1>
+    {% if selected_supplier and statement %}
+      <div class="btn-group">
+        <a class="btn btn-outline-secondary" href="?supplier={{ selected_supplier.id }}&date_from={{ date_from }}&date_to={{ date_to }}&export=csv">تصدير CSV</a>
+        <a class="btn btn-outline-secondary" target="_blank" href="?supplier={{ selected_supplier.id }}&date_from={{ date_from }}&date_to={{ date_to }}&print=1">طباعة</a>
+        <a class="btn btn-outline-secondary" href="?">تصفير</a>
+      </div>
+    {% endif %}
+  </div>
+  <form method="get" class="row g-3 mb-4 align-items-end">
+    <div class="col-md-4">
+      <label class="form-label">المورد</label>
+      <select name="supplier" class="form-select">
+        <option value="">-- اختر مورد --</option>
+        {% for s in suppliers %}
+          <option value="{{ s.id }}" {% if selected_supplier and s.id == selected_supplier.id %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">من تاريخ</label>
+      <input type="date" name="date_from" value="{{ date_from }}" class="form-control" />
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">إلى تاريخ</label>
+      <input type="date" name="date_to" value="{{ date_to }}" class="form-control" />
+    </div>
+    <div class="col-md-4 text-end">
+      <button class="btn btn-primary">عرض</button>
+    </div>
+  </form>
+
+  {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+  {% endif %}
+
+  {% if selected_supplier and statement %}
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5 class="mb-3">{{ selected_supplier.name }}</h5>
+        <p class="mb-2 small text-muted">الرصيد الافتتاحي: <strong>{{ statement.opening_balance }}</strong></p>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered align-middle text-center">
+            <thead class="table-light">
+              <tr>
+                <th>التاريخ</th>
+                <th>النوع</th>
+                <th>رقم</th>
+                <th>مدين</th>
+                <th>دائن</th>
+                <th>الرصيد</th>
+                <th>متبقٍ</th>
+                <th>الوصف</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in statement.timeline %}
+                <tr>
+                  <td>{{ row.date }}</td>
+                  <td>{% if row.type == 'bill' %}فاتورة{% elif row.type == 'payment' %}دفعة{% else %}—{% endif %}</td>
+                  <td>{{ row.number }}</td>
+                  <td class="text-danger">{% if row.debit %}{{ row.debit }}{% endif %}</td>
+                  <td class="text-success">{% if row.credit %}{{ row.credit }}{% endif %}</td>
+                  <td>{{ row.balance }}</td>
+                  <td>{% if row.type == 'bill' %}{{ row.remaining }}{% else %}—{% endif %}</td>
+                  <td class="text-start small">{{ row.description }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="8" class="text-muted">لا توجد حركات</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if statement.aging %}
+        <div class="row text-center g-2 mt-3">
+          <div class="col">
+            <div class="card shadow-sm"><div class="card-body p-2"><div class="small text-muted">0-30</div><strong>{{ statement.aging.bucket_0_30 }}</strong></div></div>
+          </div>
+          <div class="col">
+            <div class="card shadow-sm"><div class="card-body p-2"><div class="small text-muted">31-60</div><strong>{{ statement.aging.bucket_31_60 }}</strong></div></div>
+          </div>
+            <div class="col">
+            <div class="card shadow-sm"><div class="card-body p-2"><div class="small text-muted">61-90</div><strong>{{ statement.aging.bucket_61_90 }}</strong></div></div>
+          </div>
+          <div class="col">
+            <div class="card shadow-sm"><div class="card-body p-2"><div class="small text-muted">90+</div><strong>{{ statement.aging.bucket_90_plus }}</strong></div></div>
+          </div>
+          <div class="col">
+            <div class="card border-primary"><div class="card-body p-2"><div class="small text-primary">الإجمالي</div><strong>{{ statement.aging.total }}</strong></div></div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  {% elif not selected_supplier %}
+    <div class="alert alert-info">اختر مورداً لعرض كشف الحساب. تظهر فقط أول 500 مورد للتسريع.</div>
+  {% else %}
+    <div class="alert alert-warning">لا توجد بيانات لعرضها.</div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,547 @@
+{% extends 'base_v2.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans 'تقرير الكاشير' %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cashier-hero {
+        background: linear-gradient(135deg, #0891b2 0%, #0e7490 50%, #155e75 100%);
+        border-radius: 24px;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .cashier-hero::before {
+        content: '';
+        position: absolute;
+        top: -80px;
+        left: -80px;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+        border-radius: 50%;
+    }
+    
+    .cashier-info-card {
+        background: white;
+        border-radius: 20px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        margin-bottom: 2rem;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .cashier-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #0891b2, #0e7490);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    
+    .cashier-details h4 {
+        margin: 0;
+        font-weight: 700;
+        color: #1e293b;
+    }
+    
+    .cashier-badge {
+        display: inline-block;
+        background: #dcfce7;
+        color: #166534;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    
+    .session-info {
+        display: flex;
+        gap: 2rem;
+        padding: 1rem;
+        background: #f8fafc;
+        border-radius: 12px;
+        margin-top: 1rem;
+    }
+    
+    .session-info-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .session-info-item i {
+        font-size: 1.25rem;
+        color: #0891b2;
+    }
+    
+    .stats-row {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+    }
+    
+    .stat-icon {
+        width: 55px;
+        height: 55px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem;
+        font-size: 1.4rem;
+    }
+    
+    .stat-icon.sales { background: linear-gradient(135deg, #22c55e20, #16a34a20); color: #22c55e; }
+    .stat-icon.cash { background: linear-gradient(135deg, #6366f120, #4f46e520); color: #6366f1; }
+    .stat-icon.card { background: linear-gradient(135deg, #0ea5e920, #0284c720); color: #0ea5e9; }
+    .stat-icon.returns { background: linear-gradient(135deg, #ef444420, #dc262620); color: #ef4444; }
+    .stat-icon.orders { background: linear-gradient(135deg, #f9731620, #ea580c20); color: #f97316; }
+    
+    .stat-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+    
+    .stat-label {
+        color: #64748b;
+        font-size: 0.85rem;
+    }
+    
+    .report-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+    
+    .report-card-header {
+        padding: 1.5rem;
+        background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .payment-summary {
+        padding: 1.5rem;
+    }
+    
+    .payment-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        border-radius: 12px;
+        margin-bottom: 0.5rem;
+        transition: background 0.2s ease;
+    }
+    
+    .payment-row:hover {
+        background: #f8fafc;
+    }
+    
+    .payment-method {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .payment-icon {
+        width: 45px;
+        height: 45px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+    }
+    
+    .payment-icon.cash { background: #dcfce7; color: #166534; }
+    .payment-icon.card { background: #dbeafe; color: #1e40af; }
+    .payment-icon.transfer { background: #f3e8ff; color: #7c3aed; }
+    .payment-icon.wallet { background: #fef3c7; color: #92400e; }
+    
+    .payment-amount {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #1e293b;
+        font-family: monospace;
+    }
+    
+    .total-row {
+        background: linear-gradient(135deg, #0891b2, #0e7490);
+        color: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 1rem;
+    }
+    
+    .total-row .payment-amount {
+        color: white;
+        font-size: 1.5rem;
+    }
+    
+    .transactions-table {
+        margin: 0;
+    }
+    
+    .transactions-table thead th {
+        background: #f8fafc;
+        padding: 1rem 1.25rem;
+        font-weight: 600;
+        color: #475569;
+        font-size: 0.85rem;
+        border: none;
+    }
+    
+    .transactions-table tbody td {
+        padding: 1rem 1.25rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    
+    .transaction-badge {
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .transaction-badge.sale { background: #dcfce7; color: #166534; }
+    .transaction-badge.return { background: #fee2e2; color: #991b1b; }
+    .transaction-badge.void { background: #e2e8f0; color: #475569; }
+    
+    .cash-drawer-section {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+    
+    .drawer-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    
+    .drawer-card h6 {
+        color: #64748b;
+        margin-bottom: 1rem;
+        font-weight: 600;
+    }
+    
+    .drawer-amount {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1e293b;
+        font-family: monospace;
+    }
+    
+    .drawer-amount.positive { color: #22c55e; }
+    .drawer-amount.negative { color: #ef4444; }
+    
+    .difference-badge {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        margin-top: 0.5rem;
+    }
+    
+    .difference-badge.match { background: #dcfce7; color: #166534; }
+    .difference-badge.short { background: #fee2e2; color: #991b1b; }
+    .difference-badge.over { background: #fef3c7; color: #92400e; }
+    
+    @media (max-width: 1200px) {
+        .stats-row {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .stats-row {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        .cash-drawer-section {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .stats-row {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    @media print {
+        .cashier-hero, .no-print { display: none !important; }
+        .report-card, .stat-card { box-shadow: none !important; border: 1px solid #ddd !important; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Hero Section -->
+    <div class="cashier-hero no-print">
+        <div class="row align-items-center position-relative" style="z-index: 1;">
+            <div class="col-lg-7">
+                <h1 class="mb-2">
+                    <i class="bi bi-person-badge me-2"></i>{% trans 'تقرير الكاشير' %}
+                </h1>
+                <p class="mb-0 opacity-75">{% trans 'ملخص العمليات والمبيعات للوردية الحالية' %}</p>
+            </div>
+            <div class="col-lg-5 text-lg-end mt-3 mt-lg-0">
+                <button onclick="window.print()" class="btn btn-light me-2">
+                    <i class="bi bi-printer me-1"></i>{% trans 'طباعة التقرير' %}
+                </button>
+                {% if active_session %}
+                <a href="{% url 'pos:close_session' active_session.id %}" class="btn btn-warning">
+                    <i class="bi bi-box-arrow-left me-1"></i>{% trans 'إغلاق الوردية' %}
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Cashier Info -->
+    <div class="cashier-info-card">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="cashier-avatar">
+                        {{ cashier.first_name|slice:":1"|upper }}{{ cashier.last_name|slice:":1"|upper }}
+                    </div>
+                    <div class="cashier-details">
+                        <h4>{{ cashier.get_full_name|default:cashier.username }}</h4>
+                        <span class="cashier-badge">
+                            <i class="bi bi-circle-fill text-success me-1" style="font-size: 0.5rem;"></i>
+                            {% trans 'وردية نشطة' %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="session-info">
+                    <div class="session-info-item">
+                        <i class="bi bi-clock"></i>
+                        <div>
+                            <small class="text-muted d-block">{% trans 'بداية الوردية' %}</small>
+                            <strong>{{ session.start_time|date:"H:i" }}</strong>
+                        </div>
+                    </div>
+                    <div class="session-info-item">
+                        <i class="bi bi-calendar3"></i>
+                        <div>
+                            <small class="text-muted d-block">{% trans 'التاريخ' %}</small>
+                            <strong>{{ session.start_time|date:"Y/m/d" }}</strong>
+                        </div>
+                    </div>
+                    <div class="session-info-item">
+                        <i class="bi bi-shop"></i>
+                        <div>
+                            <small class="text-muted d-block">{% trans 'نقطة البيع' %}</small>
+                            <strong>{{ session.pos_terminal.name|default:'-' }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Statistics -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-icon sales">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+            <div class="stat-value">{{ total_sales|floatformat:2|intcomma|default:0 }}</div>
+            <div class="stat-label">{% trans 'إجمالي المبيعات' %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon cash">
+                <i class="bi bi-currency-dollar"></i>
+            </div>
+            <div class="stat-value">{{ cash_sales|floatformat:2|intcomma|default:0 }}</div>
+            <div class="stat-label">{% trans 'مبيعات نقدية' %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon card">
+                <i class="bi bi-credit-card"></i>
+            </div>
+            <div class="stat-value">{{ card_sales|floatformat:2|intcomma|default:0 }}</div>
+            <div class="stat-label">{% trans 'مبيعات بطاقات' %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon returns">
+                <i class="bi bi-arrow-return-left"></i>
+            </div>
+            <div class="stat-value">{{ total_returns|floatformat:2|intcomma|default:0 }}</div>
+            <div class="stat-label">{% trans 'المرتجعات' %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon orders">
+                <i class="bi bi-receipt"></i>
+            </div>
+            <div class="stat-value">{{ orders_count|default:0 }}</div>
+            <div class="stat-label">{% trans 'عدد الفواتير' %}</div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Payment Summary -->
+        <div class="col-lg-5">
+            <div class="report-card">
+                <div class="report-card-header">
+                    <h5 class="mb-0"><i class="bi bi-wallet2 me-2"></i>{% trans 'ملخص طرق الدفع' %}</h5>
+                </div>
+                <div class="payment-summary">
+                    <div class="payment-row">
+                        <div class="payment-method">
+                            <div class="payment-icon cash">
+                                <i class="bi bi-cash"></i>
+                            </div>
+                            <div>
+                                <strong>{% trans 'نقدي' %}</strong>
+                                <small class="text-muted d-block">{{ cash_count|default:0 }} {% trans 'عملية' %}</small>
+                            </div>
+                        </div>
+                        <span class="payment-amount">{{ cash_sales|floatformat:2|intcomma|default:0 }}</span>
+                    </div>
+                    
+                    <div class="payment-row">
+                        <div class="payment-method">
+                            <div class="payment-icon card">
+                                <i class="bi bi-credit-card-2-front"></i>
+                            </div>
+                            <div>
+                                <strong>{% trans 'بطاقة ائتمان' %}</strong>
+                                <small class="text-muted d-block">{{ card_count|default:0 }} {% trans 'عملية' %}</small>
+                            </div>
+                        </div>
+                        <span class="payment-amount">{{ card_sales|floatformat:2|intcomma|default:0 }}</span>
+                    </div>
+                    
+                    <div class="payment-row">
+                        <div class="payment-method">
+                            <div class="payment-icon transfer">
+                                <i class="bi bi-bank"></i>
+                            </div>
+                            <div>
+                                <strong>{% trans 'تحويل بنكي' %}</strong>
+                                <small class="text-muted d-block">{{ transfer_count|default:0 }} {% trans 'عملية' %}</small>
+                            </div>
+                        </div>
+                        <span class="payment-amount">{{ transfer_sales|floatformat:2|intcomma|default:0 }}</span>
+                    </div>
+                    
+                    <div class="total-row">
+                        <div>
+                            <i class="bi bi-calculator me-2"></i>
+                            <strong>{% trans 'الإجمالي' %}</strong>
+                        </div>
+                        <span class="payment-amount">{{ total_sales|floatformat:2|intcomma|default:0 }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Cash Drawer -->
+            <div class="cash-drawer-section">
+                <div class="drawer-card">
+                    <h6><i class="bi bi-box-seam me-1"></i>{% trans 'الرصيد الافتتاحي' %}</h6>
+                    <div class="drawer-amount">{{ opening_balance|floatformat:2|intcomma|default:0 }}</div>
+                </div>
+                <div class="drawer-card">
+                    <h6><i class="bi bi-calculator me-1"></i>{% trans 'المتوقع في الصندوق' %}</h6>
+                    <div class="drawer-amount positive">{{ expected_cash|floatformat:2|intcomma|default:0 }}</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Transactions -->
+        <div class="col-lg-7">
+            <div class="report-card">
+                <div class="report-card-header">
+                    <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>{% trans 'آخر العمليات' %}</h5>
+                    <a href="{% url 'pos:sales_details' %}" class="btn btn-sm btn-outline-primary">
+                        {% trans 'عرض الكل' %}
+                    </a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table transactions-table">
+                        <thead>
+                            <tr>
+                                <th>{% trans 'رقم الفاتورة' %}</th>
+                                <th>{% trans 'الوقت' %}</th>
+                                <th>{% trans 'النوع' %}</th>
+                                <th>{% trans 'الطريقة' %}</th>
+                                <th>{% trans 'المبلغ' %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for trans in recent_transactions %}
+                            <tr>
+                                <td><code>{{ trans.invoice_number }}</code></td>
+                                <td>{{ trans.created_at|date:"H:i" }}</td>
+                                <td>
+                                    <span class="transaction-badge {{ trans.type }}">
+                                        {% if trans.type == 'sale' %}{% trans 'بيع' %}
+                                        {% elif trans.type == 'return' %}{% trans 'مرتجع' %}
+                                        {% else %}{% trans 'ملغي' %}
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td>{{ trans.payment_method|default:'-' }}</td>
+                                <td class="fw-bold {% if trans.type == 'return' %}text-danger{% else %}text-success{% endif %}">
+                                    {{ trans.amount|floatformat:2|intcomma }}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">
+                                    {% trans 'لا توجد عمليات في هذه الوردية' %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

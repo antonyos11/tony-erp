@@ -1,0 +1,7 @@
+from django.apps import AppConfig
+
+
+class SmartwatchConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'smartwatch'
+    verbose_name = 'تكامل الساعات الذكية'

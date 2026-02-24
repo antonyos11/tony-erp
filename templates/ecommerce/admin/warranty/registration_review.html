@@ -1,0 +1,272 @@
+﻿{% extends 'ecommerce/admin/base_admin.html' %}
+{% load static %}
+
+{% block title %}مراجعة طلب تفعيل الضمان{% endblock %}
+
+{% block extra_css %}
+<style>
+    .invoice-image {
+        max-width: 100%;
+        max-height: 400px;
+        object-fit: contain;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: transform 0.3s;
+    }
+    
+    .invoice-image:hover {
+        transform: scale(1.02);
+    }
+    
+    .image-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.9);
+        z-index: 9999;
+        cursor: pointer;
+    }
+    
+    .image-modal img {
+        max-width: 90%;
+        max-height: 90%;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            <i class="bi bi-person-check me-2"></i>
+            مراجعة طلب تفعيل الضمان
+        </h2>
+        <a href="{% url 'ecommerce:warranty_registration_list' %}" class="btn btn-outline-primary">
+            <i class="bi bi-arrow-right me-1"></i> رجوع
+        </a>
+    </div>
+    
+    <div class="row g-4">
+        <!-- معلومات الطلب -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">معلومات الطلب</h5>
+                    {% if registration.status == 'pending' %}
+                    <span class="badge bg-warning text-dark fs-6">في انتظار المراجعة</span>
+                    {% elif registration.status == 'approved' %}
+                    <span class="badge bg-success fs-6">تمت الموافقة</span>
+                    {% else %}
+                    <span class="badge bg-danger fs-6">مرفوض</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-3">معلومات العميل</h6>
+                            <p class="mb-1"><strong>الاسم:</strong> {{ registration.customer_name }}</p>
+                            <p class="mb-1"><strong>البريد:</strong> {{ registration.customer_email }}</p>
+                            <p class="mb-1"><strong>الهاتف:</strong> {{ registration.customer_phone }}</p>
+                            {% if registration.customer_address %}
+                            <p class="mb-0"><strong>العنوان:</strong> {{ registration.customer_address }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-3">معلومات الضمان</h6>
+                            <p class="mb-1"><strong>رمز الضمان:</strong> <code>{{ registration.warranty_code_entered }}</code></p>
+                            <p class="mb-1"><strong>رقم الفاتورة:</strong> {{ registration.invoice_number|default:"-" }}</p>
+                            <p class="mb-1"><strong>تاريخ الشراء:</strong> {{ registration.purchase_date|date:"Y/m/d" }}</p>
+                            <p class="mb-0"><strong>الرقم التسلسلي:</strong> {{ registration.product_serial|default:"-" }}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- صورة الفاتورة -->
+                    <h6 class="text-muted mb-3">صورة الفاتورة</h6>
+                    <div class="text-center mb-4">
+                        {% if registration.invoice_image %}
+                        <img src="{ registration.invoice_image.url }}" alt="صورة الفاتورة" 
+                             class="invoice-image" onclick="showImageModal(this.src)">
+                        {% else %}
+                        <div class="text-muted py-4">
+                            <i class="bi bi-image fs-1"></i>
+                            <p>لا توجد صورة</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if registration.product_image %}
+                    <h6 class="text-muted mb-3">صورة المنتج</h6>
+                    <div class="text-center">
+                        <img src="{ registration.product_image.url }}" alt="صورة المنتج" 
+                             class="invoice-image" onclick="showImageModal(this.src)">
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- معلومات بطاقة الضمان -->
+            {% if registration.warranty_card %}
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-header bg-transparent">
+                    <h5 class="mb-0"><i class="bi bi-credit-card me-2"></i>بطاقة الضمان</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label class="text-muted small">رمز الضمان</label>
+                            <p class="mb-0 fw-bold">{{ registration.warranty_card.warranty_code }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="text-muted small">المنتج</label>
+                            <p class="mb-0">
+                                {% if registration.warranty_card.product %}
+                                    {{ registration.warranty_card.product.name }}
+                                {% elif registration.warranty_card.inventory_product %}
+                                    {{ registration.warranty_card.inventory_product.name }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="text-muted small">الحالة</label>
+                            <p class="mb-0">
+                                <span class="badge bg-{% if registration.warranty_card.status == 'active' %}success{% else %}warning{% endif %}">
+                                    {{ registration.warranty_card.get_status_display }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if registration.reviewed_at %}
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-header bg-transparent">
+                    <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>سجل المراجعة</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-1"><strong>تمت المراجعة في:</strong> {{ registration.reviewed_at|date:"Y/m/d H:i" }}</p>
+                    <p class="mb-1"><strong>بواسطة:</strong> {{ registration.reviewed_by.get_full_name|default:registration.reviewed_by.username }}</p>
+                    {% if registration.review_notes %}
+                    <p class="mb-0"><strong>ملاحظات:</strong> {{ registration.review_notes }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- نموذج المراجعة -->
+        <div class="col-lg-4">
+            {% if registration.status == 'pending' %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h5 class="mb-0"><i class="bi bi-check2-square me-2"></i>قرار المراجعة</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">الإجراء</label>
+                            <div class="d-grid gap-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="action" 
+                                           id="action-approve" value="approve" required>
+                                    <label class="form-check-label text-success" for="action-approve">
+                                        <i class="bi bi-check-circle me-1"></i> موافقة وتفعيل الضمان
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="action" 
+                                           id="action-reject" value="reject">
+                                    <label class="form-check-label text-danger" for="action-reject">
+                                        <i class="bi bi-x-circle me-1"></i> رفض الطلب
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">ملاحظات</label>
+                            {{ form.notes }}
+                            <div class="form-text">مطلوبة في حالة الرفض</div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-send me-1"></i> إرسال القرار
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-4">
+                    {% if registration.status == 'approved' %}
+                    <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
+                    <h5 class="mt-3">تمت الموافقة</h5>
+                    <p class="text-muted">تم تفعيل الضمان بنجاح</p>
+                    {% else %}
+                    <i class="bi bi-x-circle-fill text-danger" style="font-size: 4rem;"></i>
+                    <h5 class="mt-3">تم الرفض</h5>
+                    <p class="text-muted">{{ registration.review_notes }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- معلومات سريعة -->
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0">معلومات سريعة</h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">
+                        <i class="bi bi-calendar me-2 text-muted"></i>
+                        <small>تاريخ الطلب: {{ registration.created_at|date:"Y/m/d H:i" }}</small>
+                    </p>
+                    {% if registration.user %}
+                    <p class="mb-0">
+                        <i class="bi bi-person me-2 text-muted"></i>
+                        <small>مستخدم مسجل: {{ registration.user.username }}</small>
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Image Modal -->
+<div id="image-modal" class="image-modal" onclick="hideImageModal()">
+    <img id="modal-image" src="" alt="">
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showImageModal(src) {
+    document.getElementById('modal-image').src = src;
+    document.getElementById('image-modal').style.display = 'block';
+}
+
+function hideImageModal() {
+    document.getElementById('image-modal').style.display = 'none';
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        hideImageModal();
+    }
+});
+</script>
+{% endblock %}
+

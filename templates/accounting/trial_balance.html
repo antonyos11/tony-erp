@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "ميزان المراجعة" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+    }
+    .page-hero {
+        background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    .balance-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: rgba(255,255,255,0.2);
+        border-radius: 25px;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
+    .balance-status.balanced { background: rgba(40, 167, 69, 0.3); }
+    .balance-status.unbalanced { background: rgba(220, 53, 69, 0.3); }
+    .hero-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+        flex-wrap: wrap;
+    }
+    .btn-hero {
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        background: rgba(255,255,255,0.2);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.3);
+        cursor: pointer;
+    }
+    .btn-hero:hover {
+        background: rgba(255,255,255,0.3);
+        color: white;
+        transform: translateY(-1px);
+    }
+    .summary-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .summary-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+    .summary-card::before {
+        content: '';
+        position: absolute;
+        top: 0; right: 0; left: 0;
+        height: 4px;
+    }
+    .summary-card.debit::before { background: var(--success-color); }
+    .summary-card.credit::before { background: var(--danger-color); }
+    .summary-card.difference::before { background: var(--accent-color); }
+    .summary-icon {
+        width: 60px; height: 60px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 1rem;
+        font-size: 1.5rem;
+    }
+    .summary-card.debit .summary-icon { background: rgba(40, 167, 69, 0.15); color: var(--success-color); }
+    .summary-card.credit .summary-icon { background: rgba(220, 53, 69, 0.15); color: var(--danger-color); }
+    .summary-card.difference .summary-icon { background: rgba(0, 212, 170, 0.15); color: var(--accent-color); }
+    .summary-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+    .summary-card.debit .summary-value { color: var(--success-color); }
+    .summary-card.credit .summary-value { color: var(--danger-color); }
+    .summary-card.difference .summary-value { color: var(--accent-color); }
+    .summary-label { color: #6c757d; font-size: 0.95rem; }
+    .table-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .trial-table { width: 100%; border-collapse: collapse; }
+    .trial-table th {
+        padding: 1rem 1.25rem;
+        background: #f8f9fa;
+        font-weight: 600;
+        color: var(--primary-color);
+        text-align: right;
+        border-bottom: 2px solid #e9ecef;
+    }
+    .trial-table th.amount-col { text-align: center; background: rgba(40, 167, 69, 0.1); }
+    .trial-table th.credit-col { background: rgba(220, 53, 69, 0.1); }
+    .trial-table td {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .trial-table tr:hover { background: rgba(0, 212, 170, 0.03); }
+    .trial-table tr.category-row { background: rgba(30, 58, 95, 0.05); }
+    .trial-table tr.category-row td { font-weight: 700; color: var(--primary-color); }
+    .trial-table tr.total-row {
+        background: linear-gradient(135deg, rgba(0, 212, 170, 0.1), rgba(0, 184, 148, 0.1));
+    }
+    .trial-table tr.total-row td {
+        font-weight: 700; font-size: 1.1rem;
+        color: var(--primary-color);
+        border-top: 3px double #dee2e6;
+    }
+    .account-code {
+        font-family: monospace;
+        background: #f8f9fa;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-left: 0.5rem;
+    }
+    .debit-amount { color: var(--success-color); font-weight: 600; text-align: center; }
+    .credit-amount { color: var(--danger-color); font-weight: 600; text-align: center; }
+    .level-indent { padding-right: 1.5rem; }
+    .balance-check {
+        display: flex; justify-content: center; align-items: center;
+        gap: 0.75rem; padding: 1.5rem;
+        background: rgba(0, 212, 170, 0.1);
+        border-top: 2px solid rgba(0, 212, 170, 0.3);
+    }
+    .balance-check.balanced {
+        background: rgba(40, 167, 69, 0.1);
+        border-color: rgba(40, 167, 69, 0.3);
+    }
+    .balance-check i { font-size: 1.5rem; color: var(--success-color); }
+    .balance-check span { font-weight: 600; color: var(--success-color); font-size: 1.1rem; }
+    .empty-state { text-align: center; padding: 3rem; color: #6c757d; }
+    .empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+
+    [data-bs-theme="dark"] .summary-card,
+    [data-bs-theme="dark"] .table-card { background: #1a1d21; }
+    [data-bs-theme="dark"] .table-header,
+    [data-bs-theme="dark"] .trial-table th { background: #2d3238; }
+    [data-bs-theme="dark"] .account-code { background: #2d3238; color: #adb5bd; }
+
+    @media print {
+        .page-hero, .hero-actions, nav, .sidebar, .navbar, footer, .no-print, .pagination { display: none !important; }
+        .container { max-width: 100% !important; padding: 0 !important; }
+        .table-card { box-shadow: none !important; border: 1px solid #dee2e6; }
+        .summary-row { margin-bottom: 1rem; }
+        .summary-card { box-shadow: none !important; border: 1px solid #dee2e6; padding: 0.75rem; }
+        .summary-value { font-size: 1.3rem; }
+        .trial-table th, .trial-table td { padding: 0.5rem 0.75rem; font-size: 0.85rem; }
+        body { font-size: 12px; }
+        .print-header { display: block !important; text-align: center; margin-bottom: 1rem; }
+    }
+    .print-header { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="print-header">
+        <h2>{% trans "ميزان المراجعة" %}</h2>
+        <p>{% now "Y/m/d" %}</p>
+    </div>
+
+    <div class="page-hero">
+        {% if total_debit == total_credit %}
+        <div class="balance-status balanced">
+            <i class="fas fa-check-circle"></i> {% trans "الميزان متوازن" %}
+        </div>
+        {% else %}
+        <div class="balance-status unbalanced">
+            <i class="fas fa-exclamation-triangle"></i> {% trans "الميزان غير متوازن!" %}
+        </div>
+        {% endif %}
+        <h1 class="h2 mb-2">
+            <i class="fas fa-balance-scale me-2"></i>
+            {% trans "ميزان المراجعة" %}
+        </h1>
+        <p class="mb-0 opacity-75">{% trans "عرض أرصدة جميع الحسابات للتحقق من توازن القيود" %}</p>
+        <div class="hero-actions">
+            <a href="javascript:void(0)" onclick="printTrialBalance()" class="btn-hero">
+                <i class="fas fa-print"></i> {% trans "طباعة" %}
+            </a>
+            <a href="javascript:void(0)" onclick="exportPDF()" class="btn-hero">
+                <i class="fas fa-file-pdf"></i> {% trans "تصدير PDF" %}
+            </a>
+            <a href="{% url 'accounting:export_trial_balance_excel' %}" class="btn-hero">
+                <i class="fas fa-file-excel"></i> {% trans "تصدير Excel" %}
+            </a>
+        </div>
+    </div>
+
+    <div class="summary-row">
+        <div class="summary-card debit">
+            <div class="summary-icon"><i class="fas fa-arrow-up"></i></div>
+            <div class="summary-value">{{ total_debit|floatformat:2|intcomma }}</div>
+            <div class="summary-label">{% trans "إجمالي الأرصدة المدينة" %}</div>
+        </div>
+        <div class="summary-card credit">
+            <div class="summary-icon"><i class="fas fa-arrow-down"></i></div>
+            <div class="summary-value">{{ total_credit|floatformat:2|intcomma }}</div>
+            <div class="summary-label">{% trans "إجمالي الأرصدة الدائنة" %}</div>
+        </div>
+        <div class="summary-card difference">
+            <div class="summary-icon"><i class="fas fa-equals"></i></div>
+            <div class="summary-value">{{ difference|floatformat:2|intcomma|default:"0" }}</div>
+            <div class="summary-label">{% trans "الفرق" %}</div>
+        </div>
+    </div>
+
+    <div class="table-card">
+        <div class="table-header">
+            <h5 class="mb-0"><i class="fas fa-table me-2 text-primary"></i> {% trans "ميزان المراجعة" %}</h5>
+            <span class="badge bg-primary">{{ rows|length }} {% trans "حساب" %}</span>
+        </div>
+        {% if rows %}
+        <div class="table-responsive"><table class="trial-table" id="trialBalanceTable">
+            <thead>
+                <tr>
+                    <th style="width: 10%;">{% trans "الكود" %}</th>
+                    <th style="width: 50%;">{% trans "اسم الحساب" %}</th>
+                    <th class="amount-col" style="width: 20%;">{% trans "مدين" %}</th>
+                    <th class="amount-col credit-col" style="width: 20%;">{% trans "دائن" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr{% if not row.account.parent_id %} class="category-row"{% endif %}>
+                    <td><span class="account-code">{{ row.account.code }}</span></td>
+                    <td{% if row.account.parent_id %} class="level-indent"{% endif %}>{{ row.account.name }}</td>
+                    <td class="debit-amount">{% if row.debit %}{{ row.debit|floatformat:2|intcomma }}{% else %}-{% endif %}</td>
+                    <td class="credit-amount">{% if row.credit %}{{ row.credit|floatformat:2|intcomma }}{% else %}-{% endif %}</td>
+                </tr>
+                {% endfor %}
+                <tr class="total-row">
+                    <td colspan="2">{% trans "الإجمالي" %}</td>
+                    <td class="debit-amount">{{ total_debit|floatformat:2|intcomma }}</td>
+                    <td class="credit-amount">{{ total_credit|floatformat:2|intcomma }}</td>
+                </tr>
+            </tbody>
+        </table></div>
+        {% if total_debit == total_credit %}
+        <div class="balance-check balanced">
+            <i class="fas fa-check-circle"></i>
+            <span>{% trans "ميزان المراجعة متوازن - الفرق = 0" %}</span>
+        </div>
+        {% else %}
+        <div class="balance-check">
+            <i class="fas fa-exclamation-circle" style="color: var(--danger-color);"></i>
+            <span style="color: var(--danger-color);">{% trans "تحذير: الميزان غير متوازن!" %}</span>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-inbox d-block"></i>
+            <h5>{% trans "لا توجد بيانات" %}</h5>
+            <p>{% trans "لم يتم العثور على حسابات نشطة أو لا توجد قيود مرحّلة بعد." %}</p>
+            <a href="{% url 'accounting:journal_entry_create' %}" class="btn btn-primary mt-2">
+                <i class="fas fa-plus me-1"></i> {% trans "إنشاء أول قيد" %}
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if total_pages > 1 %}
+    <nav class="mt-3 no-print">
+        <ul class="pagination justify-content-center">
+            {% if page > 1 %}
+            <li class="page-item"><a class="page-link" href="?page={{ page|add:"-1" }}">{% trans "السابق" %}</a></li>
+            {% endif %}
+            <li class="page-item active"><span class="page-link">{{ page }} / {{ total_pages }}</span></li>
+            {% if page < total_pages %}
+            <li class="page-item"><a class="page-link" href="?page={{ page|add:"1" }}">{% trans "التالي" %}</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function printTrialBalance() {
+    window.print();
+}
+function exportPDF() {
+    window.print();
+}
+</script>
+{% endblock %}

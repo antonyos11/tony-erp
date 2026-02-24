@@ -1,0 +1,198 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "قواعد التسعير الذكي" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'smart_pricing:dashboard' %}">{% trans "التسعير الذكي" %}</a>
+                    </li>
+                    <li class="breadcrumb-item active">{% trans "قواعد التسعير" %}</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2>
+                        <i class="fas fa-calculator text-primary"></i>
+                        {% trans "قواعد التسعير الذكي" %}
+                    </h2>
+                    <p class="text-muted mb-0">{% trans "إدارة قواعد وسياسات التسعير" %}</p>
+                </div>
+                <a href="{% url 'smart_pricing:rule_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> {% trans "إضافة قاعدة" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- البحث والفلترة -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <form method="get" class="d-flex">
+                <input type="text" name="search" class="form-control me-2" 
+                       placeholder="{% trans 'البحث في القواعد...' %}" value="{{ search }}">
+                <select name="method" class="form-select me-2" style="width: auto;">
+                    <option value="">{% trans "جميع الطرق" %}</option>
+                    {% for value, label in methods %}
+                    <option value="{{ value }}" {% if method == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-outline-primary">
+                    <i class="fas fa-search"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- قائمة القواعد -->
+    <div class="row">
+        {% for rule in rules %}
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card shadow-sm h-100 border-top border-3 
+                {% if rule.method == 'ai_dynamic' %}border-primary
+                {% elif rule.method == 'cost_plus' %}border-success
+                {% elif rule.method == 'market_based' %}border-info
+                {% else %}border-secondary{% endif %}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h5 class="card-title mb-1">{{ rule.name }}</h5>
+                            <span class="badge 
+                                {% if rule.method == 'ai_dynamic' %}bg-primary
+                                {% elif rule.method == 'cost_plus' %}bg-success
+                                {% elif rule.method == 'market_based' %}bg-info
+                                {% else %}bg-secondary{% endif %}">
+                                {{ rule.get_method_display }}
+                            </span>
+                        </div>
+                        {% if rule.use_ai_pricing %}
+                        <span class="badge bg-dark">
+                            <i class="fas fa-brain"></i> AI
+                        </span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <small class="text-muted d-block">{% trans "الفئة" %}</small>
+                        <strong>{{ rule.product_category|default:"جميع الفئات" }}</strong>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <small class="text-muted d-block">{% trans "هامش الربح" %}</small>
+                            <div class="d-flex align-items-center">
+                                <span class="text-danger me-1">{{ rule.min_profit_margin }}%</span>
+                                <div class="progress flex-grow-1 mx-1" style="height: 6px;">
+                                    <div class="progress-bar bg-success" 
+                                         style="width: {{ rule.target_profit_margin }}%;"></div>
+                                </div>
+                                <span class="text-success ms-1">{{ rule.max_profit_margin }}%</span>
+                            </div>
+                            <small class="text-primary fw-bold">{% trans "الهدف" %}: {{ rule.target_profit_margin }}%</small>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">{% trans "خصم الكمية" %}</small>
+                            <strong>{{ rule.quantity_discount_rate }}%</strong>
+                            <small class="text-muted d-block">
+                                {% trans "عند" %} {{ rule.quantity_discount_threshold }}+ {% trans "وحدة" %}
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="row small text-muted mb-3">
+                        <div class="col-3 text-center">
+                            <i class="fas fa-compress-alt d-block mb-1"></i>
+                            {{ rule.size_multiplier_small }}x
+                            <br><small>{% trans "صغير" %}</small>
+                        </div>
+                        <div class="col-3 text-center">
+                            <i class="fas fa-arrows-alt d-block mb-1"></i>
+                            {{ rule.size_multiplier_medium }}x
+                            <br><small>{% trans "متوسط" %}</small>
+                        </div>
+                        <div class="col-3 text-center">
+                            <i class="fas fa-expand-alt d-block mb-1"></i>
+                            {{ rule.size_multiplier_large }}x
+                            <br><small>{% trans "كبير" %}</small>
+                        </div>
+                        <div class="col-3 text-center">
+                            <i class="fas fa-expand d-block mb-1"></i>
+                            {{ rule.size_multiplier_xlarge }}x
+                            <br><small>{% trans "ضخم" %}</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+                    <span>
+                        {% if rule.is_active %}
+                        <span class="badge bg-success">{% trans "نشط" %}</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{% trans "غير نشط" %}</span>
+                        {% endif %}
+                    </span>
+                    <div>
+                        <a href="{% url 'smart_pricing:rule_detail' rule.id %}" 
+                           class="btn btn-sm btn-outline-primary" title="{% trans 'عرض' %}">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{% url 'smart_pricing:rule_edit' rule.id %}" 
+                           class="btn btn-sm btn-outline-secondary" title="{% trans 'تعديل' %}">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-calculator fa-4x text-muted mb-3"></i>
+                    <h4>{% trans "لا توجد قواعد تسعير" %}</h4>
+                    <p class="text-muted">{% trans "ابدأ بإضافة قواعد التسعير الخاصة بمنتجاتك" %}</p>
+                    <a href="{% url 'smart_pricing:rule_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> {% trans "إضافة قاعدة تسعير" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if rules.has_other_pages %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if rules.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ rules.previous_page_number }}&search={{ search }}&method={{ method }}">
+                    {% trans "السابق" %}
+                </a>
+            </li>
+            {% endif %}
+            
+            {% for num in rules.paginator.page_range %}
+            <li class="page-item {% if rules.number == num %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}&search={{ search }}&method={{ method }}">{{ num }}</a>
+            </li>
+            {% endfor %}
+            
+            {% if rules.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ rules.next_page_number }}&search={{ search }}&method={{ method }}">
+                    {% trans "التالي" %}
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

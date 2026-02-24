@@ -1,0 +1,608 @@
+{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "بطاقات التكلفة" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+    }
+    
+    .page-hero {
+        background: linear-gradient(135deg, #e17055 0%, #fdcb6e 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    
+    .hero-stats {
+        display: flex;
+        gap: 2rem;
+        margin-top: 1.5rem;
+    }
+    
+    .hero-stat {
+        text-align: center;
+        padding: 1rem 1.5rem;
+        background: rgba(255,255,255,0.2);
+        border-radius: 10px;
+    }
+    
+    .hero-stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    
+    .hero-stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    .hero-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+    
+    .btn-hero {
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        background: rgba(255,255,255,0.2);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+    
+    .btn-hero.primary {
+        background: white;
+        color: #e17055;
+    }
+    
+    .btn-hero:hover {
+        transform: translateY(-2px);
+        color: white;
+    }
+    
+    .btn-hero.primary:hover {
+        color: #e17055;
+    }
+    
+    /* Filter Bar */
+    .filter-bar {
+        background: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        margin-bottom: 1.5rem;
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: end;
+    }
+    
+    .filter-group {
+        flex: 1;
+        min-width: 180px;
+    }
+    
+    .filter-group label {
+        display: block;
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .filter-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+    }
+    
+    .btn-apply {
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    
+    /* Costing Cards */
+    .costing-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .costing-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .costing-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+    }
+    
+    .costing-header {
+        padding: 1.25rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        background: linear-gradient(135deg, rgba(225, 112, 85, 0.1), rgba(253, 203, 110, 0.1));
+    }
+    
+    .costing-product {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+    
+    .product-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #e17055, #fdcb6e);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+    
+    .product-info h4 {
+        margin: 0 0 0.25rem 0;
+        color: var(--primary-color);
+        font-size: 1.1rem;
+    }
+    
+    .product-sku {
+        font-size: 0.85rem;
+        color: #6c757d;
+        font-family: monospace;
+    }
+    
+    .costing-status {
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    
+    .costing-status.active {
+        background: rgba(40, 167, 69, 0.15);
+        color: var(--success-color);
+    }
+    
+    .costing-status.draft {
+        background: rgba(255, 193, 7, 0.15);
+        color: #d39e00;
+    }
+    
+    .costing-status.archived {
+        background: rgba(108, 117, 125, 0.15);
+        color: #6c757d;
+    }
+    
+    .costing-body {
+        padding: 1.25rem;
+    }
+    
+    .cost-breakdown {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .cost-item {
+        text-align: center;
+        padding: 0.75rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+    
+    .cost-value {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .cost-label {
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    
+    .total-cost {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        background: linear-gradient(135deg, rgba(0, 212, 170, 0.1), rgba(0, 184, 148, 0.1));
+        border-radius: 10px;
+        margin-bottom: 1rem;
+    }
+    
+    .total-cost-label {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+    
+    .total-cost-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--accent-color);
+    }
+    
+    .costing-footer {
+        padding: 1rem 1.25rem;
+        border-top: 1px solid #e9ecef;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .last-updated {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    .card-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .card-actions .btn {
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+    }
+    
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        color: #e9ecef;
+        margin-bottom: 1rem;
+    }
+    
+    .empty-state h3 {
+        color: var(--primary-color);
+        margin-bottom: 0.5rem;
+    }
+    
+    .empty-state p {
+        color: #6c757d;
+        margin-bottom: 1.5rem;
+    }
+    
+    [data-bs-theme="dark"] .filter-bar,
+    [data-bs-theme="dark"] .costing-card,
+    [data-bs-theme="dark"] .empty-state {
+        background: #1a1d21;
+    }
+    
+    [data-bs-theme="dark"] .cost-item {
+        background: #2d3238;
+    }
+    
+    @media (max-width: 768px) {
+        .hero-stats {
+            flex-wrap: wrap;
+        }
+        
+        .hero-stat {
+            flex: 1;
+            min-width: 120px;
+        }
+        
+        .costing-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Hero Section -->
+    <div class="page-hero">
+        <h1 class="h2 mb-2">
+            <i class="fas fa-calculator me-2"></i>
+            {% trans "بطاقات التكلفة" %}
+        </h1>
+        <p class="mb-0 opacity-75">
+            {% trans "إدارة بطاقات تكلفة المنتجات وتحليل مكونات التكلفة" %}
+        </p>
+        
+        <div class="hero-stats">
+            <div class="hero-stat">
+                <div class="hero-stat-value">45</div>
+                <div class="hero-stat-label">{% trans "إجمالي البطاقات" %}</div>
+            </div>
+            <div class="hero-stat">
+                <div class="hero-stat-value">38</div>
+                <div class="hero-stat-label">{% trans "بطاقات نشطة" %}</div>
+            </div>
+            <div class="hero-stat">
+                <div class="hero-stat-value">5</div>
+                <div class="hero-stat-label">{% trans "مسودات" %}</div>
+            </div>
+            <div class="hero-stat">
+                <div class="hero-stat-value">2</div>
+                <div class="hero-stat-label">{% trans "بحاجة لتحديث" %}</div>
+            </div>
+        </div>
+        
+        <div class="hero-actions">
+            <a href="{% url 'accounting:costing_create' %}" class="btn-hero primary">
+                <i class="fas fa-plus"></i>
+                {% trans "بطاقة جديدة" %}
+            </a>
+            <a href="{% url 'accounting:bulk_update_costs' %}" class="btn-hero">
+                <i class="fas fa-sync-alt"></i>
+                {% trans "تحديث جماعي" %}
+            </a>
+            <a href="#" class="btn-hero">
+                <i class="fas fa-file-export"></i>
+                {% trans "تصدير" %}
+            </a>
+        </div>
+    </div>
+    
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+        <div class="filter-group">
+            <label>{% trans "بحث" %}</label>
+            <input type="text" class="filter-control" placeholder="{% trans 'اسم المنتج أو الكود...' %}">
+        </div>
+        <div class="filter-group">
+            <label>{% trans "التصنيف" %}</label>
+            <select class="filter-control">
+                <option value="">{% trans "جميع التصنيفات" %}</option>
+                <option>{% trans "مواد خام" %}</option>
+                <option>{% trans "منتجات تامة" %}</option>
+                <option>{% trans "منتجات نصف مصنعة" %}</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>{% trans "الحالة" %}</label>
+            <select class="filter-control">
+                <option value="">{% trans "جميع الحالات" %}</option>
+                <option>{% trans "نشط" %}</option>
+                <option>{% trans "مسودة" %}</option>
+                <option>{% trans "مؤرشف" %}</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>{% trans "الترتيب" %}</label>
+            <select class="filter-control">
+                <option>{% trans "الأحدث أولاً" %}</option>
+                <option>{% trans "الأعلى تكلفة" %}</option>
+                <option>{% trans "الأقل تكلفة" %}</option>
+                <option>{% trans "اسم المنتج" %}</option>
+            </select>
+        </div>
+        <button class="btn-apply">
+            <i class="fas fa-search me-1"></i>
+            {% trans "بحث" %}
+        </button>
+    </div>
+    
+    <!-- Costing Cards Grid -->
+    <div class="costing-grid">
+        <!-- Card 1 -->
+        <div class="costing-card">
+            <div class="costing-header">
+                <div class="costing-product">
+                    <div class="product-icon">
+                        <i class="fas fa-box"></i>
+                    </div>
+                    <div class="product-info">
+                        <h4>{% trans "طاولة خشب زان" %}</h4>
+                        <span class="product-sku">SKU-001234</span>
+                    </div>
+                </div>
+                <span class="costing-status active">{% trans "نشط" %}</span>
+            </div>
+            <div class="costing-body">
+                <div class="cost-breakdown">
+                    <div class="cost-item">
+                        <div class="cost-value">450</div>
+                        <div class="cost-label">{% trans "مواد خام" %}</div>
+                    </div>
+                    <div class="cost-item">
+                        <div class="cost-value">150</div>
+                        <div class="cost-label">{% trans "عمالة" %}</div>
+                    </div>
+                    <div class="cost-item">
+                        <div class="cost-value">75</div>
+                        <div class="cost-label">{% trans "تكاليف غير مباشرة" %}</div>
+                    </div>
+                    <div class="cost-item">
+                        <div class="cost-value">25</div>
+                        <div class="cost-label">{% trans "أخرى" %}</div>
+                    </div>
+                </div>
+                <div class="total-cost">
+                    <span class="total-cost-label">{% trans "إجمالي التكلفة" %}</span>
+                    <span class="total-cost-value">700 {% trans "ج.م" %}</span>
+                </div>
+            </div>
+            <div class="costing-footer">
+                <span class="last-updated">
+                    <i class="fas fa-clock me-1"></i>
+                    {% trans "آخر تحديث:" %} 15/06/2025
+                </span>
+                <div class="card-actions">
+                    <a href="#" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    <a href="#" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <a href="#" class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-history"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Card 2 -->
+        <div class="costing-card">
+            <div class="costing-header">
+                <div class="costing-product">
+                    <div class="product-icon">
+                        <i class="fas fa-couch"></i>
+                    </div>
+                    <div class="product-info">
+                        <h4>{% trans "كرسي جلد طبيعي" %}</h4>
+                        <span class="product-sku">SKU-001235</span>
+                    </div>
+                </div>
+                <span class="costing-status active">{% trans "نشط" %}</span>
+            </div>
+            <div class="costing-body">
+                <div class="cost-breakdown">
+                    <div class="cost-item">
+                        <div class="cost-value">380</div>
+                        <div class="cost-label">{% trans "مواد خام" %}</div>
+                    </div>
+                    <div class="cost-item">
+                        <div class="cost-value">120</div>
+                        <div class="cost-label">{% trans "عمالة" %}</div>
+                    </div>
+                    <div class="cost-item">
+                        <div class="cost-value">60</div>
+                        <div class="cost-label">{% trans "تكاليف غير مباشرة" %}</div>
+                    </div>
+                    <div class="cost-item">
+                        <div class="cost-value">20</div>
+                        <div class="cost-label">{% trans "أخرى" %}</div>
+                    </div>
+                </div>
+                <div class="total-cost">
+                    <span class="total-cost-label">{% trans "إجمالي التكلفة" %}</span>
+                    <span class="total-cost-value">580 {% trans "ج.م" %}</span>
+                </div>
+            </div>
+            <div class="costing-footer">
+                <span class="last-updated">
+                    <i class="fas fa-clock me-1"></i>
+                    {% trans "آخر تحديث:" %} 10/06/2025
+                </span>
+                <div class="card-actions">
+                    <a href="#" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    <a href="#" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <a href="#" class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-history"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Card 3 - Draft -->
+        <div class="costing-card">
+            <div class="costing-header">
+                <div class="costing-product">
+                    <div class="product-icon">
+                        <i class="fas fa-door-open"></i>
+                    </div>
+                    <div class="product-info">
+                        <h4>{% trans "باب خشب MDF" %}</h4>
+                        <span class="product-sku">SKU-001240</span>
+                    </div>
+                </div>
+                <span class="costing-status draft">{% trans "مسودة" %}</span>
+            </div>
+            <div class="costing-body">
+                <div class="cost-breakdown">
+                    <div class="cost-item">
+                        <div class="cost-value">280</div>
+                        <div class="cost-label">{% trans "مواد خام" %}</div>
+                    </div>
+                    <div class="cost-item">
+                        <div class="cost-value">90</div>
+                        <div class="cost-label">{% trans "عمالة" %}</div>
+                    </div>
+                    <div class="cost-item">
+                        <div class="cost-value">45</div>
+                        <div class="cost-label">{% trans "تكاليف غير مباشرة" %}</div>
+                    </div>
+                    <div class="cost-item">
+                        <div class="cost-value">15</div>
+                        <div class="cost-label">{% trans "أخرى" %}</div>
+                    </div>
+                </div>
+                <div class="total-cost">
+                    <span class="total-cost-label">{% trans "إجمالي التكلفة" %}</span>
+                    <span class="total-cost-value">430 {% trans "ج.م" %}</span>
+                </div>
+            </div>
+            <div class="costing-footer">
+                <span class="last-updated">
+                    <i class="fas fa-clock me-1"></i>
+                    {% trans "آخر تحديث:" %} 20/06/2025
+                </span>
+                <div class="card-actions">
+                    <a href="#" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    <a href="#" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <a href="#" class="btn btn-success btn-sm">
+                        <i class="fas fa-check"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pagination -->
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            <li class="page-item disabled">
+                <a class="page-link" href="#">{% trans "السابق" %}</a>
+            </li>
+            <li class="page-item active"><a class="page-link" href="#">1</a></li>
+            <li class="page-item"><a class="page-link" href="#">2</a></li>
+            <li class="page-item"><a class="page-link" href="#">3</a></li>
+            <li class="page-item">
+                <a class="page-link" href="#">{% trans "التالي" %}</a>
+            </li>
+        </ul>
+    </nav>
+</div>
+{% endblock %}
+

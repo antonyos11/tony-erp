@@ -1,0 +1,345 @@
+﻿{% extends 'base_templates/_list_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'خصومات العملاء' %}{% endblock %}
+{% block page_hero_icon %}bi-percent{% endblock %}
+{% block page_hero_title %}{% trans 'خصومات العملاء' %}{% endblock %}
+{% block page_hero_subtitle %}{% trans 'إدارة الخصومات والعروض الخاصة بالعملاء' %}{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'sales:customer_discount_create' %}" class="btn btn-primary">
+  <i class="bi bi-plus-lg me-1"></i>{% trans 'خصم جديد' %}
+</a>
+{% endblock %}
+
+{% block stats_cards %}
+<style>
+  .discount-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: var(--transition);
+  }
+  .discount-card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+  .discount-header {
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .discount-header.percentage { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; }
+  .discount-header.fixed { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; }
+  .discount-header.tiered { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: white; }
+  .discount-badge {
+    width: 50px;
+    height: 50px;
+    background: rgba(255,255,255,0.2);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+  }
+  .discount-info h5 {
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+  .discount-info .type {
+    font-size: 0.8rem;
+    opacity: 0.9;
+  }
+  .discount-value {
+    margin-right: auto;
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+  .discount-body {
+    padding: 1.25rem;
+  }
+  .discount-details {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .discount-detail {
+    text-align: center;
+    padding: 0.5rem;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+  }
+  .discount-detail .value {
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .discount-detail .label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+  .discount-footer {
+    display: flex;
+    gap: 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+  }
+  .discount-footer .btn {
+    flex: 1;
+  }
+  .discount-status {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 2rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+  .discount-status.active { background: rgba(255,255,255,0.9); color: #059669; }
+  .discount-status.expired { background: rgba(0,0,0,0.3); color: white; }
+  .discount-status.upcoming { background: rgba(255,255,255,0.9); color: #3b82f6; }
+</style>
+
+<div class="stat-card">
+  <div class="stat-icon bg-success text-white"><i class="bi bi-percent"></i></div>
+  <div class="stat-content">
+    <div class="stat-value">{{ active_discounts|default:"24" }}</div>
+    <div class="stat-label">{% trans 'خصومات نشطة' %}</div>
+  </div>
+</div>
+
+<div class="stat-card">
+  <div class="stat-icon bg-primary text-white"><i class="bi bi-people"></i></div>
+  <div class="stat-content">
+    <div class="stat-value">{{ customers_with_discount|default:"156" }}</div>
+    <div class="stat-label">{% trans 'عملاء بخصومات' %}</div>
+  </div>
+</div>
+
+<div class="stat-card">
+  <div class="stat-icon bg-warning text-white"><i class="bi bi-currency-dollar"></i></div>
+  <div class="stat-content">
+    <div class="stat-value">{{ total_savings|default:"45.2K" }}</div>
+    <div class="stat-label">{% trans 'إجمالي الخصومات' %}</div>
+  </div>
+</div>
+
+<div class="stat-card">
+  <div class="stat-icon bg-info text-white"><i class="bi bi-clock"></i></div>
+  <div class="stat-content">
+    <div class="stat-value">{{ expiring_soon|default:"5" }}</div>
+    <div class="stat-label">{% trans 'تنتهي قريباً' %}</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block filters %}
+<div class="row g-3">
+  <div class="col-md-4">
+    <label class="form-label">{% trans 'البحث' %}</label>
+    <input type="text" class="form-control" placeholder="{% trans 'اسم العميل أو رمز الخصم...' %}">
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">{% trans 'نوع الخصم' %}</label>
+    <select class="form-select">
+      <option value="">{% trans 'الكل' %}</option>
+      <option value="percentage">{% trans 'نسبة مئوية' %}</option>
+      <option value="fixed">{% trans 'مبلغ ثابت' %}</option>
+      <option value="tiered">{% trans 'متدرج' %}</option>
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">{% trans 'الحالة' %}</label>
+    <select class="form-select">
+      <option value="">{% trans 'الكل' %}</option>
+      <option value="active">{% trans 'نشط' %}</option>
+      <option value="expired">{% trans 'منتهي' %}</option>
+      <option value="upcoming">{% trans 'قادم' %}</option>
+    </select>
+  </div>
+  <div class="col-md-2 d-flex align-items-end">
+    <button class="btn btn-primary w-100"><i class="bi bi-funnel me-1"></i>{% trans 'تصفية' %}</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block table_content %}
+<div class="row g-4">
+  {% for discount in discounts %}
+  <div class="col-md-6 col-lg-4">
+    <div class="discount-card position-relative">
+      <span class="discount-status { discount.status }">
+        {% if discount.status == 'active' %}{% trans 'نشط' %}
+        {% elif discount.status == 'expired' %}{% trans 'منتهي' %}
+        {% else %}{% trans 'قادم' %}{% endif %}
+      </span>
+      <div class="discount-header { discount.type }">
+        <div class="discount-badge">
+          {% if discount.type == 'percentage' %}<i class="bi bi-percent"></i>
+          {% elif discount.type == 'fixed' %}<i class="bi bi-cash"></i>
+          {% else %}<i class="bi bi-graph-up-arrow"></i>{% endif %}
+        </div>
+        <div class="discount-info">
+          <h5>{{ discount.name }}</h5>
+          <span class="type">{{ discount.get_type_display }}</span>
+        </div>
+        <div class="discount-value">
+          {% if discount.type == 'percentage' %}{{ discount.value }}%
+          {% else %}{{ discount.value }}{% endif %}
+        </div>
+      </div>
+      <div class="discount-body">
+        <div class="discount-details">
+          <div class="discount-detail">
+            <div class="value">{{ discount.customers_count }}</div>
+            <div class="label">{% trans 'عملاء' %}</div>
+          </div>
+          <div class="discount-detail">
+            <div class="value">{{ discount.usage_count }}</div>
+            <div class="label">{% trans 'استخدامات' %}</div>
+          </div>
+          <div class="discount-detail">
+            <div class="value">{{ discount.start_date|date:"m/d" }}</div>
+            <div class="label">{% trans 'البداية' %}</div>
+          </div>
+          <div class="discount-detail">
+            <div class="value">{{ discount.end_date|date:"m/d" }}</div>
+            <div class="label">{% trans 'النهاية' %}</div>
+          </div>
+        </div>
+        <div class="discount-footer">
+          <a href="{% url 'sales:customer_discount_detail' discount.pk %}" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-eye"></i>
+          </a>
+          <a href="{% url 'sales:customer_discount_edit' discount.pk %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-pencil"></i>
+          </a>
+          <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <!-- Sample Cards -->
+  <div class="col-md-6 col-lg-4">
+    <div class="discount-card position-relative">
+      <span class="discount-status active">{% trans 'نشط' %}</span>
+      <div class="discount-header percentage">
+        <div class="discount-badge"><i class="bi bi-percent"></i></div>
+        <div class="discount-info">
+          <h5>{% trans 'خصم VIP' %}</h5>
+          <span class="type">{% trans 'نسبة مئوية' %}</span>
+        </div>
+        <div class="discount-value">15%</div>
+      </div>
+      <div class="discount-body">
+        <div class="discount-details">
+          <div class="discount-detail">
+            <div class="value">68</div>
+            <div class="label">{% trans 'عملاء' %}</div>
+          </div>
+          <div class="discount-detail">
+            <div class="value">245</div>
+            <div class="label">{% trans 'استخدامات' %}</div>
+          </div>
+          <div class="discount-detail">
+            <div class="value">01/01</div>
+            <div class="label">{% trans 'البداية' %}</div>
+          </div>
+          <div class="discount-detail">
+            <div class="value">12/31</div>
+            <div class="label">{% trans 'النهاية' %}</div>
+          </div>
+        </div>
+        <div class="discount-footer">
+          <a href="#" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+          <a href="#" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+          <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6 col-lg-4">
+    <div class="discount-card position-relative">
+      <span class="discount-status active">{% trans 'نشط' %}</span>
+      <div class="discount-header fixed">
+        <div class="discount-badge"><i class="bi bi-cash"></i></div>
+        <div class="discount-info">
+          <h5>{% trans 'خصم الجملة' %}</h5>
+          <span class="type">{% trans 'مبلغ ثابت' %}</span>
+        </div>
+        <div class="discount-value">500</div>
+      </div>
+      <div class="discount-body">
+        <div class="discount-details">
+          <div class="discount-detail">
+            <div class="value">34</div>
+            <div class="label">{% trans 'عملاء' %}</div>
+          </div>
+          <div class="discount-detail">
+            <div class="value">89</div>
+            <div class="label">{% trans 'استخدامات' %}</div>
+          </div>
+          <div class="discount-detail">
+            <div class="value">01/15</div>
+            <div class="label">{% trans 'البداية' %}</div>
+          </div>
+          <div class="discount-detail">
+            <div class="value">03/15</div>
+            <div class="label">{% trans 'النهاية' %}</div>
+          </div>
+        </div>
+        <div class="discount-footer">
+          <a href="#" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+          <a href="#" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+          <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6 col-lg-4">
+    <div class="discount-card position-relative">
+      <span class="discount-status upcoming">{% trans 'قادم' %}</span>
+      <div class="discount-header tiered">
+        <div class="discount-badge"><i class="bi bi-graph-up-arrow"></i></div>
+        <div class="discount-info">
+          <h5>{% trans 'خصم متدرج' %}</h5>
+          <span class="type">{% trans 'حسب الكمية' %}</span>
+        </div>
+        <div class="discount-value">5-20%</div>
+      </div>
+      <div class="discount-body">
+        <div class="discount-details">
+          <div class="discount-detail">
+            <div class="value">-</div>
+            <div class="label">{% trans 'عملاء' %}</div>
+          </div>
+          <div class="discount-detail">
+            <div class="value">0</div>
+            <div class="label">{% trans 'استخدامات' %}</div>
+          </div>
+          <div class="discount-detail">
+            <div class="value">02/01</div>
+            <div class="label">{% trans 'البداية' %}</div>
+          </div>
+          <div class="discount-detail">
+            <div class="value">04/01</div>
+            <div class="label">{% trans 'النهاية' %}</div>
+          </div>
+        </div>
+        <div class="discount-footer">
+          <a href="#" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+          <a href="#" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+          <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+

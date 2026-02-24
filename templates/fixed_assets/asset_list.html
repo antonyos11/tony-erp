@@ -1,0 +1,555 @@
+﻿{% extends 'base_templates/_list_professional.html' %}
+
+{% block hero_icon %}bi-building{% endblock %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans 'إدارة الأصول الثابتة' %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .assets-hero {
+        background: linear-gradient(135deg, #059669 0%, #047857 50%, #065f46 100%);
+        border-radius: 24px;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .assets-hero::before {
+        content: '';
+        position: absolute;
+        top: -100px;
+        left: -100px;
+        width: 350px;
+        height: 350px;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+        border-radius: 50%;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        text-align: center;
+        transition: all 0.3s ease;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+    }
+    
+    .stat-icon {
+        width: 55px;
+        height: 55px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem;
+        font-size: 1.4rem;
+    }
+    
+    .stat-icon.total { background: linear-gradient(135deg, #6366f120, #8b5cf620); color: #6366f1; }
+    .stat-icon.active { background: linear-gradient(135deg, #22c55e20, #16a34a20); color: #22c55e; }
+    .stat-icon.depreciation { background: linear-gradient(135deg, #f9731620, #ea580c20); color: #f97316; }
+    .stat-icon.value { background: linear-gradient(135deg, #0ea5e920, #0284c720); color: #0ea5e9; }
+    .stat-icon.maintenance { background: linear-gradient(135deg, #ef444420, #dc262620); color: #ef4444; }
+    
+    .stat-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+    
+    .stat-label {
+        color: #64748b;
+        font-size: 0.85rem;
+        margin-top: 0.25rem;
+    }
+    
+    .asset-card {
+        background: white;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        transition: all 0.3s ease;
+        height: 100%;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .asset-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+    }
+    
+    .asset-image {
+        height: 160px;
+        background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .asset-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .asset-image .placeholder-icon {
+        font-size: 3rem;
+        color: #94a3b8;
+    }
+    
+    .asset-status {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .asset-status.active { background: #dcfce7; color: #166534; }
+    .asset-status.disposed { background: #fee2e2; color: #991b1b; }
+    .asset-status.maintenance { background: #fef3c7; color: #92400e; }
+    
+    .asset-category {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        background: rgba(0,0,0,0.6);
+        color: white;
+    }
+    
+    .asset-body {
+        padding: 1.5rem;
+    }
+    
+    .asset-name {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 0.5rem;
+    }
+    
+    .asset-code {
+        display: inline-block;
+        background: #f1f5f9;
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-bottom: 1rem;
+        font-family: monospace;
+    }
+    
+    .asset-details {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+    
+    .asset-detail {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .asset-detail-label {
+        font-size: 0.7rem;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .asset-detail-value {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #334155;
+    }
+    
+    .depreciation-bar {
+        height: 8px;
+        background: #e2e8f0;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 1rem;
+    }
+    
+    .depreciation-progress {
+        height: 100%;
+        background: linear-gradient(90deg, #22c55e, #f97316, #ef4444);
+        border-radius: 4px;
+        transition: width 0.5s ease;
+    }
+    
+    .depreciation-info {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-top: 0.5rem;
+    }
+    
+    .asset-actions {
+        display: flex;
+        gap: 0.5rem;
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #e2e8f0;
+    }
+    
+    .btn-asset {
+        flex: 1;
+        padding: 0.5rem;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.25rem;
+    }
+    
+    .filter-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    
+    .view-toggle .btn.active {
+        background: #059669;
+        color: white;
+        border-color: #059669;
+    }
+    
+    @media (max-width: 1200px) {
+        .stats-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Hero Section -->
+    <div class="assets-hero">
+        <div class="row align-items-center position-relative" style="z-index: 1;">
+            <div class="col-lg-7">
+                <h1 class="mb-2">
+                    <i class="bi bi-building-gear me-2"></i>{% trans 'إدارة الأصول الثابتة' %}
+                </h1>
+                <p class="mb-0 opacity-75">{% trans 'تتبع وإدارة أصول الشركة مع حساب الإهلاك والصيانة' %}</p>
+            </div>
+            <div class="col-lg-5 text-lg-end mt-3 mt-lg-0">
+                <a href="{% url 'fixed_assets:asset_create' %}" class="btn btn-light btn-lg">
+                    <i class="bi bi-plus-lg me-2"></i>{% trans 'إضافة أصل جديد' %}
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Statistics -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon total">
+                <i class="bi bi-box-seam"></i>
+            </div>
+            <div class="stat-value">{{ stats.total_assets|default:0 }}</div>
+            <div class="stat-label">{% trans 'إجمالي الأصول' %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon active">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="stat-value">{{ stats.active_assets|default:0 }}</div>
+            <div class="stat-label">{% trans 'أصول نشطة' %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon value">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+            <div class="stat-value">{{ stats.total_cost|floatformat:0|intcomma|default:0 }}</div>
+            <div class="stat-label">{% trans 'القيمة الإجمالية' %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon depreciation">
+                <i class="bi bi-graph-down"></i>
+            </div>
+            <div class="stat-value">{{ stats.total_depreciation|floatformat:0|intcomma|default:0 }}</div>
+            <div class="stat-label">{% trans 'الإهلاك المتراكم' %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon maintenance">
+                <i class="bi bi-tools"></i>
+            </div>
+            <div class="stat-value">0</div>
+            <div class="stat-label">{% trans 'تحتاج صيانة' %}</div>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="filter-card">
+        <form method="get">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">{% trans 'بحث' %}</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-end-0">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" name="q" class="form-control border-start-0" 
+                               value="{{ request.GET.q }}" placeholder="{% trans 'اسم أو كود الأصل...' %}">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted">{% trans 'الفئة' %}</label>
+                    <select name="category" class="form-select">
+                        <option value="">{% trans 'الكل' %}</option>
+                        {% for category in categories %}
+                        <option value="{{ category.id }}" {% if request.GET.category == category.id|stringformat:"s" %}selected{% endif %}>
+                            {{ category.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted">{% trans 'الحالة' %}</label>
+                    <select name="status" class="form-select">
+                        <option value="">{% trans 'الكل' %}</option>
+                        <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>{% trans 'نشط' %}</option>
+                        <option value="disposed" {% if request.GET.status == 'disposed' %}selected{% endif %}>{% trans 'مستبعد' %}</option>
+                        <option value="maintenance" {% if request.GET.status == 'maintenance' %}selected{% endif %}>{% trans 'صيانة' %}</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted">{% trans 'الموقع' %}</label>
+                    <select name="location" class="form-select">
+                        <option value="">{% trans 'الكل' %}</option>
+                        {% for location in locations %}
+                        <option value="{{ location.id }}" {% if request.GET.location == location.id|stringformat:"s" %}selected{% endif %}>
+                            {{ location.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary flex-grow-1">
+                        <i class="bi bi-funnel me-1"></i>{% trans 'تصفية' %}
+                    </button>
+                    <div class="view-toggle btn-group">
+                        <button type="button" class="btn btn-outline-secondary active" data-view="grid">
+                            <i class="bi bi-grid-3x3-gap"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" data-view="list">
+                            <i class="bi bi-list"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Assets Grid -->
+    <div class="row g-4" id="assetsGrid">
+        {% for asset in assets %}
+        <div class="col-xl-3 col-lg-4 col-md-6 asset-item">
+            <div class="asset-card">
+                <div class="asset-image">
+                    {% if asset.image %}
+                    <img src="{{ asset.image.url }}" alt="{{ asset.name }}">
+                    {% else %}
+                    <i class="bi bi-box-seam placeholder-icon"></i>
+                    {% endif %}
+                    <span class="asset-status {{ asset.status }}">
+                        {% if asset.status == 'active' %}{% trans 'نشط' %}
+                        {% elif asset.status == 'disposed' %}{% trans 'مستبعد' %}
+                        {% else %}{% trans 'صيانة' %}
+                        {% endif %}
+                    </span>
+                    <span class="asset-category">{{ asset.category.name|default:'-' }}</span>
+                </div>
+                
+                <div class="asset-body">
+                    <h5 class="asset-name">{{ asset.name }}</h5>
+                    <span class="asset-code">{{ asset.number }}</span>
+                    
+                    <div class="asset-details">
+                        <div class="asset-detail">
+                            <span class="asset-detail-label">{% trans 'تاريخ الشراء' %}</span>
+                            <span class="asset-detail-value">{{ asset.acquisition_date|date:"Y/m/d" }}</span>
+                        </div>
+                        <div class="asset-detail">
+                            <span class="asset-detail-label">{% trans 'القيمة' %}</span>
+                            <span class="asset-detail-value">{{ asset.acquisition_cost|floatformat:0|intcomma }}</span>
+                        </div>
+                        <div class="asset-detail">
+                            <span class="asset-detail-label">{% trans 'القيمة الحالية' %}</span>
+                            <span class="asset-detail-value text-success">{{ asset.current_book_value|floatformat:0|intcomma }}</span>
+                        </div>
+                        <div class="asset-detail">
+                            <span class="asset-detail-label">{% trans 'الموقع' %}</span>
+                            <span class="asset-detail-value">{{ asset.location|default:'-' }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="depreciation-bar">
+                        <div class="depreciation-progress" style="width: {{ asset.depreciation_percent|default:0 }}%"></div>
+                    </div>
+                    <div class="depreciation-info">
+                        <span>{% trans 'نسبة الإهلاك' %}</span>
+                        <span>{{ asset.depreciation_percent|floatformat:1|default:0 }}%</span>
+                    </div>
+                </div>
+                
+                <div class="asset-actions">
+                    <a href="{% url 'fixed_assets:asset_detail' asset.pk %}" class="btn btn-asset btn-outline-primary">
+                        <i class="bi bi-eye"></i> {% trans 'عرض' %}
+                    </a>
+                    <a href="{% url 'fixed_assets:asset_edit' asset.pk %}" class="btn btn-asset btn-outline-success">
+                        <i class="bi bi-pencil"></i> {% trans 'تعديل' %}
+                    </a>
+                    <button class="btn btn-asset btn-outline-danger" onclick="confirmDelete({{ asset.pk }}, '{{ asset.name }}')">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="text-center py-5">
+                <div class="mb-4">
+                    <i class="bi bi-box-seam" style="font-size: 5rem; color: #cbd5e1;"></i>
+                </div>
+                <h4 class="text-muted mb-3">{% trans 'لا توجد أصول ثابتة' %}</h4>
+                <p class="text-muted mb-4">{% trans 'ابدأ بتسجيل أصول شركتك لتتبع قيمتها وإهلاكها' %}</p>
+                <a href="{% url 'fixed_assets:asset_create' %}" class="btn btn-primary btn-lg">
+                    <i class="bi bi-plus-lg me-2"></i>{% trans 'إضافة أصل جديد' %}
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    {% if assets.has_other_pages %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if assets.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ assets.previous_page_number }}">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+            
+            {% for num in assets.paginator.page_range %}
+            {% if assets.number == num %}
+            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > assets.number|add:'-3' and num < assets.number|add:'3' %}
+            <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+            {% endif %}
+            {% endfor %}
+            
+            {% if assets.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ assets.next_page_number }}">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- Delete Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>{% trans 'تأكيد الحذف' %}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <i class="bi bi-box-seam text-danger" style="font-size: 4rem;"></i>
+                <h5 class="mt-3">{% trans 'هل تريد حذف الأصل:' %}</h5>
+                <p class="fw-bold text-danger fs-5" id="deleteAssetName"></p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">{% trans 'إلغاء' %}</button>
+                <form id="deleteForm" method="post" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger px-4">
+                        <i class="bi bi-trash me-1"></i>{% trans 'حذف' %}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmDelete(id, name) {
+    document.getElementById('deleteAssetName').textContent = name;
+    document.getElementById('deleteForm').action = `/fixed-assets/${id}/delete/`;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+document.querySelectorAll('.view-toggle .btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.view-toggle .btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        
+        const view = this.dataset.view;
+        const items = document.querySelectorAll('.asset-item');
+        
+        items.forEach(item => {
+            if (view === 'list') {
+                item.classList.remove('col-xl-3', 'col-lg-4', 'col-md-6');
+                item.classList.add('col-12');
+            } else {
+                item.classList.remove('col-12');
+                item.classList.add('col-xl-3', 'col-lg-4', 'col-md-6');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

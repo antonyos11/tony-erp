@@ -1,0 +1,108 @@
+{% extends 'ecommerce/store_base_new.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}مراجعاتي - {{ settings.store_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Header -->
+    <div class="text-center mb-5">
+        <i class="bi bi-chat-left-quote" style="font-size: 4rem; color: #667eea;"></i>
+        <h1 class="h2 mt-3 mb-2">{% trans "مراجعاتي" %}</h1>
+        <p class="text-muted">{% trans "إدارة مراجعاتك وتقييماتك" %}</p>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            {% if user_reviews %}
+                {% for review in user_reviews %}
+                <div class="card shadow-sm mb-3">
+                    <div class="card-body">
+                        <!-- Product Info -->
+                        <div class="d-flex align-items-start mb-3">
+                            {% if review.product.image %}
+                            <img src="{{ review.product.image.url }}" 
+                                 alt="{{ review.product.name }}" 
+                                 class="rounded me-3"
+                                 style="width: 80px; height: 80px; object-fit: cover;">
+                            {% endif %}
+                            <div class="flex-grow-1">
+                                <h5 class="mb-1">{{ review.product.name }}</h5>
+                                <div class="mb-2">
+                                    {% for i in "12345" %}
+                                        {% if forloop.counter <= review.rating %}
+                                        <i class="bi bi-star-fill text-warning"></i>
+                                        {% else %}
+                                        <i class="bi bi-star text-muted"></i>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                                <small class="text-muted">
+                                    <i class="bi bi-calendar me-1"></i>{{ review.created_at|date:"Y-m-d H:i" }}
+                                </small>
+                                <span class="badge bg-{{ review.status_color }} ms-2">
+                                    {{ review.get_status_display }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Review Text -->
+                        <p class="mb-0">{{ review.comment }}</p>
+
+                        <!-- Actions -->
+                        <div class="mt-3 pt-3 border-top">
+                            <a href="{% url 'ecommerce:product_detail' review.product.id %}" 
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-box me-1"></i>عرض المنتج
+                            </a>
+                            {% if review.status == 'pending' %}
+                            <button class="btn btn-sm btn-outline-danger" 
+                                    onclick="deleteReview({{ review.id }})">
+                                <i class="bi bi-trash me-1"></i>حذف
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+            <div class="alert alert-info text-center">
+                <i class="bi bi-info-circle me-2"></i>
+                {% trans "لم تقم بكتابة أي مراجعات بعد" %}
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-body text-center p-5">
+                    <h5 class="mb-3">{% trans "ابدأ بكتابة مراجعتك الأولى!" %}</h5>
+                    <p class="text-muted mb-4">{% trans "شارك تجربتك مع منتجاتنا وساعد الآخرين" %}</p>
+                    <a href="{% url 'ecommerce:product_list' %}" class="btn btn-primary">
+                        <i class="bi bi-bag me-2"></i>{% trans "تصفح المنتجات" %}
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function deleteReview(reviewId) {
+    if (confirm('هل أنت متأكد من حذف هذه المراجعة؟')) {
+        fetch(`/api/reviews/${reviewId}/delete/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert('حدث خطأ أثناء الحذف');
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

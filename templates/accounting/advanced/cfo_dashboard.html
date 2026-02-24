@@ -1,0 +1,632 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}لوحة المدير المالي (CFO) - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cfo-header {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        color: white;
+        padding: 2.5rem;
+        border-radius: 20px;
+        margin-bottom: 2rem;
+    }
+    .kpi-card {
+        border-radius: 20px;
+        overflow: hidden;
+        transition: all 0.3s;
+        border: none;
+    }
+    .kpi-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    }
+    .kpi-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+    }
+    .kpi-trend {
+        font-size: 1rem;
+    }
+    .trend-up { color: #10b981; }
+    .trend-down { color: #ef4444; }
+    .chart-card {
+        border-radius: 20px;
+        border: none;
+    }
+    .chart-container {
+        position: relative;
+        height: 350px;
+    }
+    .metric-mini {
+        padding: 1rem;
+        border-radius: 10px;
+        background: linear-gradient(145deg, #f3f4f6, #ffffff);
+        margin-bottom: 1rem;
+    }
+    .alert-item {
+        border-right: 4px solid;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        background: white;
+        border-radius: 8px;
+        transition: all 0.2s;
+    }
+    .alert-item:hover {
+        transform: translateX(-5px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .alert-item.critical { border-color: #ef4444; }
+    .alert-item.warning { border-color: #f59e0b; }
+    .alert-item.info { border-color: #3b82f6; }
+    .quick-action-btn {
+        padding: 1.5rem;
+        border-radius: 15px;
+        transition: all 0.3s;
+        text-align: center;
+    }
+    .quick-action-btn:hover {
+        transform: scale(1.05);
+    }
+    .date-pill {
+        background: rgba(255,255,255,0.2);
+        padding: 0.5rem 1.5rem;
+        border-radius: 50px;
+        display: inline-block;
+    }
+    .glass-effect {
+        background: rgba(255,255,255,0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- CFO Header -->
+    <div class="cfo-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-2">
+                    <i class="fas fa-crown me-2"></i>
+                    لوحة المدير المالي
+                </h1>
+                <p class="mb-3 opacity-75">نظرة شاملة على الوضع المالي للمؤسسة</p>
+                <div class="date-pill">
+                    <i class="fas fa-calendar-alt me-2"></i>
+                    {{ today|date:"l, j F Y" }}
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="glass-effect text-end">
+                    <p class="mb-1 small opacity-75">آخر تحديث</p>
+                    <h4 class="mb-0">{{ last_update|date:"H:i" }}</h4>
+                    <button class="btn btn-sm btn-light mt-2" onclick="refreshDashboard()">
+                        <i class="fas fa-sync"></i> تحديث
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main KPIs -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card kpi-card shadow-lg h-100" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+                <div class="card-body text-white">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <p class="mb-1 opacity-75">إجمالي الإيرادات</p>
+                            <h3 class="kpi-value mb-1">{{ kpi.total_revenue|floatformat:0 }}</h3>
+                            <span class="kpi-trend {% if kpi.revenue_growth > 0 %}trend-up{% else %}trend-down{% endif %}">
+                                <i class="fas fa-arrow-{% if kpi.revenue_growth > 0 %}up{% else %}down{% endif %}"></i>
+                                {{ kpi.revenue_growth|floatformat:1 }}% من الشهر السابق
+                            </span>
+                        </div>
+                        <i class="fas fa-chart-line fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card kpi-card shadow-lg h-100" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
+                <div class="card-body text-white">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <p class="mb-1 opacity-75">إجمالي المصروفات</p>
+                            <h3 class="kpi-value mb-1">{{ kpi.total_expenses|floatformat:0 }}</h3>
+                            <span class="kpi-trend {% if kpi.expense_change < 0 %}trend-up{% else %}trend-down{% endif %}">
+                                <i class="fas fa-arrow-{% if kpi.expense_change < 0 %}down{% else %}up{% endif %}"></i>
+                                {{ kpi.expense_change|floatformat:1 }}% من الشهر السابق
+                            </span>
+                        </div>
+                        <i class="fas fa-money-bill-wave fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card kpi-card shadow-lg h-100" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">
+                <div class="card-body text-white">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <p class="mb-1 opacity-75">صافي الربح</p>
+                            <h3 class="kpi-value mb-1">{{ kpi.net_profit|floatformat:0 }}</h3>
+                            <span class="kpi-trend {% if kpi.profit_margin > 0 %}trend-up{% else %}trend-down{% endif %}">
+                                <i class="fas fa-percentage"></i>
+                                هامش {{ kpi.profit_margin|floatformat:1 }}%
+                            </span>
+                        </div>
+                        <i class="fas fa-hand-holding-usd fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card kpi-card shadow-lg h-100" style="background: linear-gradient(135deg, #11998e, #38ef7d);">
+                <div class="card-body text-white">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <p class="mb-1 opacity-75">التدفق النقدي</p>
+                            <h3 class="kpi-value mb-1">{{ kpi.cash_flow|floatformat:0 }}</h3>
+                            <span class="kpi-trend">
+                                <i class="fas fa-wallet"></i>
+                                السيولة الحالية
+                            </span>
+                        </div>
+                        <i class="fas fa-coins fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card chart-card shadow-sm">
+                <div class="card-header bg-white border-0 pt-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-area text-primary"></i>
+                            اتجاه الإيرادات والمصروفات
+                        </h5>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary active">شهري</button>
+                            <button class="btn btn-outline-primary">ربع سنوي</button>
+                            <button class="btn btn-outline-primary">سنوي</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="revenueExpenseChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card chart-card shadow-sm h-100">
+                <div class="card-header bg-white border-0 pt-4">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie text-success"></i>
+                        توزيع المصروفات
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="expenseDistChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Second Row -->
+    <div class="row mb-4">
+        <!-- Financial Ratios -->
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-percentage"></i>
+                        النسب المالية الرئيسية
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="metric-mini">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>العائد على الأصول (ROA)</span>
+                            <strong class="text-primary">{{ ratios.roa|floatformat:1 }}%</strong>
+                        </div>
+                        <div class="progress mt-2" style="height: 8px;">
+                            <div class="progress-bar bg-primary" style="width: {{ ratios.roa }}%"></div>
+                        </div>
+                    </div>
+                    <div class="metric-mini">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>العائد على حقوق الملكية (ROE)</span>
+                            <strong class="text-success">{{ ratios.roe|floatformat:1 }}%</strong>
+                        </div>
+                        <div class="progress mt-2" style="height: 8px;">
+                            <div class="progress-bar bg-success" style="width: {{ ratios.roe }}%"></div>
+                        </div>
+                    </div>
+                    <div class="metric-mini">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>النسبة الجارية</span>
+                            <strong class="text-info">{{ ratios.current_ratio|floatformat:2 }}</strong>
+                        </div>
+                        <div class="progress mt-2" style="height: 8px;">
+                            <div class="progress-bar bg-info" style="width: {% widthratio ratios.current_ratio 3 100 %}%"></div>
+                        </div>
+                    </div>
+                    <div class="metric-mini">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>نسبة الدين</span>
+                            <strong class="text-warning">{{ ratios.debt_ratio|floatformat:1 }}%</strong>
+                        </div>
+                        <div class="progress mt-2" style="height: 8px;">
+                            <div class="progress-bar bg-warning" style="width: {{ ratios.debt_ratio }}%"></div>
+                        </div>
+                    </div>
+                    <a href="{% url 'accounting:financial_analysis' %}" class="btn btn-outline-primary btn-sm w-100 mt-3">
+                        عرض التحليل الكامل <i class="fas fa-arrow-left"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alerts & Notifications -->
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bell"></i>
+                        تنبيهات هامة
+                        {% if alerts|length > 0 %}
+                        <span class="badge bg-white text-danger ms-2">{{ alerts|length }}</span>
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    {% for alert in alerts %}
+                    <div class="alert-item {{ alert.severity }}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>{{ alert.title }}</strong>
+                                <p class="mb-0 small text-muted">{{ alert.description }}</p>
+                            </div>
+                            <span class="badge 
+                                {% if alert.severity == 'critical' %}bg-danger
+                                {% elif alert.severity == 'warning' %}bg-warning
+                                {% else %}bg-info{% endif %}">
+                                {% if alert.severity == 'critical' %}حرج
+                                {% elif alert.severity == 'warning' %}تحذير
+                                {% else %}معلومة{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-check-circle fa-3x mb-2 text-success"></i>
+                        <p>لا توجد تنبيهات هامة</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Pending Approvals -->
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock"></i>
+                        بانتظار الاعتماد
+                        {% if pending_approvals|length > 0 %}
+                        <span class="badge bg-dark text-warning ms-2">{{ pending_approvals|length }}</span>
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    {% for item in pending_approvals %}
+                    <div class="d-flex justify-content-between align-items-center p-2 mb-2 bg-light rounded">
+                        <div>
+                            <strong>{{ item.title }}</strong>
+                            <p class="mb-0 small text-muted">{{ item.amount|floatformat:2 }}</p>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-success" onclick="quickApprove({{ item.id }})">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="quickReject({{ item.id }})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-inbox fa-3x mb-2"></i>
+                        <p>لا توجد طلبات معلقة</p>
+                    </div>
+                    {% endfor %}
+                    <a href="{% url 'accounting:approval_workflow' %}" class="btn btn-outline-warning btn-sm w-100 mt-2">
+                        عرض جميع الطلبات <i class="fas fa-arrow-left"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Third Row - Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle bg-primary bg-opacity-10 p-3 me-3">
+                            <i class="fas fa-file-invoice fa-2x text-primary"></i>
+                        </div>
+                        <div>
+                            <h6 class="text-muted mb-0">الفواتير المستحقة</h6>
+                            <h4 class="mb-0">{{ stats.pending_invoices }}</h4>
+                            <small class="text-danger">{{ stats.overdue_invoices }} متأخرة</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle bg-success bg-opacity-10 p-3 me-3">
+                            <i class="fas fa-money-check fa-2x text-success"></i>
+                        </div>
+                        <div>
+                            <h6 class="text-muted mb-0">شيكات تستحق</h6>
+                            <h4 class="mb-0">{{ stats.due_cheques }}</h4>
+                            <small class="text-muted">هذا الأسبوع</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle bg-warning bg-opacity-10 p-3 me-3">
+                            <i class="fas fa-balance-scale fa-2x text-warning"></i>
+                        </div>
+                        <div>
+                            <h6 class="text-muted mb-0">تسويات معلقة</h6>
+                            <h4 class="mb-0">{{ stats.pending_reconciliations }}</h4>
+                            <small class="text-muted">بانتظار المراجعة</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle bg-info bg-opacity-10 p-3 me-3">
+                            <i class="fas fa-chart-bar fa-2x text-info"></i>
+                        </div>
+                        <div>
+                            <h6 class="text-muted mb-0">انحراف الموازنة</h6>
+                            <h4 class="mb-0 {% if stats.budget_variance > 0 %}text-danger{% else %}text-success{% endif %}">
+                                {{ stats.budget_variance|floatformat:1 }}%
+                            </h4>
+                            <small class="text-muted">هذا الشهر</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h5 class="mb-3">
+                <i class="fas fa-bolt"></i>
+                إجراءات سريعة
+            </h5>
+        </div>
+        <div class="col">
+            <a href="{% url 'accounting:balance_sheet' %}" class="quick-action-btn btn btn-outline-primary w-100 h-100">
+                <i class="fas fa-balance-scale-right fa-2x mb-2"></i>
+                <br>الميزانية
+            </a>
+        </div>
+        <div class="col">
+            <a href="{% url 'accounting:income_statement' %}" class="quick-action-btn btn btn-outline-success w-100 h-100">
+                <i class="fas fa-chart-line fa-2x mb-2"></i>
+                <br>قائمة الدخل
+            </a>
+        </div>
+        <div class="col">
+            <a href="{% url 'accounting:aging_report' %}" class="quick-action-btn btn btn-outline-warning w-100 h-100">
+                <i class="fas fa-clock fa-2x mb-2"></i>
+                <br>أعمار الديون
+            </a>
+        </div>
+        <div class="col">
+            <a href="{% url 'accounting:custom_reports' %}" class="quick-action-btn btn btn-outline-info w-100 h-100">
+                <i class="fas fa-file-alt fa-2x mb-2"></i>
+                <br>التقارير
+            </a>
+        </div>
+        <div class="col">
+            <a href="{% url 'accounting:budget_dashboard' %}" class="quick-action-btn btn btn-outline-secondary w-100 h-100">
+                <i class="fas fa-chart-pie fa-2x mb-2"></i>
+                <br>الموازنات
+            </a>
+        </div>
+        <div class="col">
+            <a href="{% url 'accounting:audit_log' %}" class="quick-action-btn btn btn-outline-dark w-100 h-100">
+                <i class="fas fa-history fa-2x mb-2"></i>
+                <br>سجل التدقيق
+            </a>
+        </div>
+    </div>
+
+    <!-- Cash Flow Chart -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card chart-card shadow-sm">
+                <div class="card-header bg-white border-0 pt-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-water text-info"></i>
+                            التدفق النقدي الشهري
+                        </h5>
+                        <select class="form-select form-select-sm" style="width: auto;">
+                            <option>2026</option>
+                            <option>2025</option>
+                            <option>2024</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="cashFlowChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Revenue vs Expense Chart
+    const ctx1 = document.getElementById('revenueExpenseChart');
+    if (ctx1) {
+        new Chart(ctx1, {
+            type: 'line',
+            data: {
+                labels: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'],
+                datasets: [
+                    {
+                        label: 'الإيرادات',
+                        data: {{ revenue_trend|safe|default:"[120000, 135000, 140000, 155000, 148000, 162000, 175000, 168000, 180000, 192000, 188000, 205000]" }},
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'المصروفات',
+                        data: {{ expense_trend|safe|default:"[85000, 92000, 88000, 95000, 91000, 98000, 102000, 99000, 105000, 110000, 108000, 115000]" }},
+                        borderColor: '#f5576c',
+                        backgroundColor: 'rgba(245, 87, 108, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    // Expense Distribution Chart
+    const ctx2 = document.getElementById('expenseDistChart');
+    if (ctx2) {
+        new Chart(ctx2, {
+            type: 'doughnut',
+            data: {
+                labels: ['الرواتب', 'الإيجار', 'المرافق', 'التسويق', 'أخرى'],
+                datasets: [{
+                    data: [45, 20, 10, 15, 10],
+                    backgroundColor: ['#667eea', '#f5576c', '#4facfe', '#11998e', '#f093fb']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+
+    // Cash Flow Chart
+    const ctx3 = document.getElementById('cashFlowChart');
+    if (ctx3) {
+        new Chart(ctx3, {
+            type: 'bar',
+            data: {
+                labels: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'],
+                datasets: [
+                    {
+                        label: 'التدفق الداخل',
+                        data: {{ cash_inflow|safe|default:"[125000, 140000, 145000, 160000, 155000, 170000, 182000, 175000, 188000, 200000, 195000, 215000]" }},
+                        backgroundColor: '#10b981'
+                    },
+                    {
+                        label: 'التدفق الخارج',
+                        data: {{ cash_outflow|safe|default:"[90000, 98000, 95000, 102000, 98000, 108000, 115000, 110000, 118000, 125000, 120000, 130000]" }},
+                        backgroundColor: '#ef4444'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    }
+                }
+            }
+        });
+    }
+});
+
+function refreshDashboard() {
+    location.reload();
+}
+
+function quickApprove(id) {
+    if (confirm('هل تريد اعتماد هذا الطلب؟')) {
+        alert('تم الاعتماد');
+        location.reload();
+    }
+}
+
+function quickReject(id) {
+    if (confirm('هل تريد رفض هذا الطلب؟')) {
+        alert('تم الرفض');
+        location.reload();
+    }
+}
+</script>
+{% endblock %}

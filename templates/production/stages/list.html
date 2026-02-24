@@ -1,0 +1,1081 @@
+﻿{% extends 'base_templates/_list_professional.html' %}
+
+{% block hero_icon %}bi-gear-fill{% endblock %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}مراحل الإنتاج{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hero-stages {
+        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
+        color: white;
+        padding: 40px 0;
+        margin: -24px -24px 30px -24px;
+        border-radius: 0 0 30px 30px;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-box {
+        background: white;
+        border-radius: 16px;
+        padding: 25px;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stat-box:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+    }
+    
+    .stat-box::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+    }
+    
+    .stat-box.total::after { background: linear-gradient(90deg, #00b09b, #96c93d); }
+    .stat-box.active::after { background: linear-gradient(90deg, #667eea, #764ba2); }
+    .stat-box.completed::after { background: linear-gradient(90deg, #11998e, #38ef7d); }
+    .stat-box.delayed::after { background: linear-gradient(90deg, #ff416c, #ff4b2b); }
+    
+    .stat-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin: 0 auto 15px;
+    }
+    
+    .stat-box.total .stat-icon { background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%); color: white; }
+    .stat-box.active .stat-icon { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .stat-box.completed .stat-icon { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; }
+    .stat-box.delayed .stat-icon { background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%); color: white; }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #2c3e50;
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        color: #7f8c8d;
+        font-size: 0.9rem;
+    }
+    
+    /* Pipeline View */
+    .pipeline-container {
+        background: white;
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        margin-bottom: 30px;
+        overflow-x: auto;
+    }
+    
+    .pipeline-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+    
+    .pipeline {
+        display: flex;
+        gap: 0;
+        min-width: max-content;
+    }
+    
+    .stage-column {
+        flex: 0 0 280px;
+        position: relative;
+    }
+    
+    .stage-column:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        top: 35px;
+        left: -10px;
+        width: 20px;
+        height: 3px;
+        background: #e9ecef;
+    }
+    
+    .stage-header {
+        padding: 15px 20px;
+        border-radius: 15px 15px 0 0;
+        color: white;
+        font-weight: 600;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .stage-header.preparation { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .stage-header.cutting { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .stage-header.assembly { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .stage-header.finishing { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+    .stage-header.quality { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+    .stage-header.packaging { background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%); }
+    
+    .stage-count {
+        background: rgba(255,255,255,0.3);
+        padding: 4px 12px;
+        border-radius: 15px;
+        font-size: 0.85rem;
+    }
+    
+    .stage-body {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 0 0 15px 15px;
+        min-height: 400px;
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    
+    .order-card {
+        background: white;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        cursor: grab;
+        transition: all 0.3s ease;
+        border-right: 4px solid transparent;
+    }
+    
+    .order-card:hover {
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    
+    .order-card.priority-high { border-right-color: #dc3545; }
+    .order-card.priority-medium { border-right-color: #ffc107; }
+    .order-card.priority-low { border-right-color: #28a745; }
+    
+    .order-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .order-number {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    
+    .order-priority {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+    }
+    
+    .order-priority.high { background: #dc3545; }
+    .order-priority.medium { background: #ffc107; }
+    .order-priority.low { background: #28a745; }
+    
+    .order-product {
+        font-size: 0.9rem;
+        color: #495057;
+        margin-bottom: 10px;
+    }
+    
+    .order-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    .order-quantity {
+        background: #e9ecef;
+        padding: 3px 10px;
+        border-radius: 10px;
+    }
+    
+    .order-time {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .order-progress {
+        margin-top: 10px;
+        height: 6px;
+        background: #e9ecef;
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    
+    .order-progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #00b09b, #96c93d);
+        border-radius: 3px;
+    }
+    
+    /* Stage Cards View */
+    .stages-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 25px;
+    }
+    
+    .stage-card {
+        background: white;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+    }
+    
+    .stage-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 40px rgba(0,0,0,0.12);
+    }
+    
+    .stage-card-header {
+        padding: 25px;
+        color: white;
+        position: relative;
+    }
+    
+    .stage-card-header.preparation { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .stage-card-header.cutting { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .stage-card-header.assembly { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .stage-card-header.finishing { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+    .stage-card-header.quality { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+    .stage-card-header.packaging { background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%); }
+    
+    .stage-card-icon {
+        width: 70px;
+        height: 70px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        margin-bottom: 15px;
+    }
+    
+    .stage-card-header h4 {
+        margin: 0 0 5px 0;
+        font-weight: 600;
+    }
+    
+    .stage-card-header p {
+        margin: 0;
+        opacity: 0.8;
+        font-size: 0.9rem;
+    }
+    
+    .stage-card-body {
+        padding: 25px;
+    }
+    
+    .stage-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .stage-stat {
+        text-align: center;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 12px;
+    }
+    
+    .stage-stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #2c3e50;
+    }
+    
+    .stage-stat-label {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    .stage-workers {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .worker-avatars {
+        display: flex;
+    }
+    
+    .worker-avatar {
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: bold;
+        border: 2px solid white;
+        margin-right: -10px;
+    }
+    
+    .worker-more {
+        background: #e9ecef;
+        color: #6c757d;
+    }
+    
+    .stage-efficiency {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .efficiency-bar {
+        height: 10px;
+        background: #e9ecef;
+        border-radius: 5px;
+        overflow: hidden;
+    }
+    
+    .efficiency-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #00b09b, #96c93d);
+        border-radius: 5px;
+        transition: width 0.5s ease;
+    }
+    
+    .stage-card-footer {
+        padding: 15px 25px;
+        background: #f8f9fa;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .btn-stage {
+        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-stage:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 176, 155, 0.4);
+        color: white;
+    }
+    
+    /* View Toggle */
+    .view-toggle-btn {
+        display: flex;
+        gap: 5px;
+        background: rgba(255,255,255,0.2);
+        padding: 5px;
+        border-radius: 10px;
+    }
+    
+    .view-toggle-btn button {
+        padding: 8px 15px;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .view-toggle-btn button.active {
+        background: white;
+        color: #00b09b;
+    }
+    
+    /* Add Stage Button */
+    .add-stage-card {
+        background: white;
+        border: 3px dashed #dee2e6;
+        border-radius: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 300px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .add-stage-card:hover {
+        border-color: #00b09b;
+        background: #f8fff9;
+    }
+    
+    .add-stage-card i {
+        font-size: 3rem;
+        color: #dee2e6;
+        margin-bottom: 15px;
+        transition: color 0.3s ease;
+    }
+    
+    .add-stage-card:hover i {
+        color: #00b09b;
+    }
+    
+    .add-stage-card span {
+        color: #6c757d;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="hero-stages">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-2">
+                        <li class="breadcrumb-item"><a href="{% url 'core:home' %}" class="text-white-50">الرئيسية</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'production:dashboard' %}" class="text-white-50">الإنتاج</a></li>
+                        <li class="breadcrumb-item active text-white">مراحل الإنتاج</li>
+                    </ol>
+                </nav>
+                <h1 class="mb-2"><i class="bi bi-diagram-3 me-2"></i>مراحل الإنتاج</h1>
+                <p class="mb-0 opacity-75">إدارة ومتابعة مراحل خط الإنتاج</p>
+            </div>
+            <div class="d-flex gap-3 align-items-center">
+                <div class="view-toggle-btn">
+                    <button class="active" data-view="cards"><i class="bi bi-grid-3x2-gap"></i></button>
+                    <button data-view="pipeline"><i class="bi bi-kanban"></i></button>
+                </div>
+                <a href="{% url 'production:stage_create' %}" class="btn btn-light">
+                    <i class="bi bi-plus-circle me-1"></i>
+                    مرحلة جديدة
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-box total">
+            <div class="stat-icon">
+                <i class="bi bi-layers"></i>
+            </div>
+            <div class="stat-value">{{ total_stages|default:"6" }}</div>
+            <div class="stat-label">إجمالي المراحل</div>
+        </div>
+        <div class="stat-box active">
+            <div class="stat-icon">
+                <i class="bi bi-play-circle"></i>
+            </div>
+            <div class="stat-value">{{ active_orders|default:"45" }}</div>
+            <div class="stat-label">أوامر نشطة</div>
+        </div>
+        <div class="stat-box completed">
+            <div class="stat-icon">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="stat-value">{{ completed_today|default:"23" }}</div>
+            <div class="stat-label">مكتمل اليوم</div>
+        </div>
+        <div class="stat-box delayed">
+            <div class="stat-icon">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="stat-value">{{ delayed_orders|default:"3" }}</div>
+            <div class="stat-label">متأخر</div>
+        </div>
+    </div>
+    
+    <!-- Cards View -->
+    <div id="cardsView" class="stages-grid">
+        {% for stage in stages %}
+        <div class="stage-card">
+            <div class="stage-card-header {{ stage.type }}">
+                <div class="stage-card-icon">
+                    <i class="bi bi-{{ stage.icon }}"></i>
+                </div>
+                <h4>{{ stage.name }}</h4>
+                <p>{{ stage.description }}</p>
+            </div>
+            <div class="stage-card-body">
+                <div class="stage-stats">
+                    <div class="stage-stat">
+                        <div class="stage-stat-value">{{ stage.active_orders }}</div>
+                        <div class="stage-stat-label">قيد التنفيذ</div>
+                    </div>
+                    <div class="stage-stat">
+                        <div class="stage-stat-value">{{ stage.waiting_orders }}</div>
+                        <div class="stage-stat-label">بالانتظار</div>
+                    </div>
+                    <div class="stage-stat">
+                        <div class="stage-stat-value">{{ stage.completed_today }}</div>
+                        <div class="stage-stat-label">اليوم</div>
+                    </div>
+                </div>
+                
+                <div class="stage-workers">
+                    <div class="worker-avatars">
+                        {% for worker in stage.workers|slice:":3" %}
+                        <div class="worker-avatar">{{ worker.name|first }}</div>
+                        {% endfor %}
+                        {% if stage.workers.count > 3 %}
+                        <div class="worker-avatar worker-more">+{{ stage.workers.count|add:"-3" }}</div>
+                        {% endif %}
+                    </div>
+                    <span class="me-3 text-muted">{{ stage.workers.count }} عمال</span>
+                </div>
+                
+                <div class="stage-efficiency">
+                    <span>كفاءة المرحلة</span>
+                    <span class="fw-bold">{{ stage.efficiency|default:"85" }}%</span>
+                </div>
+                <div class="efficiency-bar">
+                    <div class="efficiency-fill" style="width: {{ stage.efficiency|default:85 }}%"></div>
+                </div>
+            </div>
+            <div class="stage-card-footer">
+                <small class="text-muted">
+                    <i class="bi bi-clock me-1"></i>
+                    متوسط الوقت: {{ stage.avg_time|default:"45" }} دقيقة
+                </small>
+                <a href="{% url 'production:stage_detail' stage.pk %}" class="btn btn-stage btn-sm">
+                    <i class="bi bi-eye me-1"></i>عرض
+                </a>
+            </div>
+        </div>
+        {% empty %}
+        <!-- Sample Data -->
+        <div class="stage-card">
+            <div class="stage-card-header preparation">
+                <div class="stage-card-icon">
+                    <i class="bi bi-clipboard-check"></i>
+                </div>
+                <h4>التحضير</h4>
+                <p>تجهيز المواد الخام والأدوات</p>
+            </div>
+            <div class="stage-card-body">
+                <div class="stage-stats">
+                    <div class="stage-stat">
+                        <div class="stage-stat-value">8</div>
+                        <div class="stage-stat-label">قيد التنفيذ</div>
+                    </div>
+                    <div class="stage-stat">
+                        <div class="stage-stat-value">12</div>
+                        <div class="stage-stat-label">بالانتظار</div>
+                    </div>
+                    <div class="stage-stat">
+                        <div class="stage-stat-value">15</div>
+                        <div class="stage-stat-label">اليوم</div>
+                    </div>
+                </div>
+                
+                <div class="stage-workers">
+                    <div class="worker-avatars">
+                        <div class="worker-avatar">أ</div>
+                        <div class="worker-avatar">م</div>
+                        <div class="worker-avatar">س</div>
+                        <div class="worker-avatar worker-more">+2</div>
+                    </div>
+                    <span class="me-3 text-muted">5 عمال</span>
+                </div>
+                
+                <div class="stage-efficiency">
+                    <span>كفاءة المرحلة</span>
+                    <span class="fw-bold">92%</span>
+                </div>
+                <div class="efficiency-bar">
+                    <div class="efficiency-fill" style="width: 92%"></div>
+                </div>
+            </div>
+            <div class="stage-card-footer">
+                <small class="text-muted">
+                    <i class="bi bi-clock me-1"></i>
+                    متوسط الوقت: 30 دقيقة
+                </small>
+                <button class="btn btn-stage btn-sm">
+                    <i class="bi bi-eye me-1"></i>عرض
+                </button>
+            </div>
+        </div>
+        
+        <div class="stage-card">
+            <div class="stage-card-header cutting">
+                <div class="stage-card-icon">
+                    <i class="bi bi-scissors"></i>
+                </div>
+                <h4>القص والتشكيل</h4>
+                <p>قص وتشكيل المواد حسب المواصفات</p>
+            </div>
+            <div class="stage-card-body">
+                <div class="stage-stats">
+                    <div class="stage-stat">
+                        <div class="stage-stat-value">6</div>
+                        <div class="stage-stat-label">قيد التنفيذ</div>
+                    </div>
+                    <div class="stage-stat">
+                        <div class="stage-stat-value">8</div>
+                        <div class="stage-stat-label">بالانتظار</div>
+                    </div>
+                    <div class="stage-stat">
+                        <div class="stage-stat-value">12</div>
+                        <div class="stage-stat-label">اليوم</div>
+                    </div>
+                </div>
+                
+                <div class="stage-workers">
+                    <div class="worker-avatars">
+                        <div class="worker-avatar">ف</div>
+                        <div class="worker-avatar">خ</div>
+                        <div class="worker-avatar">ع</div>
+                    </div>
+                    <span class="me-3 text-muted">3 عمال</span>
+                </div>
+                
+                <div class="stage-efficiency">
+                    <span>كفاءة المرحلة</span>
+                    <span class="fw-bold">88%</span>
+                </div>
+                <div class="efficiency-bar">
+                    <div class="efficiency-fill" style="width: 88%"></div>
+                </div>
+            </div>
+            <div class="stage-card-footer">
+                <small class="text-muted">
+                    <i class="bi bi-clock me-1"></i>
+                    متوسط الوقت: 45 دقيقة
+                </small>
+                <button class="btn btn-stage btn-sm">
+                    <i class="bi bi-eye me-1"></i>عرض
+                </button>
+            </div>
+        </div>
+        
+        <div class="stage-card">
+            <div class="stage-card-header assembly">
+                <div class="stage-card-icon">
+                    <i class="bi bi-tools"></i>
+                </div>
+                <h4>التجميع</h4>
+                <p>تجميع الأجزاء وتركيبها</p>
+            </div>
+            <div class="stage-card-body">
+                <div class="stage-stats">
+                    <div class="stage-stat">
+                        <div class="stage-stat-value">10</div>
+                        <div class="stage-stat-label">قيد التنفيذ</div>
+                    </div>
+                    <div class="stage-stat">
+                        <div class="stage-stat-value">5</div>
+                        <div class="stage-stat-label">بالانتظار</div>
+                    </div>
+                    <div class="stage-stat">
+                        <div class="stage-stat-value">18</div>
+                        <div class="stage-stat-label">اليوم</div>
+                    </div>
+                </div>
+                
+                <div class="stage-workers">
+                    <div class="worker-avatars">
+                        <div class="worker-avatar">ي</div>
+                        <div class="worker-avatar">ن</div>
+                        <div class="worker-avatar">ح</div>
+                        <div class="worker-avatar worker-more">+4</div>
+                    </div>
+                    <span class="me-3 text-muted">7 عمال</span>
+                </div>
+                
+                <div class="stage-efficiency">
+                    <span>كفاءة المرحلة</span>
+                    <span class="fw-bold">85%</span>
+                </div>
+                <div class="efficiency-bar">
+                    <div class="efficiency-fill" style="width: 85%"></div>
+                </div>
+            </div>
+            <div class="stage-card-footer">
+                <small class="text-muted">
+                    <i class="bi bi-clock me-1"></i>
+                    متوسط الوقت: 60 دقيقة
+                </small>
+                <button class="btn btn-stage btn-sm">
+                    <i class="bi bi-eye me-1"></i>عرض
+                </button>
+            </div>
+        </div>
+        
+        <div class="stage-card">
+            <div class="stage-card-header quality">
+                <div class="stage-card-icon">
+                    <i class="bi bi-shield-check"></i>
+                </div>
+                <h4>فحص الجودة</h4>
+                <p>فحص واختبار المنتجات</p>
+            </div>
+            <div class="stage-card-body">
+                <div class="stage-stats">
+                    <div class="stage-stat">
+                        <div class="stage-stat-value">4</div>
+                        <div class="stage-stat-label">قيد التنفيذ</div>
+                    </div>
+                    <div class="stage-stat">
+                        <div class="stage-stat-value">6</div>
+                        <div class="stage-stat-label">بالانتظار</div>
+                    </div>
+                    <div class="stage-stat">
+                        <div class="stage-stat-value">20</div>
+                        <div class="stage-stat-label">اليوم</div>
+                    </div>
+                </div>
+                
+                <div class="stage-workers">
+                    <div class="worker-avatars">
+                        <div class="worker-avatar">ر</div>
+                        <div class="worker-avatar">ج</div>
+                    </div>
+                    <span class="me-3 text-muted">2 مفتشين</span>
+                </div>
+                
+                <div class="stage-efficiency">
+                    <span>كفاءة المرحلة</span>
+                    <span class="fw-bold">95%</span>
+                </div>
+                <div class="efficiency-bar">
+                    <div class="efficiency-fill" style="width: 95%"></div>
+                </div>
+            </div>
+            <div class="stage-card-footer">
+                <small class="text-muted">
+                    <i class="bi bi-clock me-1"></i>
+                    متوسط الوقت: 20 دقيقة
+                </small>
+                <button class="btn btn-stage btn-sm">
+                    <i class="bi bi-eye me-1"></i>عرض
+                </button>
+            </div>
+        </div>
+        
+        <div class="stage-card">
+            <div class="stage-card-header packaging">
+                <div class="stage-card-icon">
+                    <i class="bi bi-box-seam"></i>
+                </div>
+                <h4>التغليف والشحن</h4>
+                <p>تغليف المنتجات وتجهيزها للشحن</p>
+            </div>
+            <div class="stage-card-body">
+                <div class="stage-stats">
+                    <div class="stage-stat">
+                        <div class="stage-stat-value">7</div>
+                        <div class="stage-stat-label">قيد التنفيذ</div>
+                    </div>
+                    <div class="stage-stat">
+                        <div class="stage-stat-value">10</div>
+                        <div class="stage-stat-label">بالانتظار</div>
+                    </div>
+                    <div class="stage-stat">
+                        <div class="stage-stat-value">25</div>
+                        <div class="stage-stat-label">اليوم</div>
+                    </div>
+                </div>
+                
+                <div class="stage-workers">
+                    <div class="worker-avatars">
+                        <div class="worker-avatar">ب</div>
+                        <div class="worker-avatar">ت</div>
+                        <div class="worker-avatar">ث</div>
+                    </div>
+                    <span class="me-3 text-muted">3 عمال</span>
+                </div>
+                
+                <div class="stage-efficiency">
+                    <span>كفاءة المرحلة</span>
+                    <span class="fw-bold">90%</span>
+                </div>
+                <div class="efficiency-bar">
+                    <div class="efficiency-fill" style="width: 90%"></div>
+                </div>
+            </div>
+            <div class="stage-card-footer">
+                <small class="text-muted">
+                    <i class="bi bi-clock me-1"></i>
+                    متوسط الوقت: 15 دقيقة
+                </small>
+                <button class="btn btn-stage btn-sm">
+                    <i class="bi bi-eye me-1"></i>عرض
+                </button>
+            </div>
+        </div>
+        
+        <!-- Add Stage Card -->
+        <div class="add-stage-card" data-bs-toggle="modal" data-bs-target="#addStageModal">
+            <i class="bi bi-plus-circle-dotted"></i>
+            <span>إضافة مرحلة جديدة</span>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Pipeline View (Hidden by default) -->
+    <div id="pipelineView" class="pipeline-container" style="display: none;">
+        <div class="pipeline-header">
+            <h5 class="mb-0"><i class="bi bi-kanban me-2"></i>عرض خط الإنتاج</h5>
+            <div>
+                <button class="btn btn-outline-secondary btn-sm me-2">
+                    <i class="bi bi-arrow-clockwise"></i> تحديث
+                </button>
+            </div>
+        </div>
+        <div class="pipeline">
+            <!-- Sample Pipeline Columns -->
+            <div class="stage-column">
+                <div class="stage-header preparation">
+                    <span><i class="bi bi-clipboard-check me-2"></i>التحضير</span>
+                    <span class="stage-count">8</span>
+                </div>
+                <div class="stage-body">
+                    <div class="order-card priority-high">
+                        <div class="order-header">
+                            <span class="order-number">#ORD-2024-156</span>
+                            <div class="order-priority high" title="أولوية عالية"></div>
+                        </div>
+                        <div class="order-product">طاولة خشبية - موديل A1</div>
+                        <div class="order-meta">
+                            <span class="order-quantity">50 قطعة</span>
+                            <span class="order-time"><i class="bi bi-clock"></i> 2 ساعة</span>
+                        </div>
+                        <div class="order-progress">
+                            <div class="order-progress-bar" style="width: 30%"></div>
+                        </div>
+                    </div>
+                    <div class="order-card priority-medium">
+                        <div class="order-header">
+                            <span class="order-number">#ORD-2024-155</span>
+                            <div class="order-priority medium"></div>
+                        </div>
+                        <div class="order-product">كرسي مكتبي - موديل B2</div>
+                        <div class="order-meta">
+                            <span class="order-quantity">30 قطعة</span>
+                            <span class="order-time"><i class="bi bi-clock"></i> 4 ساعة</span>
+                        </div>
+                        <div class="order-progress">
+                            <div class="order-progress-bar" style="width: 60%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stage-column">
+                <div class="stage-header cutting">
+                    <span><i class="bi bi-scissors me-2"></i>القص</span>
+                    <span class="stage-count">6</span>
+                </div>
+                <div class="stage-body">
+                    <div class="order-card priority-low">
+                        <div class="order-header">
+                            <span class="order-number">#ORD-2024-154</span>
+                            <div class="order-priority low"></div>
+                        </div>
+                        <div class="order-product">رف معدني - موديل C3</div>
+                        <div class="order-meta">
+                            <span class="order-quantity">20 قطعة</span>
+                            <span class="order-time"><i class="bi bi-clock"></i> 1 ساعة</span>
+                        </div>
+                        <div class="order-progress">
+                            <div class="order-progress-bar" style="width: 45%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stage-column">
+                <div class="stage-header assembly">
+                    <span><i class="bi bi-tools me-2"></i>التجميع</span>
+                    <span class="stage-count">10</span>
+                </div>
+                <div class="stage-body">
+                    <div class="order-card priority-high">
+                        <div class="order-header">
+                            <span class="order-number">#ORD-2024-150</span>
+                            <div class="order-priority high"></div>
+                        </div>
+                        <div class="order-product">مكتب تنفيذي - موديل D4</div>
+                        <div class="order-meta">
+                            <span class="order-quantity">10 قطع</span>
+                            <span class="order-time"><i class="bi bi-clock"></i> 5 ساعة</span>
+                        </div>
+                        <div class="order-progress">
+                            <div class="order-progress-bar" style="width: 75%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stage-column">
+                <div class="stage-header quality">
+                    <span><i class="bi bi-shield-check me-2"></i>الجودة</span>
+                    <span class="stage-count">4</span>
+                </div>
+                <div class="stage-body">
+                    <div class="order-card priority-medium">
+                        <div class="order-header">
+                            <span class="order-number">#ORD-2024-148</span>
+                            <div class="order-priority medium"></div>
+                        </div>
+                        <div class="order-product">خزانة ملفات - موديل E5</div>
+                        <div class="order-meta">
+                            <span class="order-quantity">15 قطعة</span>
+                            <span class="order-time"><i class="bi bi-clock"></i> 30 دقيقة</span>
+                        </div>
+                        <div class="order-progress">
+                            <div class="order-progress-bar" style="width: 90%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stage-column">
+                <div class="stage-header packaging">
+                    <span><i class="bi bi-box-seam me-2"></i>التغليف</span>
+                    <span class="stage-count">7</span>
+                </div>
+                <div class="stage-body">
+                    <div class="order-card priority-low">
+                        <div class="order-header">
+                            <span class="order-number">#ORD-2024-145</span>
+                            <div class="order-priority low"></div>
+                        </div>
+                        <div class="order-product">طاولة اجتماعات - موديل F6</div>
+                        <div class="order-meta">
+                            <span class="order-quantity">5 قطع</span>
+                            <span class="order-time"><i class="bi bi-clock"></i> 15 دقيقة</span>
+                        </div>
+                        <div class="order-progress">
+                            <div class="order-progress-bar" style="width: 100%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Stage Modal -->
+<div class="modal fade" id="addStageModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>إضافة مرحلة جديدة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="mb-3">
+                        <label class="form-label">اسم المرحلة</label>
+                        <input type="text" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الوصف</label>
+                        <textarea class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الترتيب</label>
+                        <input type="number" class="form-control" min="1">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">اللون</label>
+                        <input type="color" class="form-control form-control-color" value="#00b09b">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>حفظ
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// View Toggle
+document.querySelectorAll('.view-toggle-btn button').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.view-toggle-btn button').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        
+        const view = this.dataset.view;
+        if (view === 'cards') {
+            document.getElementById('cardsView').style.display = 'grid';
+            document.getElementById('pipelineView').style.display = 'none';
+        } else {
+            document.getElementById('cardsView').style.display = 'none';
+            document.getElementById('pipelineView').style.display = 'block';
+        }
+    });
+});
+
+// Drag and drop for pipeline
+document.querySelectorAll('.order-card').forEach(card => {
+    card.setAttribute('draggable', true);
+    
+    card.addEventListener('dragstart', function(e) {
+        e.dataTransfer.setData('text/plain', this.innerHTML);
+        this.classList.add('dragging');
+    });
+    
+    card.addEventListener('dragend', function() {
+        this.classList.remove('dragging');
+    });
+});
+
+document.querySelectorAll('.stage-body').forEach(body => {
+    body.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        this.style.background = '#e8f4e8';
+    });
+    
+    body.addEventListener('dragleave', function() {
+        this.style.background = '#f8f9fa';
+    });
+    
+    body.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.style.background = '#f8f9fa';
+    });
+});
+</script>
+{% endblock %}

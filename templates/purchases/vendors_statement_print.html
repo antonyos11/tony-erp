@@ -1,0 +1,70 @@
+﻿{% load i18n %}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<title>طباعة كشف مورد - {{ selected_supplier.name }}</title>
+<style>
+body { font-family: sans-serif; direction: rtl; }
+.table { width:100%; border-collapse:collapse; }
+.table th, .table td { border:1px solid #444; padding:4px 6px; font-size:12px; }
+.header { text-align:center; margin-bottom:10px; }
+.small { font-size:11px; }
+@media print { .no-print { display:none; } }
+</style>
+</head>
+<body>
+<div class="no-print" style="margin-bottom:8px; text-align:center;">
+  <button onclick="window.print()">طباعة</button>
+  <a href="{% url 'purchases:vendors_statement' %}?supplier={{ selected_supplier.id }}&date_from={{ date_from }}&date_to={{ date_to }}" style="margin-right:10px;">عودة</a>
+</div>
+<div class="header">
+  <h2>كشف حساب مورد</h2>
+  <h3>{{ selected_supplier.name }}</h3>
+  <p class="small">الفترة: {{ date_from|default:'---' }} إلى {{ date_to|default:'اليوم' }}</p>
+  <p class="small">الرصيد الافتتاحي: {{ statement.opening_balance }}</p>
+</div>
+<div class="table-responsive"><table class="table">
+  <thead>
+    <tr>
+      <th>التاريخ</th>
+      <th>النوع</th>
+      <th>رقم</th>
+      <th>مدين</th>
+      <th>دائن</th>
+      <th>الرصيد</th>
+      <th>متبقي</th>
+      <th>الوصف</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in statement.timeline %}
+    <tr>
+      <td>{{ row.date }}</td>
+      <td>{% if row.type == 'bill' %}فاتورة{% else %}دفعة{% endif %}</td>
+      <td>{{ row.number }}</td>
+      <td>{% if row.debit %}{{ row.debit }}{% endif %}</td>
+      <td>{% if row.credit %}{{ row.credit }}{% endif %}</td>
+      <td>{{ row.balance }}</td>
+      <td>{% if row.type == 'bill' %}{{ row.remaining }}{% endif %}</td>
+      <td>{{ row.description }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table></div>
+<h4>شيخوخة الذمم</h4>
+<div class="table-responsive"><table class="table">
+  <thead>
+    <tr><th>الفترة</th><th>القيمة</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>0-30</td><td>{{ statement.aging.bucket_0_30 }}</td></tr>
+    <tr><td>31-60</td><td>{{ statement.aging.bucket_31_60 }}</td></tr>
+    <tr><td>61-90</td><td>{{ statement.aging.bucket_61_90 }}</td></tr>
+    <tr><td>+90</td><td>{{ statement.aging.bucket_90_plus }}</td></tr>
+    <tr><td>الإجمالي</td><td>{{ statement.aging.total }}</td></tr>
+  </tbody>
+</table></div>
+</body>
+</html>
+

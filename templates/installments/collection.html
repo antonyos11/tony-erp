@@ -1,0 +1,545 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans 'التحصيل ومتابعة الأقساط' %}{% endblock %}
+
+{% block extra_head %}
+<style>
+    :root {
+        --ink: #0f172a;
+        --muted: #a5b4fc;
+        --primary: #22c55e;
+        --accent: #22d3ee;
+        --glass: rgba(255,255,255,0.08);
+        --panel: rgba(255,255,255,0.06);
+    }
+
+    .page-shell {
+        position: relative;
+        background: radial-gradient(circle at 20% 10%, rgba(34,211,238,0.16), transparent 35%),
+                    radial-gradient(circle at 80% 0%, rgba(34,197,94,0.14), transparent 30%),
+                    linear-gradient(135deg, #0b1224 0%, #0f172a 60%, #0a0f1d 100%);
+        border-radius: 28px;
+        padding: 26px;
+        box-shadow: 0 25px 65px rgba(0,0,0,0.35);
+        overflow: hidden;
+    }
+
+    .collection-header {
+        background: linear-gradient(120deg, rgba(34,197,94,0.38), rgba(34,211,238,0.32));
+        color: #fff;
+        padding: 28px;
+        border-radius: 20px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(255,255,255,0.08);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.28);
+        position: relative;
+    }
+
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px; }
+    .stat-box {
+        background: var(--panel);
+        border-radius: 16px;
+        padding: 16px;
+        text-align: center;
+        color: #e2e8f0;
+        border: 1px solid rgba(255,255,255,0.1);
+        box-shadow: 0 18px 35px rgba(0,0,0,0.25);
+    }
+    .stat-box.today { border-right: 4px solid #fbbf24; }
+    .stat-box.overdue { border-right: 4px solid #ef4444; }
+    .stat-box.upcoming { border-right: 4px solid #22d3ee; }
+    .stat-box.collected { border-right: 4px solid #22c55e; }
+    .stat-value { font-size: 1.9rem; font-weight: 800; color: #c7d2fe; }
+    .stat-label { color: #cbd5e1; font-size: 0.9rem; }
+
+    .tabs-container {
+        background: rgba(255,255,255,0.05);
+        border-radius: 18px;
+        box-shadow: 0 24px 50px rgba(0,0,0,0.32);
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.08);
+        backdrop-filter: blur(12px);
+    }
+
+    .nav-tabs { border: none; background: rgba(255,255,255,0.04); padding: 16px 16px 0; }
+    .nav-tabs .nav-link {
+        border: 1px solid transparent;
+        color: #cbd5e1;
+        padding: 12px 22px;
+        border-radius: 12px 12px 0 0;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+    }
+    .nav-tabs .nav-link.active {
+        background: rgba(255,255,255,0.1);
+        color: #22d3ee;
+        border-color: rgba(255,255,255,0.14);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+    }
+    .nav-tabs .nav-link .badge { margin-right: 8px; }
+    .tab-content { padding: 22px; color: #e2e8f0; }
+
+    .installment-card {
+        background: rgba(255,255,255,0.05);
+        border-radius: 14px;
+        padding: 18px;
+        margin-bottom: 14px;
+        transition: all 0.25s ease;
+        border: 1px solid rgba(255,255,255,0.08);
+        box-shadow: 0 16px 35px rgba(0,0,0,0.25);
+    }
+    .installment-card:hover { transform: translateY(-2px); box-shadow: 0 20px 45px rgba(0,0,0,0.3); }
+    .installment-card.overdue { border-right: 4px solid #ef4444; background: rgba(239,68,68,0.07); }
+    .installment-card.today { border-right: 4px solid #fbbf24; background: rgba(251,191,36,0.06); }
+    .installment-card.upcoming { border-right: 4px solid #22d3ee; }
+
+    .card-header-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; gap: 10px; }
+    .customer-info { display: flex; align-items: center; gap: 12px; }
+    .customer-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #22d3ee, #22c55e);
+        color: #0b1224;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+    }
+    .customer-name { font-weight: 700; color: #e2e8f0; font-size: 1.05rem; }
+    .customer-phone { color: #cbd5e1; font-size: 0.9rem; }
+
+    .installment-badge {
+        padding: 6px 14px;
+        border-radius: 999px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        border: 1px solid rgba(255,255,255,0.12);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
+    }
+    .badge-overdue { background: rgba(239,68,68,0.16); color: #fecdd3; }
+    .badge-today { background: rgba(251,191,36,0.16); color: #fef08a; }
+    .badge-upcoming { background: rgba(34,211,238,0.18); color: #bae6fd; }
+
+    .card-body-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 12px; }
+    .info-item { text-align: center; padding: 10px; background: rgba(255,255,255,0.04); border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); }
+    .info-item .label { font-size: 0.8rem; color: #cbd5e1; margin-bottom: 5px; }
+    .info-item .value { font-weight: 800; color: #e2e8f0; font-size: 1.05rem; }
+    .info-item .value.danger { color: #fca5a5; }
+
+    .card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .card-actions .btn { border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0; }
+
+    .empty-tab { text-align: center; padding: 50px 20px; color: #cbd5e1; }
+    .empty-tab i { font-size: 3.4rem; opacity: 0.35; margin-bottom: 14px; }
+
+    .quick-pay-modal .modal-header { background: linear-gradient(135deg, #22c55e 0%, #22d3ee 100%); color: white; }
+    .quick-pay-modal .modal-content { border-radius: 16px; overflow: hidden; }
+
+    .payment-summary { background: rgba(255,255,255,0.06); border-radius: 12px; padding: 18px; margin-bottom: 16px; color: #e2e8f0; border: 1px solid rgba(255,255,255,0.08); }
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .summary-row:last-child {
+        border-bottom: none;
+    }
+    
+    .summary-row.total {
+        font-weight: 700;
+        font-size: 1.2rem;
+        color: #28a745;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 page-shell">
+    <!-- Header -->
+    <div class="collection-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="h3 mb-2">
+                    <i class="bi bi-wallet2 me-2"></i>
+                    {% trans 'التحصيل ومتابعة الأقساط' %}
+                </h1>
+                <p class="mb-0 opacity-75">{% trans 'متابعة وتحصيل الأقساط المستحقة' %}</p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#searchModal">
+                    <i class="bi bi-search me-1"></i> {% trans 'بحث سريع' %}
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stats -->
+    <div class="stats-row">
+        <div class="stat-box today">
+            <div class="stat-value">{{ today_count|default:0 }}</div>
+            <div class="stat-label">{% trans 'مستحقة اليوم' %}</div>
+        </div>
+        <div class="stat-box overdue">
+            <div class="stat-value">{{ overdue_count|default:0 }}</div>
+            <div class="stat-label">{% trans 'متأخرة' %}</div>
+        </div>
+        <div class="stat-box upcoming">
+            <div class="stat-value">{{ upcoming_count|default:0 }}</div>
+            <div class="stat-label">{% trans 'قادمة (7 أيام)' %}</div>
+        </div>
+        <div class="stat-box collected">
+            <div class="stat-value">{{ collected_today|floatformat:0|intcomma|default:0 }}</div>
+            <div class="stat-label">{% trans 'محصّل اليوم' %}</div>
+        </div>
+    </div>
+    
+    <!-- Tabs -->
+    <div class="tabs-container">
+        <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#today-tab">
+                    <i class="bi bi-calendar-check me-1"></i>
+                    {% trans 'اليوم' %}
+                    {% if today_count %}<span class="badge bg-warning">{{ today_count }}</span>{% endif %}
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#overdue-tab">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    {% trans 'المتأخرة' %}
+                    {% if overdue_count %}<span class="badge bg-danger">{{ overdue_count }}</span>{% endif %}
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#upcoming-tab">
+                    <i class="bi bi-calendar-week me-1"></i>
+                    {% trans 'القادمة' %}
+                    {% if upcoming_count %}<span class="badge bg-info">{{ upcoming_count }}</span>{% endif %}
+                </button>
+            </li>
+        </ul>
+        
+        <div class="tab-content">
+            <!-- Today Tab -->
+            <div class="tab-pane fade show active" id="today-tab">
+                {% if today_installments %}
+                {% for inst in today_installments %}
+                <div class="installment-card today">
+                    <div class="card-header-row">
+                        <div class="customer-info">
+                            <div class="customer-avatar">{{ inst.plan.customer.name|slice:":1" }}</div>
+                            <div>
+                                <div class="customer-name">{{ inst.plan.customer.name }}</div>
+                                <div class="customer-phone">
+                                    <i class="bi bi-telephone me-1"></i>
+                                    {{ inst.plan.customer_phone|default:inst.plan.customer.phone|default:"-" }}
+                                </div>
+                            </div>
+                        </div>
+                        <span class="installment-badge badge-today">
+                            <i class="bi bi-clock me-1"></i>{% trans 'مستحق اليوم' %}
+                        </span>
+                    </div>
+                    
+                    <div class="card-body-row">
+                        <div class="info-item">
+                            <div class="label">{% trans 'رقم القسط' %}</div>
+                            <div class="value">{{ inst.installment_number }} / {{ inst.plan.number_of_installments }}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">{% trans 'قيمة القسط' %}</div>
+                            <div class="value">{{ inst.amount|floatformat:2 }} ج.م</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">{% trans 'رقم العقد' %}</div>
+                            <div class="value">#{{ inst.plan.id }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-actions">
+                        <button class="btn btn-success" onclick="openPayModal({{ inst.id }}, '{{ inst.plan.customer.name }}', {{ inst.amount }}, {{ inst.installment_number }})">
+                            <i class="bi bi-cash me-1"></i> {% trans 'تحصيل' %}
+                        </button>
+                        <a href="{% url 'installments:contract_detail' inst.plan.id %}" class="btn btn-outline-primary">
+                            <i class="bi bi-eye me-1"></i> {% trans 'العقد' %}
+                        </a>
+                        <a href="tel:{{ inst.plan.customer_phone|default:inst.plan.customer.phone }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-telephone"></i>
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="empty-tab">
+                    <i class="bi bi-calendar-check"></i>
+                    <h5 class="text-muted">{% trans 'لا توجد أقساط مستحقة اليوم' %}</h5>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Overdue Tab -->
+            <div class="tab-pane fade" id="overdue-tab">
+                {% if overdue_installments %}
+                {% for inst in overdue_installments %}
+                <div class="installment-card overdue">
+                    <div class="card-header-row">
+                        <div class="customer-info">
+                            <div class="customer-avatar">{{ inst.plan.customer.name|slice:":1" }}</div>
+                            <div>
+                                <div class="customer-name">{{ inst.plan.customer.name }}</div>
+                                <div class="customer-phone">
+                                    <i class="bi bi-telephone me-1"></i>
+                                    {{ inst.plan.customer_phone|default:inst.plan.customer.phone|default:"-" }}
+                                </div>
+                            </div>
+                        </div>
+                        <span class="installment-badge badge-overdue">
+                            <i class="bi bi-exclamation-circle me-1"></i>
+                            {% trans 'متأخر' %} {{ inst.days_overdue }} {% trans 'يوم' %}
+                        </span>
+                    </div>
+                    
+                    <div class="card-body-row">
+                        <div class="info-item">
+                            <div class="label">{% trans 'رقم القسط' %}</div>
+                            <div class="value">{{ inst.installment_number }} / {{ inst.plan.number_of_installments }}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">{% trans 'قيمة القسط' %}</div>
+                            <div class="value danger">{{ inst.amount|floatformat:2 }} ج.م</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">{% trans 'تاريخ الاستحقاق' %}</div>
+                            <div class="value danger">{{ inst.due_date|date:"Y/m/d" }}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">{% trans 'غرامة التأخير' %}</div>
+                            <div class="value danger">{{ inst.late_fee|floatformat:2 }} ج.م</div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-actions">
+                        <button class="btn btn-success" onclick="openPayModal({{ inst.id }}, '{{ inst.plan.customer.name }}', {{ inst.amount|add:inst.late_fee }}, {{ inst.installment_number }})">
+                            <i class="bi bi-cash me-1"></i> {% trans 'تحصيل' %}
+                        </button>
+                        <a href="{% url 'installments:contract_detail' inst.plan.id %}" class="btn btn-outline-primary">
+                            <i class="bi bi-eye me-1"></i> {% trans 'العقد' %}
+                        </a>
+                        <a href="tel:{{ inst.plan.customer_phone|default:inst.plan.customer.phone }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-telephone"></i>
+                        </a>
+                        <button class="btn btn-outline-warning" onclick="sendReminder({{ inst.id }})">
+                            <i class="bi bi-bell"></i> {% trans 'تذكير' %}
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="empty-tab">
+                    <i class="bi bi-check-circle text-success"></i>
+                    <h5 class="text-muted">{% trans 'لا توجد أقساط متأخرة' %}</h5>
+                    <p class="text-muted">{% trans 'جميع العملاء ملتزمون بالسداد' %}</p>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Upcoming Tab -->
+            <div class="tab-pane fade" id="upcoming-tab">
+                {% if upcoming_installments %}
+                {% for inst in upcoming_installments %}
+                <div class="installment-card upcoming">
+                    <div class="card-header-row">
+                        <div class="customer-info">
+                            <div class="customer-avatar">{{ inst.plan.customer.name|slice:":1" }}</div>
+                            <div>
+                                <div class="customer-name">{{ inst.plan.customer.name }}</div>
+                                <div class="customer-phone">
+                                    <i class="bi bi-telephone me-1"></i>
+                                    {{ inst.plan.customer_phone|default:inst.plan.customer.phone|default:"-" }}
+                                </div>
+                            </div>
+                        </div>
+                        <span class="installment-badge badge-upcoming">
+                            <i class="bi bi-calendar me-1"></i>{{ inst.due_date|date:"Y/m/d" }}
+                        </span>
+                    </div>
+                    
+                    <div class="card-body-row">
+                        <div class="info-item">
+                            <div class="label">{% trans 'رقم القسط' %}</div>
+                            <div class="value">{{ inst.installment_number }} / {{ inst.plan.number_of_installments }}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">{% trans 'قيمة القسط' %}</div>
+                            <div class="value">{{ inst.amount|floatformat:2 }} ج.م</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">{% trans 'باقي' %}</div>
+                            <div class="value">{{ inst.days_until_due }} {% trans 'يوم' %}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-actions">
+                        <button class="btn btn-success" onclick="openPayModal({{ inst.id }}, '{{ inst.plan.customer.name }}', {{ inst.amount }}, {{ inst.installment_number }})">
+                            <i class="bi bi-cash me-1"></i> {% trans 'تحصيل مسبق' %}
+                        </button>
+                        <a href="{% url 'installments:contract_detail' inst.plan.id %}" class="btn btn-outline-primary">
+                            <i class="bi bi-eye me-1"></i> {% trans 'العقد' %}
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="empty-tab">
+                    <i class="bi bi-calendar-x"></i>
+                    <h5 class="text-muted">{% trans 'لا توجد أقساط قادمة في الأسبوع القادم' %}</h5>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Pay Modal -->
+<div class="modal fade quick-pay-modal" id="payModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-cash-coin me-2"></i>{% trans 'تحصيل قسط' %}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="paymentForm" method="post" action="#" data-base-url="/installments/installments/__PK__/pay-ajax/">
+                    {% csrf_token %}
+                    <input type="hidden" name="installment_id" id="payInstallmentId">
+                    
+                    <div class="payment-summary">
+                        <div class="summary-row">
+                            <span>{% trans 'العميل' %}</span>
+                            <span id="payCustomerName" class="fw-bold"></span>
+                        </div>
+                        <div class="summary-row">
+                            <span>{% trans 'رقم القسط' %}</span>
+                            <span id="payInstallmentNumber"></span>
+                        </div>
+                        <div class="summary-row total">
+                            <span>{% trans 'المبلغ المستحق' %}</span>
+                            <span id="payAmount"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">{% trans 'المبلغ المدفوع' %}</label>
+                        <div class="input-group input-group-lg">
+                            <input type="number" step="0.01" name="amount" id="payAmountInput" class="form-control text-center fw-bold" required>
+                            <span class="input-group-text">{% trans 'ج.م' %}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">{% trans 'طريقة الدفع' %}</label>
+                        <select name="payment_method" class="form-select">
+                            <option value="cash">{% trans 'نقدي' %}</option>
+                            <option value="card">{% trans 'بطاقة' %}</option>
+                            <option value="transfer">{% trans 'تحويل بنكي' %}</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">{% trans 'ملاحظات' %}</label>
+                        <textarea name="notes" class="form-control" rows="2"></textarea>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="bi bi-check-circle me-2"></i>{% trans 'تأكيد التحصيل' %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openPayModal(installmentId, customerName, amount, installmentNumber) {
+    document.getElementById('payInstallmentId').value = installmentId;
+    document.getElementById('payCustomerName').textContent = customerName;
+    document.getElementById('payInstallmentNumber').textContent = installmentNumber;
+    document.getElementById('payAmount').textContent = amount.toFixed(2) + ' ج.م';
+    document.getElementById('payAmountInput').value = amount.toFixed(2);
+    
+    // Set the form action URL with the correct installment ID
+    const form = document.getElementById('paymentForm');
+    const baseUrl = form.dataset.baseUrl.replace('__PK__', installmentId);
+    form.action = baseUrl;
+    
+    new bootstrap.Modal(document.getElementById('payModal')).show();
+}
+
+function sendReminder(installmentId) {
+    if (confirm('{% trans "هل تريد إرسال تذكير للعميل؟" %}')) {
+        fetch('/installments/send-reminder/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({installment_id: installmentId})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('{% trans "تم إرسال التذكير بنجاح" %}');
+            }
+        });
+    }
+}
+
+document.getElementById('paymentForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const submitBtn = this.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>{% trans "جاري التحصيل..." %}';
+    
+    fetch(this.action, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('payModal')).hide();
+            if (data.receipt_url) {
+                if (confirm('{% trans "تم التحصيل بنجاح! هل تريد طباعة الإيصال؟" %}')) {
+                    window.open(data.receipt_url, '_blank');
+                }
+            }
+            location.reload();
+        } else {
+            alert(data.error || '{% trans "حدث خطأ" %}');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>{% trans "تأكيد التحصيل" %}';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>{% trans "تأكيد التحصيل" %}';
+    });
+});
+</script>
+{% endblock %}

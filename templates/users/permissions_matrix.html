@@ -1,0 +1,737 @@
+﻿{% extends 'base_v2.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}مصفوفة الصلاحيات{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hero-permissions {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+        padding: 40px 0;
+        margin: -24px -24px 30px -24px;
+        border-radius: 0 0 30px 30px;
+    }
+    
+    .matrix-container {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .matrix-header {
+        padding: 25px 30px;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .matrix-filters {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    
+    .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .filter-group label {
+        font-weight: 500;
+        color: #6c757d;
+        white-space: nowrap;
+    }
+    
+    .matrix-table-wrapper {
+        overflow-x: auto;
+        max-height: calc(100vh - 350px);
+    }
+    
+    .matrix-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        min-width: 1200px;
+    }
+    
+    .matrix-table thead {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .matrix-table thead th {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 15px 10px;
+        font-weight: 600;
+        text-align: center;
+        border-bottom: 2px solid #dee2e6;
+        font-size: 0.85rem;
+    }
+    
+    .matrix-table thead th:first-child {
+        position: sticky;
+        right: 0;
+        z-index: 11;
+        background: #f8f9fa;
+        min-width: 200px;
+        text-align: right;
+    }
+    
+    .matrix-table tbody td {
+        padding: 12px 10px;
+        text-align: center;
+        border-bottom: 1px solid #f0f0f0;
+        vertical-align: middle;
+    }
+    
+    .matrix-table tbody td:first-child {
+        position: sticky;
+        right: 0;
+        background: white;
+        text-align: right;
+        font-weight: 500;
+        z-index: 5;
+    }
+    
+    .matrix-table tbody tr:hover td {
+        background-color: #f8f9fa;
+    }
+    
+    .matrix-table tbody tr:hover td:first-child {
+        background-color: #f0f4ff;
+    }
+    
+    .permission-check {
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        border: 2px solid #dee2e6;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .permission-check:hover {
+        border-color: #6366f1;
+    }
+    
+    .permission-check.checked {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        border-color: #6366f1;
+        color: white;
+    }
+    
+    .permission-check.partial {
+        background: linear-gradient(135deg, #ffc107 0%, #ffdb58 100%);
+        border-color: #ffc107;
+        color: #212529;
+    }
+    
+    .permission-check i {
+        font-size: 0.75rem;
+    }
+    
+    .role-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 15px;
+        border-radius: 25px;
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+    
+    .role-badge.admin {
+        background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
+        color: white;
+    }
+    
+    .role-badge.manager {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+    }
+    
+    .role-badge.user {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+    }
+    
+    .role-badge.guest {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        color: white;
+    }
+    
+    .module-header {
+        background: #f8f9fa !important;
+    }
+    
+    .module-header td {
+        font-weight: 600 !important;
+        color: #495057;
+        padding: 15px 10px !important;
+    }
+    
+    .module-header td:first-child {
+        background: #e9ecef !important;
+    }
+    
+    .permission-row {
+        padding-right: 20px !important;
+    }
+    
+    .legend-section {
+        padding: 20px 30px;
+        background: #f8f9fa;
+        border-top: 1px solid #e9ecef;
+        display: flex;
+        gap: 30px;
+        flex-wrap: wrap;
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.9rem;
+    }
+    
+    .legend-box {
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+    }
+    
+    .legend-box.full {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    }
+    
+    .legend-box.partial {
+        background: linear-gradient(135deg, #ffc107 0%, #ffdb58 100%);
+    }
+    
+    .legend-box.none {
+        background: white;
+        border: 2px solid #dee2e6;
+    }
+    
+    .quick-actions {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .btn-apply {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+        border: none;
+        padding: 10px 25px;
+        border-radius: 10px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-apply:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(99, 102, 241, 0.4);
+        color: white;
+    }
+    
+    .column-header {
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+        transform: rotate(180deg);
+        white-space: nowrap;
+        min-height: 120px;
+    }
+    
+    .action-col {
+        min-width: 60px;
+    }
+    
+    .select-all-row {
+        background: #e8e8ff !important;
+    }
+    
+    .select-all-row td {
+        background: #e8e8ff !important;
+        font-weight: 600;
+    }
+    
+    .select-all-row td:first-child {
+        background: #d8d8ff !important;
+    }
+    
+    /* Tooltip */
+    .permission-tooltip {
+        position: relative;
+    }
+    
+    .permission-tooltip::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #333;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-size: 0.75rem;
+        white-space: nowrap;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .permission-tooltip:hover::after {
+        opacity: 1;
+        visibility: visible;
+    }
+    
+    /* Stats Summary */
+    .stats-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        padding: 20px 30px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+    
+    .stat-item {
+        text-align: center;
+    }
+    
+    .stat-item .value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #6366f1;
+    }
+    
+    .stat-item .label {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="hero-permissions">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-2">
+                        <li class="breadcrumb-item"><a href="{% url 'core:home' %}" class="text-white-50">الرئيسية</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'users:list' %}" class="text-white-50">المستخدمين</a></li>
+                        <li class="breadcrumb-item active text-white">مصفوفة الصلاحيات</li>
+                    </ol>
+                </nav>
+                <h1 class="mb-2"><i class="bi bi-grid-3x3-gap me-2"></i>مصفوفة الصلاحيات</h1>
+                <p class="mb-0 opacity-75">إدارة صلاحيات الأدوار والمستخدمين بشكل شامل</p>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-light" onclick="saveChanges()">
+                    <i class="bi bi-save me-1"></i>
+                    حفظ التغييرات
+                </button>
+                <button class="btn btn-outline-light" onclick="resetChanges()">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>
+                    إعادة تعيين
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid px-4">
+    <div class="matrix-container">
+        <!-- Stats Summary -->
+        <div class="stats-summary">
+            <div class="stat-item">
+                <div class="value">{{ roles_count|default:"5" }}</div>
+                <div class="label">الأدوار</div>
+            </div>
+            <div class="stat-item">
+                <div class="value">{{ modules_count|default:"12" }}</div>
+                <div class="label">الموديولات</div>
+            </div>
+            <div class="stat-item">
+                <div class="value">{{ permissions_count|default:"156" }}</div>
+                <div class="label">الصلاحيات</div>
+            </div>
+            <div class="stat-item">
+                <div class="value">{{ active_permissions|default:"89" }}%</div>
+                <div class="label">مفعّلة</div>
+            </div>
+        </div>
+        
+        <!-- Matrix Header -->
+        <div class="matrix-header">
+            <div class="matrix-filters">
+                <div class="filter-group">
+                    <label>الموديول:</label>
+                    <select class="form-select form-select-sm" id="moduleFilter" style="width: 180px;">
+                        <option value="">جميع الموديولات</option>
+                        <option value="inventory">المخزون</option>
+                        <option value="sales">المبيعات</option>
+                        <option value="purchases">المشتريات</option>
+                        <option value="hr">الموارد البشرية</option>
+                        <option value="accounting">المحاسبة</option>
+                        <option value="production">الإنتاج</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>الدور:</label>
+                    <select class="form-select form-select-sm" id="roleFilter" style="width: 150px;">
+                        <option value="">جميع الأدوار</option>
+                        {% for role in roles %}
+                        <option value="{{ role.pk }}">{{ role.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <input type="text" class="form-control form-control-sm" placeholder="بحث..." id="searchPermission" style="width: 200px;">
+                </div>
+            </div>
+            <div class="quick-actions">
+                <button class="btn btn-outline-secondary btn-sm" onclick="expandAll()">
+                    <i class="bi bi-arrows-expand"></i> توسيع الكل
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="collapseAll()">
+                    <i class="bi bi-arrows-collapse"></i> طي الكل
+                </button>
+            </div>
+        </div>
+        
+        <!-- Matrix Table -->
+        <div class="matrix-table-wrapper">
+            <div class="table-responsive"><table class="matrix-table">
+                <thead>
+                    <tr>
+                        <th>الصلاحية</th>
+                        <th class="action-col">
+                            <span class="role-badge admin">مدير النظام</span>
+                        </th>
+                        <th class="action-col">
+                            <span class="role-badge manager">مدير</span>
+                        </th>
+                        <th class="action-col">
+                            <span class="role-badge user">محاسب</span>
+                        </th>
+                        <th class="action-col">
+                            <span class="role-badge user">موظف مبيعات</span>
+                        </th>
+                        <th class="action-col">
+                            <span class="role-badge guest">مشاهد</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Select All Row -->
+                    <tr class="select-all-row">
+                        <td><strong>تحديد الكل</strong></td>
+                        <td>
+                            <div class="permission-check checked" onclick="toggleColumn(0)">
+                                <i class="bi bi-check"></i>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="permission-check partial" onclick="toggleColumn(1)">
+                                <i class="bi bi-dash"></i>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="permission-check partial" onclick="toggleColumn(2)">
+                                <i class="bi bi-dash"></i>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="permission-check partial" onclick="toggleColumn(3)">
+                                <i class="bi bi-dash"></i>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="permission-check" onclick="toggleColumn(4)"></div>
+                        </td>
+                    </tr>
+                    
+                    <!-- Inventory Module -->
+                    <tr class="module-header" data-module="inventory">
+                        <td colspan="6">
+                            <i class="bi bi-box-seam me-2"></i>المخزون
+                            <button class="btn btn-link btn-sm p-0 me-2" onclick="toggleModule('inventory')">
+                                <i class="bi bi-chevron-down"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    <tr class="permission-row" data-module="inventory">
+                        <td class="permission-row">عرض المنتجات</td>
+                        <td><div class="permission-check checked" data-perm="inventory.view"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked" data-perm="inventory.view"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked" data-perm="inventory.view"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked" data-perm="inventory.view"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked" data-perm="inventory.view"><i class="bi bi-check"></i></div></td>
+                    </tr>
+                    <tr class="permission-row" data-module="inventory">
+                        <td class="permission-row">إضافة منتج</td>
+                        <td><div class="permission-check checked" data-perm="inventory.add"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked" data-perm="inventory.add"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check" data-perm="inventory.add"></div></td>
+                        <td><div class="permission-check" data-perm="inventory.add"></div></td>
+                        <td><div class="permission-check" data-perm="inventory.add"></div></td>
+                    </tr>
+                    <tr class="permission-row" data-module="inventory">
+                        <td class="permission-row">تعديل منتج</td>
+                        <td><div class="permission-check checked" data-perm="inventory.edit"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked" data-perm="inventory.edit"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check" data-perm="inventory.edit"></div></td>
+                        <td><div class="permission-check" data-perm="inventory.edit"></div></td>
+                        <td><div class="permission-check" data-perm="inventory.edit"></div></td>
+                    </tr>
+                    <tr class="permission-row" data-module="inventory">
+                        <td class="permission-row">حذف منتج</td>
+                        <td><div class="permission-check checked" data-perm="inventory.delete"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check" data-perm="inventory.delete"></div></td>
+                        <td><div class="permission-check" data-perm="inventory.delete"></div></td>
+                        <td><div class="permission-check" data-perm="inventory.delete"></div></td>
+                        <td><div class="permission-check" data-perm="inventory.delete"></div></td>
+                    </tr>
+                    
+                    <!-- Sales Module -->
+                    <tr class="module-header" data-module="sales">
+                        <td colspan="6">
+                            <i class="bi bi-cart3 me-2"></i>المبيعات
+                            <button class="btn btn-link btn-sm p-0 me-2" onclick="toggleModule('sales')">
+                                <i class="bi bi-chevron-down"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    <tr class="permission-row" data-module="sales">
+                        <td class="permission-row">عرض الفواتير</td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                    </tr>
+                    <tr class="permission-row" data-module="sales">
+                        <td class="permission-row">إنشاء فاتورة</td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check"></div></td>
+                    </tr>
+                    <tr class="permission-row" data-module="sales">
+                        <td class="permission-row">إلغاء فاتورة</td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check"></div></td>
+                        <td><div class="permission-check"></div></td>
+                        <td><div class="permission-check"></div></td>
+                    </tr>
+                    <tr class="permission-row" data-module="sales">
+                        <td class="permission-row">تطبيق خصم</td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check"></div></td>
+                        <td><div class="permission-check"></div></td>
+                        <td><div class="permission-check"></div></td>
+                    </tr>
+                    
+                    <!-- HR Module -->
+                    <tr class="module-header" data-module="hr">
+                        <td colspan="6">
+                            <i class="bi bi-people me-2"></i>الموارد البشرية
+                            <button class="btn btn-link btn-sm p-0 me-2" onclick="toggleModule('hr')">
+                                <i class="bi bi-chevron-down"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    <tr class="permission-row" data-module="hr">
+                        <td class="permission-row">عرض الموظفين</td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check"></div></td>
+                        <td><div class="permission-check"></div></td>
+                        <td><div class="permission-check"></div></td>
+                    </tr>
+                    <tr class="permission-row" data-module="hr">
+                        <td class="permission-row">إدارة الرواتب</td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check"></div></td>
+                        <td><div class="permission-check"></div></td>
+                    </tr>
+                    <tr class="permission-row" data-module="hr">
+                        <td class="permission-row">الموافقة على الإجازات</td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check"></div></td>
+                        <td><div class="permission-check"></div></td>
+                        <td><div class="permission-check"></div></td>
+                    </tr>
+                    
+                    <!-- Accounting Module -->
+                    <tr class="module-header" data-module="accounting">
+                        <td colspan="6">
+                            <i class="bi bi-calculator me-2"></i>المحاسبة
+                            <button class="btn btn-link btn-sm p-0 me-2" onclick="toggleModule('accounting')">
+                                <i class="bi bi-chevron-down"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    <tr class="permission-row" data-module="accounting">
+                        <td class="permission-row">عرض القيود</td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check"></div></td>
+                        <td><div class="permission-check"></div></td>
+                    </tr>
+                    <tr class="permission-row" data-module="accounting">
+                        <td class="permission-row">إنشاء قيد</td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check"></div></td>
+                        <td><div class="permission-check"></div></td>
+                    </tr>
+                    <tr class="permission-row" data-module="accounting">
+                        <td class="permission-row">إغلاق الفترة المالية</td>
+                        <td><div class="permission-check checked"><i class="bi bi-check"></i></div></td>
+                        <td><div class="permission-check"></div></td>
+                        <td><div class="permission-check"></div></td>
+                        <td><div class="permission-check"></div></td>
+                        <td><div class="permission-check"></div></td>
+                    </tr>
+                </tbody>
+            </table></div>
+        </div>
+        
+        <!-- Legend -->
+        <div class="legend-section">
+            <div class="legend-item">
+                <div class="legend-box full"></div>
+                <span>صلاحية كاملة</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-box partial"></div>
+                <span>صلاحية جزئية</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-box none"></div>
+                <span>بدون صلاحية</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Toggle permission check
+document.querySelectorAll('.permission-check').forEach(check => {
+    check.addEventListener('click', function() {
+        if (this.classList.contains('checked')) {
+            this.classList.remove('checked');
+            this.innerHTML = '';
+        } else {
+            this.classList.add('checked');
+            this.innerHTML = '<i class="bi bi-check"></i>';
+        }
+    });
+});
+
+// Toggle module visibility
+function toggleModule(moduleName) {
+    const rows = document.querySelectorAll(`tr[data-module="${moduleName}"]`);
+    rows.forEach(row => {
+        if (!row.classList.contains('module-header')) {
+            row.style.display = row.style.display === 'none' ? '' : 'none';
+        }
+    });
+}
+
+// Expand all modules
+function expandAll() {
+    document.querySelectorAll('.permission-row').forEach(row => {
+        row.style.display = '';
+    });
+}
+
+// Collapse all modules
+function collapseAll() {
+    document.querySelectorAll('.permission-row').forEach(row => {
+        row.style.display = 'none';
+    });
+}
+
+// Toggle column (role)
+function toggleColumn(colIndex) {
+    const rows = document.querySelectorAll('.permission-row');
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        const check = cells[colIndex + 1]?.querySelector('.permission-check');
+        if (check) {
+            check.click();
+        }
+    });
+}
+
+// Save changes
+function saveChanges() {
+    // Collect all permissions
+    const permissions = [];
+    document.querySelectorAll('.permission-check[data-perm]').forEach(check => {
+        permissions.push({
+            permission: check.dataset.perm,
+            enabled: check.classList.contains('checked')
+        });
+    });
+    
+    // Send to server
+    alert('جاري حفظ التغييرات...');
+}
+
+// Reset changes
+function resetChanges() {
+    if (confirm('هل أنت متأكد من إعادة تعيين جميع التغييرات؟')) {
+        location.reload();
+    }
+}
+
+// Search permissions
+document.getElementById('searchPermission')?.addEventListener('input', function() {
+    const term = this.value.toLowerCase();
+    document.querySelectorAll('.permission-row').forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(term) ? '' : 'none';
+    });
+});
+
+// Module filter
+document.getElementById('moduleFilter')?.addEventListener('change', function() {
+    const module = this.value;
+    document.querySelectorAll('[data-module]').forEach(row => {
+        if (!module || row.dataset.module === module) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+</script>
+{% endblock %}

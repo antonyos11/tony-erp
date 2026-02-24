@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}حذف سعر مورد{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+
+            <!-- معلومات السعر المراد حذفه -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-trash-alt me-2"></i>
+                        تأكيد حذف سعر مورد
+                    </h5>
+                    <a href="{% url 'purchases:supplier_material_prices' %}" class="btn btn-sm btn-light">
+                        <i class="fas fa-arrow-right me-1"></i> رجوع
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 bg-light">
+                                <h6 class="text-muted mb-2">
+                                    <i class="fas fa-box me-1"></i> المادة الخام
+                                </h6>
+                                <p class="mb-0 fw-bold fs-5">{{ price.product.name }}</p>
+                                {% if price.product.sku %}
+                                <small class="text-muted">SKU: {{ price.product.sku }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 bg-light">
+                                <h6 class="text-muted mb-2">
+                                    <i class="fas fa-truck me-1"></i> المورد
+                                </h6>
+                                <p class="mb-0 fw-bold fs-5">{{ price.supplier.name }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="border rounded p-3 text-center">
+                                <h6 class="text-muted mb-1">السعر</h6>
+                                <p class="mb-0 fw-bold text-danger fs-4">{{ price.cost|floatformat:2 }} ج.م</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-3 text-center">
+                                <h6 class="text-muted mb-1">وحدة الشراء</h6>
+                                <p class="mb-0 fw-bold">{{ price.get_purchase_unit_display|default:"وحدة" }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-3 text-center">
+                                <h6 class="text-muted mb-1">الحالة</h6>
+                                <p class="mb-0">
+                                    {% if price.is_active %}
+                                    <span class="badge bg-success fs-6">نشط</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary fs-6">غير نشط</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- التحذيرات -->
+            {% if warnings %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        تحذيرات قبل الحذف ({{ warnings|length }})
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% for warning in warnings %}
+                    <div class="alert alert-{{ warning.severity }} {% if not forloop.last %}mb-3{% else %}mb-0{% endif %}">
+                        <div class="d-flex align-items-start">
+                            <div class="me-3 mt-1">
+                                <i class="{{ warning.icon }} fa-2x"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="alert-heading mb-1 fw-bold">{{ warning.title }}</h6>
+                                <p class="mb-2">{{ warning.message }}</p>
+
+                                {% if warning.items %}
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered mb-0 bg-white">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width:40px">#</th>
+                                                <th>المنتج / قائمة المواد</th>
+                                                <th style="width:120px">الكمية المستخدمة</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for item in warning.items %}
+                                            <tr>
+                                                <td>{{ forloop.counter }}</td>
+                                                <td>
+                                                    <i class="fas fa-clipboard-list me-1 text-primary"></i>
+                                                    {{ item.name }}
+                                                </td>
+                                                <td class="text-center">{{ item.quantity }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- نموذج التأكيد -->
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <form method="post" id="deleteForm">
+                        {% csrf_token %}
+
+                        {% if has_critical_warnings %}
+                        <div class="form-check mb-3">
+                            <input class="form-check-input border-danger" type="checkbox" id="confirmDanger" required
+                                   style="width: 1.2em; height: 1.2em;">
+                            <label class="form-check-label text-danger fw-bold" for="confirmDanger">
+                                <i class="fas fa-exclamation-circle me-1"></i>
+                                أفهم أن هذه المادة مستخدمة في قوائم مواد (BOM) وأريد الحذف رغم ذلك
+                            </label>
+                        </div>
+                        {% endif %}
+
+                        <div class="form-check mb-4">
+                            <input class="form-check-input" type="checkbox" id="confirmDelete" required
+                                   style="width: 1.2em; height: 1.2em;">
+                            <label class="form-check-label fw-bold" for="confirmDelete">
+                                أؤكد أنني أريد حذف هذا السعر نهائياً
+                            </label>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'purchases:supplier_material_prices' %}" class="btn btn-secondary btn-lg px-4">
+                                <i class="fas fa-times me-2"></i> إلغاء
+                            </a>
+                            <button type="submit" class="btn btn-danger btn-lg px-4" id="deleteBtn" disabled>
+                                <i class="fas fa-trash-alt me-2"></i> حذف نهائياً
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var confirmDelete = document.getElementById('confirmDelete');
+    var confirmDanger = document.getElementById('confirmDanger');
+    var deleteBtn = document.getElementById('deleteBtn');
+
+    function updateDeleteButton() {
+        var canDelete = confirmDelete.checked;
+
+        if (confirmDanger) {
+            canDelete = canDelete && confirmDanger.checked;
+        }
+
+        deleteBtn.disabled = !canDelete;
+
+        if (canDelete) {
+            deleteBtn.className = 'btn btn-danger btn-lg px-4';
+        } else {
+            deleteBtn.className = 'btn btn-secondary btn-lg px-4';
+        }
+    }
+
+    confirmDelete.addEventListener('change', updateDeleteButton);
+    if (confirmDanger) {
+        confirmDanger.addEventListener('change', updateDeleteButton);
+    }
+
+    document.getElementById('deleteForm').addEventListener('submit', function(e) {
+        {% if has_critical_warnings %}
+        var confirmed = confirm(
+            '⚠️ تحذير أخير!\n\n' +
+            'هذه المادة مرتبطة بقوائم مواد (BOM).\n' +
+            'حذف السعر قد يؤثر على حساب تكاليف المنتجات.\n\n' +
+            'هل أنت متأكد من الحذف؟'
+        );
+        if (!confirmed) {
+            e.preventDefault();
+            return false;
+        }
+        {% endif %}
+    });
+});
+</script>
+{% endblock %}

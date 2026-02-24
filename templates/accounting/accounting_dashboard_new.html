@@ -1,0 +1,745 @@
+{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "لوحة تحكم المحاسبة" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --info-color: #17a2b8;
+    }
+    
+    .accounting-hero {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .accounting-hero::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 100%;
+        height: 200%;
+        background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0l30 30-30 30L0 30z' fill='%23ffffff' fill-opacity='0.03'/%3E%3C/svg%3E") repeat;
+        animation: float 20s linear infinite;
+    }
+    
+    @keyframes float {
+        0% { transform: translateX(0) translateY(0); }
+        100% { transform: translateX(-60px) translateY(-60px); }
+    }
+    
+    .hero-content {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .quick-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        border: 1px solid #eee;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+    }
+    
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        opacity: 0.1;
+        transform: translate(30%, -30%);
+    }
+    
+    .stat-card.income::before { background: var(--success-color); }
+    .stat-card.expense::before { background: var(--danger-color); }
+    .stat-card.receivable::before { background: var(--info-color); }
+    .stat-card.payable::before { background: var(--warning-color); }
+    
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .stat-card.income .stat-icon { background: rgba(40, 167, 69, 0.1); color: var(--success-color); }
+    .stat-card.expense .stat-icon { background: rgba(220, 53, 69, 0.1); color: var(--danger-color); }
+    .stat-card.receivable .stat-icon { background: rgba(23, 162, 184, 0.1); color: var(--info-color); }
+    .stat-card.payable .stat-icon { background: rgba(255, 193, 7, 0.1); color: var(--warning-color); }
+    
+    .stat-value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin-bottom: 0.25rem;
+    }
+    
+    .stat-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .stat-change {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.85rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 20px;
+        margin-top: 0.5rem;
+    }
+    
+    .stat-change.positive { background: rgba(40, 167, 69, 0.1); color: var(--success-color); }
+    .stat-change.negative { background: rgba(220, 53, 69, 0.1); color: var(--danger-color); }
+    
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 1.5rem;
+    }
+    
+    @media (max-width: 1200px) {
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .widget-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        border: 1px solid #eee;
+        overflow: hidden;
+    }
+    
+    .widget-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #fafbfc;
+    }
+    
+    .widget-title {
+        font-weight: 600;
+        color: var(--primary-color);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .widget-body {
+        padding: 1.5rem;
+    }
+    
+    .chart-container {
+        height: 300px;
+        position: relative;
+    }
+    
+    .quick-actions {
+        display: grid;
+        gap: 0.75rem;
+    }
+    
+    .quick-action-btn {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 1.25rem;
+        background: #f8f9fa;
+        border-radius: 12px;
+        text-decoration: none;
+        color: var(--primary-color);
+        transition: all 0.3s ease;
+        border: 1px solid transparent;
+    }
+    
+    .quick-action-btn:hover {
+        background: white;
+        border-color: var(--accent-color);
+        transform: translateX(-5px);
+        color: var(--primary-color);
+    }
+    
+    .quick-action-btn i {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+    }
+    
+    .quick-action-btn .action-icon-journal { background: rgba(30, 58, 95, 0.1); color: var(--primary-color); }
+    .quick-action-btn .action-icon-invoice { background: rgba(0, 212, 170, 0.1); color: var(--accent-color); }
+    .quick-action-btn .action-icon-payment { background: rgba(40, 167, 69, 0.1); color: var(--success-color); }
+    .quick-action-btn .action-icon-report { background: rgba(23, 162, 184, 0.1); color: var(--info-color); }
+    .quick-action-btn .action-icon-reconcile { background: rgba(255, 193, 7, 0.1); color: var(--warning-color); }
+    
+    .recent-transactions {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+    
+    .transaction-item {
+        display: flex;
+        align-items: center;
+        padding: 1rem 0;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .transaction-item:last-child {
+        border-bottom: none;
+    }
+    
+    .transaction-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 1rem;
+        font-size: 1.1rem;
+    }
+    
+    .transaction-icon.debit { background: rgba(220, 53, 69, 0.1); color: var(--danger-color); }
+    .transaction-icon.credit { background: rgba(40, 167, 69, 0.1); color: var(--success-color); }
+    
+    .transaction-info {
+        flex: 1;
+    }
+    
+    .transaction-desc {
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 0.25rem;
+    }
+    
+    .transaction-meta {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .transaction-amount {
+        font-weight: 600;
+        font-size: 1rem;
+    }
+    
+    .transaction-amount.debit { color: var(--danger-color); }
+    .transaction-amount.credit { color: var(--success-color); }
+    
+    .pending-tasks {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .task-item {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px dashed #eee;
+    }
+    
+    .task-item:last-child {
+        border-bottom: none;
+    }
+    
+    .task-badge {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-left: 0.75rem;
+    }
+    
+    .task-badge.urgent { background: rgba(220, 53, 69, 0.1); color: var(--danger-color); }
+    .task-badge.warning { background: rgba(255, 193, 7, 0.1); color: var(--warning-color); }
+    .task-badge.info { background: rgba(23, 162, 184, 0.1); color: var(--info-color); }
+    
+    .accounts-summary {
+        display: grid;
+        gap: 0.75rem;
+    }
+    
+    .account-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+    
+    .account-name {
+        font-weight: 500;
+        color: #333;
+    }
+    
+    .account-balance {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+    
+    .fiscal-progress {
+        margin-top: 1rem;
+    }
+    
+    .progress-info {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+    }
+    
+    .progress-bar-container {
+        height: 8px;
+        background: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    
+    .progress-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent-color), var(--success-color));
+        border-radius: 4px;
+        transition: width 0.5s ease;
+    }
+    
+    .alerts-section {
+        margin-top: 1.5rem;
+    }
+    
+    .alert-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 0.75rem;
+    }
+    
+    .alert-item.warning {
+        background: rgba(255, 193, 7, 0.1);
+        border-right: 4px solid var(--warning-color);
+    }
+    
+    .alert-item.danger {
+        background: rgba(220, 53, 69, 0.1);
+        border-right: 4px solid var(--danger-color);
+    }
+    
+    .alert-item.info {
+        background: rgba(23, 162, 184, 0.1);
+        border-right: 4px solid var(--info-color);
+    }
+    
+    [data-bs-theme="dark"] .stat-card,
+    [data-bs-theme="dark"] .widget-card {
+        background: #1a1d21;
+        border-color: #2d3238;
+    }
+    
+    [data-bs-theme="dark"] .widget-header {
+        background: #2d3238;
+        border-color: #3d4248;
+    }
+    
+    [data-bs-theme="dark"] .quick-action-btn {
+        background: #2d3238;
+        color: #e9ecef;
+    }
+    
+    [data-bs-theme="dark"] .account-row {
+        background: #2d3238;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Hero Section -->
+    <div class="accounting-hero">
+        <div class="hero-content">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="h2 mb-2">
+                        <i class="fas fa-calculator me-2"></i>
+                        {% trans "لوحة تحكم المحاسبة" %}
+                    </h1>
+                    <p class="mb-0 opacity-75">
+                        {% trans "إدارة شاملة للحسابات والقيود والتقارير المالية" %}
+                    </p>
+                </div>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                    <span class="badge bg-light text-dark px-3 py-2">
+                        <i class="fas fa-calendar-alt me-1"></i>
+                        {% trans "السنة المالية" %}: {{ fiscal_year|default:"2024" }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Stats -->
+    <div class="quick-stats">
+        <div class="stat-card income">
+            <div class="stat-icon">
+                <i class="fas fa-arrow-down"></i>
+            </div>
+            <div class="stat-value">{{ total_income|default:"0"|intcomma }} <small>ج.م</small></div>
+            <div class="stat-label">{% trans "إجمالي الإيرادات" %}</div>
+            <span class="stat-change positive">
+                <i class="fas fa-arrow-up"></i> +12.5%
+            </span>
+        </div>
+        
+        <div class="stat-card expense">
+            <div class="stat-icon">
+                <i class="fas fa-arrow-up"></i>
+            </div>
+            <div class="stat-value">{{ total_expense|default:"0"|intcomma }} <small>ج.م</small></div>
+            <div class="stat-label">{% trans "إجمالي المصروفات" %}</div>
+            <span class="stat-change negative">
+                <i class="fas fa-arrow-up"></i> +5.2%
+            </span>
+        </div>
+        
+        <div class="stat-card receivable">
+            <div class="stat-icon">
+                <i class="fas fa-hand-holding-usd"></i>
+            </div>
+            <div class="stat-value">{{ total_receivable|default:"0"|intcomma }} <small>ج.م</small></div>
+            <div class="stat-label">{% trans "الذمم المدينة" %}</div>
+            <span class="stat-change positive">
+                <i class="fas fa-arrow-down"></i> -8.3%
+            </span>
+        </div>
+        
+        <div class="stat-card payable">
+            <div class="stat-icon">
+                <i class="fas fa-file-invoice-dollar"></i>
+            </div>
+            <div class="stat-value">{{ total_payable|default:"0"|intcomma }} <small>ج.م</small></div>
+            <div class="stat-label">{% trans "الذمم الدائنة" %}</div>
+            <span class="stat-change negative">
+                <i class="fas fa-arrow-up"></i> +3.1%
+            </span>
+        </div>
+    </div>
+    
+    <!-- Main Dashboard Grid -->
+    <div class="dashboard-grid">
+        <!-- Left Column -->
+        <div>
+            <!-- Revenue vs Expenses Chart -->
+            <div class="widget-card mb-4">
+                <div class="widget-header">
+                    <h5 class="widget-title">
+                        <i class="fas fa-chart-line"></i>
+                        {% trans "الإيرادات والمصروفات" %}
+                    </h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary active">{% trans "شهري" %}</button>
+                        <button class="btn btn-outline-secondary">{% trans "ربع سنوي" %}</button>
+                        <button class="btn btn-outline-secondary">{% trans "سنوي" %}</button>
+                    </div>
+                </div>
+                <div class="widget-body">
+                    <div class="chart-container">
+                        <canvas id="revenueExpenseChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Transactions -->
+            <div class="widget-card">
+                <div class="widget-header">
+                    <h5 class="widget-title">
+                        <i class="fas fa-exchange-alt"></i>
+                        {% trans "آخر القيود المحاسبية" %}
+                    </h5>
+                    <a href="{% url 'accounting:journal_entries_list' %}" class="btn btn-sm btn-outline-primary">
+                        {% trans "عرض الكل" %}
+                    </a>
+                </div>
+                <div class="widget-body">
+                    <ul class="recent-transactions">
+                        {% for entry in recent_entries %}
+                        <li class="transaction-item">
+                            <div class="transaction-icon { entry.type }">
+                                <i class="fas fa-{% if entry.type == 'debit' %}arrow-right{% else %}arrow-left{% endif %}"></i>
+                            </div>
+                            <div class="transaction-info">
+                                <div class="transaction-desc">{{ entry.description }}</div>
+                                <div class="transaction-meta">
+                                    <i class="fas fa-calendar me-1"></i> {{ entry.date }}
+                                    <span class="mx-2">|</span>
+                                    <i class="fas fa-hashtag"></i> {{ entry.reference }}
+                                </div>
+                            </div>
+                            <div class="transaction-amount { entry.type }">
+                                {% if entry.type == 'debit' %}-{% else %}+{% endif %}{{ entry.amount|intcomma }}
+                            </div>
+                        </li>
+                        {% empty %}
+                        <li class="text-center text-muted py-4">
+                            <i class="fas fa-inbox fa-3x mb-3 opacity-50"></i>
+                            <p class="mb-0">{% trans "لا توجد قيود حديثة" %}</p>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Column -->
+        <div>
+            <!-- Quick Actions -->
+            <div class="widget-card mb-4">
+                <div class="widget-header">
+                    <h5 class="widget-title">
+                        <i class="fas fa-bolt"></i>
+                        {% trans "إجراءات سريعة" %}
+                    </h5>
+                </div>
+                <div class="widget-body">
+                    <div class="quick-actions">
+                        <a href="{% url 'accounting:journal_entry_create' %}" class="quick-action-btn">
+                            <i class="action-icon-journal fas fa-plus-circle"></i>
+                            <div>
+                                <div class="fw-bold">{% trans "قيد محاسبي جديد" %}</div>
+                                <small class="text-muted">{% trans "إضافة قيد يومية" %}</small>
+                            </div>
+                        </a>
+                        <a href="{% url 'accounting:cheque_list' %}" class="quick-action-btn">
+                            <i class="action-icon-payment fas fa-money-check-alt"></i>
+                            <div>
+                                <div class="fw-bold">{% trans "إدارة الشيكات" %}</div>
+                                <small class="text-muted">{% trans "الشيكات الواردة والصادرة" %}</small>
+                            </div>
+                        </a>
+                        <a href="{% url 'accounting:bank_reconcile' %}" class="quick-action-btn">
+                            <i class="action-icon-reconcile fas fa-balance-scale"></i>
+                            <div>
+                                <div class="fw-bold">{% trans "تسوية بنكية" %}</div>
+                                <small class="text-muted">{% trans "مطابقة كشف الحساب" %}</small>
+                            </div>
+                        </a>
+                        <a href="#" class="quick-action-btn">
+                            <i class="action-icon-report fas fa-file-alt"></i>
+                            <div>
+                                <div class="fw-bold">{% trans "التقارير المالية" %}</div>
+                                <small class="text-muted">{% trans "ميزانية، دخل، تدفق نقدي" %}</small>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bank Accounts -->
+            <div class="widget-card mb-4">
+                <div class="widget-header">
+                    <h5 class="widget-title">
+                        <i class="fas fa-university"></i>
+                        {% trans "الحسابات البنكية" %}
+                    </h5>
+                </div>
+                <div class="widget-body">
+                    <div class="accounts-summary">
+                        {% for account in bank_accounts %}
+                        <div class="account-row">
+                            <span class="account-name">
+                                <i class="fas fa-landmark me-2 text-muted"></i>
+                                {{ account.name }}
+                            </span>
+                            <span class="account-balance">{{ account.balance|intcomma }} ج.م</span>
+                        </div>
+                        {% empty %}
+                        <div class="account-row">
+                            <span class="account-name">{% trans "البنك الرئيسي" %}</span>
+                            <span class="account-balance">0 ج.م</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="fiscal-progress">
+                        <div class="progress-info">
+                            <span>{% trans "تقدم السنة المالية" %}</span>
+                            <span class="fw-bold">{{ fiscal_progress|default:"75" }}%</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill" style="width: { fiscal_progress|default:'75' }%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pending Tasks -->
+            <div class="widget-card">
+                <div class="widget-header">
+                    <h5 class="widget-title">
+                        <i class="fas fa-tasks"></i>
+                        {% trans "مهام معلقة" %}
+                    </h5>
+                </div>
+                <div class="widget-body">
+                    <ul class="pending-tasks">
+                        <li class="task-item">
+                            <span class="task-badge urgent">{{ pending_invoices|default:"3" }}</span>
+                            <span>{% trans "فواتير بانتظار الترحيل" %}</span>
+                        </li>
+                        <li class="task-item">
+                            <span class="task-badge warning">{{ pending_cheques|default:"5" }}</span>
+                            <span>{% trans "شيكات تستحق خلال أسبوع" %}</span>
+                        </li>
+                        <li class="task-item">
+                            <span class="task-badge info">{{ unreconciled|default:"2" }}</span>
+                            <span>{% trans "حسابات تحتاج تسوية" %}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Alerts Section -->
+    <div class="alerts-section">
+        <h5 class="mb-3">
+            <i class="fas fa-bell me-2"></i>
+            {% trans "تنبيهات مهمة" %}
+        </h5>
+        <div class="row">
+            {% if overdue_receivables %}
+            <div class="col-md-4">
+                <div class="alert-item danger">
+                    <i class="fas fa-exclamation-circle fa-lg"></i>
+                    <div>
+                        <strong>{% trans "ذمم مدينة متأخرة" %}</strong>
+                        <p class="mb-0 small">{{ overdue_receivables }} {% trans "عميل لديه مستحقات متأخرة" %}</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% if due_payables %}
+            <div class="col-md-4">
+                <div class="alert-item warning">
+                    <i class="fas fa-clock fa-lg"></i>
+                    <div>
+                        <strong>{% trans "مستحقات قريبة" %}</strong>
+                        <p class="mb-0 small">{{ due_payables }} {% trans "فاتورة تستحق الدفع خلال 7 أيام" %}</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            <div class="col-md-4">
+                <div class="alert-item info">
+                    <i class="fas fa-info-circle fa-lg"></i>
+                    <div>
+                        <strong>{% trans "إغلاق الفترة" %}</strong>
+                        <p class="mb-0 small">{% trans "الفترة الحالية تنتهي بعد" %} {{ days_to_close|default:"15" }} {% trans "يوم" %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Revenue vs Expense Chart
+    const ctx = document.getElementById('revenueExpenseChart');
+    if (ctx) {
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'],
+                datasets: [{
+                    label: 'الإيرادات',
+                    data: {{ monthly_income|default:"[50000, 60000, 55000, 70000, 65000, 75000, 80000, 85000, 78000, 90000, 88000, 95000]"|safe }},
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }, {
+                    label: 'المصروفات',
+                    data: {{ monthly_expense|default:"[40000, 45000, 42000, 55000, 50000, 58000, 62000, 60000, 55000, 65000, 62000, 70000]"|safe }},
+                    borderColor: '#dc3545',
+                    backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        rtl: true
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString('ar-SA') + ' ج.م';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+

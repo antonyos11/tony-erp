@@ -1,0 +1,106 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}سجل البريد{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="mb-0"><i class="fas fa-history text-primary"></i> سجل البريد الإلكتروني</h4>
+            </div>
+            <a href="{% url 'crm:email_send' %}" class="btn btn-primary">
+                <i class="fas fa-paper-plane"></i> إرسال بريد جديد
+            </a>
+        </div>
+    </div>
+    
+    <!-- الفلاتر -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <select name="status" class="form-select">
+                        <option value="">كل الحالات</option>
+                        <option value="sent" {% if selected_status == 'sent' %}selected{% endif %}>تم الإرسال</option>
+                        <option value="failed" {% if selected_status == 'failed' %}selected{% endif %}>فشل</option>
+                        <option value="pending" {% if selected_status == 'pending' %}selected{% endif %}>قيد الانتظار</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-outline-primary w-100">
+                        <i class="fas fa-filter"></i> فلترة
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>المستلم</th>
+                        <th>العميل</th>
+                        <th>الموضوع</th>
+                        <th>الحالة</th>
+                        <th>المرسل</th>
+                        <th>التاريخ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td>{{ log.id }}</td>
+                        <td>{{ log.to_email }}</td>
+                        <td>
+                            {% if log.customer %}
+                            <a href="{% url 'crm:customer_detail' log.customer.pk %}">{{ log.customer }}</a>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ log.subject|truncatewords:8 }}</td>
+                        <td>
+                            {% if log.status == 'sent' %}
+                            <span class="badge bg-success">تم الإرسال</span>
+                            {% elif log.status == 'failed' %}
+                            <span class="badge bg-danger" title="{{ log.error_message }}">فشل</span>
+                            {% else %}
+                            <span class="badge bg-warning">قيد الانتظار</span>
+                            {% endif %}
+                        </td>
+                        <td>{% if log.sent_by %}{{ log.sent_by.get_full_name|default:log.sent_by.username }}{% else %}-{% endif %}</td>
+                        <td>{{ log.sent_at|date:"Y/m/d H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                            لا توجد سجلات
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    {% if logs.has_other_pages %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if logs.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page={{ logs.previous_page_number }}">السابق</a></li>
+            {% endif %}
+            <li class="page-item active"><span class="page-link">{{ logs.number }}</span></li>
+            {% if logs.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ logs.next_page_number }}">التالي</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

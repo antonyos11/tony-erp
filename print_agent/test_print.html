@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tony ERP - اختبار الطباعة</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .status.disconnected {
+            background: #fee;
+            color: #c33;
+            border: 2px solid #fcc;
+        }
+        
+        .status.connected {
+            background: #efe;
+            color: #3c3;
+            border: 2px solid #cfc;
+        }
+        
+        .printers-list {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .printers-list h3 {
+            color: #555;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        .printer-item {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        .printer-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .printer-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .printer-status {
+            font-size: 12px;
+            color: #28a745;
+        }
+        
+        .buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        button {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: white;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .btn-test {
+            background: #28a745;
+            grid-column: span 2;
+        }
+        
+        .btn-test:hover {
+            background: #218838;
+        }
+        
+        .btn-invoice {
+            background: #007bff;
+        }
+        
+        .btn-invoice:hover {
+            background: #0056b3;
+        }
+        
+        .btn-receipt {
+            background: #6f42c1;
+        }
+        
+        .btn-receipt:hover {
+            background: #5a32a3;
+        }
+        
+        .log {
+            background: #1e1e1e;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+        }
+        
+        .log-entry.error {
+            color: #f44;
+        }
+        
+        .log-entry.success {
+            color: #4f4;
+        }
+        
+        .log-entry.info {
+            color: #4af;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖨️ Tony ERP - نظام الطباعة</h1>
+        <p class="subtitle">اختبار الاتصال والطباعة المباشرة</p>
+        
+        <div class="status disconnected" id="status">
+            ⏳ جاري الاتصال...
+        </div>
+        
+        <div class="printers-list" id="printers-section" style="display:none;">
+            <h3>📋 الطابعات المتاحة:</h3>
+            <div id="printers-list"></div>
+        </div>
+        
+        <div class="buttons">
+            <button class="btn-test" onclick="testPrint()">
+                ✓ طباعة اختبارية
+            </button>
+            <button class="btn-invoice" onclick="printInvoice()">
+                📄 طباعة فاتورة تجريبية
+            </button>
+            <button class="btn-receipt" onclick="printReceipt()">
+                🧾 طباعة إيصال
+            </button>
+        </div>
+        
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        let printers = [];
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const time = new Date().toLocaleTimeString('ar-SA');
+            entry.textContent = `[${time}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function updateStatus(connected) {
+            const status = document.getElementById('status');
+            if (connected) {
+                status.className = 'status connected';
+                status.innerHTML = '✓ متصل بخدمة الطباعة';
+            } else {
+                status.className = 'status disconnected';
+                status.innerHTML = '✗ غير متصل - تأكد من تشغيل Print Agent';
+            }
+        }
+        
+        function updatePrintersList(printersList) {
+            printers = printersList;
+            const section = document.getElementById('printers-section');
+            const list = document.getElementById('printers-list');
+            
+            if (printers.length === 0) {
+                section.style.display = 'none';
+                return;
+            }
+            
+            section.style.display = 'block';
+            list.innerHTML = '';
+            
+            printers.forEach(printer => {
+                const item = document.createElement('div');
+                item.className = 'printer-item';
+                item.innerHTML = `
+                    <span class="printer-name">🖨️ ${printer.name}</span>
+                    <span class="printer-status">● ${printer.status}</span>
+                `;
+                list.appendChild(item);
+            });
+        }
+        
+        function connectWebSocket() {
+            log('محاولة الاتصال بـ Print Agent...', 'info');
+            
+            ws = new WebSocket('ws://localhost:9876');
+            
+            ws.onopen = () => {
+                log('✓ تم الاتصال بنجاح!', 'success');
+                updateStatus(true);
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.event === 'printers_list') {
+                        log(`تم استقبال قائمة الطابعات: ${data.printers.length} طابعة`, 'success');
+                        updatePrintersList(data.printers);
+                    } else if (data.event === 'print_success') {
+                        log('✓ تمت الطباعة بنجاح!', 'success');
+                        alert('✓ تمت الطباعة بنجاح!');
+                    } else if (data.event === 'error') {
+                        log(`✗ خطأ: ${data.error}`, 'error');
+                        alert(`خطأ: ${data.error}`);
+                    }
+                } catch (e) {
+                    log(`خطأ في معالجة الرسالة: ${e}`, 'error');
+                }
+            };
+            
+            ws.onerror = (error) => {
+                log('✗ خطأ في الاتصال', 'error');
+                updateStatus(false);
+            };
+            
+            ws.onclose = () => {
+                log('✗ انقطع الاتصال - إعادة المحاولة بعد 5 ثواني...', 'error');
+                updateStatus(false);
+                setTimeout(connectWebSocket, 5000);
+            };
+        }
+        
+        function testPrint() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert('⚠️ غير متصل بخدمة الطباعة!');
+                return;
+            }
+            
+            log('إرسال طلب طباعة اختبارية...', 'info');
+            
+            ws.send(JSON.stringify({
+                action: 'test_print',
+                printer: 'default'
+            }));
+        }
+        
+        function printInvoice() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert('⚠️ غير متصل بخدمة الطباعة!');
+                return;
+            }
+            
+            log('إرسال طلب طباعة فاتورة...', 'info');
+            
+            const invoiceHTML = `
+                <html dir="rtl">
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        body { font-family: Arial; text-align: center; }
+                        h1 { font-size: 24px; }
+                        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+                        th { background: #f2f2f2; }
+                        .total { font-weight: bold; font-size: 18px; }
+                    </style>
+                </head>
+                <body>
+                    <h1>شركة توني للإسفنج</h1>
+                    <p>فاتورة ضريبية</p>
+                    <hr>
+                    <p>رقم الفاتورة: INV-TEST-001</p>
+                    <p>التاريخ: ${new Date().toLocaleDateString('ar-SA')}</p>
+                    <table>
+                        <tr>
+                            <th>الصنف</th>
+                            <th>الكمية</th>
+                            <th>السعر</th>
+                            <th>المجموع</th>
+                        </tr>
+                        <tr>
+                            <td>مرتبة سوبر كومفورت</td>
+                            <td>1</td>
+                            <td>2,500</td>
+                            <td>2,500</td>
+                        </tr>
+                        <tr>
+                            <td>وسادة طبية</td>
+                            <td>2</td>
+                            <td>150</td>
+                            <td>300</td>
+                        </tr>
+                    </table>
+                    <p>المجموع الفرعي: 2,800 ج.م</p>
+                    <p>ضريبة القيمة المضافة (15%): 420 ج.م</p>
+                    <p class="total">الإجمالي: 3,220 ج.م</p>
+                    <hr>
+                    <p>شكراً لتعاملكم معنا</p>
+                </body>
+                </html>
+            `;
+            
+            ws.send(JSON.stringify({
+                action: 'print',
+                type: 'html',
+                printer: 'default',
+                content: invoiceHTML
+            }));
+        }
+        
+        function printReceipt() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert('⚠️ غير متصل بخدمة الطباعة!');
+                return;
+            }
+            
+            log('إرسال طلب طباعة إيصال...', 'info');
+            
+            const receipt = `
+════════════════════════════════
+   شركة توني للإسفنج
+   إيصال استلام
+════════════════════════════════
+
+رقم الإيصال: REC-${Date.now()}
+التاريخ: ${new Date().toLocaleString('ar-SA')}
+
+--------------------------------
+استلمنا من: عميل كريم
+مبلغ وقدره: 3,220 ج.م
+(ثلاثة آلاف ومائتان وعشرون ج.ماً)
+وذلك عن: شراء مرتبة ووسادة
+--------------------------------
+
+المستلم: _______________
+التوقيع: _______________
+
+════════════════════════════════
+       شكراً لزيارتكم
+════════════════════════════════
+            `;
+            
+            ws.send(JSON.stringify({
+                action: 'print',
+                type: 'text',
+                printer: 'default',
+                content: receipt
+            }));
+        }
+        
+        // الاتصال عند تحميل الصفحة
+        window.onload = () => {
+            connectWebSocket();
+        };
+    </script>
+</body>
+</html>

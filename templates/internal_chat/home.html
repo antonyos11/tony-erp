@@ -1,0 +1,327 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}المحادثات الداخلية - Tony ERP{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row" style="height: calc(100vh - 150px);">
+        <!-- قائمة المحادثات -->
+        <div class="col-md-4 col-lg-3">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-chat-dots me-2"></i>المحادثات</h5>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#newChatModal">
+                        <i class="bi bi-plus"></i>
+                    </button>
+                </div>
+                
+                <!-- البحث -->
+                <div class="p-3 border-bottom">
+                    <input type="text" class="form-control" placeholder="بحث..." id="searchChats">
+                </div>
+                
+                <!-- قائمة الغرف -->
+                <div class="list-group list-group-flush overflow-auto" style="max-height: calc(100% - 130px);">
+                    {% for room in rooms %}
+                    <a href="{% url 'internal_chat:room' room.id %}" 
+                       class="list-group-item list-group-item-action {% if room.id == active_room.id %}active{% endif %}">
+                        <div class="d-flex align-items-center">
+                            {% if room.is_group %}
+                            <div class="avatar bg-primary text-white rounded-circle me-3 d-flex align-items-center justify-content-center" 
+                                 style="width: 45px; height: 45px;">
+                                <i class="bi bi-people"></i>
+                            </div>
+                            {% else %}
+                            <div class="avatar bg-info text-white rounded-circle me-3 d-flex align-items-center justify-content-center"
+                                 style="width: 45px; height: 45px;">
+                                {{ room.other_user.first_name|slice:":1" }}{{ room.other_user.last_name|slice:":1" }}
+                            </div>
+                            {% endif %}
+                            <div class="flex-grow-1 min-width-0">
+                                <div class="d-flex justify-content-between">
+                                    <h6 class="mb-0 text-truncate">{{ room.name }}</h6>
+                                    {% if room.last_message %}
+                                    <small class="text-muted">{{ room.last_message.created_at|timesince }}</small>
+                                    {% endif %}
+                                </div>
+                                <p class="mb-0 small text-truncate text-muted">
+                                    {% if room.last_message %}
+                                    {{ room.last_message.content|truncatewords:5 }}
+                                    {% else %}
+                                    لا توجد رسائل
+                                    {% endif %}
+                                </p>
+                            </div>
+                            {% if room.unread_count %}
+                            <span class="badge bg-danger rounded-pill">{{ room.unread_count }}</span>
+                            {% endif %}
+                        </div>
+                    </a>
+                    {% empty %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-chat-square-text fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">لا توجد محادثات</p>
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newChatModal">
+                            ابدأ محادثة
+                        </button>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- منطقة المحادثة -->
+        <div class="col-md-8 col-lg-9">
+            <div class="card h-100 d-flex flex-column">
+                {% if active_room %}
+                <!-- رأس المحادثة -->
+                <div class="card-header d-flex align-items-center">
+                    <div class="avatar bg-primary text-white rounded-circle me-3 d-flex align-items-center justify-content-center"
+                         style="width: 40px; height: 40px;">
+                        {% if active_room.is_group %}
+                        <i class="bi bi-people"></i>
+                        {% else %}
+                        {{ active_room.name|slice:":2" }}
+                        {% endif %}
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-0">{{ active_room.name }}</h6>
+                        <small class="text-muted">
+                            {% if active_room.is_group %}
+                            {{ active_room.members.count }} أعضاء
+                            {% else %}
+                            متصل الآن
+                            {% endif %}
+                        </small>
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-link" data-bs-toggle="dropdown">
+                            <i class="bi bi-three-dots-vertical"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-search me-2"></i>بحث في المحادثة</a></li>
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-bell-slash me-2"></i>كتم الإشعارات</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="#"><i class="bi bi-trash me-2"></i>حذف المحادثة</a></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- الرسائل -->
+                <div class="card-body overflow-auto flex-grow-1" id="messagesContainer" style="background: #f8f9fa;">
+                    <div id="messages">
+                        {% for message in messages %}
+                        <div class="d-flex mb-3 {% if message.sender == request.user %}justify-content-end{% endif %}">
+                            {% if message.sender != request.user %}
+                            <div class="avatar bg-secondary text-white rounded-circle me-2 d-flex align-items-center justify-content-center"
+                                 style="width: 35px; height: 35px; font-size: 12px;">
+                                {{ message.sender.first_name|slice:":1" }}
+                            </div>
+                            {% endif %}
+                            <div class="message-bubble {% if message.sender == request.user %}sent{% else %}received{% endif %}">
+                                {% if active_room.is_group and message.sender != request.user %}
+                                <small class="text-primary fw-bold">{{ message.sender.get_full_name }}</small><br>
+                                {% endif %}
+                                {{ message.content }}
+                                <div class="message-time">
+                                    {{ message.created_at|time:"H:i" }}
+                                    {% if message.sender == request.user %}
+                                    <i class="bi bi-check2-all {% if message.is_read %}text-primary{% endif %}"></i>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-chat-heart fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">ابدأ المحادثة الآن!</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- إرسال رسالة -->
+                <div class="card-footer">
+                    <form id="messageForm" class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary" onclick="toggleAttachment()">
+                            <i class="bi bi-paperclip"></i>
+                        </button>
+                        <input type="text" class="form-control" id="messageInput" placeholder="اكتب رسالتك...">
+                        <button type="button" class="btn btn-outline-secondary" onclick="toggleEmoji()">
+                            <i class="bi bi-emoji-smile"></i>
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send"></i>
+                        </button>
+                    </form>
+                </div>
+                
+                {% else %}
+                <!-- لا توجد محادثة محددة -->
+                <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                    <i class="bi bi-chat-square-text fa-5x text-muted mb-4"></i>
+                    <h4 class="text-muted">اختر محادثة للبدء</h4>
+                    <p class="text-muted">أو ابدأ محادثة جديدة</p>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newChatModal">
+                        <i class="bi bi-plus-lg me-2"></i>محادثة جديدة
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal محادثة جديدة -->
+<div class="modal fade" id="newChatModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">محادثة جديدة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'internal_chat:create_group' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">نوع المحادثة</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="chat_type" id="direct" value="direct" checked>
+                            <label class="btn btn-outline-primary" for="direct">
+                                <i class="bi bi-person me-2"></i>مباشرة
+                            </label>
+                            <input type="radio" class="btn-check" name="chat_type" id="group" value="group">
+                            <label class="btn btn-outline-primary" for="group">
+                                <i class="bi bi-people me-2"></i>مجموعة
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3" id="groupNameField" style="display: none;">
+                        <label class="form-label">اسم المجموعة</label>
+                        <input type="text" class="form-control" name="group_name">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">اختر المستخدمين</label>
+                        <select class="form-select" name="members" multiple size="5">
+                            {% for user in users %}
+                            <option value="{{ user.id }}">{{ user.get_full_name }} ({{ user.email }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">إنشاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.message-bubble {
+    max-width: 70%;
+    padding: 10px 15px;
+    border-radius: 15px;
+    position: relative;
+}
+
+.message-bubble.sent {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-bottom-right-radius: 5px;
+}
+
+.message-bubble.received {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-bottom-left-radius: 5px;
+}
+
+.message-time {
+    font-size: 11px;
+    opacity: 0.7;
+    text-align: end;
+    margin-top: 5px;
+}
+
+.min-width-0 {
+    min-width: 0;
+}
+</style>
+
+<script>
+// WebSocket للمحادثة الفورية
+{% if active_room %}
+const roomId = {{ active_room.id }};
+let chatSocket;
+
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    chatSocket = new WebSocket(`${protocol}//${window.location.host}/ws/chat/${roomId}/`);
+    
+    chatSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        appendMessage(data);
+    };
+    
+    chatSocket.onclose = function(e) {
+        console.log('WebSocket closed, reconnecting...');
+        setTimeout(connectWebSocket, 3000);
+    };
+}
+
+function appendMessage(data) {
+    const messagesDiv = document.getElementById('messages');
+    const isMe = data.sender_id == {{ request.user.id }};
+    
+    const messageHtml = `
+        <div class="d-flex mb-3 ${isMe ? 'justify-content-end' : ''}">
+            ${!isMe ? `<div class="avatar bg-secondary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" style="width: 35px; height: 35px; font-size: 12px;">${data.sender_name[0]}</div>` : ''}
+            <div class="message-bubble ${isMe ? 'sent' : 'received'}">
+                ${data.content}
+                <div class="message-time">${new Date().toLocaleTimeString('ar-EG', {hour: '2-digit', minute: '2-digit'})}</div>
+            </div>
+        </div>
+    `;
+    
+    messagesDiv.insertAdjacentHTML('beforeend', messageHtml);
+    scrollToBottom();
+}
+
+document.getElementById('messageForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const input = document.getElementById('messageInput');
+    const message = input.value.trim();
+    
+    if (message && chatSocket.readyState === WebSocket.OPEN) {
+        chatSocket.send(JSON.stringify({
+            'message': message
+        }));
+        input.value = '';
+    }
+});
+
+function scrollToBottom() {
+    const container = document.getElementById('messagesContainer');
+    container.scrollTop = container.scrollHeight;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    connectWebSocket();
+    scrollToBottom();
+});
+{% endif %}
+
+// Toggle group name field
+document.querySelectorAll('input[name="chat_type"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+        document.getElementById('groupNameField').style.display = 
+            this.value === 'group' ? 'block' : 'none';
+    });
+});
+</script>
+{% endblock %}

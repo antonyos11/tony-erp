@@ -1,0 +1,145 @@
+﻿{% load static %}
+<!-- Product Card Component -->
+<article class="product-card animate-fadeInUp" itemscope itemtype="https://schema.org/Product">
+    <div class="product-image">
+        <!-- Wishlist Button -->
+        {% if user.is_authenticated %}
+        <button class="wishlist-btn {% if product.id in wishlist_ids %}active{% endif %}" 
+                onclick="toggleWishlist({ product.id }, this)" 
+                title="{% if product.id in wishlist_ids %}إزالة من المفضلة{% else %}إضافة للمفضلة{% endif %}">
+            <i class="{% if product.id in wishlist_ids %}fas{% else %}far{% endif %} fa-heart"></i>
+        </button>
+        {% endif %}
+        
+        <!-- Badges -->
+        <div class="product-badge">
+            {% if product.has_discount %}
+                <span class="badge-discount">-{{ product.discount_percentage }}%</span>
+            {% elif product.is_new %}
+                <span class="badge-new">جديد</span>
+            {% endif %}
+        </div>
+        
+        <!-- Rank Badge (for bestsellers) -->
+        {% if show_rank and rank %}
+        <div class="position-absolute top-0 start-0 m-2">
+            <span class="badge bg-warning text-dark">
+                <i class="fas fa-trophy me-1"></i>#{{ rank }}
+            </span>
+        </div>
+        {% endif %}
+        
+        <!-- Product Image -->
+        <a href="{% url 'ecommerce:product_detail' product.id %}">
+            {% if product.main_image %}
+                <img src="{{ product.main_image.url }}" 
+                     alt="{ product.name }}" 
+                     itemprop="image"
+                     loading="lazy">
+            {% elif product.inventory_item.image %}
+                <img src="{{ product.inventory_item.image.url }}" 
+                     alt="{ product.name }}" 
+                     itemprop="image"
+                     loading="lazy">
+            {% else %}
+                <img src="{% static 'img/no-image.png' %}" 
+                     alt="{ product.name }"
+                     loading="lazy">
+            {% endif %}
+        </a>
+        
+        <!-- Quick View Button -->
+        <button class="quick-view-btn" onclick="quickView({ product.id })" type="button">
+            <i class="fas fa-eye me-1"></i>
+            عرض سريع
+        </button>
+    </div>
+    
+    <div class="product-info">
+        <!-- Product Name -->
+        <a href="{% url 'ecommerce:product_detail' product.id %}" class="product-name" itemprop="name">
+            {{ product.name }}
+        </a>
+        
+        <!-- Rating -->
+        {% if not compact %}
+        <div class="product-rating" itemprop="aggregateRating" itemscope itemtype="https://schema.org/AggregateRating">
+            {% with rating=product.average_rating|default:0 %}
+            {% for i in "12345" %}
+                {% if forloop.counter <= rating %}
+                    <i class="fas fa-star"></i>
+                {% elif forloop.counter <= rating|add:0.5 %}
+                    <i class="fas fa-star-half-alt"></i>
+                {% else %}
+                    <i class="far fa-star"></i>
+                {% endif %}
+            {% endfor %}
+            {% endwith %}
+            <a href="{% url 'ecommerce:product_detail' product.id %}#reviews" class="reviews-count">
+                ({{ product.reviews_count|default:0 }})
+            </a>
+            <meta itemprop="ratingValue" content="{ product.average_rating|default:0 }">
+            <meta itemprop="reviewCount" content="{ product.reviews_count|default:0 }">
+        </div>
+        {% endif %}
+        
+        <!-- Price -->
+        <div class="product-price" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
+            <meta itemprop="priceCurrency" content="{ settings.currency|default:'SAR' }">
+            
+            {% if product.has_discount %}
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="old-price">{{ product.original_price|floatformat:2 }}</span>
+                    <span class="current-price text-danger">
+                        <span class="currency">{{ settings.currency|default:'ج.م' }}</span>
+                        {{ product.price|floatformat:2 }}
+                    </span>
+                </div>
+                <meta itemprop="price" content="{ product.price }">
+            {% else %}
+                <span class="current-price">
+                    <span class="currency">{{ settings.currency|default:'ج.م' }}</span>
+                    <span itemprop="price">{{ product.price|floatformat:2 }}</span>
+                </span>
+            {% endif %}
+            
+            <!-- Stock Status -->
+            {% if product.is_in_stock %}
+                <div class="product-stock in-stock">
+                    <i class="fas fa-check-circle me-1"></i>
+                    متوفر
+                </div>
+                <link itemprop="availability" href="https://schema.org/InStock">
+            {% else %}
+                <div class="product-stock out-of-stock">
+                    <i class="fas fa-times-circle me-1"></i>
+                    غير متوفر
+                </div>
+                <link itemprop="availability" href="https://schema.org/OutOfStock">
+            {% endif %}
+        </div>
+        
+        <!-- Add to Cart Button -->
+        {% if not compact %}
+        {% if product.is_in_stock %}
+            <button class="btn-add-cart" onclick="addToCart({ product.id })">
+                <i class="fas fa-cart-plus me-1"></i>
+                أضف للسلة
+            </button>
+        {% else %}
+            <button class="btn-add-cart" disabled style="opacity: 0.5; cursor: not-allowed;">
+                <i class="fas fa-bell me-1"></i>
+                نبهني عند التوفر
+            </button>
+        {% endif %}
+        {% endif %}
+    </div>
+</article>
+
+<style>
+/* Quick View Modal trigger styles if needed */
+.product-card {
+    animation-delay: calc(var(--index, 0) * 0.1s);
+}
+</style>
+

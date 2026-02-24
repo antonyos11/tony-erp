@@ -1,0 +1,583 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}سير عمل الاعتمادات - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* إصلاح مشكلة الطبقة الرمادية */
+    .modal {
+        z-index: 1060 !important;
+    }
+    .modal-backdrop {
+        z-index: 1055 !important;
+    }
+    .modal-dialog {
+        z-index: 1065 !important;
+    }
+    /* إخفاء sidebar backdrop عند فتح modal */
+    body.modal-open .sidebar-mobile-backdrop,
+    body.modal-open #sidebarMobileBackdrop {
+        display: none !important;
+    }
+    
+    .workflow-header {
+        background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+    }
+    .approval-card {
+        border-radius: 15px;
+        transition: all 0.3s;
+        border-right: 5px solid;
+    }
+    .approval-card.pending { border-color: #ffc107; }
+    .approval-card.approved { border-color: #28a745; }
+    .approval-card.rejected { border-color: #dc3545; }
+    .approval-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
+    .workflow-steps {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: relative;
+        margin: 2rem 0;
+    }
+    .workflow-steps::before {
+        content: '';
+        position: absolute;
+        top: 25px;
+        left: 10%;
+        right: 10%;
+        height: 3px;
+        background: #dee2e6;
+        z-index: 1;
+    }
+    .workflow-step {
+        position: relative;
+        z-index: 2;
+        text-align: center;
+        flex: 1;
+    }
+    .step-circle {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: #dee2e6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 0.5rem;
+        font-weight: bold;
+        color: #6c757d;
+    }
+    .step-circle.active { background: #007bff; color: white; }
+    .step-circle.completed { background: #28a745; color: white; }
+    .step-circle.rejected { background: #dc3545; color: white; }
+    .priority-badge.high { background: #dc3545; }
+    .priority-badge.medium { background: #ffc107; color: #000; }
+    .priority-badge.low { background: #28a745; }
+    .amount-large {
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    .approval-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .filter-pills .btn {
+        border-radius: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="workflow-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h2 class="mb-2">
+                    <i class="fas fa-route"></i>
+                    سير عمل الاعتمادات المحاسبية
+                </h2>
+                <p class="mb-0 opacity-75">إدارة طلبات الاعتماد والموافقات</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{% url 'accounting:workflow_settings' %}" class="btn btn-light btn-lg">
+                    <i class="fas fa-cog"></i> إعدادات سير العمل
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-warning text-dark">
+                <div class="card-body text-center">
+                    <i class="fas fa-clock fa-2x mb-2"></i>
+                    <h3 class="mb-0">{{ stats.pending }}</h3>
+                    <p class="mb-0 small">في انتظار الاعتماد</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-success text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-check-circle fa-2x mb-2"></i>
+                    <h3 class="mb-0">{{ stats.approved }}</h3>
+                    <p class="mb-0 small">تم اعتماده</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-danger text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-times-circle fa-2x mb-2"></i>
+                    <h3 class="mb-0">{{ stats.rejected }}</h3>
+                    <p class="mb-0 small">مرفوض</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-primary text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-user-check fa-2x mb-2"></i>
+                    <h3 class="mb-0">{{ stats.my_pending }}</h3>
+                    <p class="mb-0 small">بانتظار اعتمادي</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap">
+                        <div class="filter-pills btn-group mb-2">
+                            <a href="?status=all" class="btn {% if not request.GET.status or request.GET.status == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                                الكل
+                            </a>
+                            <a href="?status=pending" class="btn {% if request.GET.status == 'pending' %}btn-warning{% else %}btn-outline-warning{% endif %}">
+                                <i class="fas fa-clock"></i> في الانتظار
+                            </a>
+                            <a href="?status=my_pending" class="btn {% if request.GET.status == 'my_pending' %}btn-info{% else %}btn-outline-info{% endif %}">
+                                <i class="fas fa-user"></i> بانتظار اعتمادي
+                            </a>
+                            <a href="?status=approved" class="btn {% if request.GET.status == 'approved' %}btn-success{% else %}btn-outline-success{% endif %}">
+                                <i class="fas fa-check"></i> تم الاعتماد
+                            </a>
+                            <a href="?status=rejected" class="btn {% if request.GET.status == 'rejected' %}btn-danger{% else %}btn-outline-danger{% endif %}">
+                                <i class="fas fa-times"></i> مرفوض
+                            </a>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <select class="form-select" style="width: auto;">
+                                <option value="">جميع الأنواع</option>
+                                <option value="journal">قيود يومية</option>
+                                <option value="payment">مدفوعات</option>
+                                <option value="expense">مصروفات</option>
+                                <option value="budget">تجاوز موازنة</option>
+                            </select>
+                            <input type="text" class="form-control" placeholder="بحث..." style="width: 200px;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Approvals -->
+    <div class="row">
+        {% if approvals %}
+            {% for approval in approvals %}
+            <div class="col-md-6 mb-4">
+                <div class="card approval-card {{ approval.status }} h-100">
+                    <div class="card-header bg-white border-bottom">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge 
+                                    {% if approval.status == 'pending' %}bg-warning
+                                    {% elif approval.status == 'approved' %}bg-success
+                                    {% else %}bg-danger{% endif %}">
+                                    {{ approval.get_status_display }}
+                                </span>
+                                <span class="badge priority-badge {{ approval.priority }} ms-1">
+                                    {{ approval.get_priority_display }}
+                                </span>
+                            </div>
+                            <small class="text-muted">{{ approval.created_at|timesince }} مضت</small>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Request Info -->
+                        <div class="mb-3">
+                            <h5 class="mb-1">{{ approval.title }}</h5>
+                            <p class="text-muted small mb-2">{{ approval.description|truncatewords:20 }}</p>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge bg-secondary">{{ approval.get_document_type_display }}</span>
+                                <span class="text-muted small">
+                                    <i class="fas fa-user"></i> {{ approval.requested_by.get_full_name }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Amount -->
+                        <div class="mb-3">
+                            <span class="text-muted small">المبلغ:</span>
+                            <span class="amount-large text-primary">{{ approval.amount|floatformat:2 }}</span>
+                        </div>
+
+                        <!-- Workflow Steps -->
+                        <div class="workflow-steps mb-3">
+                            {% for step in approval.workflow_steps %}
+                            <div class="workflow-step">
+                                <div class="step-circle 
+                                    {% if step.status == 'completed' %}completed
+                                    {% elif step.status == 'active' %}active
+                                    {% elif step.status == 'rejected' %}rejected{% endif %}">
+                                    {% if step.status == 'completed' %}
+                                        <i class="fas fa-check"></i>
+                                    {% elif step.status == 'rejected' %}
+                                        <i class="fas fa-times"></i>
+                                    {% else %}
+                                        {{ forloop.counter }}
+                                    {% endif %}
+                                </div>
+                                <small class="d-block text-muted">{{ step.approver_role }}</small>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Current Approver -->
+                        {% if approval.status == 'pending' %}
+                        <div class="alert alert-info py-2 mb-3">
+                            <small>
+                                <i class="fas fa-user-clock"></i>
+                                بانتظار اعتماد: <strong>{{ approval.current_approver.get_full_name }}</strong>
+                            </small>
+                        </div>
+                        {% endif %}
+
+                        <!-- Rejection Reason -->
+                        {% if approval.status == 'rejected' and approval.rejection_reason %}
+                        <div class="alert alert-danger py-2 mb-3">
+                            <small>
+                                <i class="fas fa-exclamation-circle"></i>
+                                سبب الرفض: {{ approval.rejection_reason }}
+                            </small>
+                        </div>
+                        {% endif %}
+
+                        <!-- Actions -->
+                        <div class="approval-actions">
+                            <a href="{% url 'accounting:approval_detail' approval.id %}" class="btn btn-outline-primary flex-fill">
+                                <i class="fas fa-eye"></i> التفاصيل
+                            </a>
+                            {% if approval.can_approve %}
+                                <button class="btn btn-success" onclick="approveRequest({{ approval.id }})">
+                                    <i class="fas fa-check"></i> اعتماد
+                                </button>
+                                <button class="btn btn-danger" onclick="rejectRequest({{ approval.id }})">
+                                    <i class="fas fa-times"></i> رفض
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white">
+                        <small class="text-muted">
+                            <i class="fas fa-calendar"></i> تاريخ الطلب: {{ approval.created_at|date:"Y-m-d H:i" }}
+                        </small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center py-5">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">لا توجد طلبات اعتماد</p>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Workflow Configuration -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-sitemap"></i>
+                        تكوين سير العمل
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>نوع المستند</th>
+                                    <th>حد المبلغ</th>
+                                    <th>المستوى 1</th>
+                                    <th>المستوى 2</th>
+                                    <th>المستوى 3</th>
+                                    <th>الحالة</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for workflow in workflow_configs %}
+                                <tr>
+                                    <td><strong>{{ workflow.get_document_type_display }}</strong></td>
+                                    <td>{{ workflow.amount_limit|floatformat:0 }}</td>
+                                    <td>
+                                        <span class="badge bg-info">{{ workflow.level_1_role }}</span>
+                                    </td>
+                                    <td>
+                                        {% if workflow.level_2_role %}
+                                            <span class="badge bg-warning">{{ workflow.level_2_role }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if workflow.level_3_role %}
+                                            <span class="badge bg-danger">{{ workflow.level_3_role }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if workflow.is_active %}
+                                            <span class="badge bg-success">مفعل</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">معطل</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="editWorkflow({{ workflow.id }})">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">لا يوجد تكوين لسير العمل</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addWorkflowModal">
+                        <i class="fas fa-plus"></i> إضافة سير عمل جديد
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Approval Modal -->
+<div class="modal fade" id="approvalModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-check-circle"></i>
+                    اعتماد الطلب
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="approvalForm">
+                {% csrf_token %}
+                <input type="hidden" name="approval_id" id="approvalId">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">ملاحظات الاعتماد (اختياري)</label>
+                        <textarea name="notes" class="form-control" rows="3" 
+                                  placeholder="أي ملاحظات إضافية..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check"></i> تأكيد الاعتماد
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Rejection Modal -->
+<div class="modal fade" id="rejectionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-times-circle"></i>
+                    رفض الطلب
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="rejectionForm">
+                {% csrf_token %}
+                <input type="hidden" name="approval_id" id="rejectionApprovalId">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">سبب الرفض <span class="text-danger">*</span></label>
+                        <textarea name="rejection_reason" class="form-control" rows="3" 
+                                  placeholder="يرجى توضيح سبب الرفض..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-times"></i> تأكيد الرفض
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Workflow Modal -->
+<div class="modal fade" id="addWorkflowModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus-circle"></i>
+                    إضافة سير عمل جديد
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">نوع المستند</label>
+                            <select name="document_type" class="form-select" required>
+                                <option value="">-- اختر --</option>
+                                <option value="journal">قيود يومية</option>
+                                <option value="payment">مدفوعات</option>
+                                <option value="expense">مصروفات</option>
+                                <option value="budget_override">تجاوز موازنة</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">حد المبلغ</label>
+                            <input type="number" name="amount_limit" class="form-control" required>
+                            <small class="text-muted">المبالغ الأكبر من هذا الحد تتطلب اعتماد</small>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">المستوى 1</label>
+                            <select name="level_1" class="form-select" required>
+                                <option value="">-- اختر --</option>
+                                <option value="supervisor">المشرف المباشر</option>
+                                <option value="accountant_manager">مدير الحسابات</option>
+                                <option value="financial_manager">المدير المالي</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">المستوى 2 (اختياري)</label>
+                            <select name="level_2" class="form-select">
+                                <option value="">-- لا يوجد --</option>
+                                <option value="financial_manager">المدير المالي</option>
+                                <option value="cfo">CFO</option>
+                                <option value="ceo">CEO</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">المستوى 3 (اختياري)</label>
+                            <select name="level_3" class="form-select">
+                                <option value="">-- لا يوجد --</option>
+                                <option value="ceo">CEO</option>
+                                <option value="board">مجلس الإدارة</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> حفظ
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// تخزين مرجع للـ modals
+let approvalModalInstance = null;
+let rejectionModalInstance = null;
+let addWorkflowModalInstance = null;
+
+// تهيئة الـ modals عند تحميل الصفحة
+document.addEventListener('DOMContentLoaded', function() {
+    const approvalModal = document.getElementById('approvalModal');
+    const rejectionModal = document.getElementById('rejectionModal');
+    const addWorkflowModal = document.getElementById('addWorkflowModal');
+    
+    if (approvalModal) {
+        approvalModalInstance = new bootstrap.Modal(approvalModal);
+        approvalModal.addEventListener('hidden.bs.modal', cleanupBackdrop);
+    }
+    if (rejectionModal) {
+        rejectionModalInstance = new bootstrap.Modal(rejectionModal);
+        rejectionModal.addEventListener('hidden.bs.modal', cleanupBackdrop);
+    }
+    if (addWorkflowModal) {
+        addWorkflowModalInstance = new bootstrap.Modal(addWorkflowModal);
+        addWorkflowModal.addEventListener('hidden.bs.modal', cleanupBackdrop);
+    }
+});
+
+// إزالة الـ backdrop المتبقي
+function cleanupBackdrop() {
+    setTimeout(function() {
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        backdrops.forEach(function(backdrop) {
+            backdrop.remove();
+        });
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+    }, 100);
+}
+
+function approveRequest(id) {
+    document.getElementById('approvalId').value = id;
+    if (approvalModalInstance) {
+        approvalModalInstance.show();
+    }
+}
+
+function rejectRequest(id) {
+    document.getElementById('rejectionApprovalId').value = id;
+    if (rejectionModalInstance) {
+        rejectionModalInstance.show();
+    }
+}
+
+function editWorkflow(id) {
+    alert('تعديل سير العمل رقم: ' + id);
+}
+</script>
+{% endblock %}

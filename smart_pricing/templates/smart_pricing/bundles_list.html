@@ -1,0 +1,373 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "تسعير الباقات" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bundle-card {
+        border-radius: 15px;
+        border: none;
+        transition: all 0.3s ease;
+    }
+    .bundle-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15) !important;
+    }
+    .bundle-items {
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    .discount-badge {
+        position: absolute;
+        top: -10px;
+        right: -10px;
+        font-size: 1rem;
+        padding: 8px 12px;
+        border-radius: 20px;
+    }
+    .bundle-price {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 15px;
+    }
+    .original-price {
+        text-decoration: line-through;
+        opacity: 0.7;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'smart_pricing:dashboard' %}">{% trans "التسعير الذكي" %}</a>
+                        </li>
+                        <li class="breadcrumb-item active">{% trans "تسعير الباقات" %}</li>
+                    </ol>
+                </nav>
+                <h2>
+                    <i class="fas fa-cubes text-primary"></i>
+                    {% trans "تسعير الباقات والعروض" %}
+                </h2>
+                <p class="text-muted mb-0">{% trans "إدارة أسعار الباقات والمنتجات المجمعة" %}</p>
+            </div>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addBundleModal">
+                <i class="fas fa-plus"></i> {% trans "باقة جديدة" %}
+            </button>
+        </div>
+    </div>
+
+    <!-- إحصائيات -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bundle-card shadow-sm bg-primary text-white">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ total_bundles|default:0 }}</h3>
+                    <small>{% trans "إجمالي الباقات" %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bundle-card shadow-sm bg-success text-white">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ active_bundles|default:0 }}</h3>
+                    <small>{% trans "باقات نشطة" %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bundle-card shadow-sm bg-info text-white">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ avg_discount|floatformat:0|default:0 }}%</h3>
+                    <small>{% trans "متوسط الخصم" %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bundle-card shadow-sm bg-warning text-white">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ total_sales|default:0 }}</h3>
+                    <small>{% trans "مبيعات الباقات" %}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- قائمة الباقات -->
+    <div class="row">
+        {% for bundle in bundles %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card bundle-card shadow-sm h-100 position-relative">
+                <!-- شارة الخصم -->
+                <span class="discount-badge bg-danger text-white">
+                    <i class="fas fa-tag"></i> {{ bundle.discount_percentage|floatformat:0 }}% {% trans "خصم" %}
+                </span>
+
+                <div class="card-body">
+                    <!-- معلومات الباقة -->
+                    <div class="mb-3">
+                        <h5 class="mb-1">{{ bundle.name }}</h5>
+                        <small class="text-muted">{{ bundle.description|truncatewords:15 }}</small>
+                    </div>
+
+                    <!-- حالة الباقة -->
+                    <div class="mb-3">
+                        {% if bundle.is_active %}
+                        <span class="badge bg-success">
+                            <i class="fas fa-check"></i> {% trans "نشطة" %}
+                        </span>
+                        {% else %}
+                        <span class="badge bg-secondary">
+                            <i class="fas fa-pause"></i> {% trans "متوقفة" %}
+                        </span>
+                        {% endif %}
+                        
+                        {% if bundle.start_date and bundle.end_date %}
+                        <span class="badge bg-light text-dark">
+                            <i class="fas fa-calendar"></i>
+                            {{ bundle.start_date|date:"d/m" }} - {{ bundle.end_date|date:"d/m" }}
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- المنتجات في الباقة -->
+                    <div class="bundle-items mb-3">
+                        <small class="text-muted d-block mb-2">{% trans "المنتجات:" %}</small>
+                        {% for item in bundle.items.all %}
+                        <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                            <span class="small">{{ item.product.name|truncatewords:3 }}</span>
+                            <span class="badge bg-light text-dark">× {{ item.quantity }}</span>
+                        </div>
+                        {% empty %}
+                        <small class="text-muted">{% trans "لا توجد منتجات" %}</small>
+                        {% endfor %}
+                    </div>
+
+                    <!-- السعر -->
+                    <div class="bundle-price text-center">
+                        <div class="original-price mb-1">
+                            {{ bundle.original_total|floatformat:2 }} ر.س
+                        </div>
+                        <div class="h4 mb-0">
+                            {{ bundle.bundle_price|floatformat:2 }} ر.س
+                        </div>
+                        <small>{% trans "وفر" %} {{ bundle.savings|floatformat:2 }} ر.س</small>
+                    </div>
+                </div>
+
+                <div class="card-footer bg-white border-0">
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'smart_pricing:bundle_detail' bundle.id %}" 
+                           class="btn btn-sm btn-outline-primary flex-grow-1">
+                            <i class="fas fa-eye"></i> {% trans "عرض" %}
+                        </a>
+                        <button class="btn btn-sm btn-outline-secondary"
+                                onclick="editBundle({{ bundle.id }})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger"
+                                onclick="deleteBundle({{ bundle.id }})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card bundle-card shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-cubes fa-4x text-muted mb-3"></i>
+                    <h4 class="text-muted">{% trans "لا توجد باقات" %}</h4>
+                    <p class="text-muted mb-4">{% trans "قم بإنشاء باقات منتجات لتقديم عروض مميزة" %}</p>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addBundleModal">
+                        <i class="fas fa-plus"></i> {% trans "إنشاء أول باقة" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal إضافة باقة -->
+<div class="modal fade" id="addBundleModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "إنشاء باقة جديدة" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'smart_pricing:bundles_list' %}" id="bundleForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "اسم الباقة" %}</label>
+                            <input type="text" name="name" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "نسبة الخصم" %}</label>
+                            <div class="input-group">
+                                <input type="number" name="discount_percentage" class="form-control" 
+                                       step="0.1" min="0" max="100" value="10">
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "الوصف" %}</label>
+                        <textarea name="description" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "تاريخ البداية" %}</label>
+                            <input type="date" name="start_date" class="form-control">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "تاريخ النهاية" %}</label>
+                            <input type="date" name="end_date" class="form-control">
+                        </div>
+                    </div>
+
+                    <!-- المنتجات -->
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "المنتجات" %}</label>
+                        <div id="bundleProducts">
+                            <div class="row product-row mb-2">
+                                <div class="col-md-8">
+                                    <select name="product_ids[]" class="form-select product-select" required>
+                                        <option value="">{% trans "اختر منتج" %}</option>
+                                        {% for product in products %}
+                                        <option value="{{ product.id }}" data-price="{{ product.price }}">
+                                            {{ product.name }} - {{ product.price }} ر.س
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="number" name="quantities[]" class="form-control" 
+                                           placeholder="{% trans 'الكمية' %}" value="1" min="1">
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeProductRow(this)">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="addProductRow()">
+                            <i class="fas fa-plus"></i> {% trans "إضافة منتج" %}
+                        </button>
+                    </div>
+
+                    <!-- معاينة السعر -->
+                    <div class="alert alert-info">
+                        <div class="d-flex justify-content-between">
+                            <span>{% trans "السعر الإجمالي:" %}</span>
+                            <strong id="totalOriginal">0.00 ر.س</strong>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>{% trans "سعر الباقة:" %}</span>
+                            <strong id="bundlePricePreview">0.00 ر.س</strong>
+                        </div>
+                        <div class="d-flex justify-content-between text-success">
+                            <span>{% trans "التوفير:" %}</span>
+                            <strong id="savingsPreview">0.00 ر.س</strong>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "إلغاء" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        {% trans "إنشاء الباقة" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function addProductRow() {
+    const container = document.getElementById('bundleProducts');
+    const row = container.querySelector('.product-row').cloneNode(true);
+    row.querySelector('select').value = '';
+    row.querySelector('input').value = '1';
+    container.appendChild(row);
+    updatePricePreview();
+}
+
+function removeProductRow(btn) {
+    const container = document.getElementById('bundleProducts');
+    if (container.querySelectorAll('.product-row').length > 1) {
+        btn.closest('.product-row').remove();
+        updatePricePreview();
+    }
+}
+
+function updatePricePreview() {
+    const selects = document.querySelectorAll('.product-select');
+    const quantities = document.querySelectorAll('input[name="quantities[]"]');
+    const discount = parseFloat(document.querySelector('input[name="discount_percentage"]').value) || 0;
+    
+    let total = 0;
+    selects.forEach((select, index) => {
+        const option = select.options[select.selectedIndex];
+        if (option && option.dataset.price) {
+            const price = parseFloat(option.dataset.price) || 0;
+            const qty = parseInt(quantities[index].value) || 1;
+            total += price * qty;
+        }
+    });
+    
+    const bundlePrice = total * (1 - discount / 100);
+    const savings = total - bundlePrice;
+    
+    document.getElementById('totalOriginal').textContent = total.toFixed(2) + ' ر.س';
+    document.getElementById('bundlePricePreview').textContent = bundlePrice.toFixed(2) + ' ر.س';
+    document.getElementById('savingsPreview').textContent = savings.toFixed(2) + ' ر.س';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.product-select, input[name="quantities[]"], input[name="discount_percentage"]')
+        .forEach(el => el.addEventListener('change', updatePricePreview));
+});
+
+var MSG_CONFIRM_DELETE_BUNDLE = "{{ 'هل أنت متأكد من حذف هذه الباقة؟'|escapejs }}";
+
+function editBundle(bundleId) {
+    alert('تعديل الباقة: ' + bundleId);
+}
+
+function deleteBundle(bundleId) {
+    if (confirm(MSG_CONFIRM_DELETE_BUNDLE)) {
+        fetch(`/smart-pricing/bundles/${bundleId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

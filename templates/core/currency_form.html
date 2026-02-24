@@ -1,0 +1,436 @@
+{% extends 'base_templates/modern_form.html' %}
+{% load static i18n %}
+
+{% block page_module %}core{% endblock %}
+{% block page_icon %}bi-gear{% endblock %}
+{% block page_title %}{% trans 'نموذج جديد' %}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/modern_pages.css' %}">
+<style>
+.form-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-label {
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.5rem;
+}
+
+.form-control:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.25);
+}
+
+.help-text {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+}
+
+.currency-preview {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.preview-currency {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+.preview-symbol {
+    font-family: 'Courier New', monospace;
+    font-size: 1.1rem;
+    color: #6c757d;
+}
+
+.checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+    border: 1px solid #e9ecef;
+}
+
+.checkbox-wrapper:hover {
+    background: #e9ecef;
+}
+
+.alert-info {
+    border-left: 4px solid #3b82f6;
+}
+</style>
+{% endblock %}
+
+{% block form_content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-{% if form_action == 'إضافة' %}plus{% else %}edit{% endif %} text-primary"></i>
+            {{ page_title }}
+        </h1>
+        <a href="{% url 'core:currency_settings' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-right"></i>
+            العودة للقائمة
+        </a>
+    </div>
+
+    {% if messages %}
+    <div class="row">
+        <div class="col-12">
+            {% for message in messages %}
+            <div class="alert alert-{ message.tags } alert-dismissible fade show" role="alert">
+                <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% else %}info-circle{% endif %}"></i>
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="form-container">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-coins"></i>
+                    بيانات العملة
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- معاينة العملة -->
+                <div class="currency-preview" id="currencyPreview">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <span class="preview-currency" id="previewName">اسم العملة</span>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="badge bg-secondary" id="previewCode">CODE</span>
+                        </div>
+                        <div class="col-md-3 text-end">
+                            <span class="preview-symbol" id="previewSymbol">رمز</span>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">سعر الصرف: </small>
+                        <strong id="previewRate">1.000000</strong>
+                        <small class="text-muted ms-2">خانات عشرية: </small>
+                        <strong id="previewDecimals">2</strong>
+                    </div>
+                </div>
+
+                <form method="post" id="currencyForm">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <!-- رمز العملة -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label" for="{ form.code.id_for_label }">
+                                    <i class="fas fa-tag text-primary"></i>
+                                    {{ form.code.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.code }}
+                                {% if form.code.help_text %}
+                                <div class="help-text">{{ form.code.help_text }}</div>
+                                {% endif %}
+                                {% if form.code.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.code.errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- رمز العرض -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label" for="{ form.symbol.id_for_label }">
+                                    <i class="fas fa-dollar-sign text-primary"></i>
+                                    {{ form.symbol.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.symbol }}
+                                {% if form.symbol.help_text %}
+                                <div class="help-text">{{ form.symbol.help_text }}</div>
+                                {% endif %}
+                                {% if form.symbol.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.symbol.errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- اسم العملة -->
+                    <div class="form-group">
+                        <label class="form-label" for="{ form.name.id_for_label }">
+                            <i class="fas fa-signature text-primary"></i>
+                            {{ form.name.label }}
+                            <span class="text-danger">*</span>
+                        </label>
+                        {{ form.name }}
+                        {% if form.name.help_text %}
+                        <div class="help-text">{{ form.name.help_text }}</div>
+                        {% endif %}
+                        {% if form.name.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.name.errors %}
+                                <div>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="row">
+                        <!-- سعر الصرف -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label" for="{ form.exchange_rate.id_for_label }">
+                                    <i class="fas fa-exchange-alt text-primary"></i>
+                                    {{ form.exchange_rate.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.exchange_rate }}
+                                {% if form.exchange_rate.help_text %}
+                                <div class="help-text">{{ form.exchange_rate.help_text }}</div>
+                                {% endif %}
+                                {% if form.exchange_rate.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.exchange_rate.errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- الخانات العشرية -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label" for="{ form.decimal_places.id_for_label }">
+                                    <i class="fas fa-calculator text-primary"></i>
+                                    {{ form.decimal_places.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.decimal_places }}
+                                {% if form.decimal_places.help_text %}
+                                <div class="help-text">{{ form.decimal_places.help_text }}</div>
+                                {% endif %}
+                                {% if form.decimal_places.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.decimal_places.errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- إعدادات الحالة -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <div class="checkbox-wrapper">
+                                    {{ form.is_active }}
+                                    <label for="{ form.is_active.id_for_label }}" class="form-label mb-0">
+                                        <i class="fas fa-toggle-on text-success"></i>
+                                        {{ form.is_active.label }}
+                                    </label>
+                                </div>
+                                {% if form.is_active.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.is_active.errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <div class="checkbox-wrapper">
+                                    {{ form.is_default }}
+                                    <label for="{ form.is_default.id_for_label }}" class="form-label mb-0">
+                                        <i class="fas fa-star text-warning"></i>
+                                        {{ form.is_default.label }}
+                                    </label>
+                                </div>
+                                {% if form.is_default.help_text %}
+                                <div class="help-text">{{ form.is_default.help_text }}</div>
+                                {% endif %}
+                                {% if form.is_default.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.is_default.errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- تنبيه للعملة الافتراضية -->
+                    <div class="alert alert-info" id="defaultCurrencyAlert" style="display: none;">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>ملاحظة:</strong> العملة الافتراضية سيتم تعيين سعر صرفها تلقائياً إلى 1.000000
+                    </div>
+
+                    <!-- أزرار التحكم -->
+                    <div class="form-group text-center">
+                        <button type="submit" class="btn btn-primary btn-lg me-3">
+                            <i class="fas fa-save"></i>
+                            {{ form_action }} العملة
+                        </button>
+                        <a href="{% url 'core:currency_settings' %}" class="btn btn-secondary btn-lg" id="cancelBtn">
+                            <i class="fas fa-times"></i>
+                            إلغاء
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('currencyForm');
+    const codeField = document.getElementById('{{ form.code.id_for_label }}');
+    const nameField = document.getElementById('{{ form.name.id_for_label }}');
+    const symbolField = document.getElementById('{{ form.symbol.id_for_label }}');
+    const rateField = document.getElementById('{{ form.exchange_rate.id_for_label }}');
+    const decimalsField = document.getElementById('{{ form.decimal_places.id_for_label }}');
+    const isDefaultField = document.getElementById('{ form.is_default.id_for_label }');
+    const defaultAlert = document.getElementById('defaultCurrencyAlert');
+
+    // تحديث المعاينة
+    function updatePreview() {
+        const selectedOption = codeField.options[codeField.selectedIndex];
+        const currencyName = selectedOption ? selectedOption.text : 'اسم العملة';
+        
+        document.getElementById('previewName').textContent = currencyName || 'اسم العملة';
+        document.getElementById('previewCode').textContent = codeField.value || 'CODE';
+        document.getElementById('previewSymbol').textContent = symbolField.value || 'رمز';
+        document.getElementById('previewRate').textContent = rateField.value || '1.000000';
+        document.getElementById('previewDecimals').textContent = decimalsField.value || '2';
+    }
+
+    // إعداد اسم العملة تلقائياً عند اختيار الكود
+    function updateCurrencyName() {
+        const selectedOption = codeField.options[codeField.selectedIndex];
+        if (selectedOption && selectedOption.text && !nameField.value) {
+            nameField.value = selectedOption.text;
+        }
+    }
+
+    // إعداد الرمز تلقائياً
+    function updateCurrencySymbol() {
+        const currencySymbols = {
+            'EGP': 'ج.م',
+            'USD': '$',
+            'EUR': '€',
+            'SAR': 'ج.م',
+            'AED': 'د.إ',
+            'KWD': 'د.ك',
+            'QAR': 'ر.ق',
+            'OMR': 'ر.ع',
+            'BHD': 'د.ب',
+            'JOD': 'د.أ',
+            'LBP': 'ل.ل',
+            'SYP': 'ل.س',
+            'IQD': 'د.ع',
+            'YER': 'ر.ي',
+            'SDG': 'ج.س',
+            'MAD': 'د.م',
+            'TND': 'د.ت',
+            'DZD': 'د.ج',
+            'LYD': 'د.ل',
+            'MRU': 'أ.م'
+        };
+        
+        if (currencySymbols[codeField.value] && !symbolField.value) {
+            symbolField.value = currencySymbols[codeField.value];
+        }
+    }
+
+    // التحكم في حالة العملة الافتراضية
+    function handleDefaultCurrency() {
+        if (isDefaultField.checked) {
+            rateField.value = '1.000000';
+            rateField.disabled = true;
+            defaultAlert.style.display = 'block';
+        } else {
+            rateField.disabled = false;
+            defaultAlert.style.display = 'none';
+        }
+    }
+
+    // إعداد المستمعين
+    codeField.addEventListener('change', function() {
+        updateCurrencyName();
+        updateCurrencySymbol();
+        updatePreview();
+    });
+
+    [nameField, symbolField, rateField, decimalsField].forEach(field => {
+        if (field) {
+            field.addEventListener('input', updatePreview);
+        }
+    });
+
+    isDefaultField.addEventListener('change', function() {
+        handleDefaultCurrency();
+        updatePreview();
+    });
+
+    // تحديث أولي
+    updatePreview();
+    handleDefaultCurrency();
+
+    // التحقق من صحة النموذج
+    form.addEventListener('submit', function(e) {
+        let isValid = true;
+        const requiredFields = [codeField, nameField, symbolField, rateField, decimalsField];
+        
+        requiredFields.forEach(field => {
+            if (field && !field.value.trim()) {
+                isValid = false;
+                field.classList.add('is-invalid');
+            } else if (field) {
+                field.classList.remove('is-invalid');
+            }
+        });
+
+        if (!isValid) {
+            e.preventDefault();
+            alert('يرجى ملء جميع الحقول المطلوبة');
+            return;
+        }
+        // منع تحذير المتصفح عن تغييرات غير محفوظة بعد الضغط على حفظ
+        window.onbeforeunload = null;
+    });
+});
+</script>{% endblock %}

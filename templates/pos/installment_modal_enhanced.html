@@ -1,0 +1,525 @@
+{% load i18n %}
+
+<!-- Enhanced Installment Modal -->
+<div class="modal fade" id="installmentModal" tabindex="-1" aria-labelledby="installmentModalLabel" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-gradient bg-primary text-white">
+                <h5 class="modal-title" id="installmentModalLabel">
+                    <i class="bi bi-calendar-check me-2"></i>{% trans 'نظام التقسيط الذكي' %}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="installmentForm" method="POST">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="row g-4">
+                        <!-- القسم الأيسر - معلومات الفاتورة والخطة -->
+                        <div class="col-lg-5">
+                            <!-- ملخص الفاتورة -->
+                            <div class="card border-primary mb-3">
+                                <div class="card-header bg-primary text-white py-2">
+                                    <i class="bi bi-receipt me-2"></i>{% trans 'ملخص الفاتورة' %}
+                                </div>
+                                <div class="card-body">
+                                    <div class="row text-center g-2">
+                                        <div class="col-6">
+                                            <div class="border rounded p-2">
+                                                <div class="text-muted small">{% trans 'إجمالي الفاتورة' %}</div>
+                                                <div class="h4 mb-0 text-primary fw-bold" id="instTotalAmount">0.00</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="border rounded p-2">
+                                                <div class="text-muted small">{% trans 'عدد الأصناف' %}</div>
+                                                <div class="h4 mb-0" id="instItemsCount">0</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- خطة التقسيط -->
+                            <div class="card border-success mb-3">
+                                <div class="card-header bg-success text-white py-2">
+                                    <i class="bi bi-calculator me-2"></i>{% trans 'إعدادات الخطة' %}
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <!-- اختيار خطة جاهزة -->
+                                        <div class="col-12">
+                                            <label class="form-label fw-bold">{% trans 'خطة التقسيط' %}</label>
+                                            <select class="form-select" id="planSelect" name="plan_id">
+                                                <option value="">{% trans '-- اختر خطة أو أدخل يدوياً --' %}</option>
+                                                {% for plan in installment_plans %}
+                                                <option value="{{ plan.id }}" 
+                                                        data-months="{{ plan.duration_months }}"
+                                                        data-rate="{{ plan.annual_interest_rate }}"
+                                                        data-min-down="{{ plan.min_down_payment_percentage }}"
+                                                        data-admin-fee="{{ plan.admin_fee_value }}"
+                                                        data-admin-type="{{ plan.admin_fee_type }}">
+                                                    {{ plan.name }} ({{ plan.duration_months }} {% trans 'شهر' %} - {{ plan.annual_interest_rate }}%)
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label">{% trans 'الدفعة المقدمة' %}</label>
+                                            <div class="input-group">
+                                                <input type="number" class="form-control" id="downPayment" name="down_payment" 
+                                                       step="0.01" min="0" value="0">
+                                                <span class="input-group-text">{% trans 'ج.م' %}</span>
+                                            </div>
+                                            <div class="form-text text-warning" id="minDownPaymentHint"></div>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label">{% trans 'عدد الأقساط' %}</label>
+                                            <select class="form-select" id="installmentMonths" name="number_of_installments">
+                                                <option value="3">3 {% trans 'أشهر' %}</option>
+                                                <option value="6" selected>6 {% trans 'أشهر' %}</option>
+                                                <option value="9">9 {% trans 'أشهر' %}</option>
+                                                <option value="12">12 {% trans 'شهر' %}</option>
+                                                <option value="18">18 {% trans 'شهر' %}</option>
+                                                <option value="24">24 {% trans 'شهر' %}</option>
+                                                <option value="36">36 {% trans 'شهر' %}</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label">{% trans 'نسبة الفائدة السنوية %' %}</label>
+                                            <input type="number" class="form-control" id="interestRate" name="interest_rate" 
+                                                   step="0.01" min="0" max="50" value="0">
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label">{% trans 'تاريخ أول قسط' %}</label>
+                                            <input type="date" class="form-control" id="startDate" name="start_date" required>
+                                        </div>
+                                    </div>
+
+                                    <!-- ملخص الحسابات -->
+                                    <div class="mt-4 p-3 bg-light rounded">
+                                        <div class="row g-2 text-center">
+                                            <div class="col-6 col-md-3">
+                                                <div class="small text-muted">{% trans 'المبلغ الممول' %}</div>
+                                                <div class="h6 mb-0 text-info" id="financedAmount">0.00</div>
+                                            </div>
+                                            <div class="col-6 col-md-3">
+                                                <div class="small text-muted">{% trans 'إجمالي الفوائد' %}</div>
+                                                <div class="h6 mb-0 text-warning" id="totalInterest">0.00</div>
+                                            </div>
+                                            <div class="col-6 col-md-3">
+                                                <div class="small text-muted">{% trans 'القسط الشهري' %}</div>
+                                                <div class="h5 mb-0 text-success fw-bold" id="monthlyPayment">0.00</div>
+                                            </div>
+                                            <div class="col-6 col-md-3">
+                                                <div class="small text-muted">{% trans 'الإجمالي النهائي' %}</div>
+                                                <div class="h6 mb-0 text-primary" id="grandTotalInst">0.00</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- جدول الأقساط -->
+                            <div class="card">
+                                <div class="card-header bg-info text-white py-2 d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-calendar3 me-2"></i>{% trans 'جدول الأقساط' %}</span>
+                                    <span class="badge bg-light text-dark" id="installmentsCountBadge">0</span>
+                                </div>
+                                <div class="card-body p-0" style="max-height: 200px; overflow-y: auto;">
+                                    <div class="table-responsive"><table class="table table-sm table-hover mb-0">
+                                        <thead class="table-light sticky-top">
+                                            <tr>
+                                                <th class="text-center">#</th>
+                                                <th>{% trans 'التاريخ' %}</th>
+                                                <th class="text-end">{% trans 'المبلغ' %}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="installmentScheduleBody">
+                                            <!-- يتم ملؤها ديناميكياً -->
+                                        </tbody>
+                                    </table></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- القسم الأيمن - بيانات العميل والضامن -->
+                        <div class="col-lg-7">
+                            <!-- بيانات العميل -->
+                            <div class="card border-warning mb-3">
+                                <div class="card-header bg-warning text-dark py-2">
+                                    <i class="bi bi-person-vcard me-2"></i>{% trans 'بيانات العميل' %}
+                                    <span class="badge bg-danger ms-2">{% trans 'مطلوب' %}</span>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">{% trans 'اسم العميل' %} <span class="text-danger">*</span></label>
+                                            <div class="input-group">
+                                                <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                                <input type="text" class="form-control" id="customerName" name="customer_name" required
+                                                       placeholder="{% trans 'الاسم الكامل' %}">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">{% trans 'رقم الهوية/القومي' %}</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text"><i class="bi bi-card-heading"></i></span>
+                                                <input type="text" class="form-control" id="customerNationalId" name="customer_national_id" 
+                                                       dir="ltr" placeholder="{% trans 'رقم الهوية' %}">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">{% trans 'رقم الموبايل' %} <span class="text-danger">*</span></label>
+                                            <div class="input-group">
+                                                <span class="input-group-text"><i class="bi bi-phone"></i></span>
+                                                <input type="tel" class="form-control" id="customerPhone" name="customer_phone" required
+                                                       dir="ltr" placeholder="01XXXXXXXXX">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">{% trans 'رقم موبايل إضافي' %}</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text"><i class="bi bi-phone-vibrate"></i></span>
+                                                <input type="tel" class="form-control" id="customerPhone2" name="customer_phone2" 
+                                                       dir="ltr" placeholder="{% trans 'اختياري' %}">
+                                            </div>
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label">{% trans 'العنوان' %} <span class="text-danger">*</span></label>
+                                            <div class="input-group">
+                                                <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
+                                                <textarea class="form-control" id="customerAddress" name="customer_address" required
+                                                          rows="2" placeholder="{% trans 'العنوان بالتفصيل' %}"></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- بيانات الضامن -->
+                            <div class="card border-secondary mb-3">
+                                <div class="card-header bg-secondary text-white py-2">
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input" type="checkbox" id="hasGuarantor">
+                                        <label class="form-check-label" for="hasGuarantor">
+                                            <i class="bi bi-person-check me-2"></i>{% trans 'إضافة ضامن' %}
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="card-body" id="guarantorSection" style="display: none;">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">{% trans 'اسم الضامن' %}</label>
+                                            <input type="text" class="form-control" id="guarantorName" name="guarantor_name">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">{% trans 'رقم هوية الضامن' %}</label>
+                                            <input type="text" class="form-control" id="guarantorNationalId" name="guarantor_national_id" dir="ltr">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">{% trans 'رقم موبايل الضامن' %}</label>
+                                            <input type="tel" class="form-control" id="guarantorPhone" name="guarantor_phone" dir="ltr">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">{% trans 'صلة القرابة' %}</label>
+                                            <select class="form-select" id="guarantorRelation" name="guarantor_relation">
+                                                <option value="">{% trans '-- اختر --' %}</option>
+                                                <option value="brother">{% trans 'أخ' %}</option>
+                                                <option value="father">{% trans 'أب' %}</option>
+                                                <option value="uncle">{% trans 'عم/خال' %}</option>
+                                                <option value="friend">{% trans 'صديق' %}</option>
+                                                <option value="colleague">{% trans 'زميل عمل' %}</option>
+                                                <option value="other">{% trans 'أخرى' %}</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ملاحظات -->
+                            <div class="card">
+                                <div class="card-header py-2">
+                                    <i class="bi bi-sticky me-2"></i>{% trans 'ملاحظات' %}
+                                </div>
+                                <div class="card-body">
+                                    <textarea class="form-control" id="installmentNotes" name="notes" rows="2" 
+                                              placeholder="{% trans 'أي ملاحظات إضافية على عقد التقسيط...' %}"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- تحذيرات وشروط -->
+                            <div class="alert alert-info mt-3 mb-0">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>{% trans 'تنبيه:' %}</strong>
+                                {% trans 'سيتم إنشاء عقد تقسيط رسمي. تأكد من صحة جميع البيانات قبل التأكيد.' %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <div class="me-auto">
+                        <button type="button" class="btn btn-outline-info" id="printContractPreview">
+                            <i class="bi bi-printer me-1"></i>{% trans 'معاينة العقد' %}
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i>{% trans 'إلغاء' %}
+                    </button>
+                    <button type="submit" class="btn btn-primary btn-lg" id="confirmInstallment">
+                        <i class="bi bi-check-circle me-1"></i>{% trans 'تأكيد التقسيط' %}
+                        <span class="spinner-border spinner-border-sm d-none ms-2" id="installmentSpinner"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.modal-xl { max-width: 1100px; }
+#installmentModal .card { transition: all 0.2s; }
+#installmentModal .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+#installmentScheduleBody tr:nth-child(even) { background-color: #f8f9fa; }
+#installmentModal .sticky-top { z-index: 1; }
+</style>
+
+<script>
+(function() {
+    // Initialize when modal opens
+    const modal = document.getElementById('installmentModal');
+    if (!modal) return;
+    
+    let totalAmount = 0;
+    let orderId = null;
+    
+    modal.addEventListener('show.bs.modal', function(event) {
+        // Get total from trigger or global
+        const trigger = event.relatedTarget;
+        if (trigger && trigger.dataset.total) {
+            totalAmount = parseFloat(trigger.dataset.total) || 0;
+        } else if (typeof window.posTotal !== 'undefined') {
+            totalAmount = parseFloat(window.posTotal) || 0;
+        }
+        
+        if (trigger && trigger.dataset.orderId) {
+            orderId = trigger.dataset.orderId;
+        } else if (typeof window.posOrderId !== 'undefined') {
+            orderId = window.posOrderId;
+        }
+        
+        document.getElementById('instTotalAmount').textContent = totalAmount.toFixed(2);
+        
+        // Set default start date to next month
+        const nextMonth = new Date();
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        nextMonth.setDate(1);
+        document.getElementById('startDate').value = nextMonth.toISOString().split('T')[0];
+        
+        // Calculate initial values
+        calculateInstallment();
+    });
+    
+    // Plan selection
+    const planSelect = document.getElementById('planSelect');
+    if (planSelect) {
+        planSelect.addEventListener('change', function() {
+            const selected = this.options[this.selectedIndex];
+            if (selected.value) {
+                document.getElementById('installmentMonths').value = selected.dataset.months || 6;
+                document.getElementById('interestRate').value = selected.dataset.rate || 0;
+                
+                const minDown = parseFloat(selected.dataset.minDown) || 0;
+                const minDownAmount = totalAmount * (minDown / 100);
+                document.getElementById('minDownPaymentHint').textContent = 
+                    `{% trans 'الحد الأدنى:' %} ${minDownAmount.toFixed(2)} (${minDown}%)`;
+                document.getElementById('downPayment').min = minDownAmount;
+            }
+            calculateInstallment();
+        });
+    }
+    
+    // Calculate on input changes
+    ['downPayment', 'installmentMonths', 'interestRate', 'startDate'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', calculateInstallment);
+            el.addEventListener('change', calculateInstallment);
+        }
+    });
+    
+    // Guarantor toggle
+    const hasGuarantorCheck = document.getElementById('hasGuarantor');
+    const guarantorSection = document.getElementById('guarantorSection');
+    if (hasGuarantorCheck && guarantorSection) {
+        hasGuarantorCheck.addEventListener('change', function() {
+            guarantorSection.style.display = this.checked ? 'block' : 'none';
+        });
+    }
+    
+    // Calculate installment details
+    function calculateInstallment() {
+        const downPayment = parseFloat(document.getElementById('downPayment').value) || 0;
+        const months = parseInt(document.getElementById('installmentMonths').value) || 6;
+        const annualRate = parseFloat(document.getElementById('interestRate').value) || 0;
+        const startDateStr = document.getElementById('startDate').value;
+        
+        const financedAmount = totalAmount - downPayment;
+        
+        // Calculate monthly payment with compound interest
+        let monthlyPayment, totalInterest;
+        if (annualRate > 0) {
+            const monthlyRate = annualRate / 12 / 100;
+            const denominator = Math.pow(1 + monthlyRate, months) - 1;
+            if (denominator > 0) {
+                monthlyPayment = financedAmount * (monthlyRate * Math.pow(1 + monthlyRate, months)) / denominator;
+            } else {
+                monthlyPayment = financedAmount / months;
+            }
+            totalInterest = (monthlyPayment * months) - financedAmount;
+        } else {
+            monthlyPayment = financedAmount / months;
+            totalInterest = 0;
+        }
+        
+        const grandTotal = financedAmount + totalInterest;
+        
+        // Update display
+        document.getElementById('financedAmount').textContent = financedAmount.toFixed(2);
+        document.getElementById('totalInterest').textContent = totalInterest.toFixed(2);
+        document.getElementById('monthlyPayment').textContent = monthlyPayment.toFixed(2);
+        document.getElementById('grandTotalInst').textContent = grandTotal.toFixed(2);
+        document.getElementById('installmentsCountBadge').textContent = months;
+        
+        // Generate schedule
+        generateSchedule(startDateStr, months, monthlyPayment);
+    }
+    
+    function generateSchedule(startDateStr, months, monthlyPayment) {
+        const tbody = document.getElementById('installmentScheduleBody');
+        if (!tbody) return;
+        
+        let html = '';
+        let currentDate = startDateStr ? new Date(startDateStr) : new Date();
+        
+        for (let i = 1; i <= months; i++) {
+            const dateStr = currentDate.toLocaleDateString('ar-EG', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+            
+            html += `
+                <tr>
+                    <td class="text-center">${i}</td>
+                    <td>${dateStr}</td>
+                    <td class="text-end fw-bold">${monthlyPayment.toFixed(2)}</td>
+                </tr>
+            `;
+            
+            // Move to next month
+            currentDate.setMonth(currentDate.getMonth() + 1);
+        }
+        
+        tbody.innerHTML = html;
+    }
+    
+    // Form submission
+    const form = document.getElementById('installmentForm');
+    if (form) {
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const spinner = document.getElementById('installmentSpinner');
+            const confirmBtn = document.getElementById('confirmInstallment');
+            
+            // التحقق من البيانات المطلوبة
+            const customerSelect = document.getElementById('customerSelect');
+            const customerName = document.getElementById('customerName');
+            const startDate = document.getElementById('startDate');
+            
+            if (!customerSelect.value && !customerName.value) {
+                alert('{% trans "يرجى اختيار أو إدخال بيانات العميل" %}');
+                return;
+            }
+            
+            if (!startDate.value) {
+                alert('{% trans "يرجى تحديد تاريخ بداية الأقساط" %}');
+                return;
+            }
+            
+            spinner.classList.remove('d-none');
+            confirmBtn.disabled = true;
+            
+            try {
+                // جمع بيانات التقسيط
+                const installmentData = {
+                    cart: window.posCart || [],
+                    total: window.posTotal || 0,
+                    customer_id: customerSelect.value || null,
+                    customer_name: customerName.value || '',
+                    customer_phone: document.getElementById('customerPhone')?.value || '',
+                    customer_national_id: document.getElementById('customerNationalId')?.value || '',
+                    down_payment: document.getElementById('downPayment').value || 0,
+                    number_of_installments: document.getElementById('installmentMonths').value || 6,
+                    interest_rate: document.getElementById('interestRate').value || 0,
+                    start_date: startDate.value
+                };
+                
+                const response = await fetch('/pos/api/create-installment/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': window.csrfToken
+                    },
+                    body: JSON.stringify(installmentData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // إغلاق الـModal
+                    const modalEl = document.getElementById('installmentModal');
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) modal.hide();
+                    
+                    // عرض رسالة نجاح
+                    if (window.showNotification) {
+                        window.showNotification('✅ تم إنشاء عقد التقسيط بنجاح!', 'success');
+                    }
+                    
+                    // الانتقال إلى صفحة العقد
+                    if (data.contract_id) {
+                        setTimeout(() => {
+                            window.location.href = `/installments/contract/${data.contract_id}/`;
+                        }, 1000);
+                    } else if (data.order_id) {
+                        setTimeout(() => {
+                            window.location.href = `/pos/order/${data.order_id}/receipt/`;
+                        }, 1000);
+                    }
+                } else {
+                    alert('خطأ: ' + (data.error || 'حدث خطأ غير متوقع'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('{% trans "حدث خطأ في الاتصال" %}');
+            } finally {
+                spinner.classList.add('d-none');
+                confirmBtn.disabled = false;
+            }
+        });
+    }
+    
+    // Print preview
+    const printBtn = document.getElementById('printContractPreview');
+    if (printBtn) {
+        printBtn.addEventListener('click', function() {
+            alert('{% trans "سيتم فتح معاينة العقد بعد التأكيد" %}');
+        });
+    }
+})();
+</script>

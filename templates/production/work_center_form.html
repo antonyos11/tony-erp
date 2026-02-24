@@ -1,0 +1,131 @@
+{% extends 'base_templates/modern_form.html' %}
+{% load static i18n %}
+
+{% block page_module %}production{% endblock %}
+{% block page_icon %}bi-gear-fill{% endblock %}
+{% block page_title %}{% trans 'مركز عمل' %}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/modern_pages.css' %}">
+
+{% endblock %}
+
+{% block form_content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h1 class="h4 mb-0">
+    {% if work_center %}
+      <i class="bi bi-gear"></i> تعديل مركز العمل: {{ work_center.name }}
+    {% else %}
+      <i class="bi bi-gear"></i> إنشاء مركز عمل جديد
+    {% endif %}
+  </h1>
+  <div>
+    <a href="{% url 'production:work_centers_list' %}" class="btn btn-secondary btn-sm">
+      <i class="bi bi-arrow-90deg-right"></i> قائمة مراكز العمل
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label">رمز المركز <span class="text-danger">*</span></label>
+          <input type="text" name="code" class="form-control" required
+                 value="{% if work_center %}{{ work_center.code }}{% else %}{{ request.POST.code }}{% endif %}">
+        </div>
+        <div class="col-md-5">
+          <label class="form-label">اسم المركز <span class="text-danger">*</span></label>
+          <input type="text" name="name" class="form-control" required
+                 value="{% if work_center %}{{ work_center.name }}{% else %}{{ request.POST.name }}{% endif %}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">نوع مركز العمل <span class="text-danger">*</span></label>
+          <select name="work_center_type" class="form-select" required>
+            <option value="" disabled {% if not work_center and not request.POST.work_center_type %}selected{% endif %}>— اختر النوع —</option>
+            {% for value, label in type_choices %}
+              <option value="{{ value }}"
+                {% if work_center and work_center.work_center_type == value %}selected{% endif %}
+                {% if not work_center and request.POST.work_center_type == value %}selected{% endif %}>
+                {{ label }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">القسم</label>
+          <select name="department" class="form-select">
+            <option value="">— بدون —</option>
+            {% for dept in departments %}
+              <option value="{{ dept.id }}"
+                {% if work_center and work_center.department_id == dept.id %}selected{% endif %}
+                {% if not work_center and request.POST.department == dept.id|stringformat:'s' %}selected{% endif %}>
+                {{ dept.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">المشرف</label>
+          <select name="supervisor" class="form-select">
+            <option value="">— بدون —</option>
+            {% for emp in supervisors %}
+              <option value="{{ emp.id }}"
+                {% if work_center and work_center.supervisor_id == emp.id %}selected{% endif %}
+                {% if not work_center and request.POST.supervisor == emp.id|stringformat:'s' %}selected{% endif %}>
+                {{ emp.arabic_name|default:emp.full_name|default:emp.user.get_username }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">الطاقة في الساعة</label>
+          <input type="number" min="0" step="1" name="capacity_per_hour" class="form-control"
+                 value="{% if work_center %}{{ work_center.capacity_per_hour }}{% else %}{{ request.POST.capacity_per_hour|default:1 }}{% endif %}">
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">التكلفة في الساعة</label>
+          <input type="number" min="0" step="0.01" name="cost_per_hour" class="form-control"
+                 value="{% if work_center %}{{ work_center.cost_per_hour }}{% else %}{{ request.POST.cost_per_hour|default:0 }}{% endif %}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">وقت التجهيز (دقائق)</label>
+          <input type="number" min="0" step="1" name="setup_time" class="form-control"
+                 value="{% if work_center %}{{ work_center.setup_time }}{% else %}{{ request.POST.setup_time|default:0 }}{% endif %}">
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">الوصف</label>
+          <textarea name="description" rows="3" class="form-control">{% if work_center %}{{ work_center.description }}{% else %}{{ request.POST.description }}{% endif %}</textarea>
+        </div>
+
+        <div class="col-12">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="is_active" id="is_active"
+              {% if work_center %}{% if work_center.is_active %}checked{% endif %}{% else %}{% if request.POST.is_active %}checked{% else %}checked{% endif %}{% endif %}>
+            <label class="form-check-label" for="is_active">نشط</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2 mt-4">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-check2-circle"></i>
+          {% if work_center %}حفظ التعديلات{% else %}حفظ وإنشاء{% endif %}
+        </button>
+        <a href="{% if work_center %}{% url 'production:work_center_detail' work_center_id=work_center.id %}{% else %}{% url 'production:work_centers_list' %}{% endif %}"
+           class="btn btn-outline-secondary">
+          إلغاء
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+

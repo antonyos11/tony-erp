@@ -1,0 +1,404 @@
+<!-- 
+    أضف هذا الكود في ملف base.html أو في أي صفحة تريد الطباعة منها
+    يمكنك نسخه مباشرة ووضعه قبل </body>
+-->
+
+<script>
+/**
+ * Tony ERP Print System Integration
+ * نظام الطباعة المباشرة - للدمج مع Django
+ */
+
+class TonyPrintSystem {
+    constructor(wsUrl = 'ws://localhost:9876') {
+        this.wsUrl = wsUrl;
+        this.ws = null;
+        this.connected = false;
+        this.printers = [];
+        this.reconnectInterval = 5000; // 5 ثواني
+        this.callbacks = {};
+        
+        this.connect();
+    }
+    
+    /**
+     * الاتصال بـ Print Agent
+     */
+    connect() {
+        console.log('🔌 محاولة الاتصال بخدمة الطباعة...');
+        
+        try {
+            this.ws = new WebSocket(this.wsUrl);
+            
+            this.ws.onopen = () => {
+                console.log('✓ متصل بخدمة الطباعة');
+                this.connected = true;
+                this.updateStatus(true);
+                
+                // طلب قائمة الطابعات
+                this.getPrinters();
+            };
+            
+            this.ws.onmessage = (event) => {
+                this.handleMessage(event.data);
+            };
+            
+            this.ws.onerror = (error) => {
+                console.error('✗ خطأ في الاتصال بخدمة الطباعة');
+                this.connected = false;
+                this.updateStatus(false);
+            };
+            
+            this.ws.onclose = () => {
+                console.log('✗ انقطع الاتصال - إعادة المحاولة...');
+                this.connected = false;
+                this.updateStatus(false);
+                
+                // إعادة الاتصال تلقائيًا
+                setTimeout(() => this.connect(), this.reconnectInterval);
+            };
+            
+        } catch (error) {
+            console.error('خطأ في إنشاء WebSocket:', error);
+            setTimeout(() => this.connect(), this.reconnectInterval);
+        }
+    }
+    
+    /**
+     * معالجة الرسائل الواردة
+     */
+    handleMessage(data) {
+        try {
+            const message = JSON.parse(data);
+            
+            switch (message.event) {
+                case 'printers_list':
+                    this.printers = message.printers;
+                    console.log(`📋 الطابعات المتاحة: ${this.printers.length}`);
+                    if (this.callbacks.onPrintersUpdate) {
+                        this.callbacks.onPrintersUpdate(this.printers);
+                    }
+                    break;
+                    
+                case 'print_success':
+                    console.log('✓ تمت الطباعة بنجاح');
+                    if (this.callbacks.onPrintSuccess) {
+                        this.callbacks.onPrintSuccess(message);
+                    }
+                    this.showNotification('تمت الطباعة بنجاح', 'success');
+                    break;
+                    
+                case 'error':
+                    console.error('✗ خطأ في الطباعة:', message.error);
+                    if (this.callbacks.onPrintError) {
+                        this.callbacks.onPrintError(message.error);
+                    }
+                    this.showNotification('خطأ: ' + message.error, 'error');
+                    break;
+            }
+            
+        } catch (error) {
+            console.error('خطأ في معالجة الرسالة:', error);
+        }
+    }
+    
+    /**
+     * إرسال رسالة لـ Print Agent
+     */
+    send(data) {
+        if (!this.connected || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            this.showNotification('⚠️ خدمة الطباعة غير متصلة!', 'warning');
+            return false;
+        }
+        
+        this.ws.send(JSON.stringify(data));
+        return true;
+    }
+    
+    /**
+     * طباعة فاتورة
+     */
+    printInvoice(invoiceId, printer = 'default') {
+        console.log(`📄 طباعة فاتورة #${invoiceId}...`);
+        
+        // جلب HTML للطباعة من Django
+        fetch(`/api/invoices/${invoiceId}/print-html/`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('فشل تحميل الفاتورة');
+                }
+                return response.text();
+            })
+            .then(html => {
+                // إرسال للطباعة
+                this.send({
+                    action: 'print',
+                    type: 'html',
+                    printer: printer,
+                    content: html
+                });
+            })
+            .catch(error => {
+                console.error('خطأ:', error);
+                this.showNotification('فشل تحميل الفاتورة للطباعة', 'error');
+            });
+    }
+    
+    /**
+     * طباعة إيصال
+     */
+    printReceipt(receiptId, printer = 'default') {
+        console.log(`🧾 طباعة إيصال #${receiptId}...`);
+        
+        fetch(`/api/receipts/${receiptId}/print-html/`)
+            .then(response => response.text())
+            .then(html => {
+                this.send({
+                    action: 'print',
+                    type: 'html',
+                    printer: printer,
+                    content: html
+                });
+            })
+            .catch(error => {
+                console.error('خطأ:', error);
+                this.showNotification('فشل تحميل الإيصال للطباعة', 'error');
+            });
+    }
+    
+    /**
+     * طباعة نص مباشر
+     */
+    printText(text, printer = 'default') {
+        this.send({
+            action: 'print',
+            type: 'text',
+            printer: printer,
+            content: text
+        });
+    }
+    
+    /**
+     * طباعة HTML مباشر
+     */
+    printHTML(html, printer = 'default') {
+        this.send({
+            action: 'print',
+            type: 'html',
+            printer: printer,
+            content: html
+        });
+    }
+    
+    /**
+     * طباعة اختبارية
+     */
+    testPrint(printer = 'default') {
+        this.send({
+            action: 'test_print',
+            printer: printer
+        });
+    }
+    
+    /**
+     * الحصول على قائمة الطابعات
+     */
+    getPrinters() {
+        this.send({
+            action: 'get_printers'
+        });
+    }
+    
+    /**
+     * تحديث حالة الاتصال في الواجهة
+     */
+    updateStatus(connected) {
+        const statusElement = document.getElementById('print-status');
+        if (statusElement) {
+            if (connected) {
+                statusElement.innerHTML = '🟢 خدمة الطباعة متصلة';
+                statusElement.className = 'print-status connected';
+            } else {
+                statusElement.innerHTML = '🔴 خدمة الطباعة غير متصلة';
+                statusElement.className = 'print-status disconnected';
+            }
+        }
+    }
+    
+    /**
+     * عرض إشعار
+     */
+    showNotification(message, type = 'info') {
+        // يمكنك استخدام مكتبة Toast أو إشعارات مخصصة
+        // هنا نستخدم alert بسيط كمثال
+        
+        if (type === 'success') {
+            console.log('✓', message);
+            // يمكنك استخدام: toastr.success(message);
+        } else if (type === 'error') {
+            console.error('✗', message);
+            alert(message);
+        } else if (type === 'warning') {
+            console.warn('⚠', message);
+            // يمكنك استخدام: toastr.warning(message);
+        }
+    }
+    
+    /**
+     * تسجيل callback
+     */
+    on(event, callback) {
+        this.callbacks[event] = callback;
+    }
+}
+
+// ============================================
+// إنشاء Instance عام
+// ============================================
+let tonyPrint = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // إنشاء نظام الطباعة
+    tonyPrint = new TonyPrintSystem();
+    
+    // مثال على استخدام callbacks
+    tonyPrint.on('onPrintersUpdate', function(printers) {
+        console.log('تحديث الطابعات:', printers);
+        // يمكنك تحديث قائمة منسدلة للطابعات هنا
+    });
+    
+    tonyPrint.on('onPrintSuccess', function(data) {
+        console.log('نجحت الطباعة:', data);
+        // يمكنك تحديث الواجهة أو إغلاق نافذة
+    });
+    
+    tonyPrint.on('onPrintError', function(error) {
+        console.error('فشلت الطباعة:', error);
+        // عرض رسالة للمستخدم
+    });
+});
+
+// ============================================
+// دوال مساعدة عامة
+// ============================================
+
+/**
+ * طباعة الفاتورة الحالية
+ * استخدمها مباشرة في HTML: onclick="printCurrentInvoice()"
+ */
+function printCurrentInvoice() {
+    const invoiceId = document.querySelector('[data-invoice-id]')?.dataset.invoiceId;
+    if (!invoiceId) {
+        alert('لم يتم تحديد الفاتورة');
+        return;
+    }
+    
+    if (tonyPrint) {
+        tonyPrint.printInvoice(invoiceId);
+    } else {
+        alert('نظام الطباعة غير جاهز');
+    }
+}
+
+/**
+ * طباعة على طابعة محددة
+ */
+function printInvoiceOnPrinter(invoiceId, printerName) {
+    if (tonyPrint) {
+        tonyPrint.printInvoice(invoiceId, printerName);
+    }
+}
+
+/**
+ * اختبار الطباعة
+ */
+function testPrinting() {
+    if (tonyPrint) {
+        tonyPrint.testPrint();
+    } else {
+        alert('نظام الطباعة غير جاهز');
+    }
+}
+
+</script>
+
+<!-- CSS للحالة (اختياري) -->
+<style>
+.print-status {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    z-index: 9999;
+    transition: all 0.3s;
+}
+
+.print-status.connected {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.print-status.disconnected {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+</style>
+
+<!-- عنصر عرض الحالة -->
+<div id="print-status" class="print-status">
+    ⏳ جاري الاتصال بخدمة الطباعة...
+</div>
+
+<!-- 
+    ============================================
+    أمثلة الاستخدام في HTML:
+    ============================================
+-->
+
+<!-- مثال 1: زر طباعة فاتورة -->
+<!--
+<button onclick="tonyPrint.printInvoice({{ invoice.id }})" class="btn btn-primary">
+    🖨️ طباعة الفاتورة
+</button>
+-->
+
+<!-- مثال 2: زر طباعة إيصال -->
+<!--
+<button onclick="tonyPrint.printReceipt({{ receipt.id }})" class="btn btn-success">
+    🧾 طباعة الإيصال
+</button>
+-->
+
+<!-- مثال 3: زر اختبار -->
+<!--
+<button onclick="tonyPrint.testPrint()" class="btn btn-secondary">
+    ✓ اختبار الطباعة
+</button>
+-->
+
+<!-- مثال 4: قائمة منسدلة للطابعات -->
+<!--
+<select id="printer-select" class="form-control">
+    <option value="default">الطابعة الافتراضية</option>
+</select>
+
+<script>
+// تحديث القائمة عند استقبال الطابعات
+tonyPrint.on('onPrintersUpdate', function(printers) {
+    const select = document.getElementById('printer-select');
+    select.innerHTML = '<option value="default">الطابعة الافتراضية</option>';
+    
+    printers.forEach(printer => {
+        const option = document.createElement('option');
+        option.value = printer.name;
+        option.textContent = printer.name;
+        select.appendChild(option);
+    });
+});
+</script>
+-->

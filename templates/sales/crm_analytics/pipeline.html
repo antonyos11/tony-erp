@@ -1,0 +1,455 @@
+﻿{% extends 'base_templates/_dashboard_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'قمع المبيعات' %}{% endblock %}
+{% block dashboard_hero_icon %}bi-funnel{% endblock %}
+{% block dashboard_hero_title %}{% trans 'إدارة قمع المبيعات' %}{% endblock %}
+{% block dashboard_hero_subtitle %}{% trans 'تتبع الفرص البيعية من البداية للإغلاق' %}{% endblock %}
+
+{% block dashboard_actions %}
+<a href="{% url 'sales:lead_create' %}" class="btn btn-primary">
+  <i class="bi bi-plus-lg me-1"></i>{% trans 'فرصة جديدة' %}
+</a>
+{% endblock %}
+
+{% block kpi_cards %}
+<style>
+  .pipeline-container {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    overflow-x: auto;
+  }
+  .pipeline-header {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    min-width: 900px;
+  }
+  .pipeline-stage-header {
+    flex: 1;
+    background: var(--bg-light);
+    padding: 1rem;
+    border-radius: var(--radius);
+    text-align: center;
+  }
+  .pipeline-stage-header.new { border-top: 3px solid #8b5cf6; }
+  .pipeline-stage-header.qualified { border-top: 3px solid #3b82f6; }
+  .pipeline-stage-header.proposal { border-top: 3px solid #10b981; }
+  .pipeline-stage-header.negotiation { border-top: 3px solid #f59e0b; }
+  .pipeline-stage-header.closed { border-top: 3px solid #ec4899; }
+  .pipeline-stage-header h6 {
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  .pipeline-stage-header .stats {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  .pipeline-stage-header .stats strong {
+    color: var(--primary);
+  }
+  .pipeline-board {
+    display: flex;
+    gap: 1rem;
+    min-width: 900px;
+    min-height: 400px;
+  }
+  .pipeline-column {
+    flex: 1;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    padding: 0.75rem;
+    min-height: 350px;
+  }
+  .opportunity-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    cursor: grab;
+    transition: var(--transition);
+  }
+  .opportunity-card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary);
+  }
+  .opportunity-card.dragging {
+    opacity: 0.5;
+  }
+  .opportunity-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+  }
+  .opportunity-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+  }
+  .opportunity-company {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .opportunity-value {
+    font-weight: 700;
+    color: var(--primary);
+    font-size: 0.9rem;
+  }
+  .opportunity-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+  .opportunity-owner {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+  .owner-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.55rem;
+    font-weight: 600;
+  }
+  .opportunity-probability {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  .probability-bar {
+    width: 40px;
+    height: 4px;
+    background: var(--bg-light);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .probability-bar-fill {
+    height: 100%;
+    background: var(--success);
+  }
+  .priority-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .priority-dot.high { background: #ef4444; }
+  .priority-dot.medium { background: #f59e0b; }
+  .priority-dot.low { background: #10b981; }
+  .pipeline-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .summary-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .summary-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+  }
+  .summary-icon.blue { background: rgba(59,130,246,0.15); color: #3b82f6; }
+  .summary-icon.green { background: rgba(16,185,129,0.15); color: #10b981; }
+  .summary-icon.orange { background: rgba(245,158,11,0.15); color: #f59e0b; }
+  .summary-icon.purple { background: rgba(139,92,246,0.15); color: #8b5cf6; }
+</style>
+
+<!-- KPIs -->
+<div class="kpi-card">
+  <div class="kpi-icon text-primary"><i class="bi bi-briefcase"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ total_opportunities|default:"87" }}</div>
+    <div class="kpi-label">{% trans 'إجمالي الفرص' %}</div>
+  </div>
+</div>
+
+<div class="kpi-card">
+  <div class="kpi-icon text-success"><i class="bi bi-currency-dollar"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ pipeline_value|default:"2.4M" }}</div>
+    <div class="kpi-label">{% trans 'قيمة القمع' %}</div>
+  </div>
+</div>
+
+<div class="kpi-card">
+  <div class="kpi-icon text-warning"><i class="bi bi-graph-up"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ win_rate|default:"35" }}%</div>
+    <div class="kpi-label">{% trans 'نسبة الفوز' %}</div>
+  </div>
+</div>
+
+<div class="kpi-card">
+  <div class="kpi-icon text-info"><i class="bi bi-clock"></i></div>
+  <div class="kpi-content">
+    <div class="kpi-value">{{ avg_cycle|default:"28" }}</div>
+    <div class="kpi-label">{% trans 'متوسط دورة البيع (يوم)' %}</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block dashboard_content %}
+<!-- Pipeline Summary -->
+<div class="pipeline-summary">
+  <div class="summary-card">
+    <div class="summary-icon blue"><i class="bi bi-person-plus"></i></div>
+    <div>
+      <div class="fs-5 fw-bold">{{ new_leads|default:"23" }}</div>
+      <div class="small text-muted">{% trans 'فرص جديدة هذا الأسبوع' %}</div>
+    </div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-icon green"><i class="bi bi-check-circle"></i></div>
+    <div>
+      <div class="fs-5 fw-bold">{{ won_deals|default:"12" }}</div>
+      <div class="small text-muted">{% trans 'صفقات ناجحة هذا الشهر' %}</div>
+    </div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-icon orange"><i class="bi bi-hourglass-split"></i></div>
+    <div>
+      <div class="fs-5 fw-bold">{{ pending_proposals|default:"15" }}</div>
+      <div class="small text-muted">{% trans 'عروض بانتظار الرد' %}</div>
+    </div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-icon purple"><i class="bi bi-calendar-event"></i></div>
+    <div>
+      <div class="fs-5 fw-bold">{{ meetings_today|default:"5" }}</div>
+      <div class="small text-muted">{% trans 'اجتماعات اليوم' %}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Pipeline Board -->
+<div class="pipeline-container">
+  <div class="pipeline-header">
+    <div class="pipeline-stage-header new">
+      <h6>{% trans 'جديد' %}</h6>
+      <div class="stats">
+        <span><strong>15</strong> {% trans 'فرصة' %}</span>
+        <span><strong>450K</strong></span>
+      </div>
+    </div>
+    <div class="pipeline-stage-header qualified">
+      <h6>{% trans 'مؤهل' %}</h6>
+      <div class="stats">
+        <span><strong>22</strong> {% trans 'فرصة' %}</span>
+        <span><strong>680K</strong></span>
+      </div>
+    </div>
+    <div class="pipeline-stage-header proposal">
+      <h6>{% trans 'عرض سعر' %}</h6>
+      <div class="stats">
+        <span><strong>18</strong> {% trans 'فرصة' %}</span>
+        <span><strong>520K</strong></span>
+      </div>
+    </div>
+    <div class="pipeline-stage-header negotiation">
+      <h6>{% trans 'مفاوضات' %}</h6>
+      <div class="stats">
+        <span><strong>12</strong> {% trans 'فرصة' %}</span>
+        <span><strong>380K</strong></span>
+      </div>
+    </div>
+    <div class="pipeline-stage-header closed">
+      <h6>{% trans 'مغلق' %}</h6>
+      <div class="stats">
+        <span><strong>20</strong> {% trans 'فرصة' %}</span>
+        <span><strong>750K</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="pipeline-board">
+    <!-- New -->
+    <div class="pipeline-column">
+      <div class="opportunity-card" draggable="true">
+        <div class="opportunity-header">
+          <div>
+            <div class="opportunity-title d-flex align-items-center gap-2">
+              <span class="priority-dot high"></span>
+              {% trans 'مشروع ERP' %}
+            </div>
+            <div class="opportunity-company">شركة الفجر</div>
+          </div>
+          <div class="opportunity-value">85,000</div>
+        </div>
+        <div class="opportunity-meta">
+          <div class="opportunity-owner">
+            <span class="owner-avatar">أم</span>
+            <span>أحمد</span>
+          </div>
+          <div class="opportunity-probability">
+            <div class="probability-bar">
+              <div class="probability-bar-fill" style="width: 20%;"></div>
+            </div>
+            <span>20%</span>
+          </div>
+        </div>
+      </div>
+      <div class="opportunity-card" draggable="true">
+        <div class="opportunity-header">
+          <div>
+            <div class="opportunity-title d-flex align-items-center gap-2">
+              <span class="priority-dot medium"></span>
+              {% trans 'تجديد العقد' %}
+            </div>
+            <div class="opportunity-company">مؤسسة النور</div>
+          </div>
+          <div class="opportunity-value">45,000</div>
+        </div>
+        <div class="opportunity-meta">
+          <div class="opportunity-owner">
+            <span class="owner-avatar">سح</span>
+            <span>سارة</span>
+          </div>
+          <div class="opportunity-probability">
+            <div class="probability-bar">
+              <div class="probability-bar-fill" style="width: 25%;"></div>
+            </div>
+            <span>25%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Qualified -->
+    <div class="pipeline-column">
+      <div class="opportunity-card" draggable="true">
+        <div class="opportunity-header">
+          <div>
+            <div class="opportunity-title d-flex align-items-center gap-2">
+              <span class="priority-dot high"></span>
+              {% trans 'توريد معدات' %}
+            </div>
+            <div class="opportunity-company">شركة السلام</div>
+          </div>
+          <div class="opportunity-value">120,000</div>
+        </div>
+        <div class="opportunity-meta">
+          <div class="opportunity-owner">
+            <span class="owner-avatar">خع</span>
+            <span>خالد</span>
+          </div>
+          <div class="opportunity-probability">
+            <div class="probability-bar">
+              <div class="probability-bar-fill" style="width: 40%;"></div>
+            </div>
+            <span>40%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Proposal -->
+    <div class="pipeline-column">
+      <div class="opportunity-card" draggable="true">
+        <div class="opportunity-header">
+          <div>
+            <div class="opportunity-title d-flex align-items-center gap-2">
+              <span class="priority-dot high"></span>
+              {% trans 'نظام محاسبة' %}
+            </div>
+            <div class="opportunity-company">مجموعة الأمل</div>
+          </div>
+          <div class="opportunity-value">65,000</div>
+        </div>
+        <div class="opportunity-meta">
+          <div class="opportunity-owner">
+            <span class="owner-avatar">أم</span>
+            <span>أحمد</span>
+          </div>
+          <div class="opportunity-probability">
+            <div class="probability-bar">
+              <div class="probability-bar-fill" style="width: 60%;"></div>
+            </div>
+            <span>60%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Negotiation -->
+    <div class="pipeline-column">
+      <div class="opportunity-card" draggable="true">
+        <div class="opportunity-header">
+          <div>
+            <div class="opportunity-title d-flex align-items-center gap-2">
+              <span class="priority-dot high"></span>
+              {% trans 'عقد صيانة' %}
+            </div>
+            <div class="opportunity-company">شركة البركة</div>
+          </div>
+          <div class="opportunity-value">95,000</div>
+        </div>
+        <div class="opportunity-meta">
+          <div class="opportunity-owner">
+            <span class="owner-avatar">سح</span>
+            <span>سارة</span>
+          </div>
+          <div class="opportunity-probability">
+            <div class="probability-bar">
+              <div class="probability-bar-fill" style="width: 80%;"></div>
+            </div>
+            <span>80%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Closed -->
+    <div class="pipeline-column">
+      <div class="opportunity-card" draggable="true" style="opacity: 0.7;">
+        <div class="opportunity-header">
+          <div>
+            <div class="opportunity-title d-flex align-items-center gap-2">
+              <span class="priority-dot low"></span>
+              {% trans 'تطوير موقع' %} ✓
+            </div>
+            <div class="opportunity-company">شركة النجاح</div>
+          </div>
+          <div class="opportunity-value text-success">55,000</div>
+        </div>
+        <div class="opportunity-meta">
+          <div class="opportunity-owner">
+            <span class="owner-avatar">خع</span>
+            <span>خالد</span>
+          </div>
+          <span class="badge bg-success">{% trans 'فوز' %}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

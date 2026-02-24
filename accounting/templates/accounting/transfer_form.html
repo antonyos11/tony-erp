@@ -1,0 +1,409 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<style>
+.transfer-section {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 2px solid #dee2e6;
+}
+.transfer-section.from-section {
+    border-color: #dc3545;
+}
+.transfer-section.to-section {
+    border-color: #198754;
+}
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid;
+}
+.from-section .section-header {
+    border-color: #dc3545;
+    color: #dc3545;
+}
+.to-section .section-header {
+    border-color: #198754;
+    color: #198754;
+}
+.section-header i {
+    font-size: 1.5rem;
+}
+.account-type-selector {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+.account-type-option {
+    flex: 1;
+    min-width: 100px;
+    padding: 12px 8px;
+    border: 2px solid #dee2e6;
+    border-radius: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #fff;
+}
+.account-type-option:hover {
+    border-color: #0d6efd;
+    background: #f0f7ff;
+}
+.account-type-option.selected {
+    border-color: #0d6efd;
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+    color: #fff;
+}
+.account-type-option i {
+    font-size: 1.5rem;
+    display: block;
+    margin-bottom: 5px;
+}
+.account-type-option .label {
+    font-weight: 500;
+    font-size: 0.85rem;
+}
+.transfer-arrow-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+.transfer-arrow-center i {
+    font-size: 3rem;
+    color: #0d6efd;
+}
+</style>
+
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-arrow-left-right me-2"></i>
+                        {{ title }}
+                    </h4>
+                </div>
+                
+                <div class="card-body">
+                    <form method="post" id="transferForm">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <!-- المصدر (من) -->
+                            <div class="col-lg-5">
+                                <div class="transfer-section from-section">
+                                    <div class="section-header">
+                                        <i class="bi bi-box-arrow-up-left"></i>
+                                        <h5 class="mb-0">من (المصدر)</h5>
+                                    </div>
+                                    
+                                    <div class="account-type-selector" id="fromTypeSelector">
+                                        <label class="account-type-option" onclick="selectFromType('treasury')">
+                                            <input type="radio" name="from_type" value="treasury" hidden>
+                                            <i class="bi bi-safe"></i>
+                                            <div class="label">خزينة</div>
+                                        </label>
+                                        <label class="account-type-option" onclick="selectFromType('bank')">
+                                            <input type="radio" name="from_type" value="bank" hidden>
+                                            <i class="bi bi-bank"></i>
+                                            <div class="label">بنك</div>
+                                        </label>
+                                        <label class="account-type-option" onclick="selectFromType('electronic')">
+                                            <input type="radio" name="from_type" value="electronic" hidden>
+                                            <i class="bi bi-wallet2"></i>
+                                            <div class="label">إلكتروني</div>
+                                        </label>
+                                        <label class="account-type-option" onclick="selectFromType('fawry')">
+                                            <input type="radio" name="from_type" value="fawry" hidden>
+                                            <i class="bi bi-phone-fill"></i>
+                                            <div class="label">فوري</div>
+                                        </label>
+                                        <label class="account-type-option" onclick="selectFromType('visa')">
+                                            <input type="radio" name="from_type" value="visa" hidden>
+                                            <i class="bi bi-credit-card"></i>
+                                            <div class="label">فيزا</div>
+                                        </label>
+                                    </div>
+                                    
+                                    <div id="fromAccountSelect">
+                                        <select id="fromDefaultSelect" class="form-select" disabled>
+                                            <option>-- اختر نوع الحساب أولاً --</option>
+                                        </select>
+                                        
+                                        <select name="from_treasury" id="fromTreasurySelect" class="form-select" style="display:none;">
+                                            <option value="">-- اختر الخزينة --</option>
+                                            {% for t in treasuries %}
+                                            <option value="{{ t.id }}">{{ t.code }} - {{ t.name }} {% if t.showroom %}({{ t.showroom.name }}){% endif %}</option>
+                                            {% endfor %}
+                                        </select>
+                                        
+                                        <select name="from_bank" id="fromBankSelect" class="form-select" style="display:none;">
+                                            <option value="">-- اختر البنك --</option>
+                                            {% for b in banks %}
+                                            <option value="{{ b.id }}">{{ b.code }} - {{ b.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        
+                                        <select name="from_electronic" id="fromElectronicSelect" class="form-select" style="display:none;">
+                                            <option value="">-- اختر الحساب الإلكتروني --</option>
+                                            {% for e in electronic_accounts %}
+                                            <option value="{{ e.id }}">{{ e.code }} - {{ e.name }} ({{ e.get_account_type_display }})</option>
+                                            {% endfor %}
+                                        </select>
+                                        
+                                        <select name="from_fawry" id="fromFawrySelect" class="form-select" style="display:none;">
+                                            <option value="">-- اختر ماكينة الفوري --</option>
+                                            {% for f in fawry_machines %}
+                                            <option value="{{ f.id }}">{{ f.code }} - {{ f.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        
+                                        <select name="from_visa" id="fromVisaSelect" class="form-select" style="display:none;">
+                                            <option value="">-- اختر ماكينة الفيزا --</option>
+                                            {% for v in visa_machines %}
+                                            <option value="{{ v.id }}">{{ v.code }} - {{ v.name }}{% if v.bank %} ({{ v.bank.name }}){% endif %}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- السهم -->
+                            <div class="col-lg-2 transfer-arrow-center d-none d-lg-flex">
+                                <i class="bi bi-arrow-left"></i>
+                            </div>
+                            
+                            <!-- الوجهة (إلى) -->
+                            <div class="col-lg-5">
+                                <div class="transfer-section to-section">
+                                    <div class="section-header">
+                                        <i class="bi bi-box-arrow-in-down-left"></i>
+                                        <h5 class="mb-0">إلى (الوجهة)</h5>
+                                    </div>
+                                    
+                                    <div class="account-type-selector" id="toTypeSelector">
+                                        <label class="account-type-option" onclick="selectToType('treasury')">
+                                            <input type="radio" name="to_type" value="treasury" hidden>
+                                            <i class="bi bi-safe"></i>
+                                            <div class="label">خزينة</div>
+                                        </label>
+                                        <label class="account-type-option" onclick="selectToType('bank')">
+                                            <input type="radio" name="to_type" value="bank" hidden>
+                                            <i class="bi bi-bank"></i>
+                                            <div class="label">بنك</div>
+                                        </label>
+                                        <label class="account-type-option" onclick="selectToType('electronic')">
+                                            <input type="radio" name="to_type" value="electronic" hidden>
+                                            <i class="bi bi-wallet2"></i>
+                                            <div class="label">إلكتروني</div>
+                                        </label>
+                                        <label class="account-type-option" onclick="selectToType('fawry')">
+                                            <input type="radio" name="to_type" value="fawry" hidden>
+                                            <i class="bi bi-phone-fill"></i>
+                                            <div class="label">فوري</div>
+                                        </label>
+                                        <label class="account-type-option" onclick="selectToType('visa')">
+                                            <input type="radio" name="to_type" value="visa" hidden>
+                                            <i class="bi bi-credit-card"></i>
+                                            <div class="label">فيزا</div>
+                                        </label>
+                                    </div>
+                                    
+                                    <div id="toAccountSelect">
+                                        <select id="toDefaultSelect" class="form-select" disabled>
+                                            <option>-- اختر نوع الحساب أولاً --</option>
+                                        </select>
+                                        
+                                        <select name="to_treasury" id="toTreasurySelect" class="form-select" style="display:none;">
+                                            <option value="">-- اختر الخزينة --</option>
+                                            {% for t in treasuries %}
+                                            <option value="{{ t.id }}">{{ t.code }} - {{ t.name }} {% if t.showroom %}({{ t.showroom.name }}){% endif %}</option>
+                                            {% endfor %}
+                                        </select>
+                                        
+                                        <select name="to_bank" id="toBankSelect" class="form-select" style="display:none;">
+                                            <option value="">-- اختر البنك --</option>
+                                            {% for b in banks %}
+                                            <option value="{{ b.id }}">{{ b.code }} - {{ b.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        
+                                        <select name="to_electronic" id="toElectronicSelect" class="form-select" style="display:none;">
+                                            <option value="">-- اختر الحساب الإلكتروني --</option>
+                                            {% for e in electronic_accounts %}
+                                            <option value="{{ e.id }}">{{ e.code }} - {{ e.name }} ({{ e.get_account_type_display }})</option>
+                                            {% endfor %}
+                                        </select>
+                                        
+                                        <select name="to_fawry" id="toFawrySelect" class="form-select" style="display:none;">
+                                            <option value="">-- اختر ماكينة الفوري --</option>
+                                            {% for f in fawry_machines %}
+                                            <option value="{{ f.id }}">{{ f.code }} - {{ f.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        
+                                        <select name="to_visa" id="toVisaSelect" class="form-select" style="display:none;">
+                                            <option value="">-- اختر ماكينة الفيزا --</option>
+                                            {% for v in visa_machines %}
+                                            <option value="{{ v.id }}">{{ v.code }} - {{ v.name }}{% if v.bank %} ({{ v.bank.name }}){% endif %}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- معلومات التحويل -->
+                        <div class="row g-3 mt-3">
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">التاريخ <span class="text-danger">*</span></label>
+                                <input type="date" name="date" class="form-control" required 
+                                       value="{% now 'Y-m-d' %}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">المبلغ <span class="text-danger">*</span></label>
+                                <input type="number" name="amount" step="0.01" min="0.01" class="form-control" required
+                                       placeholder="0.00">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">رسوم التحويل</label>
+                                <input type="number" name="fees" step="0.01" min="0" class="form-control"
+                                       placeholder="0.00" value="0">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">رقم المرجع</label>
+                                <input type="text" name="reference_number" class="form-control"
+                                       placeholder="رقم الإيصال أو العملية">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold">البيان / الوصف</label>
+                                <textarea name="description" class="form-control" rows="2"
+                                          placeholder="وصف التحويل..."></textarea>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'accounting:transfers_list' %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-right me-1"></i> إلغاء
+                            </a>
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-check-circle me-1"></i> تنفيذ التحويل
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function selectFromType(type) {
+    // إزالة التحديد
+    document.querySelectorAll('#fromTypeSelector .account-type-option').forEach(el => {
+        el.classList.remove('selected');
+    });
+    
+    // تحديد الخيار
+    const selected = document.querySelector(`#fromTypeSelector input[value="${type}"]`);
+    if (selected) {
+        selected.checked = true;
+        selected.closest('.account-type-option').classList.add('selected');
+    }
+    
+    // إخفاء الكل
+    document.getElementById('fromDefaultSelect').style.display = 'none';
+    document.getElementById('fromTreasurySelect').style.display = 'none';
+    document.getElementById('fromBankSelect').style.display = 'none';
+    document.getElementById('fromElectronicSelect').style.display = 'none';
+    document.getElementById('fromFawrySelect').style.display = 'none';
+    document.getElementById('fromVisaSelect').style.display = 'none';
+    
+    // إزالة name
+    document.getElementById('fromTreasurySelect').name = '';
+    document.getElementById('fromBankSelect').name = '';
+    document.getElementById('fromElectronicSelect').name = '';
+    document.getElementById('fromFawrySelect').name = '';
+    document.getElementById('fromVisaSelect').name = '';
+    
+    // إظهار المحدد
+    if (type === 'treasury') {
+        document.getElementById('fromTreasurySelect').style.display = 'block';
+        document.getElementById('fromTreasurySelect').name = 'from_treasury';
+    } else if (type === 'bank') {
+        document.getElementById('fromBankSelect').style.display = 'block';
+        document.getElementById('fromBankSelect').name = 'from_bank';
+    } else if (type === 'electronic') {
+        document.getElementById('fromElectronicSelect').style.display = 'block';
+        document.getElementById('fromElectronicSelect').name = 'from_electronic';
+    } else if (type === 'fawry') {
+        document.getElementById('fromFawrySelect').style.display = 'block';
+        document.getElementById('fromFawrySelect').name = 'from_fawry';
+    } else if (type === 'visa') {
+        document.getElementById('fromVisaSelect').style.display = 'block';
+        document.getElementById('fromVisaSelect').name = 'from_visa';
+    }
+}
+
+function selectToType(type) {
+    // إزالة التحديد
+    document.querySelectorAll('#toTypeSelector .account-type-option').forEach(el => {
+        el.classList.remove('selected');
+    });
+    
+    // تحديد الخيار
+    const selected = document.querySelector(`#toTypeSelector input[value="${type}"]`);
+    if (selected) {
+        selected.checked = true;
+        selected.closest('.account-type-option').classList.add('selected');
+    }
+    
+    // إخفاء الكل
+    document.getElementById('toDefaultSelect').style.display = 'none';
+    document.getElementById('toTreasurySelect').style.display = 'none';
+    document.getElementById('toBankSelect').style.display = 'none';
+    document.getElementById('toElectronicSelect').style.display = 'none';
+    document.getElementById('toFawrySelect').style.display = 'none';
+    document.getElementById('toVisaSelect').style.display = 'none';
+    
+    // إزالة name
+    document.getElementById('toTreasurySelect').name = '';
+    document.getElementById('toBankSelect').name = '';
+    document.getElementById('toElectronicSelect').name = '';
+    document.getElementById('toFawrySelect').name = '';
+    document.getElementById('toVisaSelect').name = '';
+    
+    // إظهار المحدد
+    if (type === 'treasury') {
+        document.getElementById('toTreasurySelect').style.display = 'block';
+        document.getElementById('toTreasurySelect').name = 'to_treasury';
+    } else if (type === 'bank') {
+        document.getElementById('toBankSelect').style.display = 'block';
+        document.getElementById('toBankSelect').name = 'to_bank';
+    } else if (type === 'electronic') {
+        document.getElementById('toElectronicSelect').style.display = 'block';
+        document.getElementById('toElectronicSelect').name = 'to_electronic';
+    } else if (type === 'fawry') {
+        document.getElementById('toFawrySelect').style.display = 'block';
+        document.getElementById('toFawrySelect').name = 'to_fawry';
+    } else if (type === 'visa') {
+        document.getElementById('toVisaSelect').style.display = 'block';
+        document.getElementById('toVisaSelect').name = 'to_visa';
+    }
+}
+</script>
+{% endblock %}

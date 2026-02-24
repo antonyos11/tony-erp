@@ -1,0 +1,235 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}لوحة صاحب المصنع{% endblock %}
+
+{% block extra_css %}
+<style>
+    .kpi-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 1.5rem;
+    }
+    
+    .kpi-card h4 {
+        color: #667eea;
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+        border-bottom: 2px solid #f0f0f0;
+        padding-bottom: 0.5rem;
+    }
+    
+    .stat-box {
+        text-align: center;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+    
+    .stat-box .number {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #667eea;
+    }
+    
+    .stat-box .label {
+        font-size: 0.9rem;
+        color: #666;
+    }
+    
+    .product-row {
+        padding: 0.8rem;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .product-row:last-child {
+        border-bottom: none;
+    }
+    
+    .profit-positive {
+        color: #28a745;
+        font-weight: bold;
+    }
+    
+    .profit-negative {
+        color: #dc3545;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-chart-line text-primary"></i> لوحة صاحب المصنع</h1>
+        <div class="text-muted">{{ today|date:"l، j F Y" }}</div>
+    </div>
+    
+    <!-- الصف الأول: إحصائيات سريعة -->
+    <div class="row">
+        <div class="col-md-3">
+            <div class="stat-box">
+                <div class="number">{{ month_production.count|default:0 }}</div>
+                <div class="label">أوامر إنتاج مكتملة</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box">
+                <div class="number">{{ month_worker_entries.count|default:0 }}</div>
+                <div class="label">تسجيلات عمال معتمدة</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box">
+                <div class="number">{{ utilization_rate|floatformat:1 }}%</div>
+                <div class="label">نسبة استغلال العمالة</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box">
+                <div class="number">{{ total_obligations_30days|floatformat:0 }}</div>
+                <div class="label">التزامات 30 يوم قادمة</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- الصف الثاني: التكاليف والربحية -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="kpi-card">
+                <h4><i class="fas fa-dollar-sign"></i> تكلفة وربحية أهم المنتجات</h4>
+                {% if products_analysis %}
+                    {% for product in products_analysis %}
+                    <div class="product-row">
+                        <div>
+                            <strong>{{ product.product_name }}</strong><br>
+                            <small class="text-muted">
+                                تكلفة: {{ product.cost_per_unit|floatformat:2 }} | 
+                                سعر: {{ product.selling_price|floatformat:2 }}
+                            </small>
+                        </div>
+                        <div>
+                            <span class="{% if product.profit_margin > 0 %}profit-positive{% else %}profit-negative{% endif %}">
+                                {{ product.profit_margin|floatformat:2 }}
+                                ({{ product.profit_percentage|floatformat:1 }}%)
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center">لا توجد بيانات</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="kpi-card">
+                <h4><i class="fas fa-star"></i> أفضل 5 عمال إنتاجية</h4>
+                {% if top_workers %}
+                    {% for worker in top_workers %}
+                    <div class="product-row">
+                        <div>
+                            <strong>{{ worker.employee__arabic_name }}</strong>
+                        </div>
+                        <div>
+                            <span class="badge bg-success">{{ worker.total_quantity|floatformat:0 }} وحدة</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center">لا توجد بيانات</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- الصف الثالث: المصاريف والمخزون -->
+    <div class="row">
+        <div class="col-md-4">
+            <div class="kpi-card">
+                <h4><i class="fas fa-box"></i> المخزون</h4>
+                <div class="text-center">
+                    <div style="font-size: 2rem; font-weight: bold; color: #667eea;">
+                        {{ total_inventory_value|floatformat:0 }}
+                    </div>
+                    <div class="text-muted">إجمالي قيمة المخزون</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="kpi-card">
+                <h4><i class="fas fa-industry"></i> استهلاك الخامات</h4>
+                <div class="text-center">
+                    <div style="font-size: 2rem; font-weight: bold; color: #dc3545;">
+                        {{ month_materials_cost|floatformat:0 }}
+                    </div>
+                    <div class="text-muted">إجمالي استهلاك الشهر</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="kpi-card">
+                <h4><i class="fas fa-bolt"></i> المصاريف غير المباشرة</h4>
+                <div style="font-size: 1.2rem;">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>كهرباء:</span>
+                        <strong>{{ overhead.electricity|floatformat:0 }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>صيانة:</span>
+                        <strong>{{ overhead.maintenance|floatformat:0 }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>أخرى:</span>
+                        <strong>{{ overhead.other|floatformat:0 }}</strong>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <span><strong>الإجمالي:</strong></span>
+                        <strong style="color: #667eea;">{{ overhead.total|floatformat:0 }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- الصف الرابع: العمالة -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="kpi-card">
+                <h4><i class="fas fa-users"></i> العمالة</h4>
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <div style="font-size: 2rem; font-weight: bold; color: #667eea;">
+                            {{ active_employees }}
+                        </div>
+                        <div class="text-muted">الموظفين النشطين</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div style="font-size: 2rem; font-weight: bold; color: #28a745;">
+                            {{ working_employees }}
+                        </div>
+                        <div class="text-muted">العاملين فعلياً هذا الشهر</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div style="font-size: 2rem; font-weight: bold; color: #ffc107;">
+                            {{ utilization_rate|floatformat:1 }}%
+                        </div>
+                        <div class="text-muted">نسبة الاستغلال</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+

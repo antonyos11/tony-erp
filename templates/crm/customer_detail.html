@@ -1,0 +1,626 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}{{ customer.full_name }} - تفاصيل العميل - CRM{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+    .customer-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    .customer-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: 2rem;
+        backdrop-filter: blur(10px);
+    }
+    .info-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    .stat-card {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    .stat-card.opportunities {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .stat-card.activities {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    .stat-card.quotations {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+    .stat-card.tickets {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+    .tab-content {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .list-item {
+        padding: 15px;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        transition: all 0.2s ease;
+    }
+    .list-item:hover {
+        background: #f8f9fa;
+        border-color: #007bff;
+    }
+    .activity-timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    .activity-timeline::before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: linear-gradient(to bottom, #007bff, #28a745);
+    }
+    .activity-item {
+        position: relative;
+        margin-bottom: 20px;
+    }
+    .activity-item::before {
+        content: '';
+        position: absolute;
+        left: -22px;
+        top: 15px;
+        width: 12px;
+        height: 12px;
+        background: #007bff;
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- رأس الصفحة -->
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">
+            <a href="{% url 'crm:customer_list' %}" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-arrow-right"></i>
+            </a>
+            تفاصيل العميل
+        </h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <div class="btn-group me-2">
+                <a href="{% url 'crm:customer_edit' customer.pk %}" class="btn btn-primary">
+                    <i class="fas fa-edit"></i> تعديل البيانات
+                </a>
+                <a href="{% url 'crm:opportunity_create' %}?customer={{ customer.id }}" class="btn btn-success">
+                    <i class="fas fa-bullseye"></i> إضافة فرصة
+                </a>
+                <a href="{% url 'crm:activity_create' %}?customer={{ customer.id }}" class="btn btn-info">
+                    <i class="fas fa-tasks"></i> إضافة نشاط
+                </a>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-ellipsis-h"></i>
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'crm:quotation_create' %}?customer={{ customer.id }}">
+                            <i class="fas fa-file-invoice me-2"></i>إنشاء عرض سعر
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'crm:ticket_create' %}?customer={{ customer.id }}">
+                            <i class="fas fa-ticket-alt me-2"></i>إنشاء تذكرة دعم
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#" onclick="window.print()">
+                            <i class="fas fa-print me-2"></i>طباعة
+                        </a></li>
+                        <li><a class="dropdown-item text-danger" href="{% url 'crm:customer_delete' customer.pk %}">
+                            <i class="fas fa-trash me-2"></i>حذف العميل
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- معلومات العميل الرئيسية -->
+    <div class="customer-header">
+        <div class="d-flex align-items-center">
+            <div class="customer-avatar me-4">
+                {{ customer.first_name|first }}{{ customer.last_name|first }}
+            </div>
+            <div class="flex-grow-1">
+                <h2 class="mb-2">{{ customer.full_name }}</h2>
+                <p class="mb-2 opacity-75">{{ customer.customer_code }}</p>
+                {% if customer.company_name %}
+                <p class="mb-2"><i class="fas fa-building me-2"></i>{{ customer.company_name }}</p>
+                {% endif %}
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-light text-dark">{{ customer.customer_type.name }}</span>
+                    {% if customer.status == 'active' %}
+                        <span class="badge bg-success">نشط</span>
+                    {% elif customer.status == 'inactive' %}
+                        <span class="badge bg-secondary">غير نشط</span>
+                    {% else %}
+                        <span class="badge bg-warning">{{ customer.get_status_display }}</span>
+                    {% endif %}
+                    {% if customer.source %}
+                        <span class="badge bg-info">{{ customer.source.name }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="text-end">
+                <div class="mb-2">
+                    <i class="fas fa-calendar me-2"></i>
+                    عميل منذ {{ customer.created_at|date:"d/m/Y" }}
+                </div>
+                {% if customer.assigned_to %}
+                <div>
+                    <i class="fas fa-user me-2"></i>
+                    مسؤول المبيعات: {{ customer.assigned_to.get_full_name|default:customer.assigned_to.username }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- الإحصائيات السريعة -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card opportunities">
+                <i class="fas fa-bullseye fa-2x mb-2"></i>
+                <h3>{{ customer_stats.total_opportunities }}</h3>
+                <p class="mb-0">إجمالي الفرص</p>
+                <small>{{ customer_stats.won_opportunities }} فرصة ناجحة</small>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card activities">
+                <i class="fas fa-tasks fa-2x mb-2"></i>
+                <h3>{{ customer_stats.activities_count }}</h3>
+                <p class="mb-0">الأنشطة</p>
+                <small>المجدولة والمكتملة</small>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card quotations">
+                <i class="fas fa-file-invoice fa-2x mb-2"></i>
+                <h3>{{ customer_stats.quotations_count }}</h3>
+                <p class="mb-0">عروض الأسعار</p>
+                <small>المرسلة والمقبولة</small>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card tickets">
+                <i class="fas fa-ticket-alt fa-2x mb-2"></i>
+                <h3>{{ customer_stats.tickets_count }}</h3>
+                <p class="mb-0">تذاكر الدعم</p>
+                <small>المفتوحة والمحلولة</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- معلومات الاتصال والعنوان -->
+        <div class="col-lg-4">
+            <div class="info-card">
+                <h5 class="mb-3">
+                    <i class="fas fa-address-book text-primary me-2"></i>
+                    معلومات الاتصال
+                </h5>
+                
+                {% if customer.phone %}
+                <div class="mb-3">
+                    <strong>الهاتف الثابت:</strong>
+                    <p class="text-muted mb-0">{{ customer.phone }}</p>
+                </div>
+                {% endif %}
+                
+                {% if customer.mobile %}
+                <div class="mb-3">
+                    <strong>الهاتف المحمول:</strong>
+                    <p class="text-muted mb-0">{{ customer.mobile }}</p>
+                </div>
+                {% endif %}
+                
+                {% if customer.email %}
+                <div class="mb-3">
+                    <strong>البريد الإلكتروني:</strong>
+                    <p class="text-muted mb-0">
+                        <a href="mailto:{{ customer.email }}">{{ customer.email }}</a>
+                    </p>
+                </div>
+                {% endif %}
+                
+                {% if customer.website %}
+                <div class="mb-3">
+                    <strong>الموقع الإلكتروني:</strong>
+                    <p class="text-muted mb-0">
+                        <a href="{{ customer.website }}" target="_blank">{{ customer.website }}</a>
+                    </p>
+                </div>
+                {% endif %}
+                
+                {% if customer.address_line1 %}
+                <div class="mb-3">
+                    <strong>العنوان:</strong>
+                    <p class="text-muted mb-0">{{ customer.address_line1 }}</p>
+                    {% if customer.address_line2 %}
+                        <p class="text-muted mb-0">{{ customer.address_line2 }}</p>
+                    {% endif %}
+                    {% if customer.city %}
+                        <p class="text-muted mb-0">{{ customer.city }}</p>
+                    {% endif %}
+                    {% if customer.state %}
+                        <p class="text-muted mb-0">{{ customer.state }}</p>
+                    {% endif %}
+                    {% if customer.postal_code %}
+                        <p class="text-muted mb-0">{{ customer.postal_code }}</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- المعلومات المالية -->
+            <div class="info-card">
+                <h5 class="mb-3">
+                    <i class="fas fa-money-bill-wave text-success me-2"></i>
+                    المعلومات المالية
+                </h5>
+                
+                {% if customer.credit_limit %}
+                <div class="mb-3">
+                    <strong>حد الائتمان:</strong>
+                    <p class="text-success mb-0">{{ customer.credit_limit|floatformat:2 }} ج.م</p>
+                </div>
+                {% endif %}
+                
+                {% if customer.payment_terms %}
+                <div class="mb-3">
+                    <strong>مدة السداد:</strong>
+                    <p class="text-muted mb-0">{{ customer.payment_terms }} يوم</p>
+                </div>
+                {% endif %}
+                
+                {% if customer.tax_number %}
+                <div class="mb-3">
+                    <strong>الرقم الضريبي:</strong>
+                    <p class="text-muted mb-0">{{ customer.tax_number }}</p>
+                </div>
+                {% endif %}
+                
+                <div class="mb-3">
+                    <strong>إجمالي قيمة الفرص:</strong>
+                    <p class="text-primary mb-0 fs-5">{{ customer_stats.total_value|floatformat:2 }} ج.م</p>
+                </div>
+            </div>
+
+            <!-- جهات الاتصال -->
+            {% if contacts %}
+            <div class="info-card">
+                <h5 class="mb-3">
+                    <i class="fas fa-users text-info me-2"></i>
+                    جهات الاتصال
+                </h5>
+                {% for contact in contacts %}
+                <div class="border rounded p-3 mb-2">
+                    <h6 class="mb-1">
+                        {{ contact.name }}
+                        {% if contact.is_primary %}
+                            <span class="badge bg-warning text-dark">أساسي</span>
+                        {% endif %}
+                    </h6>
+                    {% if contact.position %}
+                        <p class="text-muted small mb-1">{{ contact.position }}</p>
+                    {% endif %}
+                    {% if contact.phone %}
+                        <p class="mb-1"><i class="fas fa-phone text-muted me-1"></i>{{ contact.phone }}</p>
+                    {% endif %}
+                    {% if contact.email %}
+                        <p class="mb-0"><i class="fas fa-envelope text-muted me-1"></i>{{ contact.email }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- التفاصيل الرئيسية -->
+        <div class="col-lg-8">
+            <!-- التبويبات -->
+            <ul class="nav nav-tabs" id="customerTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="opportunities-tab" data-bs-toggle="tab" data-bs-target="#opportunities" type="button" role="tab">
+                        <i class="fas fa-bullseye me-1"></i>الفرص التجارية ({{ opportunities|length }})
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="activities-tab" data-bs-toggle="tab" data-bs-target="#activities" type="button" role="tab">
+                        <i class="fas fa-tasks me-1"></i>الأنشطة ({{ activities|length }})
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="quotations-tab" data-bs-toggle="tab" data-bs-target="#quotations" type="button" role="tab">
+                        <i class="fas fa-file-invoice me-1"></i>عروض الأسعار ({{ quotations|length }})
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tickets-tab" data-bs-toggle="tab" data-bs-target="#tickets" type="button" role="tab">
+                        <i class="fas fa-ticket-alt me-1"></i>تذاكر الدعم ({{ tickets|length }})
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="customerTabsContent">
+                <!-- تبويب الفرص التجارية -->
+                <div class="tab-pane fade show active" id="opportunities" role="tabpanel">
+                    {% if opportunities %}
+                        {% for opportunity in opportunities %}
+                        <div class="list-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">
+                                        <a href="{% url 'crm:opportunity_detail' opportunity.pk %}" class="text-decoration-none">
+                                            {{ opportunity.name }}
+                                        </a>
+                                    </h6>
+                                    <p class="text-muted small mb-2">{{ opportunity.description|truncatewords:15 }}</p>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-primary">{{ opportunity.stage.name }}</span>
+                                        <span class="badge bg-success">{{ opportunity.estimated_value|floatformat:0 }} ج.م</span>
+                                        <span class="text-muted small">{{ opportunity.expected_close_date|date:"d/m/Y" }}</span>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <div class="progress mb-1" style="width: 100px; height: 8px;">
+                                        <div class="progress-bar" style="width: { opportunity.probability }%"></div>
+                                    </div>
+                                    <small class="text-muted">{{ opportunity.probability }}%</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        <div class="text-center mt-3">
+                            <a href="{% url 'crm:opportunity_list' %}?customer={{ customer.id }}" class="btn btn-outline-primary">
+                                عرض جميع الفرص
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-bullseye fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">لا توجد فرص تجارية لهذا العميل</p>
+                            <a href="{% url 'crm:opportunity_create' %}?customer={{ customer.id }}" class="btn btn-success">
+                                <i class="fas fa-plus"></i> إضافة فرصة جديدة
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- تبويب الأنشطة -->
+                <div class="tab-pane fade" id="activities" role="tabpanel">
+                    {% if activities %}
+                        <div class="activity-timeline">
+                            {% for activity in activities %}
+                            <div class="activity-item">
+                                <h6 class="mb-1">
+                                    <a href="{% url 'crm:activity_detail' activity.pk %}" class="text-decoration-none">
+                                        {{ activity.title }}
+                                    </a>
+                                </h6>
+                                <p class="text-muted small mb-2">
+                                    <i class="fas fa-calendar me-1"></i>{{ activity.scheduled_date|date:"d/m/Y H:i" }}
+                                    {% if activity.duration_minutes %}
+                                    | <i class="fas fa-clock me-1"></i>{{ activity.duration_minutes }} دقيقة
+                                    {% endif %}
+                                </p>
+                                <div class="d-flex align-items-center gap-2">
+                                    {% if activity.activity_type %}
+                                        <span class="badge bg-secondary">{{ activity.activity_type.name }}</span>
+                                    {% endif %}
+                                    {% if activity.status == 'completed' %}
+                                        <span class="badge bg-success">مكتمل</span>
+                                    {% elif activity.status == 'in_progress' %}
+                                        <span class="badge bg-warning">قيد التنفيذ</span>
+                                    {% else %}
+                                        <span class="badge bg-info">مخطط</span>
+                                    {% endif %}
+                                </div>
+                                {% if activity.description %}
+                                <p class="text-muted small mt-2 mb-0">{{ activity.description|truncatewords:20 }}</p>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="text-center mt-3">
+                            <a href="{% url 'crm:activity_list' %}?customer={{ customer.id }}" class="btn btn-outline-primary">
+                                عرض جميع الأنشطة
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-tasks fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">لا توجد أنشطة لهذا العميل</p>
+                            <a href="{% url 'crm:activity_create' %}?customer={{ customer.id }}" class="btn btn-info">
+                                <i class="fas fa-plus"></i> إضافة نشاط جديد
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- تبويب عروض الأسعار -->
+                <div class="tab-pane fade" id="quotations" role="tabpanel">
+                    {% if quotations %}
+                        {% for quotation in quotations %}
+                        <div class="list-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">
+                                        <a href="{% url 'crm:quotation_detail' quotation.pk %}" class="text-decoration-none">
+                                            {{ quotation.quotation_number }}
+                                        </a>
+                                    </h6>
+                                    <p class="text-muted small mb-2">
+                                        <i class="fas fa-calendar me-1"></i>{{ quotation.quotation_date|date:"d/m/Y" }}
+                                        | صالح حتى {{ quotation.valid_until|date:"d/m/Y" }}
+                                    </p>
+                                    <div class="d-flex align-items-center gap-2">
+                                        {% if quotation.status == 'draft' %}
+                                            <span class="badge bg-secondary">مسودة</span>
+                                        {% elif quotation.status == 'sent' %}
+                                            <span class="badge bg-info">مُرسل</span>
+                                        {% elif quotation.status == 'accepted' %}
+                                            <span class="badge bg-success">مقبول</span>
+                                        {% elif quotation.status == 'rejected' %}
+                                            <span class="badge bg-danger">مرفوض</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">منتهي الصلاحية</span>
+                                        {% endif %}
+                                        <span class="text-primary fw-bold">{{ quotation.total_amount|floatformat:2 }} ج.م</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        <div class="text-center mt-3">
+                            <a href="{% url 'crm:quotation_list' %}?customer={{ customer.id }}" class="btn btn-outline-primary">
+                                عرض جميع عروض الأسعار
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-file-invoice fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">لا توجد عروض أسعار لهذا العميل</p>
+                            <a href="{% url 'crm:quotation_create' %}?customer={{ customer.id }}" class="btn btn-success">
+                                <i class="fas fa-plus"></i> إنشاء عرض سعر
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- تبويب تذاكر الدعم -->
+                <div class="tab-pane fade" id="tickets" role="tabpanel">
+                    {% if tickets %}
+                        {% for ticket in tickets %}
+                        <div class="list-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">
+                                        <a href="{% url 'crm:ticket_detail' ticket.pk %}" class="text-decoration-none">
+                                            {{ ticket.title }}
+                                        </a>
+                                    </h6>
+                                    <p class="text-muted small mb-1">{{ ticket.ticket_number }}</p>
+                                    <p class="text-muted small mb-2">{{ ticket.description|truncatewords:15 }}</p>
+                                    <div class="d-flex align-items-center gap-2">
+                                        {% if ticket.category %}
+                                            <span class="badge bg-secondary">{{ ticket.category.name }}</span>
+                                        {% endif %}
+                                        {% if ticket.status == 'open' %}
+                                            <span class="badge bg-danger">مفتوح</span>
+                                        {% elif ticket.status == 'in_progress' %}
+                                            <span class="badge bg-warning">قيد المعالجة</span>
+                                        {% elif ticket.status == 'resolved' %}
+                                            <span class="badge bg-success">محلول</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">مغلق</span>
+                                        {% endif %}
+                                        {% if ticket.priority == 'urgent' %}
+                                            <span class="badge bg-danger">عاجل</span>
+                                        {% elif ticket.priority == 'high' %}
+                                            <span class="badge bg-warning">عالي</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <small class="text-muted">
+                                    {{ ticket.created_at|date:"d/m/Y" }}
+                                </small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        <div class="text-center mt-3">
+                            <a href="{% url 'crm:ticket_list' %}?customer={{ customer.id }}" class="btn btn-outline-primary">
+                                عرض جميع التذاكر
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-ticket-alt fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">لا توجد تذاكر دعم لهذا العميل</p>
+                            <a href="{% url 'crm:ticket_create' %}?customer={{ customer.id }}" class="btn btn-warning">
+                                <i class="fas fa-plus"></i> إنشاء تذكرة دعم
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- الملاحظات -->
+    {% if customer.notes %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="info-card">
+                <h5 class="mb-3">
+                    <i class="fas fa-sticky-note text-warning me-2"></i>
+                    الملاحظات
+                </h5>
+                <p class="text-muted">{{ customer.notes|linebreaks }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // تفعيل التبويبات
+    const triggerTabList = document.querySelectorAll('#customerTabs button');
+    triggerTabList.forEach(triggerEl => {
+        const tabTrigger = new bootstrap.Tab(triggerEl);
+
+        triggerEl.addEventListener('click', event => {
+            event.preventDefault();
+            tabTrigger.show();
+        });
+    });
+    
+    // تأكيد الحذف
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('a') && e.target.closest('a').href && 
+            e.target.closest('a').href.includes('/delete/')) {
+            if (!confirm('هل أنت متأكد من رغبتك في حذف هذا العميل؟\n\nسيتم حذف جميع البيانات المرتبطة به نهائياً.')) {
+                e.preventDefault();
+            }
+        }
+    });
+</script>
+{% endblock %}

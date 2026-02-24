@@ -1,0 +1,141 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}بدء أوامر متعددة - الإنتاج{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bulk-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    .order-check-row {
+        padding: 12px 16px;
+        border-bottom: 1px solid #e5e7eb;
+        transition: background 0.2s;
+    }
+    .order-check-row:hover {
+        background: #f9fafb;
+    }
+    .order-check-row.selected {
+        background: #f0fdf4;
+        border-right: 3px solid #22c55e;
+    }
+    .action-bar {
+        position: sticky;
+        bottom: 0;
+        background: #fff;
+        padding: 16px 24px;
+        border-top: 1px solid #e5e7eb;
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-play-circle me-2 text-success"></i>بدء أوامر إنتاج متعددة</h2>
+            <p class="text-muted mb-0">اختر الأوامر التي تريد بدء تنفيذها</p>
+        </div>
+        <a href="{% url 'production:orders_list' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-right me-1"></i> العودة
+        </a>
+    </div>
+
+    <form method="post" id="bulkStartForm">
+        {% csrf_token %}
+        
+        <div class="bulk-card mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">الأوامر المعلقة</h5>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="selectAll">
+                    <label class="form-check-label" for="selectAll">تحديد الكل</label>
+                </div>
+            </div>
+
+            <div class="orders-list">
+                {% for order in pending_orders %}
+                <div class="order-check-row" data-order-id="{ order.id }">
+                    <div class="d-flex align-items-center">
+                        <div class="form-check me-3">
+                            <input type="checkbox" class="form-check-input order-checkbox" 
+                                   name="order_ids" value="{{ order.id }}" id="order_{ order.id }">
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>{{ order.order_number }}</strong>
+                                    <span class="text-muted mx-2">|</span>
+                                    {{ order.product.name }}
+                                </div>
+                                <div>
+                                    <span class="badge bg-primary">{{ order.quantity }} وحدة</span>
+                                </div>
+                            </div>
+                            <small class="text-muted">
+                                التسليم: {{ order.due_date|date:"Y/m/d" }}
+                                {% if order.priority == 'urgent' %}
+                                <span class="badge bg-danger ms-2">عاجل</span>
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-5">
+                    <i class="fas fa-clipboard-check fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">لا توجد أوامر معلقة</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="action-bar d-flex justify-content-between align-items-center">
+            <div>
+                <span class="text-muted">تم تحديد <strong id="selectedCount">0</strong> أمر</span>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary" onclick="history.back()">إلغاء</button>
+                <button type="submit" class="btn btn-success" id="startBtn" disabled>
+                    <i class="fas fa-play me-1"></i> بدء الأوامر المحددة
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.order-checkbox');
+    const selectedCount = document.getElementById('selectedCount');
+    const startBtn = document.getElementById('startBtn');
+
+    function updateCount() {
+        const checked = document.querySelectorAll('.order-checkbox:checked').length;
+        selectedCount.textContent = checked;
+        startBtn.disabled = checked === 0;
+        
+        document.querySelectorAll('.order-check-row').forEach(row => {
+            const checkbox = row.querySelector('.order-checkbox');
+            row.classList.toggle('selected', checkbox.checked);
+        });
+    }
+
+    selectAll.addEventListener('change', function() {
+        checkboxes.forEach(cb => cb.checked = this.checked);
+        updateCount();
+    });
+
+    checkboxes.forEach(cb => cb.addEventListener('change', updateCount));
+});
+</script>
+{% endblock %}
+

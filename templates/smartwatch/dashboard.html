@@ -1,0 +1,310 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}الساعات الذكية - Tony ERP{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-gradient-dark text-white">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-2 text-center">
+                            <i class="fas fa-clock fa-5x opacity-50"></i>
+                        </div>
+                        <div class="col-md-7">
+                            <h2><i class="fas fa-watch me-2"></i>تكامل الساعات الذكية</h2>
+                            <p class="mb-0">تحكم في نظامك مباشرة من معصمك - إشعارات فورية وإجراءات سريعة</p>
+                        </div>
+                        <div class="col-md-3 text-md-end">
+                            <button class="btn btn-light btn-lg" data-bs-toggle="modal" data-bs-target="#pairModal">
+                                <i class="fas fa-plus me-2"></i>ربط ساعة
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- الأجهزة المتصلة -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5><i class="fas fa-clock text-primary me-2"></i>الأجهزة المتصلة</h5>
+                </div>
+                <div class="card-body">
+                    {% if devices %}
+                    {% for device in devices %}
+                    <div class="d-flex align-items-center p-3 border rounded mb-3">
+                        <div class="device-icon me-3">
+                            {% if device.device_type == 'apple_watch' %}
+                            <i class="fab fa-apple fa-2x"></i>
+                            {% elif device.device_type == 'galaxy_watch' %}
+                            <i class="fab fa-android fa-2x text-success"></i>
+                            {% else %}
+                            <i class="fas fa-clock fa-2x text-primary"></i>
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-0">{{ device.name }}</h6>
+                            <small class="text-muted">{{ device.get_device_type_display }}</small>
+                            <br>
+                            <small class="text-{{ device.is_connected|yesno:'success,danger' }}">
+                                <i class="fas fa-circle fa-xs"></i>
+                                {{ device.is_connected|yesno:'متصل,غير متصل' }}
+                            </small>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-link" data-bs-toggle="dropdown">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#" onclick="syncDevice({{ device.id }})">
+                                    <i class="fas fa-sync me-2"></i>مزامنة
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="#" onclick="removeDevice({{ device.id }})">
+                                    <i class="fas fa-trash me-2"></i>إزالة
+                                </a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-watch fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">لا توجد ساعات متصلة</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#pairModal">
+                            ربط ساعة جديدة
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- الإجراءات السريعة -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5><i class="fas fa-bolt text-warning me-2"></i>الإجراءات السريعة</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        {% for action in quick_actions %}
+                        <div class="col-6">
+                            <button class="btn w-100 py-3 text-white" 
+                                    style="background-color: {{ action.color }}"
+                                    onclick="executeAction({{ action.id }}, '{{ action.action_type }}')">
+                                <i class="{{ action.icon }} fa-lg mb-2"></i>
+                                <br>
+                                <small>{{ action.name }}</small>
+                            </button>
+                        </div>
+                        {% empty %}
+                        <div class="col-12 text-center py-4">
+                            <p class="text-muted mb-0">لا توجد إجراءات سريعة</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- الإعدادات -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5><i class="fas fa-cog text-secondary me-2"></i>الإعدادات</h5>
+                </div>
+                <div class="card-body">
+                    <form id="settingsForm">
+                        <h6 class="text-muted mb-3">الإشعارات</h6>
+                        
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="notifyTask" 
+                                   {% if settings.notify_on_task %}checked{% endif %}>
+                            <label class="form-check-label" for="notifyTask">إشعارات المهام</label>
+                        </div>
+                        
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="notifyMessage" 
+                                   {% if settings.notify_on_message %}checked{% endif %}>
+                            <label class="form-check-label" for="notifyMessage">إشعارات الرسائل</label>
+                        </div>
+                        
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="notifyApproval" 
+                                   {% if settings.notify_on_approval %}checked{% endif %}>
+                            <label class="form-check-label" for="notifyApproval">إشعارات الموافقات</label>
+                        </div>
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="notifyReminder" 
+                                   {% if settings.notify_on_reminder %}checked{% endif %}>
+                            <label class="form-check-label" for="notifyReminder">إشعارات التذكيرات</label>
+                        </div>
+                        
+                        <hr>
+                        
+                        <h6 class="text-muted mb-3">التفضيلات</h6>
+                        
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="vibration" 
+                                   {% if settings.vibration_enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="vibration">الاهتزاز</label>
+                        </div>
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="sound" 
+                                   {% if settings.sound_enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="sound">الصوت</label>
+                        </div>
+                        
+                        <button type="button" class="btn btn-primary w-100" onclick="saveSettings()">
+                            <i class="fas fa-save me-2"></i>حفظ الإعدادات
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- سجل الإجراءات -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-history text-info me-2"></i>آخر الإجراءات</h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>الإجراء</th>
+                                <th>النوع</th>
+                                <th>الجهاز</th>
+                                <th>الحالة</th>
+                                <th>التاريخ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in recent_actions %}
+                            <tr>
+                                <td>{{ log.action_name }}</td>
+                                <td><span class="badge bg-info">{{ log.action_type }}</span></td>
+                                <td>{{ log.device.name }}</td>
+                                <td>
+                                    {% if log.is_success %}
+                                    <span class="badge bg-success">ناجح</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">فشل</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ log.created_at|date:"Y/m/d H:i" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4">
+                                    <p class="text-muted mb-0">لا توجد إجراءات</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal ربط ساعة -->
+<div class="modal fade" id="pairModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">ربط ساعة جديدة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="qr-code mb-4">
+                    <div class="bg-light p-4 d-inline-block rounded">
+                        <i class="fas fa-qrcode fa-5x text-dark"></i>
+                    </div>
+                </div>
+                <p>امسح رمز QR من تطبيق Tony ERP على ساعتك</p>
+                <p class="text-muted small">أو أدخل الرمز يدوياً:</p>
+                <h4 class="font-monospace">TONY-{{ request.user.id }}-{{ "now"|date:"Ymd" }}</h4>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-gradient-dark {
+    background: linear-gradient(135deg, #2c3e50 0%, #1a1a2e 100%);
+}
+</style>
+
+<script>
+function executeAction(actionId, actionType) {
+    if (!confirm('هل تريد تنفيذ هذا الإجراء؟')) return;
+    
+    // محاكاة تنفيذ الإجراء
+    alert('تم تنفيذ الإجراء: ' + actionType);
+}
+
+function saveSettings() {
+    const data = {
+        notify_on_task: document.getElementById('notifyTask').checked,
+        notify_on_message: document.getElementById('notifyMessage').checked,
+        notify_on_approval: document.getElementById('notifyApproval').checked,
+        notify_on_reminder: document.getElementById('notifyReminder').checked,
+        vibration_enabled: document.getElementById('vibration').checked,
+        sound_enabled: document.getElementById('sound').checked,
+    };
+    
+    fetch('{% url "smartwatch:settings" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert('تم حفظ الإعدادات');
+        }
+    });
+}
+
+function syncDevice(deviceId) {
+    alert('جاري المزامنة...');
+}
+
+function removeDevice(deviceId) {
+    if (!confirm('هل تريد إزالة هذا الجهاز؟')) return;
+    
+    fetch(`/smartwatch/unregister/${deviceId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            location.reload();
+        }
+    });
+}
+</script>
+{% endblock %}

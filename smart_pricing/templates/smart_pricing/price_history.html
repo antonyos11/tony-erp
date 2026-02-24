@@ -1,0 +1,291 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "سجل تاريخ الأسعار" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .history-card {
+        border-radius: 15px;
+        border: none;
+    }
+    .price-change-up {
+        color: #28a745;
+    }
+    .price-change-down {
+        color: #dc3545;
+    }
+    .timeline-item {
+        border-right: 3px solid #dee2e6;
+        padding-right: 20px;
+        margin-right: 10px;
+        position: relative;
+    }
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        right: -8px;
+        top: 0;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #007bff;
+    }
+    .timeline-item.increase::before {
+        background: #28a745;
+    }
+    .timeline-item.decrease::before {
+        background: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- العنوان -->
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'smart_pricing:dashboard' %}">{% trans "التسعير الذكي" %}</a>
+                        </li>
+                        <li class="breadcrumb-item active">{% trans "سجل الأسعار" %}</li>
+                    </ol>
+                </nav>
+                <h2>
+                    <i class="fas fa-history text-primary"></i>
+                    {% trans "سجل تاريخ الأسعار" %}
+                </h2>
+            </div>
+            <div>
+                <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#filterModal">
+                    <i class="fas fa-filter"></i> {% trans "تصفية" %}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- إحصائيات سريعة -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card history-card shadow-sm bg-primary text-white">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ total_changes|default:0 }}</h3>
+                    <small>{% trans "إجمالي التغييرات" %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card history-card shadow-sm bg-success text-white">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ increases|default:0 }}</h3>
+                    <small>{% trans "زيادات الأسعار" %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card history-card shadow-sm bg-danger text-white">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ decreases|default:0 }}</h3>
+                    <small>{% trans "تخفيضات الأسعار" %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card history-card shadow-sm bg-info text-white">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ avg_change|floatformat:1|default:0 }}%</h3>
+                    <small>{% trans "متوسط التغيير" %}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- جدول السجل -->
+    <div class="card history-card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% trans "المنتج" %}</th>
+                            <th>{% trans "السعر القديم" %}</th>
+                            <th>{% trans "السعر الجديد" %}</th>
+                            <th>{% trans "التغيير" %}</th>
+                            <th>{% trans "السبب" %}</th>
+                            <th>{% trans "المصدر" %}</th>
+                            <th>{% trans "التاريخ" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in price_history %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if item.product.main_image %}
+                                    <img src="{{ item.product.main_image.url }}" 
+                                         class="rounded me-2" 
+                                         style="width: 40px; height: 40px; object-fit: cover;">
+                                    {% else %}
+                                    <div class="bg-light rounded me-2 d-flex align-items-center justify-content-center"
+                                         style="width: 40px; height: 40px;">
+                                        <i class="fas fa-box text-muted"></i>
+                                    </div>
+                                    {% endif %}
+                                    <div>
+                                        <strong>{{ item.product.name|truncatewords:4 }}</strong>
+                                        {% if item.product.sku %}
+                                        <br><small class="text-muted">{{ item.product.sku }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ item.old_price|floatformat:2 }} ر.س</td>
+                            <td>{{ item.new_price|floatformat:2 }} ر.س</td>
+                            <td>
+                                {% with change=item.price_change_percentage %}
+                                <span class="badge fs-6 
+                                    {% if change > 0 %}bg-success-subtle text-success
+                                    {% elif change < 0 %}bg-danger-subtle text-danger
+                                    {% else %}bg-secondary-subtle text-secondary{% endif %}">
+                                    {% if change > 0 %}
+                                    <i class="fas fa-arrow-up"></i>
+                                    {% elif change < 0 %}
+                                    <i class="fas fa-arrow-down"></i>
+                                    {% else %}
+                                    <i class="fas fa-minus"></i>
+                                    {% endif %}
+                                    {{ change|floatformat:1 }}%
+                                </span>
+                                {% endwith %}
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark">
+                                    {{ item.get_reason_display|default:item.reason }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if item.source == 'auto' %}
+                                <span class="badge bg-info">
+                                    <i class="fas fa-robot"></i> {% trans "تلقائي" %}
+                                </span>
+                                {% elif item.source == 'manual' %}
+                                <span class="badge bg-secondary">
+                                    <i class="fas fa-user"></i> {% trans "يدوي" %}
+                                </span>
+                                {% elif item.source == 'import' %}
+                                <span class="badge bg-warning">
+                                    <i class="fas fa-upload"></i> {% trans "استيراد" %}
+                                </span>
+                                {% else %}
+                                <span class="badge bg-light text-dark">{{ item.source }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small class="text-muted">
+                                    {{ item.changed_at|date:"Y/m/d" }}<br>
+                                    {{ item.changed_at|time:"H:i" }}
+                                </small>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <i class="fas fa-history fa-3x text-muted mb-3 d-block"></i>
+                                <h5 class="text-muted">{% trans "لا يوجد سجل أسعار" %}</h5>
+                                <p class="text-muted mb-0">{% trans "سيظهر هنا سجل تغييرات الأسعار" %}</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+            <nav class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "تصفية السجل" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="get">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "نوع التغيير" %}</label>
+                        <select name="change_type" class="form-select">
+                            <option value="">{% trans "الكل" %}</option>
+                            <option value="increase">{% trans "زيادة" %}</option>
+                            <option value="decrease">{% trans "تخفيض" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "السبب" %}</label>
+                        <select name="reason" class="form-select">
+                            <option value="">{% trans "الكل" %}</option>
+                            <option value="manual">{% trans "يدوي" %}</option>
+                            <option value="auto">{% trans "تلقائي" %}</option>
+                            <option value="competitor">{% trans "تغير سعر منافس" %}</option>
+                            <option value="seasonal">{% trans "موسمي" %}</option>
+                            <option value="cost">{% trans "تغير التكلفة" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "من تاريخ" %}</label>
+                        <input type="date" name="date_from" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "إلى تاريخ" %}</label>
+                        <input type="date" name="date_to" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <a href="{% url 'smart_pricing:price_history_list' %}" class="btn btn-outline-secondary">
+                        {% trans "إعادة تعيين" %}
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        {% trans "تطبيق" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

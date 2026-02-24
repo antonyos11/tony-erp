@@ -1,0 +1,742 @@
+{# شريط جانبي منظم وسهل الاستخدام - Organized Sidebar #}
+{% load tony_erb_tags %}
+<div id="appSidebar" class="app-sidebar d-flex flex-column">
+  {# ===== الهيدر ===== #}
+  <div class="sidebar-header px-3 py-2 d-flex align-items-center gap-2 position-relative">
+    {% if company and company.logo %}
+      <a href="/" class="d-flex align-items-center text-decoration-none">
+        <img src="{{ company.logo.url }}" alt="Logo" class="sidebar-logo">
+        <span class="sidebar-brand ms-2">{{ SYSTEM_NAME }}</span>
+      </a>
+    {% else %}
+      <span class="sidebar-brand">{{ SYSTEM_NAME }}</span>
+    {% endif %}
+    {% if UI_NEW %}
+      <span class="beta-badge ms-auto me-2" title="واجهة تجريبية">BETA</span>
+    {% endif %}
+    <button type="button" class="sidebar-close-btn d-lg-none" id="sidebarCloseBtn" aria-label="إغلاق القائمة">
+      <i class="bi bi-x-lg"></i>
+    </button>
+  </div>
+
+  {# ===== البحث ===== #}
+  <div class="sidebar-global-search px-3 pt-2 pb-2">
+    <div class="position-relative">
+      <input type="search" class="form-control form-control-sm ps-4" id="globalFeatureSearch" placeholder="بحث سريع... (Ctrl+K)" autocomplete="off">
+      <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.85rem;"></i>
+    </div>
+  </div>
+
+  {# ===== القائمة الرئيسية ===== #}
+  <div class="sidebar-scroll flex-grow-1" data-simplebar>
+    <ul class="sidebar-menu list-unstyled mb-0">
+
+      {# ────────── الرئيسية ────────── #}
+      <li>
+        <a href="{% url 'core:dashboard' %}" class="sidebar-link">
+          <i class="bi bi-house-door-fill"></i>
+          <span>الرئيسية</span>
+        </a>
+      </li>
+
+      {# ────────── الوصول السريع (سوبر أدمن) ────────── #}
+      {% if user.is_superuser %}
+      <li class="sidebar-group" data-module="quick-access">
+        <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-quick-access" aria-expanded="false">
+          <i class="bi bi-lightning-charge-fill text-warning me-2"></i>
+          <span>الوصول السريع</span>
+          <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+        </button>
+        <ul class="collapse sidebar-submenu" id="menu-quick-access">
+          <li><a class="submenu-link" href="{% url 'quick_access:dashboard' %}"><i class="bi bi-dot"></i><span>لوحة الوصول السريع</span></a></li>
+          <li><a class="submenu-link" href="{% url 'quick_access:shortcuts_guide' %}"><i class="bi bi-dot"></i><span>اختصارات لوحة المفاتيح</span></a></li>
+          <li><a class="submenu-link" href="{% url 'quick_access:bulk_actions' %}"><i class="bi bi-dot"></i><span>العمليات الجماعية</span></a></li>
+        </ul>
+      </li>
+      {% endif %}
+
+      {# ────────── الوحدات الأساسية (ديناميكية) ────────── #}
+      {% if user.is_authenticated and has_any_permissions %}
+        <li class="sidebar-section-label">الوحدات الأساسية</li>
+        {% for module_key, module_data in user_modules.items %}
+          {% with is_active=module_data.active %}
+          <li class="sidebar-group{% if is_active %} open{% endif %}" data-module="{{ module_key }}">
+            <button class="sidebar-collapse-btn{% if is_active %} active{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#mod-{{ module_key }}" aria-expanded="{% if is_active %}true{% else %}false{% endif %}">
+              <i class="{{ module_data.icon }} me-2"></i>
+              <span>{{ module_data.name }}</span>
+              {% if module_data.items|length > 0 %}
+                <span class="sidebar-count">{{ module_data.items|length }}</span>
+              {% endif %}
+              <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+            </button>
+            <ul id="mod-{{ module_key }}" class="collapse{% if is_active %} show{% endif %} sidebar-submenu">
+              {% for item in module_data.items %}
+                {% if item.type == 'header' %}
+                  <li class="submenu-header">{{ item.name }}</li>
+                {% elif item.type == 'divider' %}
+                  <li class="submenu-divider"></li>
+                {% else %}
+                  <li>
+                    {% if '/' in item.url %}
+                      <a class="submenu-link{% if item.active %} active{% endif %}" href="{{ item.url }}">
+                    {% else %}
+                      {% url item.url as resolved_url %}
+                      <a class="submenu-link{% if item.active %} active{% endif %}" href="{{ resolved_url }}">
+                    {% endif %}
+                      <i class="bi bi-dot"></i><span>{{ item.name }}</span>
+                      {% if item.badge_key and item.badge_key == 'pending_purchase_orders_count' and pending_purchase_orders_count %}
+                        <span class="badge rounded-pill bg-danger ms-auto" style="font-size:.6rem">{{ pending_purchase_orders_count }}</span>
+                      {% endif %}
+                    </a>
+                  </li>
+                {% endif %}
+              {% endfor %}
+            </ul>
+          </li>
+          {% endwith %}
+        {% endfor %}
+      {% endif %}
+
+      {# ────────── الإنتاج والتصنيع ────────── #}
+      {% if user.is_superuser or perms.production.view_productionorder %}
+        <li class="sidebar-section-label">الإنتاج</li>
+        <li class="sidebar-group" data-module="production">
+          <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-production" aria-expanded="false">
+            <i class="bi bi-gear-wide-connected me-2 text-success"></i>
+            <span>الإنتاج والتصنيع</span>
+            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+          </button>
+          <ul class="collapse sidebar-submenu" id="menu-production">
+            <li><a class="submenu-link" href="{% url 'production:dashboard' %}"><i class="bi bi-dot"></i><span>لوحة الإنتاج</span></a></li>
+            <li><a class="submenu-link" href="{% url 'production:pipeline_dashboard' %}"><i class="bi bi-kanban text-warning"></i><span>خط أنابيب الإنتاج</span></a></li>
+            <li><a class="submenu-link" href="{% url 'production:tv_dashboard' %}" target="_blank"><i class="bi bi-tv"></i><span>شاشة متابعة المصنع</span></a></li>
+            <li><a class="submenu-link" href="{% url 'production:orders_list' %}"><i class="bi bi-dot"></i><span>أوامر الإنتاج</span></a></li>
+            <li><a class="submenu-link" href="{% url 'production:scheduling_dashboard' %}"><i class="bi bi-dot"></i><span>جدولة الإنتاج</span></a></li>
+            <li><a class="submenu-link" href="{% url 'production:work_centers_list' %}"><i class="bi bi-dot"></i><span>مراكز العمل</span></a></li>
+            <li><a class="submenu-link" href="{% url 'inventory:bom_list' %}"><i class="bi bi-dot"></i><span>قوائم المكونات (BOM)</span></a></li>
+            <li class="submenu-divider"></li>
+            <li class="submenu-header">التقارير</li>
+            <li><a class="submenu-link" href="{% url 'production:daily_report' %}"><i class="bi bi-dot"></i><span>تقرير يومي</span></a></li>
+            <li><a class="submenu-link" href="{% url 'production:monthly_report' %}"><i class="bi bi-dot"></i><span>تقرير شهري</span></a></li>
+          </ul>
+        </li>
+      {% endif %}
+
+      {# ────────── المحاسبة والمالية ────────── #}
+      {% if user.is_superuser or perms.accounting.view_journalentry %}
+        <li class="sidebar-section-label">المالية</li>
+        <li class="sidebar-group" data-module="accounting-basic">
+          <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-acc-basic" aria-expanded="false">
+            <i class="bi bi-wallet2 me-2 text-info"></i>
+            <span>المحاسبة الأساسية</span>
+            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+          </button>
+          <ul class="collapse sidebar-submenu" id="menu-acc-basic">
+            <li class="submenu-header">الحسابات</li>
+            <li><a class="submenu-link" href="/accounting/electronic-accounts/"><i class="bi bi-dot"></i><span>الحسابات الإلكترونية</span></a></li>
+            <li><a class="submenu-link" href="/accounting/treasuries/"><i class="bi bi-dot"></i><span>الخزائن</span></a></li>
+            <li><a class="submenu-link" href="/accounting/banks/"><i class="bi bi-dot"></i><span>البنوك</span></a></li>
+            <li class="submenu-divider"></li>
+            <li class="submenu-header">العمليات</li>
+            <li><a class="submenu-link" href="/accounting/bank/reconcile/"><i class="bi bi-dot"></i><span>التسوية البنكية</span></a></li>
+            <li><a class="submenu-link" href="/accounting/cash/positions/"><i class="bi bi-dot"></i><span>أرصدة النقدية</span></a></li>
+            <li><a class="submenu-link" href="/accounting/cheques/"><i class="bi bi-dot"></i><span>الشيكات</span></a></li>
+            <li><a class="submenu-link" href="/accounting/transfers/"><i class="bi bi-dot"></i><span>التحويلات</span></a></li>
+            <li class="submenu-divider"></li>
+            <li class="submenu-header">القيود والسجلات</li>
+            <li><a class="submenu-link" href="/accounting/revenue/create/"><i class="bi bi-dot"></i><span>تسجيل إيراد</span></a></li>
+            <li><a class="submenu-link" href="/accounting/expense/create/"><i class="bi bi-dot"></i><span>تسجيل مصروف</span></a></li>
+            <li><a class="submenu-link" href="/accounting/entries/"><i class="bi bi-dot"></i><span>سجل القيود</span></a></li>
+            <li><a class="submenu-link" href="/accounting/settings/auto-journal/"><i class="bi bi-dot"></i><span>القيود التلقائية</span></a></li>
+            <li class="submenu-divider"></li>
+            <li class="submenu-header">استيراد / تصدير</li>
+            <li><a class="submenu-link" href="/accounting/tools/import-journal"><i class="bi bi-dot"></i><span>استيراد بيانات</span></a></li>
+            <li><a class="submenu-link" href="/accounting/tools/export"><i class="bi bi-dot"></i><span>تصدير البيانات</span></a></li>
+          </ul>
+        </li>
+
+        <li class="sidebar-group" data-module="accounting-advanced">
+          <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-acc-advanced" aria-expanded="false">
+            <i class="bi bi-stars me-2 text-primary"></i>
+            <span>المحاسبة المتقدمة</span>
+            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+          </button>
+          <ul class="collapse sidebar-submenu" id="menu-acc-advanced">
+            <li class="submenu-header">التسويات والمطابقات</li>
+            <li><a class="submenu-link" href="{% url 'bank_reconciliation:dashboard' %}"><i class="bi bi-dot"></i><span>التسويات البنكية</span></a></li>
+            <li><a class="submenu-link" href="/accounting/advanced/bank-reconciliation/"><i class="bi bi-dot"></i><span>مطابقة تلقائية</span></a></li>
+            <li class="submenu-divider"></li>
+            <li class="submenu-header">الموازنات</li>
+            <li><a class="submenu-link" href="{% url 'budgeting:dashboard' %}"><i class="bi bi-dot"></i><span>إدارة الميزانيات</span></a></li>
+            <li><a class="submenu-link" href="/accounting/advanced/budget/"><i class="bi bi-dot"></i><span>لوحة الموازنات</span></a></li>
+            <li class="submenu-divider"></li>
+            <li class="submenu-header">القيود والعمليات</li>
+            <li><a class="submenu-link" href="/accounting/advanced/recurring-entries/"><i class="bi bi-dot"></i><span>القيود المتكررة</span></a></li>
+            <li><a class="submenu-link" href="/accounting/advanced/approval-workflow/"><i class="bi bi-dot"></i><span>سير عمل الاعتمادات</span></a></li>
+            <li><a class="submenu-link" href="/accounting/advanced/period-close/"><i class="bi bi-dot"></i><span>إقفال الفترات</span></a></li>
+            <li class="submenu-divider"></li>
+            <li class="submenu-header">الأصول الثابتة</li>
+            <li><a class="submenu-link" href="/accounting/advanced/assets/"><i class="bi bi-dot"></i><span>إدارة الأصول</span></a></li>
+            <li><a class="submenu-link" href="/accounting/advanced/assets/depreciation/calculate/"><i class="bi bi-dot"></i><span>حساب الإهلاك</span></a></li>
+            <li class="submenu-divider"></li>
+            <li class="submenu-header">التقارير</li>
+            <li><a class="submenu-link" href="/accounting/advanced/cfo-dashboard/"><i class="bi bi-dot"></i><span>لوحة CFO</span><span class="badge bg-primary ms-auto" style="font-size:.55rem">AI</span></a></li>
+            <li><a class="submenu-link" href="/accounting/advanced/financial-analysis/"><i class="bi bi-dot"></i><span>التحليل المالي</span></a></li>
+            <li><a class="submenu-link" href="/accounting/advanced/aging-report/"><i class="bi bi-dot"></i><span>تقرير أعمار الديون</span></a></li>
+            <li><a class="submenu-link" href="/accounting/advanced/custom-reports/"><i class="bi bi-dot"></i><span>التقارير المخصصة</span></a></li>
+            <li><a class="submenu-link" href="/accounting/advanced/audit-log/"><i class="bi bi-dot"></i><span>سجل المراجعة</span></a></li>
+          </ul>
+        </li>
+
+        <li class="sidebar-group" data-module="banking">
+          <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-banking" aria-expanded="false">
+            <i class="bi bi-bank me-2 text-success"></i>
+            <span>التكامل البنكي والضرائب</span>
+            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+          </button>
+          <ul class="collapse sidebar-submenu" id="menu-banking">
+            <li><a class="submenu-link" href="/bank-integration/dashboard/"><i class="bi bi-dot"></i><span>لوحة التكامل البنكي</span></a></li>
+            <li><a class="submenu-link" href="/treasury-management/dashboard/"><i class="bi bi-dot"></i><span>إدارة الخزينة</span></a></li>
+            <li><a class="submenu-link" href="/taxes/"><i class="bi bi-dot"></i><span>نظام الضرائب</span></a></li>
+          </ul>
+        </li>
+      {% endif %}
+
+      {# ────────── المخازن والمستودعات ────────── #}
+      {% if user.is_superuser or perms.inventory.view_product %}
+        <li class="sidebar-section-label">المخزون</li>
+        <li class="sidebar-group" data-module="warehouses">
+          <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-warehouses" aria-expanded="false">
+            <i class="bi bi-box-seam-fill me-2 text-purple"></i>
+            <span>المخازن والمستودعات</span>
+            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+          </button>
+          <ul class="collapse sidebar-submenu" id="menu-warehouses">
+            <li class="submenu-header">إدارة المخزون</li>
+            <li><a class="submenu-link" href="{% url 'inventory:dashboard' %}"><i class="bi bi-dot"></i><span>لوحة المخزون</span></a></li>
+            <li><a class="submenu-link" href="{% url 'inventory:location_list' %}"><i class="bi bi-dot"></i><span>قائمة المخازن</span></a></li>
+            <li><a class="submenu-link" href="{% url 'inventory:stock_management' %}"><i class="bi bi-dot"></i><span>إدارة المخزون</span></a></li>
+            <li><a class="submenu-link" href="{% url 'inventory:transfer_list' %}"><i class="bi bi-dot"></i><span>التحويلات المخزنية</span></a></li>
+            <li class="submenu-divider"></li>
+            <li class="submenu-header">المواد والموردين</li>
+            <li><a class="submenu-link" href="{% url 'inventory:raw_material_list' %}"><i class="bi bi-dot"></i><span>المواد الخام</span></a></li>
+            <li><a class="submenu-link" href="{% url 'inventory:raw_material_create' %}"><i class="bi bi-dot"></i><span>إضافة مادة خام</span></a></li>
+            <li><a class="submenu-link" href="{% url 'inventory:category_list' %}"><i class="bi bi-dot"></i><span>إدارة الفئات</span></a></li>
+            <li><a class="submenu-link" href="{% url 'partners:suppliers_list' %}"><i class="bi bi-dot"></i><span>قائمة الموردين</span></a></li>
+            <li><a class="submenu-link" href="{% url 'partners:all_supplier_products' %}"><i class="bi bi-dot"></i><span>مواد الموردين</span></a></li>
+            <li class="submenu-divider"></li>
+            <li class="submenu-header">التوثيق والأسعار</li>
+            <li><a class="submenu-link" href="{% url 'inventory:document_cycle' %}"><i class="bi bi-dot"></i><span>الدورة المستندية</span></a></li>
+            <li><a class="submenu-link" href="{% url 'inventory:price_history_list' %}"><i class="bi bi-dot"></i><span>تاريخ الأسعار</span></a></li>
+            <li><a class="submenu-link" href="{% url 'inventory:price_impact_analysis' %}"><i class="bi bi-dot"></i><span>تحليل تأثير الأسعار</span></a></li>
+            <li><a class="submenu-link" href="{% url 'inventory:cost_comparison_report' %}"><i class="bi bi-dot"></i><span>مقارنة التكاليف</span></a></li>
+            <li><a class="submenu-link" href="{% url 'inventory:notifications_list' %}"><i class="bi bi-dot"></i><span>إشعارات الأسعار</span></a></li>
+            <li><a class="submenu-link" href="{% url 'inventory:conversion_factors_list' %}"><i class="bi bi-dot"></i><span>معاملات التحويل</span></a></li>
+          </ul>
+        </li>
+      {% endif %}
+
+      {# ────────── الفروع والمعارض ────────── #}
+      {% if user.is_superuser or perms.branches.view_branch %}
+        <li class="sidebar-group" data-module="branches">
+          <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-branches" aria-expanded="false">
+            <i class="bi bi-building me-2 text-warning"></i>
+            <span>الفروع والمعارض</span>
+            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+          </button>
+          <ul class="collapse sidebar-submenu" id="menu-branches">
+            <li><a class="submenu-link" href="{% url 'branches:dashboard' %}"><i class="bi bi-dot"></i><span>لوحة الفروع</span></a></li>
+            <li><a class="submenu-link" href="{% url 'branches:branch_list' %}"><i class="bi bi-dot"></i><span>قائمة الفروع</span></a></li>
+            <li><a class="submenu-link" href="{% url 'showrooms:dashboard' %}"><i class="bi bi-dot"></i><span>لوحة المعارض</span></a></li>
+            <li><a class="submenu-link" href="{% url 'showrooms:showroom_list' %}"><i class="bi bi-dot"></i><span>قائمة المعارض</span></a></li>
+            <li><a class="submenu-link" href="{% url 'branches:transfer_list' %}"><i class="bi bi-dot"></i><span>التحويلات بين الفروع</span></a></li>
+            <li><a class="submenu-link" href="{% url 'showrooms:stock_request_list' %}"><i class="bi bi-dot"></i><span>طلبات نقل المخزون</span></a></li>
+          </ul>
+        </li>
+      {% endif %}
+
+      {# ────────── الموارد البشرية ────────── #}
+      {% if user.is_superuser or perms.hr.view_employee or perms.attendance.view_attendancerecord %}
+        <li class="sidebar-section-label">الموارد البشرية</li>
+        <li class="sidebar-group" data-module="hr">
+          <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-hr" aria-expanded="false">
+            <i class="bi bi-people-fill me-2 text-pink"></i>
+            <span>شؤون الموظفين</span>
+            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+          </button>
+          <ul class="collapse sidebar-submenu" id="menu-hr">
+            <li><a class="submenu-link" href="{% url 'hr:employee_welcome' %}"><i class="bi bi-dot"></i><span>ترحيب الموظف</span></a></li>
+            <li><a class="submenu-link" href="{% url 'attendance:dashboard' %}"><i class="bi bi-dot"></i><span>الحضور والانصراف</span></a></li>
+            <li><a class="submenu-link" href="{% url 'branches:staff_list' %}"><i class="bi bi-dot"></i><span>موظفو الفروع</span></a></li>
+            <li><a class="submenu-link" href="{% url 'showrooms:temporary_workers' %}"><i class="bi bi-dot"></i><span>العمالة المؤقتة</span></a></li>
+          </ul>
+        </li>
+      {% endif %}
+
+      {# ────────── التسويق والمبيعات ────────── #}
+      {% if user.is_superuser or perms.sales.view_invoice or perms.ecommerce.view_order or perms.smart_pricing.view_pricelist %}
+        <li class="sidebar-section-label">التسويق والمبيعات</li>
+        <li class="sidebar-group" data-module="pricing">
+          <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-pricing" aria-expanded="false">
+            <i class="bi bi-tags-fill me-2 text-danger"></i>
+            <span>التسعير الذكي</span>
+            <span class="badge bg-primary ms-1" style="font-size:.55rem">AI</span>
+            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+          </button>
+          <ul class="collapse sidebar-submenu" id="menu-pricing">
+            <li><a class="submenu-link" href="/smart-pricing/price-lists/"><i class="bi bi-dot"></i><span>قوائم الأسعار</span></a></li>
+            <li><a class="submenu-link" href="/smart-pricing/rules/"><i class="bi bi-dot"></i><span>قواعد التسعير</span></a></li>
+            <li><a class="submenu-link" href="/smart-pricing/quote/calculate/"><i class="bi bi-dot"></i><span>حساب عرض سعر</span></a></li>
+            <li><a class="submenu-link" href="/smart-pricing/production-line-suggestion/"><i class="bi bi-dot"></i><span>ترشيح خط الإنتاج</span></a></li>
+          </ul>
+        </li>
+
+        <li class="sidebar-group" data-module="ecommerce">
+          <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-ecommerce" aria-expanded="false">
+            <i class="bi bi-cart3 me-2 text-success"></i>
+            <span>التجارة الإلكترونية</span>
+            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+          </button>
+          <ul class="collapse sidebar-submenu" id="menu-ecommerce">
+            <li><a class="submenu-link" href="/ecommerce/"><i class="bi bi-dot"></i><span>الصفحة الرئيسية</span></a></li>
+            <li><a class="submenu-link" href="/ecommerce/products/"><i class="bi bi-dot"></i><span>كتالوج المنتجات</span></a></li>
+            <li><a class="submenu-link" href="/ecommerce/cart/"><i class="bi bi-dot"></i><span>سلة التسوق</span></a></li>
+            <li><a class="submenu-link" href="/ecommerce/checkout/"><i class="bi bi-dot"></i><span>إتمام الطلب</span></a></li>
+            <li><a class="submenu-link" href="/ecommerce/my-orders/"><i class="bi bi-dot"></i><span>طلباتي</span></a></li>
+            <li class="submenu-divider"></li>
+            <li><a class="submenu-link" href="/ecommerce/wishlist/"><i class="bi bi-dot"></i><span>قائمة الأمنيات</span></a></li>
+            <li><a class="submenu-link" href="/ecommerce/quick-order/"><i class="bi bi-dot"></i><span>العروض السريعة</span></a></li>
+            <li><a class="submenu-link" href="/ecommerce/compare/"><i class="bi bi-dot"></i><span>مقارنة المنتجات</span></a></li>
+            <li><a class="submenu-link" href="/ecommerce/reviews/"><i class="bi bi-dot"></i><span>التقييمات</span></a></li>
+            <li><a class="submenu-link" href="/ecommerce/warranties/"><i class="bi bi-dot"></i><span>الضمانات</span></a></li>
+          </ul>
+        </li>
+
+        <li class="sidebar-group" data-module="forecasting">
+          <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-forecasting" aria-expanded="false">
+            <i class="bi bi-graph-up-arrow me-2 text-info"></i>
+            <span>التنبؤ والتحليل</span>
+            <span class="badge bg-primary ms-1" style="font-size:.55rem">AI</span>
+            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+          </button>
+          <ul class="collapse sidebar-submenu" id="menu-forecasting">
+            <li><a class="submenu-link" href="/sales-forecasting/dashboard/"><i class="bi bi-dot"></i><span>التنبؤ بالمبيعات</span></a></li>
+            <li><a class="submenu-link" href="/customer-profitability/dashboard/"><i class="bi bi-dot"></i><span>ربحية العملاء</span></a></li>
+            <li><a class="submenu-link" href="/competitive-intelligence/dashboard/"><i class="bi bi-dot"></i><span>تحليل المنافسين</span></a></li>
+          </ul>
+        </li>
+
+        <li class="sidebar-group" data-module="campaigns">
+          <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-campaigns" aria-expanded="false">
+            <i class="bi bi-megaphone-fill me-2 text-warning"></i>
+            <span>التسويق والولاء</span>
+            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+          </button>
+          <ul class="collapse sidebar-submenu" id="menu-campaigns">
+            <li><a class="submenu-link" href="/marketing-campaigns/dashboard/"><i class="bi bi-dot"></i><span>إدارة الحملات</span></a></li>
+            <li><a class="submenu-link" href="{% url 'loyalty:dashboard' %}"><i class="bi bi-dot"></i><span>برنامج الولاء</span></a></li>
+            <li><a class="submenu-link" href="/subscriptions/plans/"><i class="bi bi-dot"></i><span>باقات الاشتراك</span></a></li>
+            <li><a class="submenu-link" href="/zatca/"><i class="bi bi-dot"></i><span>الفوترة الإلكترونية ZATCA</span></a></li>
+          </ul>
+        </li>
+      {% endif %}
+
+      {# ────────── الجودة والتتبع ────────── #}
+      {% if user.is_superuser or perms.quality_control.view_qualityinspection or perms.purchases.view_supplierquotation %}
+        <li class="sidebar-group" data-module="quality">
+          <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-quality" aria-expanded="false">
+            <i class="bi bi-shield-check me-2 text-success"></i>
+            <span>الجودة والتتبع</span>
+            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+          </button>
+          <ul class="collapse sidebar-submenu" id="menu-quality">
+            <li><a class="submenu-link" href="{% url 'quality_control:dashboard' %}"><i class="bi bi-dot"></i><span>إدارة الجودة</span></a></li>
+            <li><a class="submenu-link" href="/quality-control/traceability/"><i class="bi bi-dot"></i><span>تتبع المنتجات</span></a></li>
+            <li><a class="submenu-link" href="/purchases/supplier-evaluation/"><i class="bi bi-dot"></i><span>تقييم الموردين</span></a></li>
+          </ul>
+        </li>
+      {% endif %}
+
+      {# ────────── الأدوات الذكية ────────── #}
+      {% if user.is_superuser or perms.ai_analytics.view_analyticsreport or perms.report_builder.view_report %}
+        <li class="sidebar-section-label">الأدوات الذكية</li>
+        <li class="sidebar-group" data-module="ai-tools">
+          <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-ai" aria-expanded="false">
+            <i class="bi bi-robot me-2 text-purple"></i>
+            <span>الذكاء الاصطناعي</span>
+            <span class="badge bg-primary ms-1" style="font-size:.55rem">AI</span>
+            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+          </button>
+          <ul class="collapse sidebar-submenu" id="menu-ai">
+            <li><a class="submenu-link" href="{% url 'ai_analytics:dashboard' %}"><i class="bi bi-dot"></i><span>تحليلات AI</span></a></li>
+            <li><a class="submenu-link" href="{% url 'voice_assistant:dashboard' %}"><i class="bi bi-dot"></i><span>المساعد الصوتي</span></a></li>
+            <li><a class="submenu-link" href="{% url 'report_builder:dashboard' %}"><i class="bi bi-dot"></i><span>منشئ التقارير</span></a></li>
+            <li><a class="submenu-link" href="{% url 'custom_dashboard:dashboard' %}"><i class="bi bi-dot"></i><span>لوحتي المخصصة</span></a></li>
+            <li><a class="submenu-link" href="/monitoring/anomaly-detection/"><i class="bi bi-dot"></i><span>كشف الشذوذات</span></a></li>
+            <li class="submenu-divider"></li>
+            <li class="submenu-header">متقدم</li>
+            <li><a class="submenu-link" href="/ai-assistant/chat/"><i class="bi bi-dot"></i><span>المساعد الذكي</span></a></li>
+            <li><a class="submenu-link" href="/business-intelligence/dashboard/"><i class="bi bi-dot"></i><span>تحليلات الأعمال</span></a></li>
+            <li><a class="submenu-link" href="/advanced-crm/dashboard/"><i class="bi bi-dot"></i><span>CRM المتقدم</span></a></li>
+            <li><a class="submenu-link" href="/risk-management/dashboard/"><i class="bi bi-dot"></i><span>إدارة المخاطر</span></a></li>
+          </ul>
+        </li>
+      {% endif %}
+
+      {# ────────── التواصل والتعاون ────────── #}
+      {% if user.is_superuser or perms.internal_chat.view_chatmessage or perms.tasks.view_task or perms.helpdesk.view_ticket %}
+        <li class="sidebar-section-label">التواصل</li>
+        <li class="sidebar-group" data-module="whatsapp">
+          <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-whatsapp" aria-expanded="false">
+            <i class="bi bi-whatsapp me-2 text-success"></i>
+            <span>واتساب الذكي</span>
+            <span class="badge bg-primary ms-1" style="font-size:.55rem">AI</span>
+            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+          </button>
+          <ul class="collapse sidebar-submenu" id="menu-whatsapp">
+            <li><a class="submenu-link" href="/whatsapp-ai/dashboard/"><i class="bi bi-dot"></i><span>لوحة واتساب AI</span></a></li>
+            <li><a class="submenu-link" href="/whatsapp-ai/conversations/"><i class="bi bi-dot"></i><span>المحادثات الذكية</span></a></li>
+            <li><a class="submenu-link" href="/whatsapp-ai/products-knowledge/"><i class="bi bi-dot"></i><span>قاعدة معرفة المنتجات</span></a></li>
+            <li><a class="submenu-link" href="/whatsapp-ai/analytics/"><i class="bi bi-dot"></i><span>التحليلات</span></a></li>
+            <li><a class="submenu-link" href="/whatsapp-ai/opportunities/"><i class="bi bi-dot"></i><span>الفرص التجارية</span></a></li>
+            <li><a class="submenu-link" href="/whatsapp-ai/settings/"><i class="bi bi-dot"></i><span>إعدادات المنصات</span></a></li>
+          </ul>
+        </li>
+
+        <li class="sidebar-group" data-module="communication">
+          <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-comm" aria-expanded="false">
+            <i class="bi bi-chat-dots-fill me-2 text-info"></i>
+            <span>التواصل الداخلي</span>
+            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+          </button>
+          <ul class="collapse sidebar-submenu" id="menu-comm">
+            <li><a class="submenu-link" href="{% url 'internal_chat:home' %}"><i class="bi bi-dot"></i><span>الدردشة الداخلية</span></a></li>
+            <li><a class="submenu-link" href="{% url 'video_calls:dashboard' %}"><i class="bi bi-dot"></i><span>مكالمات الفيديو</span></a></li>
+            <li><a class="submenu-link" href="{% url 'collaborative_docs:dashboard' %}"><i class="bi bi-dot"></i><span>المستندات التعاونية</span></a></li>
+            <li><a class="submenu-link" href="{% url 'digital_signatures:dashboard' %}"><i class="bi bi-dot"></i><span>التوقيعات الرقمية</span></a></li>
+            <li><a class="submenu-link" href="{% url 'tasks:dashboard' %}"><i class="bi bi-dot"></i><span>المهام والتذكيرات</span></a></li>
+            <li><a class="submenu-link" href="{% url 'helpdesk:dashboard' %}"><i class="bi bi-dot"></i><span>مركز الدعم</span></a></li>
+            <li><a class="submenu-link" href="/correspondence-management/dashboard/"><i class="bi bi-dot"></i><span>إدارة المراسلات</span></a></li>
+          </ul>
+        </li>
+      {% endif %}
+
+      {# ────────── التقارير والتحليلات ────────── #}
+      {% if user.is_superuser or perms.sales.view_invoice or perms.accounting.view_journalentry or perms.inventory.view_product or perms.reports.view_report %}
+        <li class="sidebar-section-label">التقارير</li>
+        <li class="sidebar-group" data-module="reports">
+          <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-reports" aria-expanded="false">
+            <i class="bi bi-bar-chart-line-fill me-2 text-purple"></i>
+            <span>التقارير والتحليلات</span>
+            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+          </button>
+          <ul class="collapse sidebar-submenu" id="menu-reports">
+            <li><a class="submenu-link" href="{% url 'reports:dashboard' %}"><i class="bi bi-dot"></i><span>لوحة التقارير</span></a></li>
+            <li><a class="submenu-link" href="{% url 'inventory:supplier_price_trends' %}"><i class="bi bi-dot"></i><span>اتجاهات أسعار الموردين</span></a></li>
+            <li><a class="submenu-link" href="/accounting/reports/ledger-account/"><i class="bi bi-dot"></i><span>حساب الأستاذ</span></a></li>
+            <li><a class="submenu-link" href="/accounting/reports/financial-analysis-1/"><i class="bi bi-dot"></i><span>التحليل المالي</span></a></li>
+            <li><a class="submenu-link" href="/accounting/reports/cost-center/"><i class="bi bi-dot"></i><span>مراكز التكلفة</span></a></li>
+            <li><a class="submenu-link" href="/accounting/break-even/"><i class="bi bi-dot"></i><span>تحليل التعادل</span></a></li>
+            <li><a class="submenu-link" href="{% url 'showrooms:kpis' %}"><i class="bi bi-dot"></i><span>مؤشرات الأداء</span></a></li>
+          </ul>
+        </li>
+
+        <li class="sidebar-group" data-module="enterprise-ops">
+          <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-enterprise-ops" aria-expanded="false">
+            <i class="bi bi-building-gear me-2 text-warning"></i>
+            <span>العمليات المؤسسية</span>
+            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+          </button>
+          <ul class="collapse sidebar-submenu" id="menu-enterprise-ops">
+            <li><a class="submenu-link" href="/tender-bidding/dashboard/"><i class="bi bi-dot"></i><span>المناقصات والعطاءات</span></a></li>
+            <li><a class="submenu-link" href="/warranty-management/dashboard/"><i class="bi bi-dot"></i><span>إدارة الضمانات</span></a></li>
+            <li><a class="submenu-link" href="/complaint-management/dashboard/"><i class="bi bi-dot"></i><span>إدارة الشكاوى</span></a></li>
+            <li><a class="submenu-link" href="/contract-management/dashboard/"><i class="bi bi-dot"></i><span>إدارة العقود</span></a></li>
+          </ul>
+        </li>
+      {% endif %}
+
+      {# ────────── الإعدادات والنظام ────────── #}
+      {% if user.is_superuser %}
+        <li class="sidebar-section-label">النظام</li>
+        <li class="sidebar-group" data-module="settings">
+          <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-settings" aria-expanded="false">
+            <i class="bi bi-gear-fill me-2 text-secondary"></i>
+            <span>الإعدادات</span>
+            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+          </button>
+          <ul class="collapse sidebar-submenu" id="menu-settings">
+            {% user_has_perm user 'core' 'view' as can_view_core %}
+            {% if can_view_core %}
+            <li><a class="submenu-link" href="{% url 'core:company_settings' %}"><i class="bi bi-dot"></i><span>إعدادات النظام</span></a></li>
+            {% endif %}
+            <li><a class="submenu-link" href="{% url 'core:enhanced_dashboard' %}"><i class="bi bi-dot"></i><span>لوحة معلومات محسنة</span></a></li>
+            <li><a class="submenu-link" href="{% url 'theme_system:settings' %}"><i class="bi bi-dot"></i><span>تخصيص المظهر</span></a></li>
+            <li><a class="submenu-link" href="{% url 'sound_notifications:settings' %}"><i class="bi bi-dot"></i><span>إعدادات الصوت</span></a></li>
+            <li><a class="submenu-link" href="{% url 'core:keyboard_shortcuts' %}"><i class="bi bi-dot"></i><span>اختصارات لوحة المفاتيح</span></a></li>
+            <li><a class="submenu-link" href="{% url 'core:improvements_settings' %}"><i class="bi bi-dot"></i><span>إعدادات التحسينات</span></a></li>
+            <li><a class="submenu-link" href="{% url 'core:help' %}"><i class="bi bi-dot"></i><span>المساعدة والدعم</span></a></li>
+          </ul>
+        </li>
+
+        <li class="sidebar-group" data-module="enterprise-admin">
+          <button class="sidebar-collapse-btn" type="button" data-bs-toggle="collapse" data-bs-target="#menu-enterprise-admin" aria-expanded="false">
+            <i class="bi bi-shield-lock-fill me-2 text-danger"></i>
+            <span>الإدارة المؤسسية</span>
+            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+          </button>
+          <ul class="collapse sidebar-submenu" id="menu-enterprise-admin">
+            <li><a class="submenu-link" href="{% url 'cms:dashboard' %}"><i class="bi bi-dot"></i><span>إدارة المحتوى</span></a></li>
+            <li><a class="submenu-link" href="{% url 'cloud_backup:dashboard' %}"><i class="bi bi-dot"></i><span>النسخ الاحتياطي</span></a></li>
+            <li><a class="submenu-link" href="/energy-management/dashboard/"><i class="bi bi-dot"></i><span>إدارة الطاقة</span></a></li>
+            <li><a class="submenu-link" href="/license-management/dashboard/"><i class="bi bi-dot"></i><span>التراخيص والتصاريح</span></a></li>
+            <li><a class="submenu-link" href="/compliance-management/dashboard/"><i class="bi bi-dot"></i><span>الامتثال والمراجعة</span></a></li>
+            <li><a class="submenu-link" href="/intellectual-property/dashboard/"><i class="bi bi-dot"></i><span>الملكية الفكرية</span></a></li>
+            <li><a class="submenu-link" href="/white-label/"><i class="bi bi-dot"></i><span>العلامة التجارية</span></a></li>
+            <li class="submenu-divider"></li>
+            <li class="submenu-header">أدوات متقدمة</li>
+            <li><a class="submenu-link" href="{% url 'smartwatch:dashboard' %}"><i class="bi bi-dot"></i><span>الساعات الذكية</span></a></li>
+            <li><a class="submenu-link" href="/advanced-notifications/dashboard/"><i class="bi bi-dot"></i><span>الإشعارات المتقدمة</span></a></li>
+            {% if perms.core.view_auditlog %}
+            <li><a class="submenu-link" href="{% url 'core:audit_logs' %}"><i class="bi bi-dot"></i><span>سجلات التدقيق</span></a></li>
+            {% endif %}
+          </ul>
+        </li>
+      {% endif %}
+
+    </ul>
+  </div>
+
+  {# ===== الفوتر ===== #}
+  <div class="sidebar-footer small px-3 py-2 text-center border-top">
+    <span class="text-muted">الإصدار {{ SYSTEM_VERSION }}</span>
+  </div>
+</div>
+
+{# ===== JavaScript: البحث الشامل ===== #}
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const globalSearch = document.getElementById('globalFeatureSearch');
+  if (!globalSearch) return;
+
+  // فهرس البحث
+  const allFeatures = [
+    {name:'لوحة التحكم', url:'/', section:'الرئيسية', icon:'bi-house-door'},
+    {name:'التسويات البنكية', url:'/bank-reconciliation/dashboard/', section:'المحاسبة', icon:'bi-bank2'},
+    {name:'مطابقة تلقائية', url:'/accounting/advanced/bank-reconciliation/', section:'المحاسبة', icon:'bi-magic'},
+    {name:'القيود المتكررة', url:'/accounting/advanced/recurring-entries/', section:'المحاسبة', icon:'bi-arrow-repeat'},
+    {name:'لوحة الموازنات', url:'/accounting/advanced/budget/', section:'المحاسبة', icon:'bi-pie-chart'},
+    {name:'إدارة الأصول', url:'/accounting/advanced/assets/', section:'المحاسبة', icon:'bi-building'},
+    {name:'حساب الإهلاك', url:'/accounting/advanced/assets/depreciation/calculate/', section:'المحاسبة', icon:'bi-calculator'},
+    {name:'لوحة CFO', url:'/accounting/advanced/cfo-dashboard/', section:'المحاسبة', badge:'AI', icon:'bi-speedometer2'},
+    {name:'التحليل المالي', url:'/accounting/advanced/financial-analysis/', section:'المحاسبة', icon:'bi-bar-chart'},
+    {name:'تقرير أعمار الديون', url:'/accounting/advanced/aging-report/', section:'المحاسبة', icon:'bi-clock-history'},
+    {name:'التقارير المخصصة', url:'/accounting/advanced/custom-reports/', section:'المحاسبة', icon:'bi-file-text'},
+    {name:'سجل المراجعة', url:'/accounting/advanced/audit-log/', section:'المحاسبة', icon:'bi-shield-check'},
+    {name:'لوحة التكامل البنكي', url:'/bank-integration/dashboard/', section:'المحاسبة', icon:'bi-building'},
+    {name:'إدارة الخزينة', url:'/treasury-management/dashboard/', section:'المحاسبة', icon:'bi-safe'},
+    {name:'نظام الضرائب', url:'/taxes/', section:'المحاسبة', icon:'bi-receipt'},
+    {name:'المتجر الإلكتروني', url:'/ecommerce/', section:'التسويق', icon:'bi-shop'},
+    {name:'كتالوج المنتجات', url:'/ecommerce/products/', section:'التسويق', icon:'bi-grid'},
+    {name:'سلة التسوق', url:'/ecommerce/cart/', section:'التسويق', icon:'bi-cart'},
+    {name:'قوائم الأسعار', url:'/smart-pricing/price-lists/', section:'التسعير', icon:'bi-list-check'},
+    {name:'التنبؤ بالمبيعات', url:'/sales-forecasting/dashboard/', section:'التسويق', icon:'bi-graph-up'},
+    {name:'تحليل ربحية العملاء', url:'/customer-profitability/dashboard/', section:'التسويق', icon:'bi-people'},
+    {name:'تحليل المنافسين', url:'/competitive-intelligence/dashboard/', section:'التسويق', icon:'bi-binoculars'},
+    {name:'إدارة الحملات', url:'/marketing-campaigns/dashboard/', section:'التسويق', icon:'bi-megaphone'},
+    {name:'برنامج الولاء', url:'/loyalty/dashboard/', section:'التسويق', icon:'bi-heart'},
+    {name:'لوحة واتساب AI', url:'/whatsapp-ai/dashboard/', section:'التواصل', icon:'bi-whatsapp'},
+    {name:'المحادثات الذكية', url:'/whatsapp-ai/conversations/', section:'التواصل', icon:'bi-chat-dots'},
+    {name:'المساعد الذكي', url:'/ai-assistant/chat/', section:'الذكاء الاصطناعي', icon:'bi-robot'},
+    {name:'تحليلات الأعمال', url:'/business-intelligence/dashboard/', section:'الذكاء الاصطناعي', icon:'bi-bar-chart-line'},
+    {name:'CRM المتقدم', url:'/advanced-crm/dashboard/', section:'الذكاء الاصطناعي', icon:'bi-people-fill'},
+    {name:'إدارة المخاطر', url:'/risk-management/dashboard/', section:'الذكاء الاصطناعي', icon:'bi-exclamation-triangle'},
+    {name:'المناقصات والعطاءات', url:'/tender-bidding/dashboard/', section:'العمليات', icon:'bi-file-earmark-text'},
+    {name:'إدارة الضمانات', url:'/warranty-management/dashboard/', section:'العمليات', icon:'bi-shield-check'},
+    {name:'إدارة الشكاوى', url:'/complaint-management/dashboard/', section:'العمليات', icon:'bi-chat-square-text'},
+    {name:'إدارة العقود', url:'/contract-management/dashboard/', section:'العمليات', icon:'bi-file-earmark-check'},
+    {name:'إدارة الطاقة', url:'/energy-management/dashboard/', section:'الإعدادات', icon:'bi-lightning-charge'},
+    {name:'التراخيص', url:'/license-management/dashboard/', section:'الإعدادات', icon:'bi-award'},
+    {name:'الامتثال والمراجعة', url:'/compliance-management/dashboard/', section:'الإعدادات', icon:'bi-clipboard-check'},
+    {name:'العلامة التجارية', url:'/white-label/', section:'الإعدادات', icon:'bi-palette'},
+    {name:'الإشعارات المتقدمة', url:'/advanced-notifications/dashboard/', section:'الإعدادات', icon:'bi-bell'},
+    {name:'الفوترة الإلكترونية', url:'/zatca/', section:'التسويق', icon:'bi-receipt'},
+    {name:'الحسابات الإلكترونية', url:'/accounting/electronic-accounts/', section:'المحاسبة', icon:'bi-wallet2'},
+    {name:'الخزائن', url:'/accounting/treasuries/', section:'المحاسبة', icon:'bi-safe'},
+    {name:'البنوك', url:'/accounting/banks/', section:'المحاسبة', icon:'bi-bank'},
+    {name:'الشيكات', url:'/accounting/cheques/', section:'المحاسبة', icon:'bi-credit-card'},
+    {name:'التحويلات', url:'/accounting/transfers/', section:'المحاسبة', icon:'bi-arrow-left-right'},
+    {name:'سجل القيود', url:'/accounting/entries/', section:'المحاسبة', icon:'bi-journal-text'},
+    {name:'كشف الشذوذات', url:'/monitoring/anomaly-detection/', section:'الذكاء الاصطناعي', icon:'bi-exclamation-triangle'},
+    {name:'إدارة الجودة', url:'/quality-control/dashboard/', section:'الجودة', icon:'bi-shield-check'},
+    {name:'تتبع المنتجات', url:'/quality-control/traceability/', section:'الجودة', icon:'bi-upc-scan'},
+    {name:'تقييم الموردين', url:'/purchases/supplier-evaluation/', section:'الجودة', icon:'bi-star-fill'},
+  ];
+
+  let searchResults = document.getElementById('sidebarSearchResults');
+  if (!searchResults) {
+    searchResults = document.createElement('div');
+    searchResults.id = 'sidebarSearchResults';
+    searchResults.className = 'sidebar-search-results';
+    globalSearch.parentElement.appendChild(searchResults);
+  }
+
+  let searchTimeout;
+  globalSearch.addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    const query = this.value.trim().toLowerCase();
+    if (query.length < 2) { searchResults.innerHTML = ''; searchResults.style.display = 'none'; return; }
+    searchTimeout = setTimeout(() => {
+      const results = allFeatures.filter(f => f.name.toLowerCase().includes(query) || f.section.toLowerCase().includes(query));
+      if (results.length === 0) {
+        searchResults.innerHTML = '<div class="search-empty"><i class="bi bi-search"></i> لا توجد نتائج</div>';
+      } else {
+        searchResults.innerHTML = results.slice(0, 8).map(f =>
+          `<a href="${f.url}" class="search-result-item"><i class="bi ${f.icon}"></i><span>${f.name}</span><small>${f.section}</small></a>`
+        ).join('');
+      }
+      searchResults.style.display = 'block';
+    }, 200);
+  });
+
+  globalSearch.addEventListener('blur', () => { setTimeout(() => { searchResults.style.display = 'none'; }, 200); });
+  globalSearch.addEventListener('focus', () => { if (globalSearch.value.trim().length >= 2) searchResults.style.display = 'block'; });
+
+  // Ctrl+K shortcut
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); globalSearch.focus(); globalSearch.select(); }
+    if (e.key === 'Escape') { searchResults.style.display = 'none'; globalSearch.blur(); }
+  });
+
+  // Auto-expand active section
+  document.querySelectorAll('.sidebar-submenu .submenu-link.active').forEach(link => {
+    const submenu = link.closest('.sidebar-submenu');
+    if (submenu) {
+      submenu.classList.add('show');
+      const btn = submenu.previousElementSibling;
+      if (btn) btn.setAttribute('aria-expanded', 'true');
+    }
+  });
+
+  // Toggle collapse with animation
+  document.querySelectorAll('.sidebar-collapse-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const target = document.querySelector(this.getAttribute('data-bs-target'));
+      if (!target) return;
+      const isOpen = target.classList.contains('show');
+      // Close all other submenus in the same section-group
+      // Keep it simple - Bootstrap handles collapse
+    });
+  });
+});
+</script>
+
+<style>
+/* ===== Section Labels ===== */
+.sidebar-section-label {
+  padding: 0.65rem 1rem 0.25rem;
+  margin-top: 0.6rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.35);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  list-style: none;
+}
+
+.sidebar-section-label:first-child {
+  border-top: none;
+  margin-top: 0;
+}
+
+/* ===== Count Badge ===== */
+.sidebar-count {
+  font-size: 0.6rem;
+  background: rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.6);
+  padding: 0.1rem 0.4rem;
+  border-radius: 10px;
+  margin-inline-start: 0.3rem;
+}
+
+/* ===== Submenu Headers ===== */
+.sidebar-submenu .submenu-header {
+  padding: 0.45rem 0.8rem 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ===== Submenu Divider ===== */
+.sidebar-submenu .submenu-divider {
+  height: 0;
+  margin: 0.3rem 0.8rem;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  list-style: none;
+}
+
+/* ===== Search Results Dropdown ===== */
+.sidebar-search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1060;
+  background: linear-gradient(180deg, #143d63, #0e2d47);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 0 0 10px 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  display: none;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  color: #e0e8f0;
+  text-decoration: none;
+  font-size: 0.8rem;
+  transition: background 0.15s;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.search-result-item:hover {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+}
+
+.search-result-item i {
+  font-size: 0.9rem;
+  min-width: 1.2rem;
+  color: rgba(255,255,255,0.5);
+}
+
+.search-result-item small {
+  margin-inline-start: auto;
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.35);
+}
+
+.search-empty {
+  padding: 1rem;
+  text-align: center;
+  color: rgba(255,255,255,0.4);
+  font-size: 0.8rem;
+}
+
+.search-empty i {
+  display: block;
+  font-size: 1.5rem;
+  margin-bottom: 0.3rem;
+}
+
+/* ===== Text Colors ===== */
+.text-purple { color: #a855f7 !important; }
+.text-pink { color: #ec4899 !important; }
+</style>

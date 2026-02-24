@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}أسعار المورد - {{ supplier.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-1">💰 جميع أسعار المورد</h4>
+                            <p class="text-muted mb-0">
+                                <strong>{{ supplier.name }}</strong>
+                                {% if supplier.phone %}
+                                    <span class="ms-3">📞 {{ supplier.phone }}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div>
+                            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addPriceModal">
+                                <i class="fas fa-plus"></i> إضافة سعر منتج
+                            </button>
+                            <a href="{% url 'partners:supplier_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-right"></i> رجوع
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prices Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">📋 قائمة الأسعار ({{ prices.count }} منتج)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>المنتج</th>
+                                    <th>الفئة</th>
+                                    <th>التكلفة</th>
+                                    <th>الوحدة</th>
+                                    <th>الحد الأدنى للطلب</th>
+                                    <th>مدة التوريد</th>
+                                    <th>تاريخ السريان</th>
+                                    <th>الحالة</th>
+                                    <th>إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for price in prices %}
+                                <tr class="{% if price.is_preferred %}table-warning{% endif %}">
+                                    <td>
+                                        <strong>{{ price.product.name }}</strong>
+                                        {% if price.is_preferred %}
+                                            <span class="badge bg-warning">⭐ مفضل</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ price.product.category.name|default:"-" }}</td>
+                                    <td><strong>{{ price.cost }}</strong> ج.م</td>
+                                    <td>{{ price.product.get_purchase_uom_display }}</td>
+                                    <td>
+                                        {% if price.min_order_qty %}
+                                            {{ price.min_order_qty }} {{ price.product.get_purchase_uom_display }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if price.lead_time_days %}
+                                            {{ price.lead_time_days }} يوم
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ price.effective_date|date:"Y-m-d" }}</td>
+                                    <td>
+                                        {% if price.is_active %}
+                                            <span class="badge bg-success">نشط</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">غير نشط</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'inventory:supplier_prices' price.product.id %}" class="btn btn-sm btn-info" title="عرض تفاصيل المنتج">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            {% if not price.is_preferred %}
+                                            <button class="btn btn-sm btn-warning" onclick="setPreferred({{ price.id }})" title="تعيين كمفضل">
+                                                <i class="fas fa-star"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted py-4">
+                                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                                        لا توجد أسعار لهذا المورد
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            {% if prices %}
+                            <tfoot class="table-light">
+                                <tr>
+                                    <th colspan="2">الإجمالي</th>
+                                    <th colspan="7">{{ prices.count }} منتج</th>
+                                </tr>
+                            </tfoot>
+                            {% endif %}
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h3>{{ prices.count }}</h3>
+                    <p class="mb-0">إجمالي المنتجات</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h3>{{ active_count }}</h3>
+                    <p class="mb-0">منتجات نشطة</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body text-center">
+                    <h3>{{ preferred_count }}</h3>
+                    <p class="mb-0">منتجات مفضلة</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h3>{{ avg_lead_time|floatformat:0|default:"-" }}</h3>
+                    <p class="mb-0">متوسط مدة التوريد (يوم)</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

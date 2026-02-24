@@ -1,0 +1,145 @@
+{% extends 'base_templates/modern_form.html' %}
+{% load static i18n %}
+
+{% block page_module %}crm{% endblock %}
+{% block page_icon %}bi-headset{% endblock %}
+{% block page_title %}{% trans 'نموذج جديد' %}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/modern_pages.css' %}">
+
+{% endblock %}
+
+{% block form_content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h4 class="mb-0">
+                <i class="fas fa-file-alt text-success"></i> 
+                {% if template %}تعديل{% else %}إنشاء{% endif %} قالب واتساب
+            </h4>
+        </div>
+    </div>
+    
+    <form method="post">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">اسم القالب <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="name" name="name" 
+                                   value="{{ template.name|default:'' }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="content" class="form-label">محتوى القالب <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="content" name="content" rows="8" required>{{ template.content|default:'' }}</textarea>
+                            <small class="text-muted">
+                                المتغيرات المتاحة: 
+                                <code>{customer_name}</code>, 
+                                <code>{company_name}</code>, 
+                                <code>{phone}</code>, 
+                                <code>{date}</code>
+                            </small>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="is_active" name="is_active" 
+                                   {% if template.is_active or not template %}checked{% endif %}>
+                            <label class="form-check-label" for="is_active">
+                                قالب نشط
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-transparent">
+                        <h6 class="mb-0"><i class="fas fa-eye text-info"></i> معاينة</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="bg-light rounded p-3" style="min-height: 200px;">
+                            <div id="preview" class="text-muted">
+                                ابدأ بكتابة محتوى القالب لرؤية المعاينة...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent">
+                        <h6 class="mb-0"><i class="fas fa-code text-primary"></i> المتغيرات</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group list-group-flush">
+                            <button type="button" class="list-group-item list-group-item-action" onclick="insertVariable('{customer_name}')">
+                                <i class="fas fa-user text-primary"></i> اسم العميل
+                            </button>
+                            <button type="button" class="list-group-item list-group-item-action" onclick="insertVariable('{company_name}')">
+                                <i class="fas fa-building text-success"></i> اسم الشركة
+                            </button>
+                            <button type="button" class="list-group-item list-group-item-action" onclick="insertVariable('{phone}')">
+                                <i class="fas fa-phone text-info"></i> رقم الهاتف
+                            </button>
+                            <button type="button" class="list-group-item list-group-item-action" onclick="insertVariable('{date}')">
+                                <i class="fas fa-calendar text-warning"></i> التاريخ
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex gap-2 justify-content-end">
+                    <a href="{% url 'crm:whatsapp_templates' %}" class="btn btn-light">
+                        <i class="fas fa-times"></i> إلغاء
+                    </a>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save"></i> حفظ القالب
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}<script>
+const contentField = document.getElementById('content');
+const preview = document.getElementById('preview');
+
+contentField.addEventListener('input', updatePreview);
+
+function updatePreview() {
+    let content = contentField.value;
+    if (content) {
+        content = content
+            .replace(/{customer_name}/g, '<strong>أحمد محمد</strong>')
+            .replace(/{company_name}/g, '<strong>شركة النجاح</strong>')
+            .replace(/{phone}/g, '<strong>0512345678</strong>')
+            .replace(/{date}/g, '<strong>' + new Date().toLocaleDateString('ar-SA') + '</strong>');
+        preview.innerHTML = content.replace(/\n/g, '<br>');
+    } else {
+        preview.innerHTML = 'ابدأ بكتابة محتوى القالب لرؤية المعاينة...';
+    }
+}
+
+function insertVariable(variable) {
+    const start = contentField.selectionStart;
+    const end = contentField.selectionEnd;
+    const text = contentField.value;
+    contentField.value = text.substring(0, start) + variable + text.substring(end);
+    contentField.focus();
+    contentField.setSelectionRange(start + variable.length, start + variable.length);
+    updatePreview();
+}
+
+// Initial preview
+updatePreview();
+</script>{% endblock %}

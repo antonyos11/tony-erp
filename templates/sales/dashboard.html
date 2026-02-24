@@ -1,0 +1,398 @@
+﻿{% extends 'base_templates/_dashboard_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'لوحة تحكم المبيعات' %}{% endblock %}
+{% block hero_icon %}bi-graph-up-arrow{% endblock %}
+{% block hero_title %}{% trans 'لوحة تحكم المبيعات' %}{% endblock %}
+{% block hero_subtitle %}{% trans 'نظرة شاملة على أداء المبيعات والتحصيلات' %}{% endblock %}
+
+{% block period_selector %}
+<select name="period" class="form-select form-select-sm" style="width: 150px;" onchange="this.form.submit()">
+  <option value="today" {% if period == 'today' %}selected{% endif %}>{% trans 'اليوم' %}</option>
+  <option value="week" {% if period == 'week' %}selected{% endif %}>{% trans 'هذا الأسبوع' %}</option>
+  <option value="month" {% if period == 'month' %}selected{% endif %}>{% trans 'هذا الشهر' %}</option>
+  <option value="quarter" {% if period == 'quarter' %}selected{% endif %}>{% trans 'ربع سنوي' %}</option>
+  <option value="year" {% if period == 'year' %}selected{% endif %}>{% trans 'هذا العام' %}</option>
+</select>
+{% endblock %}
+
+{% block dashboard_styles %}
+<style>
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+.quick-action-btn {
+  background: var(--bs-body-bg);
+  border: 2px solid var(--bs-border-color);
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: center;
+  text-decoration: none;
+  color: var(--bs-body-color);
+  transition: all 0.2s;
+}
+.quick-action-btn:hover {
+  border-color: var(--color-brand-primary);
+  background: rgba(var(--color-brand-primary-rgb), 0.05);
+  color: var(--color-brand-primary);
+  transform: translateY(-2px);
+}
+.quick-action-btn i {
+  font-size: 1.5rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+.quick-action-btn span {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.sales-target-card {
+  background: linear-gradient(135deg, var(--color-brand-primary) 0%, #2d5a8a 100%);
+  color: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.sales-target-card .target-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+.sales-target-card .target-title {
+  font-size: 1rem;
+  opacity: 0.9;
+}
+.sales-target-card .target-value {
+  font-size: 2rem;
+  font-weight: 800;
+}
+.sales-target-card .target-progress {
+  height: 8px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+.sales-target-card .target-progress .bar {
+  height: 100%;
+  background: var(--color-brand-accent);
+  border-radius: 4px;
+  transition: width 0.5s;
+}
+.sales-target-card .target-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+.top-products-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.top-products-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+.top-products-list li:last-child {
+  border-bottom: none;
+}
+.top-products-list .product-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.top-products-list .product-rank {
+  width: 28px;
+  height: 28px;
+  background: var(--bs-tertiary-bg);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+.top-products-list .product-rank.gold { background: #ffc107; color: #000; }
+.top-products-list .product-rank.silver { background: #adb5bd; color: #000; }
+.top-products-list .product-rank.bronze { background: #cd7f32; color: white; }
+.recent-invoices-mini {
+  max-height: 300px;
+  overflow-y: auto;
+}
+.invoice-mini-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--bs-tertiary-bg);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+}
+.invoice-mini-card:last-child {
+  margin-bottom: 0;
+}
+.invoice-mini-card .invoice-info .invoice-num {
+  font-weight: 600;
+}
+.invoice-mini-card .invoice-info .customer {
+  font-size: 0.8rem;
+  color: var(--bs-secondary-color);
+}
+.invoice-mini-card .invoice-amount {
+  font-weight: 700;
+  color: var(--color-brand-accent);
+}
+</style>
+{% endblock %}
+
+{% block kpi_cards %}
+<div class="col-md-6 col-lg-3">
+  <div class="kpi-card">
+    <div class="kpi-header">
+      <div class="kpi-icon success">
+        <i class="bi bi-cash-coin"></i>
+      </div>
+      <div class="kpi-trend {% if stats.sales_trend >= 0 %}positive{% else %}negative{% endif %}">
+        <i class="bi bi-arrow-{% if stats.sales_trend >= 0 %}up{% else %}down{% endif %}"></i>
+        {{ stats.sales_trend|floatformat:1 }}%
+      </div>
+    </div>
+    <div class="kpi-value">{{ stats.total_sales|floatformat:0 }}</div>
+    <div class="kpi-label">{% trans 'إجمالي المبيعات' %}</div>
+  </div>
+</div>
+<div class="col-md-6 col-lg-3">
+  <div class="kpi-card">
+    <div class="kpi-header">
+      <div class="kpi-icon primary">
+        <i class="bi bi-receipt"></i>
+      </div>
+      <div class="kpi-trend {% if stats.invoices_trend >= 0 %}positive{% else %}negative{% endif %}">
+        <i class="bi bi-arrow-{% if stats.invoices_trend >= 0 %}up{% else %}down{% endif %}"></i>
+        {{ stats.invoices_trend|floatformat:1 }}%
+      </div>
+    </div>
+    <div class="kpi-value">{{ stats.invoices_count }}</div>
+    <div class="kpi-label">{% trans 'عدد الفواتير' %}</div>
+  </div>
+</div>
+<div class="col-md-6 col-lg-3">
+  <div class="kpi-card">
+    <div class="kpi-header">
+      <div class="kpi-icon warning">
+        <i class="bi bi-wallet2"></i>
+      </div>
+    </div>
+    <div class="kpi-value">{{ stats.receivables|floatformat:0 }}</div>
+    <div class="kpi-label">{% trans 'المستحقات' %}</div>
+  </div>
+</div>
+<div class="col-md-6 col-lg-3">
+  <div class="kpi-card">
+    <div class="kpi-header">
+      <div class="kpi-icon accent">
+        <i class="bi bi-people"></i>
+      </div>
+    </div>
+    <div class="kpi-value">{{ stats.customers_count }}</div>
+    <div class="kpi-label">{% trans 'العملاء النشطين' %}</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="row g-4">
+  {# Quick Actions #}
+  <div class="col-12">
+    <div class="quick-actions-grid">
+      <a href="{% url 'sales:invoice_create' %}" class="quick-action-btn">
+        <i class="bi bi-plus-circle"></i>
+        <span>{% trans 'فاتورة جديدة' %}</span>
+      </a>
+      <a href="{% url 'sales:invoice_list' %}" class="quick-action-btn">
+        <i class="bi bi-receipt"></i>
+        <span>{% trans 'الفواتير' %}</span>
+      </a>
+      <a href="{% url 'sales:receipt_create' %}" class="quick-action-btn">
+        <i class="bi bi-cash"></i>
+        <span>{% trans 'تحصيل' %}</span>
+      </a>
+      <a href="{% url 'sales:customer_list' %}" class="quick-action-btn">
+        <i class="bi bi-people"></i>
+        <span>{% trans 'العملاء' %}</span>
+      </a>
+      <a href="{% url 'sales:quick_report' %}" class="quick-action-btn">
+        <i class="bi bi-graph-up"></i>
+        <span>{% trans 'التقارير' %}</span>
+      </a>
+    </div>
+  </div>
+  
+  {# Sales Target #}
+  <div class="col-lg-8">
+    <div class="sales-target-card">
+      <div class="target-header">
+        <div>
+          <div class="target-title">{% trans 'الهدف الشهري للمبيعات' %}</div>
+          <div class="target-value">{{ stats.current_sales|floatformat:0 }} / {{ stats.target|floatformat:0 }}</div>
+        </div>
+        <span class="badge bg-light text-dark">{{ stats.target_percentage|floatformat:0 }}%</span>
+      </div>
+      <div class="target-progress">
+        <div class="bar" style="width: { stats.target_percentage }%"></div>
+      </div>
+      <div class="target-stats">
+        <span>{% trans 'المتبقي' %}: {{ stats.remaining|floatformat:0 }} {% trans 'ج.م' %}</span>
+        <span>{% trans 'الأيام المتبقية' %}: {{ stats.days_remaining }}</span>
+      </div>
+    </div>
+    
+    {# Sales Chart #}
+    <div class="dashboard-card">
+      <div class="card-header">
+        <h5><i class="bi bi-bar-chart me-2"></i>{% trans 'مبيعات الفترة' %}</h5>
+      </div>
+      <div class="card-body">
+        <canvas id="salesChart" height="250"></canvas>
+      </div>
+    </div>
+  </div>
+  
+  {# Top Products #}
+  <div class="col-lg-4">
+    <div class="dashboard-card h-100">
+      <div class="card-header">
+        <h5><i class="bi bi-trophy me-2"></i>{% trans 'أعلى المنتجات مبيعاً' %}</h5>
+      </div>
+      <div class="card-body">
+        <ul class="top-products-list">
+          {% for product in top_products %}
+          <li>
+            <div class="product-info">
+              <span class="product-rank {% if forloop.counter == 1 %}gold{% elif forloop.counter == 2 %}silver{% elif forloop.counter == 3 %}bronze{% endif %}">
+                {{ forloop.counter }}
+              </span>
+              <div>
+                <div class="fw-medium">{{ product.name }}</div>
+                <div class="small text-muted">{{ product.quantity }} {% trans 'وحدة' %}</div>
+              </div>
+            </div>
+            <span class="fw-bold">{{ product.total|floatformat:0 }}</span>
+          </li>
+          {% empty %}
+          <li class="text-center text-muted py-3">
+            {% trans 'لا توجد بيانات' %}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+  
+  {# Recent Invoices #}
+  <div class="col-lg-6">
+    <div class="dashboard-card">
+      <div class="card-header">
+        <h5><i class="bi bi-clock-history me-2"></i>{% trans 'آخر الفواتير' %}</h5>
+        <a href="{% url 'sales:invoice_list' %}" class="btn btn-sm btn-outline-primary">{% trans 'عرض الكل' %}</a>
+      </div>
+      <div class="card-body recent-invoices-mini">
+        {% for invoice in recent_invoices %}
+        <div class="invoice-mini-card">
+          <div class="invoice-info">
+            <div class="invoice-num">{{ invoice.invoice_number }}</div>
+            <div class="customer">{{ invoice.customer.name }}</div>
+          </div>
+          <div class="text-end">
+            <div class="invoice-amount">{{ invoice.total|floatformat:2 }}</div>
+            <div class="small text-muted">{{ invoice.date|date:"Y/m/d" }}</div>
+          </div>
+        </div>
+        {% empty %}
+        <div class="text-center text-muted py-4">
+          {% trans 'لا توجد فواتير حديثة' %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  
+  {# Payment Methods #}
+  <div class="col-lg-6">
+    <div class="dashboard-card">
+      <div class="card-header">
+        <h5><i class="bi bi-pie-chart me-2"></i>{% trans 'طرق الدفع' %}</h5>
+      </div>
+      <div class="card-body">
+        <canvas id="paymentChart" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block dashboard_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Sales Chart
+const salesCtx = document.getElementById('salesChart').getContext('2d');
+new Chart(salesCtx, {
+  type: 'bar',
+  data: {
+    labels: {{ chart_labels|safe }},
+    datasets: [{
+      label: '{% trans "المبيعات" %}',
+      data: {{ chart_data|safe }},
+      backgroundColor: 'rgba(0, 212, 170, 0.8)',
+      borderRadius: 8
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: { color: 'rgba(0,0,0,0.05)' }
+      },
+      x: {
+        grid: { display: false }
+      }
+    }
+  }
+});
+
+// Payment Methods Chart
+const paymentCtx = document.getElementById('paymentChart').getContext('2d');
+new Chart(paymentCtx, {
+  type: 'doughnut',
+  data: {
+    labels: ['{% trans "نقداً" %}', '{% trans "آجل" %}', '{% trans "تحويل" %}', '{% trans "شيكات" %}'],
+    datasets: [{
+      data: {{ payment_data|safe }},
+      backgroundColor: ['#00d4aa', '#1e3a5f', '#ffc107', '#0d6efd']
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'bottom'
+      }
+    }
+  }
+});
+</script>
+{% endblock %}
+

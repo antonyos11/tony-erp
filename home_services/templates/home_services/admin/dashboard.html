@@ -1,0 +1,254 @@
+{% extends BASE_TEMPLATE %}
+{% load static i18n %}
+
+{% block title %}لوحة تحكم الخدمات المنزلية{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-1">
+                <i class="bi bi-house-heart text-primary me-2"></i>
+                لوحة تحكم الخدمات المنزلية
+            </h4>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="/">الرئيسية</a></li>
+                    <li class="breadcrumb-item active">الخدمات المنزلية</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            <a href="{% url 'home_services:request_list' %}" class="btn btn-primary">
+                <i class="bi bi-list-ul me-1"></i>
+                كل الطلبات
+            </a>
+        </div>
+    </div>
+
+    <!-- إحصائيات سريعة -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-1 opacity-75">إجمالي الطلبات</h6>
+                            <h2 class="mb-0">{{ total_requests }}</h2>
+                        </div>
+                        <i class="bi bi-inbox display-5 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 bg-warning text-dark">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-1 opacity-75">قيد الانتظار</h6>
+                            <h2 class="mb-0">{{ pending_requests }}</h2>
+                        </div>
+                        <i class="bi bi-hourglass-split display-5 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-1 opacity-75">طلبات اليوم</h6>
+                            <h2 class="mb-0">{{ today_requests }}</h2>
+                        </div>
+                        <i class="bi bi-calendar-check display-5 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-1 opacity-75">إيرادات الأسبوع</h6>
+                            <h2 class="mb-0">{{ week_stats.revenue|default:0 }}</h2>
+                        </div>
+                        <i class="bi bi-currency-dollar display-5 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- توزيع حسب النوع -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">طلبات الصيانة</h6>
+                            <h3 class="text-warning mb-0">{{ maintenance_count }}</h3>
+                        </div>
+                        <div class="icon-wrapper bg-warning bg-opacity-10 p-3 rounded">
+                            <i class="bi bi-tools fs-3 text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">طلبات النظافة</h6>
+                            <h3 class="text-info mb-0">{{ cleaning_count }}</h3>
+                        </div>
+                        <div class="icon-wrapper bg-info bg-opacity-10 p-3 rounded">
+                            <i class="bi bi-stars fs-3 text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <!-- طلبات عاجلة -->
+        {% if urgent_requests %}
+        <div class="col-md-4">
+            <div class="card border-danger h-100">
+                <div class="card-header bg-danger text-white">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    طلبات عاجلة
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for req in urgent_requests %}
+                    <a href="{% url 'home_services:request_detail' pk=req.pk %}" 
+                       class="list-group-item list-group-item-action">
+                        <div class="d-flex justify-content-between">
+                            <strong>{{ req.request_number }}</strong>
+                            <span class="badge {% if req.urgency == 'emergency' %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+                                {{ req.get_urgency_display }}
+                            </span>
+                        </div>
+                        <small class="text-muted">{{ req.customer_name }} - {{ req.title|truncatewords:5 }}</small>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- أحدث الطلبات -->
+        <div class="col-md-{% if urgent_requests %}8{% else %}12{% endif %}">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="bi bi-clock-history me-2"></i>
+                        أحدث الطلبات
+                    </h6>
+                    <a href="{% url 'home_services:request_list' %}" class="btn btn-sm btn-outline-primary">
+                        عرض الكل
+                    </a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>رقم الطلب</th>
+                                <th>النوع</th>
+                                <th>العميل</th>
+                                <th>الحالة</th>
+                                <th>التاريخ</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in recent_requests %}
+                            <tr>
+                                <td><code>{{ req.request_number }}</code></td>
+                                <td>
+                                    {% if req.request_type == 'maintenance' %}
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="bi bi-tools me-1"></i> صيانة
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-info">
+                                        <i class="bi bi-stars me-1"></i> نظافة
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ req.customer_name }}</td>
+                                <td>
+                                    <span class="badge 
+                                        {% if req.status == 'completed' %}bg-success
+                                        {% elif req.status == 'cancelled' %}bg-danger
+                                        {% elif req.status == 'in_progress' %}bg-info
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ req.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>{{ req.created_at|date:"Y/m/d" }}</td>
+                                <td>
+                                    <a href="{% url 'home_services:request_detail' pk=req.pk %}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">
+                                    لا توجد طلبات بعد
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- روابط سريعة -->
+    <div class="row g-3 mt-4">
+        <div class="col-md-3">
+            <a href="{% url 'home_services:maintenance_category_list' %}" class="card border-0 shadow-sm text-decoration-none">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-grid fs-2 text-warning mb-2"></i>
+                    <h6 class="mb-0">فئات الصيانة</h6>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'home_services:cleaning_package_list' %}" class="card border-0 shadow-sm text-decoration-none">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-box fs-2 text-info mb-2"></i>
+                    <h6 class="mb-0">باقات النظافة</h6>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'home_services:reports' %}" class="card border-0 shadow-sm text-decoration-none">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-graph-up fs-2 text-success mb-2"></i>
+                    <h6 class="mb-0">التقارير</h6>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'home_services:settings' %}" class="card border-0 shadow-sm text-decoration-none">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-gear fs-2 text-secondary mb-2"></i>
+                    <h6 class="mb-0">الإعدادات</h6>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,360 @@
+﻿{% extends 'base_templates/_form_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'إنشاء مرتجع مبيعات' %}{% endblock %}
+{% block form_hero_icon %}bi-arrow-return-left{% endblock %}
+{% block form_hero_title %}{% trans 'إنشاء مرتجع مبيعات' %}{% endblock %}
+{% block form_hero_subtitle %}{% trans 'اختر الفاتورة لإرجاع منتجات منها' %}{% endblock %}
+
+{% block form_content %}
+<style>
+  .return-options {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .return-option {
+    background: var(--bg-card);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .return-option:hover {
+    border-color: var(--primary);
+    box-shadow: var(--shadow-md);
+  }
+  .return-option.selected {
+    border-color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.05);
+  }
+  .return-option i {
+    font-size: 3rem;
+    color: var(--primary);
+    margin-bottom: 1rem;
+    display: block;
+  }
+  .return-option h5 {
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  .return-option p {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 0;
+  }
+  .search-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .search-section .input-group {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+  .invoices-list {
+    display: grid;
+    gap: 1rem;
+  }
+  .invoice-card {
+    background: var(--bg-card);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .invoice-card:hover {
+    border-color: var(--primary);
+    box-shadow: var(--shadow-md);
+  }
+  .invoice-card.selected {
+    border-color: var(--success);
+    background: rgba(16, 185, 129, 0.05);
+  }
+  .invoice-card.selected::before {
+    content: '✓';
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    width: 28px;
+    height: 28px;
+    background: var(--success);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+  }
+  .invoice-icon {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    color: white;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+  .invoice-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .invoice-info h5 {
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .invoice-info .customer {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+  }
+  .invoice-info .meta {
+    display: flex;
+    gap: 1.5rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  .invoice-stats {
+    text-align: left;
+    flex-shrink: 0;
+  }
+  .invoice-stats .amount {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .invoice-stats .items {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  .recent-returns {
+    background: var(--bg-light);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-top: 2rem;
+  }
+  .recent-returns h6 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    font-weight: 700;
+  }
+  .recent-return-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .recent-return-item:last-child {
+    border-bottom: none;
+  }
+</style>
+
+<form method="post" id="return-start-form">
+  {% csrf_token %}
+  
+  <!-- Return Type Options -->
+  <div class="return-options">
+    <div class="return-option selected" onclick="selectType(this, 'invoice')">
+      <i class="bi bi-file-earmark-text"></i>
+      <h5>{% trans 'إرجاع من فاتورة' %}</h5>
+      <p>{% trans 'اختر فاتورة موجودة لإرجاع منتجات منها' %}</p>
+      <input type="radio" name="return_type" value="invoice" checked hidden>
+    </div>
+    <div class="return-option" onclick="selectType(this, 'direct')">
+      <i class="bi bi-box-arrow-in-left"></i>
+      <h5>{% trans 'إرجاع مباشر' %}</h5>
+      <p>{% trans 'إرجاع بدون ربط بفاتورة محددة' %}</p>
+      <input type="radio" name="return_type" value="direct" hidden>
+    </div>
+  </div>
+
+  <!-- Invoice Search -->
+  <div id="invoice-section">
+    <div class="search-section">
+      <div class="input-group">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="text" class="form-control form-control-lg" id="invoice-search" 
+               placeholder="{% trans 'ابحث برقم الفاتورة أو اسم العميل...' %}">
+      </div>
+    </div>
+
+    <div class="invoices-list" id="invoices-list">
+      {% for invoice in recent_invoices %}
+      <div class="invoice-card position-relative" onclick="selectInvoice(this, '{ invoice.id }')">
+        <input type="radio" name="invoice" value="{ invoice.id }}" hidden>
+        <div class="invoice-icon"><i class="bi bi-file-text"></i></div>
+        <div class="invoice-info">
+          <h5>
+            {{ invoice.number }}
+            {% if invoice.status == 'paid' %}
+            <span class="badge bg-success">{% trans 'مدفوعة' %}</span>
+            {% endif %}
+          </h5>
+          <div class="customer">{{ invoice.customer.name }}</div>
+          <div class="meta">
+            <span><i class="bi bi-calendar me-1"></i>{{ invoice.date|date:"Y/m/d" }}</span>
+            <span><i class="bi bi-box me-1"></i>{{ invoice.items.count }} {% trans 'منتج' %}</span>
+          </div>
+        </div>
+        <div class="invoice-stats">
+          <div class="amount">{{ invoice.total|floatformat:2 }}</div>
+          <div class="items">{% trans 'ج.م' %}</div>
+        </div>
+      </div>
+      {% empty %}
+      <!-- Sample Invoices -->
+      <div class="invoice-card position-relative" onclick="selectInvoice(this, '1')">
+        <input type="radio" name="invoice" value="1" hidden>
+        <div class="invoice-icon"><i class="bi bi-file-text"></i></div>
+        <div class="invoice-info">
+          <h5>
+            INV-2024-001234
+            <span class="badge bg-success">{% trans 'مدفوعة' %}</span>
+          </h5>
+          <div class="customer">شركة الفجر للتجارة</div>
+          <div class="meta">
+            <span><i class="bi bi-calendar me-1"></i>2024/01/15</span>
+            <span><i class="bi bi-box me-1"></i>5 منتج</span>
+          </div>
+        </div>
+        <div class="invoice-stats">
+          <div class="amount">2,450.00</div>
+          <div class="items">{% trans 'ج.م' %}</div>
+        </div>
+      </div>
+      <div class="invoice-card position-relative" onclick="selectInvoice(this, '2')">
+        <input type="radio" name="invoice" value="2" hidden>
+        <div class="invoice-icon"><i class="bi bi-file-text"></i></div>
+        <div class="invoice-info">
+          <h5>INV-2024-001233</h5>
+          <div class="customer">مؤسسة النور التجارية</div>
+          <div class="meta">
+            <span><i class="bi bi-calendar me-1"></i>2024/01/14</span>
+            <span><i class="bi bi-box me-1"></i>3 منتج</span>
+          </div>
+        </div>
+        <div class="invoice-stats">
+          <div class="amount">1,890.00</div>
+          <div class="items">{% trans 'ج.م' %}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Direct Return - Customer Selection -->
+  <div id="direct-section" style="display: none;">
+    <div class="form-section">
+      <div class="section-header">
+        <i class="bi bi-person section-icon"></i>
+        <div class="section-title">{% trans 'اختر العميل' %}</div>
+      </div>
+      <div class="row g-3">
+        <div class="col-md-8">
+          <select name="customer" class="form-select form-select-lg">
+            <option value="">{% trans 'اختر العميل' %}</option>
+            {% for customer in customers %}
+            <option value="{ customer.id }">{{ customer.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <input type="date" name="return_date" class="form-control form-control-lg" value="{ today|date:'Y-m-d' }">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Returns -->
+  <div class="recent-returns">
+    <h6><i class="bi bi-clock-history"></i>{% trans 'آخر المرتجعات' %}</h6>
+    {% for ret in recent_returns %}
+    <div class="recent-return-item">
+      <div>
+        <span class="fw-medium">{{ ret.number }}</span>
+        <span class="text-muted mx-2">-</span>
+        <span class="text-muted">{{ ret.customer.name }}</span>
+      </div>
+      <span class="text-danger fw-medium">-{{ ret.total|floatformat:2 }}</span>
+    </div>
+    {% empty %}
+    <div class="recent-return-item">
+      <div>
+        <span class="fw-medium">RET-2024-000012</span>
+        <span class="text-muted mx-2">-</span>
+        <span class="text-muted">شركة الفجر</span>
+      </div>
+      <span class="text-danger fw-medium">-450.00</span>
+    </div>
+    <div class="recent-return-item">
+      <div>
+        <span class="fw-medium">RET-2024-000011</span>
+        <span class="text-muted mx-2">-</span>
+        <span class="text-muted">مؤسسة النور</span>
+      </div>
+      <span class="text-danger fw-medium">-230.00</span>
+    </div>
+    {% endfor %}
+  </div>
+</form>
+{% endblock %}
+
+{% block form_actions_left %}
+<a href="{% url 'sales:invoice_list' %}" class="btn btn-outline-secondary">
+  <i class="bi bi-arrow-right me-1"></i>{% trans 'إلغاء' %}
+</a>
+{% endblock %}
+
+{% block form_actions_right %}
+<button type="submit" form="return-start-form" class="btn btn-primary">
+  <i class="bi bi-arrow-left me-1"></i>{% trans 'متابعة' %}
+</button>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function selectType(element, type) {
+    document.querySelectorAll('.return-option').forEach(o => o.classList.remove('selected'));
+    element.classList.add('selected');
+    element.querySelector('input[type="radio"]').checked = true;
+    
+    document.getElementById('invoice-section').style.display = type === 'invoice' ? 'block' : 'none';
+    document.getElementById('direct-section').style.display = type === 'direct' ? 'block' : 'none';
+  }
+
+  function selectInvoice(element, invoiceId) {
+    document.querySelectorAll('.invoice-card').forEach(c => c.classList.remove('selected'));
+    element.classList.add('selected');
+    element.querySelector('input[type="radio"]').checked = true;
+  }
+
+  // Search filter
+  document.getElementById('invoice-search').addEventListener('input', function() {
+    const query = this.value.toLowerCase();
+    document.querySelectorAll('.invoice-card').forEach(card => {
+      const text = card.textContent.toLowerCase();
+      card.style.display = text.includes(query) ? 'flex' : 'none';
+    });
+  });
+</script>
+{% endblock %}
+

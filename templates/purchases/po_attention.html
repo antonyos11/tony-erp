@@ -1,0 +1,274 @@
+﻿{% extends 'base_templates/_list_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'أوامر الشراء التي تحتاج انتباه' %}{% endblock %}
+{% block hero_icon %}bi-exclamation-triangle{% endblock %}
+{% block hero_title %}{% trans 'أوامر شراء تحتاج انتباهك' %}{% endblock %}
+{% block hero_subtitle %}{% trans 'أوامر الشراء المتأخرة أو التي تحتاج متابعة عاجلة' %}{% endblock %}
+
+{% block list_styles %}
+<style>
+.attention-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+.attention-stat {
+  background: var(--bs-body-bg);
+  border-radius: 12px;
+  padding: 1.25rem;
+  border-right: 4px solid;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.attention-stat.overdue {
+  border-right-color: #dc3545;
+  background: rgba(220,53,69,0.05);
+}
+.attention-stat.pending {
+  border-right-color: #ffc107;
+  background: rgba(255,193,7,0.05);
+}
+.attention-stat.partial {
+  border-right-color: #0d6efd;
+  background: rgba(13,110,253,0.05);
+}
+.attention-stat .stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+.attention-stat.overdue .stat-icon {
+  background: rgba(220,53,69,0.15);
+  color: #dc3545;
+}
+.attention-stat.pending .stat-icon {
+  background: rgba(255,193,7,0.15);
+  color: #997404;
+}
+.attention-stat.partial .stat-icon {
+  background: rgba(13,110,253,0.15);
+  color: #0d6efd;
+}
+.attention-stat .stat-content .stat-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+.attention-stat .stat-content .stat-label {
+  font-size: 0.85rem;
+  color: var(--bs-secondary-color);
+}
+.attention-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.attention-badge.overdue {
+  background: rgba(220,53,69,0.15);
+  color: #dc3545;
+}
+.attention-badge.pending-long {
+  background: rgba(255,193,7,0.15);
+  color: #997404;
+}
+.attention-badge.partial-old {
+  background: rgba(13,110,253,0.15);
+  color: #0d6efd;
+}
+.days-indicator {
+  font-weight: 700;
+}
+.days-indicator.critical {
+  color: #dc3545;
+}
+.days-indicator.warning {
+  color: #ffc107;
+}
+</style>
+{% endblock %}
+
+{% block stats_cards %}
+<div class="col-12">
+  <div class="attention-stats">
+    <div class="attention-stat overdue">
+      <div class="stat-icon">
+        <i class="bi bi-clock-history"></i>
+      </div>
+      <div class="stat-content">
+        <div class="stat-value">{{ stats.overdue|default:0 }}</div>
+        <div class="stat-label">{% trans 'متأخرة عن التوريد' %}</div>
+      </div>
+    </div>
+    <div class="attention-stat pending">
+      <div class="stat-icon">
+        <i class="bi bi-hourglass-split"></i>
+      </div>
+      <div class="stat-content">
+        <div class="stat-value">{{ stats.pending_long|default:0 }}</div>
+        <div class="stat-label">{% trans 'بانتظار الموافقة > 7 أيام' %}</div>
+      </div>
+    </div>
+    <div class="attention-stat partial">
+      <div class="stat-icon">
+        <i class="bi bi-pie-chart"></i>
+      </div>
+      <div class="stat-content">
+        <div class="stat-value">{{ stats.partial_old|default:0 }}</div>
+        <div class="stat-label">{% trans 'استلام جزئي متأخر' %}</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block filter_fields %}
+<div class="col-md-4">
+  <label class="form-label small">{% trans 'نوع المشكلة' %}</label>
+  <select name="issue_type" class="form-select form-select-sm">
+    <option value="">{% trans 'الكل' %}</option>
+    <option value="overdue" {% if request.GET.issue_type == 'overdue' %}selected{% endif %}>{% trans 'متأخر التوريد' %}</option>
+    <option value="pending_long" {% if request.GET.issue_type == 'pending_long' %}selected{% endif %}>{% trans 'انتظار طويل' %}</option>
+    <option value="partial_old" {% if request.GET.issue_type == 'partial_old' %}selected{% endif %}>{% trans 'استلام جزئي قديم' %}</option>
+  </select>
+</div>
+<div class="col-md-4">
+  <label class="form-label small">{% trans 'المورد' %}</label>
+  <select name="supplier" class="form-select form-select-sm">
+    <option value="">{% trans 'الكل' %}</option>
+    {% for supplier in suppliers %}
+    <option value="{ supplier.pk }}" {% if request.GET.supplier == supplier.pk|stringformat:'d' %}selected{% endif %}>
+      {{ supplier.name }}
+    </option>
+    {% endfor %}
+  </select>
+</div>
+<div class="col-md-4">
+  <label class="form-label small">{% trans 'الأولوية' %}</label>
+  <select name="priority" class="form-select form-select-sm">
+    <option value="">{% trans 'الكل' %}</option>
+    <option value="critical" {% if request.GET.priority == 'critical' %}selected{% endif %}>{% trans 'حرج (> 14 يوم)' %}</option>
+    <option value="high" {% if request.GET.priority == 'high' %}selected{% endif %}>{% trans 'عالي (7-14 يوم)' %}</option>
+    <option value="medium" {% if request.GET.priority == 'medium' %}selected{% endif %}>{% trans 'متوسط (< 7 أيام)' %}</option>
+  </select>
+</div>
+{% endblock %}
+
+{% block table_headers %}
+<th style="width: 5%">#</th>
+<th style="width: 12%">{% trans 'رقم الأمر' %}</th>
+<th style="width: 18%">{% trans 'المورد' %}</th>
+<th class="text-center" style="width: 10%">{% trans 'التاريخ' %}</th>
+<th class="text-center" style="width: 10%">{% trans 'التوريد' %}</th>
+<th class="text-center" style="width: 10%">{% trans 'الأيام' %}</th>
+<th class="text-center" style="width: 12%">{% trans 'المشكلة' %}</th>
+<th class="text-end" style="width: 10%">{% trans 'المبلغ' %}</th>
+<th class="text-center" style="width: 13%">{% trans 'الإجراءات' %}</th>
+{% endblock %}
+
+{% block table_rows %}
+{% for po in purchase_orders %}
+<tr>
+  <td>{{ forloop.counter }}</td>
+  <td>
+    <a href="{% url 'purchases:po_detail' po.pk %}" class="fw-semibold text-primary">
+      {{ po.po_number }}
+    </a>
+  </td>
+  <td>
+    <div class="fw-medium">{{ po.supplier.name }}</div>
+    <div class="small text-muted">{{ po.supplier.phone|default:'' }}</div>
+  </td>
+  <td class="text-center">{{ po.date|date:"Y/m/d" }}</td>
+  <td class="text-center">
+    {% if po.delivery_date %}
+    <span class="{% if po.is_overdue %}text-danger{% endif %}">
+      {{ po.delivery_date|date:"Y/m/d" }}
+    </span>
+    {% else %}-{% endif %}
+  </td>
+  <td class="text-center">
+    <span class="days-indicator {% if po.days_late > 14 %}critical{% elif po.days_late > 7 %}warning{% endif %}">
+      {% if po.days_late > 0 %}
+      +{{ po.days_late }} {% trans 'يوم' %}
+      {% else %}
+      {{ po.days_pending }} {% trans 'يوم' %}
+      {% endif %}
+    </span>
+  </td>
+  <td class="text-center">
+    {% if po.issue_type == 'overdue' %}
+    <span class="attention-badge overdue">
+      <i class="bi bi-clock-history"></i>{% trans 'متأخر' %}
+    </span>
+    {% elif po.issue_type == 'pending_long' %}
+    <span class="attention-badge pending-long">
+      <i class="bi bi-hourglass"></i>{% trans 'انتظار طويل' %}
+    </span>
+    {% elif po.issue_type == 'partial_old' %}
+    <span class="attention-badge partial-old">
+      <i class="bi bi-pie-chart"></i>{% trans 'استلام جزئي' %}
+    </span>
+    {% endif %}
+  </td>
+  <td class="text-end fw-medium">{{ po.total|floatformat:2 }}</td>
+  <td class="text-center">
+    <div class="btn-group btn-group-sm">
+      <a href="{% url 'purchases:po_detail' po.pk %}" class="btn btn-outline-primary" title="{% trans 'عرض' %}">
+        <i class="bi bi-eye"></i>
+      </a>
+      {% if po.status == 'pending' %}
+      <a href="{% url 'purchases:po_approve' po.pk %}" class="btn btn-outline-success" title="{% trans 'اعتماد' %}">
+        <i class="bi bi-check"></i>
+      </a>
+      {% endif %}
+      {% if po.is_overdue %}
+      <button type="button" class="btn btn-outline-warning" title="{% trans 'تذكير المورد' %}" 
+              onclick="sendReminder({ po.pk })">
+        <i class="bi bi-bell"></i>
+      </button>
+      {% endif %}
+      {% if po.status in 'approved,sent,partial' %}
+      <a href="{% url 'purchases:po_receive' po.pk %}" class="btn btn-outline-info" title="{% trans 'استلام' %}">
+        <i class="bi bi-box-arrow-in-down"></i>
+      </a>
+      {% endif %}
+    </div>
+  </td>
+</tr>
+{% empty %}
+<tr>
+  <td colspan="9">
+    <div class="empty-state">
+      <i class="bi bi-check-circle text-success"></i>
+      <h5>{% trans 'لا توجد أوامر تحتاج انتباه' %}</h5>
+      <p>{% trans 'جميع أوامر الشراء في حالة جيدة' %}</p>
+      <a href="{% url 'purchases:po_list' %}" class="btn btn-outline-primary">
+        <i class="bi bi-list me-1"></i>{% trans 'عرض كل الأوامر' %}
+      </a>
+    </div>
+  </td>
+</tr>
+{% endfor %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function sendReminder(id) {
+  if (confirm('{% trans "هل تريد إرسال تذكير للمورد بخصوص هذا الأمر المتأخر؟" %}')) {
+    window.location.href = '{% url "purchases:po_send_reminder" 0 %}'.replace('0', id);
+  }
+}
+</script>
+{% endblock %}
+

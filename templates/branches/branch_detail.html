@@ -1,0 +1,317 @@
+{% extends 'base_v2.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .stats-card h3 {
+        font-size: 2rem;
+        font-weight: bold;
+        margin: 0;
+    }
+    .info-card {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .info-label {
+        font-weight: 600;
+        color: #666;
+        margin-bottom: 5px;
+    }
+    .info-value {
+        font-size: 1.1rem;
+        color: #333;
+        margin-bottom: 15px;
+    }
+    .badge-status {
+        font-size: 0.9rem;
+        padding: 5px 15px;
+    }
+    .section-title {
+        font-size: 1.3rem;
+        font-weight: bold;
+        margin: 30px 0 20px 0;
+        color: #333;
+        border-right: 4px solid #667eea;
+        padding-right: 15px;
+    }
+    .staff-card, .device-card, .transfer-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        transition: transform 0.2s;
+    }
+    .staff-card:hover, .device-card:hover, .transfer-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .action-btn {
+        margin-left: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-1">
+                <i class="bi bi-building me-2"></i>{{ branch.name }}
+            </h4>
+            <p class="text-muted mb-0">
+                <small>{{ branch.code }} - {{ branch.get_branch_type_display }}</small>
+            </p>
+        </div>
+        <div>
+            {% if branch.status == 'active' %}
+                <span class="badge bg-success badge-status">نشط</span>
+            {% elif branch.status == 'inactive' %}
+                <span class="badge bg-secondary badge-status">غير نشط</span>
+            {% elif branch.status == 'suspended' %}
+                <span class="badge bg-warning badge-status">معلق</span>
+            {% endif %}
+            
+            <a href="{% url 'branches:branch_edit' branch.pk %}" class="btn btn-primary action-btn">
+                <i class="bi bi-pencil-square"></i> تعديل
+            </a>
+            <a href="{% url 'branches:branch_list' %}" class="btn btn-secondary action-btn">
+                <i class="bi bi-arrow-right"></i> رجوع
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- معلومات الفرع -->
+        <div class="col-md-6">
+            <div class="info-card">
+                <h5 class="mb-3"><i class="bi bi-info-circle me-2"></i>المعلومات الأساسية</h5>
+                
+                <div class="info-label">الكود</div>
+                <div class="info-value">{{ branch.code }}</div>
+                
+                <div class="info-label">الاسم</div>
+                <div class="info-value">{{ branch.name }}</div>
+                
+                <div class="info-label">النوع</div>
+                <div class="info-value">{{ branch.get_branch_type_display }}</div>
+                
+                {% if branch.parent_branch %}
+                <div class="info-label">الفرع الرئيسي</div>
+                <div class="info-value">
+                    <a href="{% url 'branches:branch_detail' branch.parent_branch.pk %}">
+                        {{ branch.parent_branch.name }}
+                    </a>
+                </div>
+                {% endif %}
+                
+                {% if branch.manager %}
+                <div class="info-label">المدير</div>
+                <div class="info-value">{{ branch.manager.get_full_name|default:branch.manager.username }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- معلومات الاتصال -->
+        <div class="col-md-6">
+            <div class="info-card">
+                <h5 class="mb-3"><i class="bi bi-telephone me-2"></i>معلومات الاتصال</h5>
+                
+                {% if branch.phone %}
+                <div class="info-label">الهاتف</div>
+                <div class="info-value">
+                    <i class="bi bi-telephone"></i> {{ branch.phone }}
+                </div>
+                {% endif %}
+                
+                {% if branch.email %}
+                <div class="info-label">البريد الإلكتروني</div>
+                <div class="info-value">
+                    <i class="bi bi-envelope"></i> {{ branch.email }}
+                </div>
+                {% endif %}
+                
+                {% if branch.address %}
+                <div class="info-label">العنوان</div>
+                <div class="info-value">
+                    <i class="bi bi-geo-alt"></i> {{ branch.address }}
+                </div>
+                {% endif %}
+                
+                <div class="info-label">تاريخ الإنشاء</div>
+                <div class="info-value">{{ branch.created_at|date:"Y-m-d H:i" }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- الموظفين -->
+    <h5 class="section-title"><i class="bi bi-people me-2"></i>الموظفين ({{ staff.count }})</h5>
+    <div class="row">
+        {% for member in staff %}
+        <div class="col-md-6 col-lg-4">
+            <div class="staff-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="mb-1">{% if member.user %}{{ member.user.get_full_name|default:member.user.username }}{% else %}-{% endif %}</h6>
+                        <p class="text-muted mb-2"><small>{{ member.position }}</small></p>
+                        <span class="badge bg-info">{% if member.user %}{{ member.user.username }}{% else %}-{% endif %}</span>
+                    </div>
+                    {% if member.is_active %}
+                        <span class="badge bg-success">نشط</span>
+                    {% else %}
+                        <span class="badge bg-secondary">غير نشط</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info text-center">
+                <i class="bi bi-info-circle me-2"></i>لا يوجد موظفين مسجلين
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- أجهزة نقاط البيع -->
+    {% if pos_devices %}
+    <h5 class="section-title"><i class="bi bi-laptop me-2"></i>أجهزة نقاط البيع ({{ pos_devices.count }})</h5>
+    <div class="row">
+        {% for device in pos_devices %}
+        <div class="col-md-6 col-lg-4">
+            <div class="device-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="mb-1">{{ device.name }}</h6>
+                        <p class="text-muted mb-0"><small>{{ device.device_id }}</small></p>
+                    </div>
+                    {% if device.is_active %}
+                        <span class="badge bg-success">نشط</span>
+                    {% else %}
+                        <span class="badge bg-danger">معطل</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- التحويلات الواردة والصادرة -->
+    <div class="row">
+        <div class="col-md-6">
+            <h5 class="section-title"><i class="bi bi-box-arrow-up me-2"></i>التحويلات الصادرة</h5>
+            {% for transfer in transfers_out %}
+            <div class="transfer-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="mb-1">{{ transfer.transfer_number }}</h6>
+                        <p class="text-muted mb-1">
+                            <small>إلى: {{ transfer.to_branch.name }}</small>
+                        </p>
+                        <p class="text-muted mb-0">
+                            <small>{{ transfer.transfer_date|date:"Y-m-d" }}</small>
+                        </p>
+                    </div>
+                    {% if transfer.status == 'pending' %}
+                        <span class="badge bg-warning">معلق</span>
+                    {% elif transfer.status == 'approved' %}
+                        <span class="badge bg-info">موافق</span>
+                    {% elif transfer.status == 'in_transit' %}
+                        <span class="badge bg-primary">قيد النقل</span>
+                    {% elif transfer.status == 'received' %}
+                        <span class="badge bg-success">مستلم</span>
+                    {% elif transfer.status == 'cancelled' %}
+                        <span class="badge bg-danger">ملغي</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="alert alert-info text-center">
+                <i class="bi bi-info-circle me-2"></i>لا توجد تحويلات صادرة
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="col-md-6">
+            <h5 class="section-title"><i class="bi bi-box-arrow-in-down me-2"></i>التحويلات الواردة</h5>
+            {% for transfer in transfers_in %}
+            <div class="transfer-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="mb-1">{{ transfer.transfer_number }}</h6>
+                        <p class="text-muted mb-1">
+                            <small>من: {{ transfer.from_branch.name }}</small>
+                        </p>
+                        <p class="text-muted mb-0">
+                            <small>{{ transfer.transfer_date|date:"Y-m-d" }}</small>
+                        </p>
+                    </div>
+                    {% if transfer.status == 'pending' %}
+                        <span class="badge bg-warning">معلق</span>
+                    {% elif transfer.status == 'approved' %}
+                        <span class="badge bg-info">موافق</span>
+                    {% elif transfer.status == 'in_transit' %}
+                        <span class="badge bg-primary">قيد النقل</span>
+                    {% elif transfer.status == 'received' %}
+                        <span class="badge bg-success">مستلم</span>
+                    {% elif transfer.status == 'cancelled' %}
+                        <span class="badge bg-danger">ملغي</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="alert alert-info text-center">
+                <i class="bi bi-info-circle me-2"></i>لا توجد تحويلات واردة
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- المصروفات الأخيرة -->
+    {% if recent_expenses %}
+    <h5 class="section-title"><i class="bi bi-cash-stack me-2"></i>المصروفات الأخيرة</h5>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>التاريخ</th>
+                    <th>الوصف</th>
+                    <th>المبلغ</th>
+                    <th>الحالة</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for expense in recent_expenses %}
+                <tr>
+                    <td>{{ expense.date|date:"Y-m-d" }}</td>
+                    <td>{{ expense.description|truncatewords:10 }}</td>
+                    <td>{{ expense.amount|floatformat:2 }} ر.س</td>
+                    <td>
+                        {% if expense.status == 'submitted' %}
+                            <span class="badge bg-warning">مقدم</span>
+                        {% elif expense.status == 'approved' %}
+                            <span class="badge bg-success">موافق</span>
+                        {% elif expense.status == 'rejected' %}
+                            <span class="badge bg-danger">مرفوض</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

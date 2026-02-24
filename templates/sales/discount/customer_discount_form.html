@@ -1,0 +1,516 @@
+﻿{% extends 'base_templates/_form_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% if form.instance.pk %}{% trans 'تعديل الخصم' %}{% else %}{% trans 'خصم جديد' %}{% endif %}{% endblock %}
+{% block page_hero_icon %}bi-percent{% endblock %}
+{% block page_hero_title %}{% if form.instance.pk %}{% trans 'تعديل الخصم' %}{% else %}{% trans 'إنشاء خصم جديد' %}{% endif %}{% endblock %}
+{% block page_hero_subtitle %}{% trans 'حدد تفاصيل الخصم والعملاء المستفيدين' %}{% endblock %}
+
+{% block form_id %}discountForm{% endblock %}
+{% block form_action %}{% if form.instance.pk %}{% url 'sales:customer_discount_edit' form.instance.pk %}{% else %}{% url 'sales:customer_discount_create' %}{% endif %}{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .discount-type-selector {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .type-option {
+    position: relative;
+    background: var(--bg-card);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .type-option:hover {
+    border-color: var(--primary);
+  }
+  .type-option.selected {
+    border-color: var(--primary);
+    background: var(--bg-light);
+  }
+  .type-option input {
+    position: absolute;
+    opacity: 0;
+  }
+  .type-option .icon {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 1rem;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+  }
+  .type-option.percentage .icon { background: #10b98120; color: #10b981; }
+  .type-option.fixed .icon { background: #3b82f620; color: #3b82f6; }
+  .type-option.tiered .icon { background: #8b5cf620; color: #8b5cf6; }
+  .type-option h5 { font-weight: 600; margin-bottom: 0.25rem; }
+  .type-option .desc { font-size: 0.8rem; color: var(--text-muted); }
+  
+  .value-preview {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  .value-preview .label { font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem; }
+  .value-preview .value { font-size: 3rem; font-weight: 700; }
+  .value-preview .suffix { font-size: 1.5rem; }
+  
+  .customers-select-area {
+    background: var(--bg-light);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+  }
+  .customer-search {
+    margin-bottom: 1rem;
+  }
+  .customer-list {
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  .customer-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .customer-item:hover { background: var(--bg-light); }
+  .customer-item.selected { background: var(--primary); color: white; }
+  .customer-item .checkbox {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border-color);
+    border-radius: 4px;
+    margin-left: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+  }
+  .customer-item.selected .checkbox { background: white; border-color: white; color: var(--primary); }
+  .customer-avatar {
+    width: 40px;
+    height: 40px;
+    background: var(--bg-light);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0.75rem;
+    font-weight: 600;
+  }
+  .customer-item.selected .customer-avatar { background: rgba(255,255,255,0.2); }
+  
+  .tiered-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 0.5rem;
+  }
+  .tiered-table th {
+    background: var(--bg-light);
+    padding: 0.75rem 1rem;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+  .tiered-table td {
+    background: var(--bg-card);
+    padding: 0.5rem;
+    text-align: center;
+  }
+  .tiered-table input {
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 0.5rem;
+    text-align: center;
+  }
+  .add-tier-btn {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px dashed var(--border-color);
+    background: transparent;
+    border-radius: var(--radius);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .add-tier-btn:hover { border-color: var(--primary); color: var(--primary); }
+</style>
+{% endblock %}
+
+{% block form_sections %}
+<!-- Discount Type Section -->
+<div class="form-section">
+  <div class="section-header">
+    <h4><i class="bi bi-sliders me-2"></i>{% trans 'نوع الخصم' %}</h4>
+  </div>
+  <div class="section-body">
+    <div class="discount-type-selector">
+      <label class="type-option percentage selected" onclick="selectType('percentage')">
+        <input type="radio" name="discount_type" value="percentage" checked>
+        <div class="icon"><i class="bi bi-percent"></i></div>
+        <h5>{% trans 'نسبة مئوية' %}</h5>
+        <span class="desc">{% trans 'خصم نسبة من إجمالي الفاتورة' %}</span>
+      </label>
+      <label class="type-option fixed" onclick="selectType('fixed')">
+        <input type="radio" name="discount_type" value="fixed">
+        <div class="icon"><i class="bi bi-cash"></i></div>
+        <h5>{% trans 'مبلغ ثابت' %}</h5>
+        <span class="desc">{% trans 'خصم مبلغ محدد من الفاتورة' %}</span>
+      </label>
+      <label class="type-option tiered" onclick="selectType('tiered')">
+        <input type="radio" name="discount_type" value="tiered">
+        <div class="icon"><i class="bi bi-graph-up-arrow"></i></div>
+        <h5>{% trans 'متدرج' %}</h5>
+        <span class="desc">{% trans 'خصم حسب الكمية أو القيمة' %}</span>
+      </label>
+    </div>
+  </div>
+</div>
+
+<!-- Basic Info Section -->
+<div class="form-section">
+  <div class="section-header">
+    <h4><i class="bi bi-info-circle me-2"></i>{% trans 'المعلومات الأساسية' %}</h4>
+  </div>
+  <div class="section-body">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">{% trans 'اسم الخصم' %} <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" name="name" value="{ form.instance.name }}" required
+               placeholder="{% trans 'مثال: خصم عملاء VIP' %}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">{% trans 'رمز الخصم' %}</label>
+        <div class="input-group">
+          <input type="text" class="form-control" name="code" value="{ form.instance.code }"
+                 placeholder="{% trans 'اختياري - للاستخدام اليدوي' %}">
+          <button class="btn btn-outline-secondary" type="button" onclick="generateCode()">
+            <i class="bi bi-magic"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Value Section -->
+<div class="form-section" id="valueSection">
+  <div class="section-header">
+    <h4><i class="bi bi-calculator me-2"></i>{% trans 'قيمة الخصم' %}</h4>
+  </div>
+  <div class="section-body">
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <div class="row g-3" id="simpleValueSection">
+          <div class="col-md-6">
+            <label class="form-label">{% trans 'القيمة' %} <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <input type="number" class="form-control" name="value" id="discountValue" value="10" min="0" step="0.01" oninput="updatePreview()">
+              <span class="input-group-text" id="valueSuffix">%</span>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">{% trans 'الحد الأقصى للخصم' %}</label>
+            <div class="input-group">
+              <input type="number" class="form-control" name="max_discount" placeholder="{% trans 'بدون حد' %}">
+              <span class="input-group-text">{% trans 'ج.م' %}</span>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">{% trans 'الحد الأدنى للطلب' %}</label>
+            <div class="input-group">
+              <input type="number" class="form-control" name="min_order" placeholder="{% trans 'بدون حد' %}">
+              <span class="input-group-text">{% trans 'ج.م' %}</span>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">{% trans 'عدد الاستخدامات المسموح' %}</label>
+            <input type="number" class="form-control" name="max_uses" placeholder="{% trans 'بدون حد' %}">
+          </div>
+        </div>
+        
+        <!-- Tiered Section -->
+        <div id="tieredSection" style="display: none;">
+          <div class="table-responsive"><table class="tiered-table">
+            <thead>
+              <tr>
+                <th style="width: 25%;">{% trans 'من' %}</th>
+                <th style="width: 25%;">{% trans 'إلى' %}</th>
+                <th style="width: 25%;">{% trans 'الخصم' %}</th>
+                <th style="width: 25%;">{% trans 'إجراء' %}</th>
+              </tr>
+            </thead>
+            <tbody id="tieredRows">
+              <tr>
+                <td><input type="number" value="0" min="0"></td>
+                <td><input type="number" value="100" min="0"></td>
+                <td>
+                  <div class="input-group">
+                    <input type="number" value="5" min="0" max="100">
+                    <span class="input-group-text">%</span>
+                  </div>
+                </td>
+                <td><button class="btn btn-sm btn-outline-danger" onclick="removeTier(this)"><i class="bi bi-trash"></i></button></td>
+              </tr>
+              <tr>
+                <td><input type="number" value="101" min="0"></td>
+                <td><input type="number" value="500" min="0"></td>
+                <td>
+                  <div class="input-group">
+                    <input type="number" value="10" min="0" max="100">
+                    <span class="input-group-text">%</span>
+                  </div>
+                </td>
+                <td><button class="btn btn-sm btn-outline-danger" onclick="removeTier(this)"><i class="bi bi-trash"></i></button></td>
+              </tr>
+              <tr>
+                <td><input type="number" value="501" min="0"></td>
+                <td><input type="number" placeholder="∞"></td>
+                <td>
+                  <div class="input-group">
+                    <input type="number" value="15" min="0" max="100">
+                    <span class="input-group-text">%</span>
+                  </div>
+                </td>
+                <td><button class="btn btn-sm btn-outline-danger" onclick="removeTier(this)"><i class="bi bi-trash"></i></button></td>
+              </tr>
+            </tbody>
+          </table></div>
+          <button type="button" class="add-tier-btn" onclick="addTier()">
+            <i class="bi bi-plus me-1"></i>{% trans 'إضافة مستوى' %}
+          </button>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="value-preview">
+          <div class="label">{% trans 'معاينة قيمة الخصم' %}</div>
+          <div class="value" id="previewValue">10<span class="suffix">%</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Date Range Section -->
+<div class="form-section">
+  <div class="section-header">
+    <h4><i class="bi bi-calendar-range me-2"></i>{% trans 'فترة الصلاحية' %}</h4>
+  </div>
+  <div class="section-body">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">{% trans 'تاريخ البداية' %} <span class="text-danger">*</span></label>
+        <input type="date" class="form-control" name="start_date" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">{% trans 'تاريخ النهاية' %}</label>
+        <input type="date" class="form-control" name="end_date" placeholder="{% trans 'بدون نهاية' %}">
+      </div>
+    </div>
+    <div class="form-check mt-3">
+      <input class="form-check-input" type="checkbox" id="noExpiry">
+      <label class="form-check-label" for="noExpiry">{% trans 'بدون تاريخ انتهاء' %}</label>
+    </div>
+  </div>
+</div>
+
+<!-- Customers Section -->
+<div class="form-section">
+  <div class="section-header">
+    <h4><i class="bi bi-people me-2"></i>{% trans 'العملاء المستفيدين' %}</h4>
+  </div>
+  <div class="section-body">
+    <div class="mb-3">
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="customer_scope" id="allCustomers" value="all" checked>
+        <label class="form-check-label" for="allCustomers">{% trans 'جميع العملاء' %}</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="customer_scope" id="selectedCustomers" value="selected">
+        <label class="form-check-label" for="selectedCustomers">{% trans 'عملاء محددين' %}</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="customer_scope" id="categoryCustomers" value="category">
+        <label class="form-check-label" for="categoryCustomers">{% trans 'فئة عملاء' %}</label>
+      </div>
+    </div>
+    
+    <div class="customers-select-area" id="customerSelectArea" style="display: none;">
+      <div class="customer-search">
+        <input type="text" class="form-control" placeholder="{% trans 'بحث عن عميل...' %}">
+      </div>
+      <div class="customer-list">
+        <div class="customer-item" onclick="toggleCustomer(this)">
+          <div class="checkbox"><i class="bi bi-check"></i></div>
+          <div class="customer-avatar">أح</div>
+          <div>
+            <strong>{% trans 'أحمد محمد' %}</strong>
+            <small class="d-block text-muted">C-001</small>
+          </div>
+        </div>
+        <div class="customer-item selected" onclick="toggleCustomer(this)">
+          <div class="checkbox"><i class="bi bi-check"></i></div>
+          <div class="customer-avatar">سع</div>
+          <div>
+            <strong>{% trans 'سعيد علي' %}</strong>
+            <small class="d-block text-muted">C-002</small>
+          </div>
+        </div>
+        <div class="customer-item" onclick="toggleCustomer(this)">
+          <div class="checkbox"><i class="bi bi-check"></i></div>
+          <div class="customer-avatar">خا</div>
+          <div>
+            <strong>{% trans 'خالد عبدالله' %}</strong>
+            <small class="d-block text-muted">C-003</small>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="categorySelectArea" style="display: none;">
+      <select class="form-select" name="customer_category">
+        <option value="">{% trans 'اختر فئة العملاء' %}</option>
+        <option value="vip">{% trans 'عملاء VIP' %}</option>
+        <option value="wholesale">{% trans 'تجار الجملة' %}</option>
+        <option value="retail">{% trans 'عملاء التجزئة' %}</option>
+        <option value="new">{% trans 'عملاء جدد' %}</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- Products Section -->
+<div class="form-section">
+  <div class="section-header">
+    <h4><i class="bi bi-box me-2"></i>{% trans 'المنتجات المشمولة' %}</h4>
+  </div>
+  <div class="section-body">
+    <div class="mb-3">
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="product_scope" id="allProducts" value="all" checked>
+        <label class="form-check-label" for="allProducts">{% trans 'جميع المنتجات' %}</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="product_scope" id="selectedProducts" value="selected">
+        <label class="form-check-label" for="selectedProducts">{% trans 'منتجات محددة' %}</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="product_scope" id="categoryProducts" value="category">
+        <label class="form-check-label" for="categoryProducts">{% trans 'فئة منتجات' %}</label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Notes Section -->
+<div class="form-section">
+  <div class="section-header">
+    <h4><i class="bi bi-sticky me-2"></i>{% trans 'ملاحظات' %}</h4>
+  </div>
+  <div class="section-body">
+    <textarea class="form-control" name="notes" rows="3" placeholder="{% trans 'ملاحظات إضافية عن هذا الخصم...' %}">{{ form.instance.notes }}</textarea>
+  </div>
+</div>
+{% endblock %}
+
+{% block form_actions %}
+<button type="button" class="btn btn-outline-secondary" onclick="window.history.back()">
+  <i class="bi bi-x-lg me-1"></i>{% trans 'إلغاء' %}
+</button>
+<button type="submit" class="btn btn-primary">
+  <i class="bi bi-check-lg me-1"></i>{% if form.instance.pk %}{% trans 'حفظ التغييرات' %}{% else %}{% trans 'إنشاء الخصم' %}{% endif %}
+</button>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function selectType(type) {
+    document.querySelectorAll('.type-option').forEach(el => el.classList.remove('selected'));
+    document.querySelector('.type-option.' + type).classList.add('selected');
+    
+    const valueSuffix = document.getElementById('valueSuffix');
+    const simpleSection = document.getElementById('simpleValueSection');
+    const tieredSection = document.getElementById('tieredSection');
+    
+    if (type === 'percentage') {
+      valueSuffix.textContent = '%';
+      simpleSection.style.display = 'flex';
+      tieredSection.style.display = 'none';
+    } else if (type === 'fixed') {
+      valueSuffix.textContent = 'ج.م';
+      simpleSection.style.display = 'flex';
+      tieredSection.style.display = 'none';
+    } else {
+      simpleSection.style.display = 'none';
+      tieredSection.style.display = 'block';
+    }
+    updatePreview();
+  }
+  
+  function updatePreview() {
+    const value = document.getElementById('discountValue').value || 0;
+    const suffix = document.getElementById('valueSuffix').textContent;
+    document.getElementById('previewValue').innerHTML = value + '<span class="suffix">' + suffix + '</span>';
+  }
+  
+  function generateCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    document.querySelector('input[name="code"]').value = code;
+  }
+  
+  function toggleCustomer(el) {
+    el.classList.toggle('selected');
+  }
+  
+  function addTier() {
+    const tbody = document.getElementById('tieredRows');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="number" min="0"></td>
+      <td><input type="number" min="0"></td>
+      <td>
+        <div class="input-group">
+          <input type="number" min="0" max="100">
+          <span class="input-group-text">%</span>
+        </div>
+      </td>
+      <td><button class="btn btn-sm btn-outline-danger" onclick="removeTier(this)"><i class="bi bi-trash"></i></button></td>
+    `;
+    tbody.appendChild(tr);
+  }
+  
+  function removeTier(btn) {
+    btn.closest('tr').remove();
+  }
+  
+  // Customer scope toggle
+  document.querySelectorAll('input[name="customer_scope"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+      document.getElementById('customerSelectArea').style.display = this.value === 'selected' ? 'block' : 'none';
+      document.getElementById('categorySelectArea').style.display = this.value === 'category' ? 'block' : 'none';
+    });
+  });
+</script>
+{% endblock %}
+

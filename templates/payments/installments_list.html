@@ -1,0 +1,205 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load i18n %}
+{% block title %}{% trans 'إدارة الأقساط' %} - المحاسب الشامل{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-3">
+  <h1 class="h5 fw-semibold mb-0">
+    <i class="bi bi-calendar-check text-primary me-2"></i>
+    {% trans 'إدارة الأقساط' %}
+  </h1>
+  <div class="d-flex gap-2">
+    <a href="{% url 'payments:loans_list' %}" class="btn btn-outline-primary btn-sm">
+      <i class="bi bi-list-ul"></i> {% trans 'القروض' %}
+    </a>
+  </div>
+</div>
+
+<!-- فلاتر البحث -->
+<div class="ds-card u-card mb-3">
+  <form method="get" class="row g-2 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label small mb-1">{% trans 'حالة القسط' %}</label>
+      <select name="status" class="form-select form-select-sm">
+        <option value="">{% trans 'الكل' %}</option>
+        {% for value, label in status_choices %}
+        <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <div class="form-check mt-4">
+        <input type="checkbox" class="form-check-input" id="overdue" name="overdue" value="1" {% if request.GET.overdue %}checked{% endif %}>
+        <label class="form-check-label small" for="overdue">{% trans 'المتأخرة فقط' %}</label>
+      </div>
+    </div>
+    <div class="col-md-3 d-flex gap-2">
+      <button class="btn btn-primary btn-sm flex-grow-1">
+        <i class="bi bi-search"></i> {% trans 'بحث' %}
+      </button>
+      <a href="?" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-x"></i>
+      </a>
+    </div>
+  </form>
+</div>
+
+<!-- جدول الأقساط -->
+<div class="ds-card u-card">
+  <div class="ds-card-header">
+    <i class="bi bi-calendar2-check text-primary"></i>
+    <span class="fw-semibold">{% trans 'الأقساط' %}</span>
+    {% if installments %}
+    <span class="ds-badge" data-variant="info">{{ installments.paginator.count }} {% trans 'قسط' %}</span>
+    {% endif %}
+  </div>
+  <div class="ds-card-body">
+    {% if installments %}
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>{% trans 'رقم القرض' %}</th>
+            <th>{% trans 'المقترض' %}</th>
+            <th>{% trans 'رقم القسط' %}</th>
+            <th>{% trans 'تاريخ الاستحقاق' %}</th>
+            <th class="text-nowrap">{% trans 'المبلغ' %}</th>
+            <th class="text-nowrap">{% trans 'المدفوع' %}</th>
+            <th class="text-nowrap">{% trans 'المتبقي' %}</th>
+            <th>{% trans 'الحالة' %}</th>
+            <th class="text-end">{% trans 'إجراءات' %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for installment in installments %}
+          <tr class="{% if installment.is_overdue %}table-danger{% endif %}">
+            <td>
+              <a href="{% url 'payments:loan_detail' installment.loan.pk %}" class="text-decoration-none fw-semibold">
+                {{ installment.loan.loan_number }}
+              </a>
+            </td>
+            <td class="small">{{ installment.loan.borrower.name }}</td>
+            <td class="small text-center">
+              <span class="badge bg-secondary">{{ installment.installment_number }}</span>
+            </td>
+            <td class="small {% if installment.is_overdue %}text-danger fw-bold{% endif %}">
+              {{ installment.due_date|date:'Y-m-d' }}
+              {% if installment.is_overdue %}
+              <i class="bi bi-exclamation-triangle-fill text-danger ms-1" title="{% trans 'متأخر' %}"></i>
+              {% endif %}
+            </td>
+            <td class="small">{{ installment.amount|floatformat:2 }}</td>
+            <td class="small">{{ installment.paid_amount|floatformat:2 }}</td>
+            <td class="small">
+              <span class="remaining-amount" data-amount="{{ installment.amount }}" data-paid="{{ installment.paid_amount }}">
+                {{ installment.amount|add:"-installment.paid_amount"|floatformat:2 }}
+              </span>
+            </td>
+            <td class="small">
+              {% if installment.status == 'paid' %}
+                <span class="badge bg-success">{% trans 'مدفوع' %}</span>
+              {% elif installment.status == 'partially_paid' %}
+                <span class="badge bg-warning text-dark">{% trans 'مدفوع جزئياً' %}</span>
+              {% elif installment.status == 'overdue' or installment.is_overdue %}
+                <span class="badge bg-danger">{% trans 'متأخر' %}</span>
+              {% else %}
+                <span class="badge bg-secondary">{% trans 'معلق' %}</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <div class="btn-group btn-group-sm">
+                <a href="{% url 'payments:loan_detail' installment.loan.pk %}" class="btn btn-outline-primary" title="{% trans 'عرض القرض' %}">
+                  <i class="bi bi-eye"></i>
+                </a>
+                {% if installment.status != 'paid' %}
+                <a href="{% url 'payments:installment_pay' installment.pk %}" class="btn btn-outline-success" title="{% trans 'دفع' %}">
+                  <i class="bi bi-cash-coin"></i>
+                </a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ترقيم الصفحات -->
+    {% if installments.has_other_pages %}
+    <nav class="mt-3">
+      <ul class="pagination pagination-sm justify-content-center mb-0">
+        {% if installments.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page=1{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.overdue %}&overdue=1{% endif %}">
+            <i class="bi bi-chevron-double-right"></i>
+          </a>
+        </li>
+        <li class="page-item">
+          <a class="page-link" href="?page={{ installments.previous_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.overdue %}&overdue=1{% endif %}">
+            <i class="bi bi-chevron-right"></i>
+          </a>
+        </li>
+        {% endif %}
+        
+        <li class="page-item active">
+          <span class="page-link">{{ installments.number }} / {{ installments.paginator.num_pages }}</span>
+        </li>
+        
+        {% if installments.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ installments.next_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.overdue %}&overdue=1{% endif %}">
+            <i class="bi bi-chevron-left"></i>
+          </a>
+        </li>
+        <li class="page-item">
+          <a class="page-link" href="?page={{ installments.paginator.num_pages }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.overdue %}&overdue=1{% endif %}">
+            <i class="bi bi-chevron-double-left"></i>
+          </a>
+        </li>
+        {% endif %}
+      </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-5">
+      <i class="bi bi-calendar-x display-4 text-muted"></i>
+      <h5 class="text-muted mt-3">{% trans 'لا توجد أقساط' %}</h5>
+      <p class="small mb-3">{% trans 'لم يتم العثور على أقساط تطابق معايير البحث.' %}</p>
+      <a href="{% url 'payments:loans_list' %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-list-ul"></i> {% trans 'عرض القروض' %}
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- إحصائيات سريعة -->
+{% if installments %}
+<div class="row g-3 mt-2">
+  <div class="col-md-3">
+    <div class="ds-card u-card text-center p-3">
+      <div class="text-muted small mb-1">{% trans 'إجمالي الأقساط' %}</div>
+      <div class="h5 mb-0 text-primary">{{ installments.paginator.count }}</div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // حساب المتبقي
+  document.querySelectorAll('.remaining-amount').forEach(function(el) {
+    const amount = parseFloat(el.dataset.amount || 0);
+    const paid = parseFloat(el.dataset.paid || 0);
+    const remaining = amount - paid;
+    el.textContent = remaining.toFixed(2);
+    if (remaining > 0) {
+      el.classList.add('text-danger', 'fw-bold');
+    }
+  });
+});
+</script>
+{% endblock %}

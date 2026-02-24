@@ -1,0 +1,205 @@
+{% extends BASE_TEMPLATE %}
+{% load static i18n %}
+
+{% block title %}{% trans 'إذن صرف جديد' %} - {{ title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .form-card {
+        background: var(--bg-card, #fff);
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .form-card .card-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--primary, #1e3a5f);
+        margin-bottom: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .form-label-required::after {
+        content: " *";
+        color: #dc3545;
+    }
+    .info-box {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    .info-box .value {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    .info-box .label {
+        font-size: 0.85rem;
+        opacity: 0.9;
+    }
+    .dept-option {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 1rem;
+        border: 2px solid var(--border-color, #e5e7eb);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-align: center;
+    }
+    .dept-option:hover {
+        border-color: var(--primary, #1e3a5f);
+    }
+    .dept-option.selected {
+        border-color: var(--primary, #1e3a5f);
+        background: rgba(30, 58, 95, 0.05);
+    }
+    .dept-option i {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+    }
+    .dept-option input {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h4 mb-1">
+                <i class="bi bi-box-arrow-up text-danger me-2"></i>
+                {{ title }}
+            </h1>
+            <p class="text-muted mb-0">{% trans 'صرف مواد من المستودع' %}</p>
+        </div>
+        <a href="{% url 'inventory:issue_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i> {% trans 'العودة للقائمة' %}
+        </a>
+    </div>
+
+    <form method="post" id="issueForm">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-lg-8">
+                <!-- معلومات أساسية -->
+                <div class="form-card">
+                    <h5 class="card-title">
+                        <i class="bi bi-info-circle"></i>
+                        {% trans 'البيانات الأساسية' %}
+                    </h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label form-label-required">{% trans 'المستودع / الموقع' %}</label>
+                            <select class="form-select" name="location" required>
+                                <option value="">{% trans '-- اختر المستودع --' %}</option>
+                                {% for loc in locations %}
+                                <option value="{{ loc.id }}">{{ loc.name }}{% if loc.code %} ({{ loc.code }}){% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans 'رقم مرجعي' %}</label>
+                            <input type="text" class="form-control" name="reference" placeholder="{% trans 'رقم مرجعي (اختياري)' %}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- الجهة المستلمة -->
+                <div class="form-card">
+                    <h5 class="card-title">
+                        <i class="bi bi-people"></i>
+                        {% trans 'الجهة المستلمة' %}
+                    </h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label form-label-required">{% trans 'القسم / الجهة' %}</label>
+                            <select class="form-select" name="to_department" required>
+                                <option value="">{% trans '-- اختر القسم --' %}</option>
+                                <option value="production">{% trans 'الإنتاج' %}</option>
+                                <option value="sales">{% trans 'المبيعات' %}</option>
+                                <option value="maintenance">{% trans 'الصيانة' %}</option>
+                                <option value="admin">{% trans 'الإدارة' %}</option>
+                                <option value="other">{% trans 'أخرى' %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans 'اسم المستلم' %}</label>
+                            <input type="text" class="form-control" name="received_by_name" placeholder="{% trans 'اسم الشخص المستلم' %}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- طريقة التخصيص -->
+                <div class="form-card">
+                    <h5 class="card-title">
+                        <i class="bi bi-sliders"></i>
+                        {% trans 'إعدادات الصرف' %}
+                    </h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans 'طريقة تخصيص المخزون' %}</label>
+                            <select class="form-select" name="allocation_method">
+                                <option value="fifo" selected>{% trans 'FIFO - الأول يصرف أولاً' %}</option>
+                                <option value="lifo">{% trans 'LIFO - الأخير يصرف أولاً' %}</option>
+                                <option value="fefo">{% trans 'FEFO - الأقرب انتهاءً يصرف أولاً' %}</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ملاحظات -->
+                <div class="form-card">
+                    <h5 class="card-title">
+                        <i class="bi bi-sticky"></i>
+                        {% trans 'ملاحظات' %}
+                    </h5>
+                    <textarea class="form-control" name="notes" rows="3" 
+                              placeholder="{% trans 'أي ملاحظات على الصرف...' %}"></textarea>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <div class="info-box">
+                    <div class="value"><i class="bi bi-box-arrow-up"></i></div>
+                    <div class="label">{% trans 'إذن صرف جديد' %}</div>
+                </div>
+
+                <!-- تعليمات -->
+                <div class="form-card">
+                    <h5 class="card-title">
+                        <i class="bi bi-lightbulb"></i>
+                        {% trans 'تعليمات' %}
+                    </h5>
+                    <ul class="small text-muted mb-0">
+                        <li class="mb-2">{% trans 'اختر المستودع الذي سيتم الصرف منه' %}</li>
+                        <li class="mb-2">{% trans 'حدد القسم أو الجهة المستلمة' %}</li>
+                        <li class="mb-2">{% trans 'بعد الحفظ، ستتمكن من إضافة الأصناف المطلوبة' %}</li>
+                        <li>{% trans 'يمكنك تأكيد الصرف بعد إضافة جميع البنود' %}</li>
+                    </ul>
+                </div>
+
+                <!-- أزرار الإجراءات -->
+                <div class="form-card">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-danger btn-lg">
+                            <i class="bi bi-check-lg me-1"></i> {% trans 'حفظ' %}
+                        </button>
+                        <a href="{% url 'inventory:issue_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-lg me-1"></i> {% trans 'إلغاء' %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,558 @@
+{% load static %}
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>فاتورة مبيعات #{{ invoice.number }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-purple: #8b5cf6;
+            --secondary-purple: #a78bfa;
+            --danger-red: #ef4444;
+            --success-green: #10b981;
+            --text-dark: #1f2937;
+        }
+
+        body {
+            font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 0;
+        }
+
+        .invoice-header {
+            background: linear-gradient(135deg, var(--primary-purple) 0%, var(--secondary-purple) 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .invoice-header h1 {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .invoice-header .company-info {
+            margin-top: 15px;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .invoice-card {
+            background: white;
+            border-radius: 0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .invoice-info-section {
+            padding: 30px;
+            border-bottom: 2px dashed #e5e7eb;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 10px;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #6b7280;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-value {
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        .items-section {
+            padding: 30px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--text-dark);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid var(--primary-purple);
+        }
+
+        .items-table {
+            width: 100%;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .items-table thead th {
+            background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-weight: 600;
+            border: none;
+        }
+
+        .items-table tbody td {
+            padding: 15px;
+            text-align: center;
+            vertical-align: middle;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .items-table tbody tr:hover {
+            background: #f9fafb;
+        }
+
+        .items-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .summary-section {
+            padding: 30px;
+            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+        }
+
+        .summary-box {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .summary-box h5 {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--text-dark);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 15px;
+        }
+
+        .summary-row:last-child {
+            border-bottom: none;
+            padding-top: 15px;
+            margin-top: 10px;
+            border-top: 2px solid var(--primary-purple);
+        }
+
+        .summary-row.total {
+            font-size: 22px;
+            font-weight: bold;
+            color: var(--primary-purple);
+        }
+
+        .summary-label {
+            color: #6b7280;
+            font-weight: 600;
+        }
+
+        .summary-value {
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        .total .summary-value {
+            color: var(--primary-purple);
+        }
+
+        .badge-status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .badge-paid {
+            background: linear-gradient(135deg, var(--success-green) 0%, #059669 100%);
+            color: white;
+        }
+
+        .badge-partial {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+        }
+
+        .badge-unpaid {
+            background: linear-gradient(135deg, var(--danger-red) 0%, #dc2626 100%);
+            color: white;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 30px;
+            background: white;
+            border-top: 2px solid #e5e7eb;
+        }
+
+        .btn-beautiful {
+            padding: 12px 30px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            border: none;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-print {
+            background: linear-gradient(135deg, var(--success-green) 0%, #059669 100%);
+            color: white;
+        }
+
+        .btn-edit {
+            background: linear-gradient(135deg, var(--primary-purple) 0%, var(--secondary-purple) 100%);
+            color: white;
+        }
+
+        .btn-delete {
+            background: linear-gradient(135deg, var(--danger-red) 0%, #dc2626 100%);
+            color: white;
+        }
+
+        .btn-back {
+            background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+            color: white;
+        }
+
+        .btn-beautiful:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #9ca3af;
+        }
+
+        .empty-state i {
+            font-size: 80px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .notes-section {
+            padding: 30px;
+            background: #fffbeb;
+            border-top: 2px solid #fbbf24;
+        }
+
+        .notes-section h5 {
+            color: #92400e;
+            font-weight: bold;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .notes-section p {
+            color: #78350f;
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        @media print {
+            .action-buttons {
+                display: none !important;
+            }
+            
+            body {
+                background: white;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .items-table {
+                font-size: 12px;
+            }
+            
+            .items-table thead th, .items-table tbody td {
+                padding: 10px 5px;
+            }
+
+            .btn-beautiful {
+                padding: 10px 20px;
+                font-size: 13px;
+            }
+
+            .summary-row {
+                font-size: 13px;
+            }
+
+            .summary-row.total {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <div class="invoice-header">
+                    <h1>
+                        <i class="fas fa-file-invoice"></i>
+                        فاتورة مبيعات #{{ invoice.number }}
+                    </h1>
+                    <div class="company-info">
+                        <strong>شركة كيانك للتشطيبات</strong><br>
+                        العنوان: مدينة نصر - القاهرة - مصر<br>
+                        التلفون: +20 123 456 7890 | البريد الإلكتروني: info@kayanac.com<br>
+                        السجل التجاري: 123456 | الرقم الضريبي: 987654321
+                    </div>
+                </div>
+
+                <div class="invoice-card">
+                    <!-- معلومات الفاتورة -->
+                    <div class="invoice-info-section">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <div class="info-label">
+                                        <i class="fas fa-user"></i>
+                                        العميل
+                                    </div>
+                                    <div class="info-value">{{ invoice.customer.name }}</div>
+                                </div>
+                                <div class="info-row">
+                                    <div class="info-label">
+                                        <i class="fas fa-calendar"></i>
+                                        تاريخ الفاتورة
+                                    </div>
+                                    <div class="info-value">{{ invoice.date|date:"Y-m-d" }}</div>
+                                </div>
+                                {% if invoice.due_date %}
+                                <div class="info-row">
+                                    <div class="info-label">
+                                        <i class="fas fa-clock"></i>
+                                        تاريخ الاستحقاق
+                                    </div>
+                                    <div class="info-value">{{ invoice.due_date|date:"Y-m-d" }}</div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                {% if invoice.payment_method %}
+                                <div class="info-row">
+                                    <div class="info-label">
+                                        <i class="fas fa-credit-card"></i>
+                                        طريقة الدفع
+                                    </div>
+                                    <div class="info-value">{{ invoice.payment_method.name }}</div>
+                                </div>
+                                {% endif %}
+                                {% if invoice.payment_reference %}
+                                <div class="info-row">
+                                    <div class="info-label">
+                                        <i class="fas fa-receipt"></i>
+                                        مرجع الدفع
+                                    </div>
+                                    <div class="info-value">{{ invoice.payment_reference }}</div>
+                                </div>
+                                {% endif %}
+                                <div class="info-row">
+                                    <div class="info-label">
+                                        <i class="fas fa-info-circle"></i>
+                                        حالة الدفع
+                                    </div>
+                                    <div class="info-value">
+                                        {% if invoice.remaining <= 0 %}
+                                            <span class="badge-status badge-paid">مدفوعة بالكامل</span>
+                                        {% elif invoice.paid > 0 %}
+                                            <span class="badge-status badge-partial">مدفوعة جزئياً</span>
+                                        {% else %}
+                                            <span class="badge-status badge-unpaid">غير مدفوعة</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- جدول المنتجات -->
+                    <div class="items-section">
+                        <div class="section-title">
+                            <i class="fas fa-list"></i>
+                            تفاصيل المنتجات
+                        </div>
+
+                        {% if invoice.items.all %}
+                        <div class="table-responsive"><table class="items-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>المنتج</th>
+                                    <th>الكمية</th>
+                                    <th>السعر</th>
+                                    <th>الخصم</th>
+                                    <th>المخزن</th>
+                                    <th>الإجمالي</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in invoice.items.all %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td><strong>{{ item.product.name }}</strong></td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>{{ item.price|floatformat:2 }} ج.م</td>
+                                    <td>0%</td>
+                                    <td>{{ item.location.name }}</td>
+                                    <td><strong>{{ item.total|floatformat:2 }} ج.م</strong></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table></div>
+                        {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-box-open"></i>
+                            <p>لا توجد منتجات في هذه الفاتورة</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- ملخص المبالغ -->
+                    <div class="summary-section">
+                        <div class="row">
+                            <div class="col-md-6 offset-md-6">
+                                <div class="summary-box">
+                                    <h5>
+                                        <i class="fas fa-calculator"></i>
+                                        ملخص المبالغ
+                                    </h5>
+                                    
+                                    <div class="summary-row">
+                                        <div class="summary-label">الإجمالي الفرعي:</div>
+                                        <div class="summary-value">{{ invoice.total|floatformat:2 }} ج.م</div>
+                                    </div>
+                                    
+                                    {% if invoice.discount > 0 %}
+                                    <div class="summary-row">
+                                        <div class="summary-label">الخصم:</div>
+                                        <div class="summary-value" style="color: var(--danger-red);">- {{ invoice.discount|floatformat:2 }} ج.م</div>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <div class="summary-row">
+                                        <div class="summary-label">الضريبة (14%):</div>
+                                        <div class="summary-value">
+                                            {% widthratio invoice.total 1 0.14 as tax %}
+                                            {{ tax|floatformat:2 }} ج.م
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="summary-row total">
+                                        <div class="summary-label">الإجمالي النهائي:</div>
+                                        <div class="summary-value">{{ invoice.total|floatformat:2 }} ج.م</div>
+                                    </div>
+
+                                    {% if invoice.paid > 0 %}
+                                    <div class="summary-row" style="color: var(--success-green); border-top: 2px solid #e5e7eb; padding-top: 15px; margin-top: 10px;">
+                                        <div class="summary-label">المدفوع:</div>
+                                        <div class="summary-value">{{ invoice.paid|floatformat:2 }} ج.م</div>
+                                    </div>
+                                    {% endif %}
+
+                                    {% if invoice.remaining > 0 %}
+                                    <div class="summary-row" style="color: var(--danger-red);">
+                                        <div class="summary-label">المتبقي:</div>
+                                        <div class="summary-value">{{ invoice.remaining|floatformat:2 }} ج.م</div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ملاحظات -->
+                    {% if invoice.is_tax_inclusive or invoice.is_withholding_applied %}
+                    <div class="notes-section">
+                        <h5>
+                            <i class="fas fa-sticky-note"></i>
+                            ملاحظات
+                        </h5>
+                        <p>
+                            {% if invoice.is_tax_inclusive %}
+                            <i class="fas fa-check-circle"></i> الأسعار تشمل ضريبة القيمة المضافة<br>
+                            {% endif %}
+                            {% if invoice.is_withholding_applied %}
+                            <i class="fas fa-check-circle"></i> تم تطبيق خصم من المنبع<br>
+                            {% endif %}
+                        </p>
+                    </div>
+                    {% endif %}
+
+                    <!-- أزرار الإجراءات -->
+                    <div class="action-buttons">
+                        {% include 'sales/invoice_remote_print.html' with invoice=invoice %}
+                        <a href="{% url 'sales:invoice_direct_print_a4' invoice.pk %}" target="_blank" class="btn-beautiful btn-print" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
+                            <i class="fas fa-print"></i>
+                            🖨️ طباعة مباشرة A4
+                        </a>
+                        <a href="{% url 'sales:invoice_print' invoice.pk %}" target="_blank" class="btn-beautiful btn-print">
+                            <i class="fas fa-file-alt"></i>
+                            عرض الطباعة
+                        </a>
+                        <a href="{% url 'sales:invoice_edit' invoice.pk %}" class="btn-beautiful btn-edit">
+                            <i class="fas fa-edit"></i>
+                            تعديل الفاتورة
+                        </a>
+                        <a href="{% url 'sales:invoice_add_payment' invoice.pk %}" class="btn-beautiful btn-edit">
+                            <i class="fas fa-money-bill-wave"></i>
+                            إضافة دفعة
+                        </a>
+                        <a href="{% url 'sales:invoice_delete' invoice.pk %}" class="btn-beautiful btn-delete" onclick="return confirm('هل أنت متأكد من حذف هذه الفاتورة؟')">
+                            <i class="fas fa-trash"></i>
+                            حذف الفاتورة
+                        </a>
+                        <a href="{% url 'sales:invoice_list' %}" class="btn-beautiful btn-back">
+                            <i class="fas fa-arrow-right"></i>
+                            العودة للقائمة
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

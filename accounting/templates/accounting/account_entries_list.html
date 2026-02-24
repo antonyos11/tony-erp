@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">
+                <i class="bi bi-journal-text me-2"></i>
+                قيود الحسابات
+            </h4>
+            <div>
+                <a href="{% url 'accounting:supplier_revenue_report' %}" class="btn btn-info me-2">
+                    <i class="bi bi-file-earmark-bar-graph me-2"></i> تقرير الموردين
+                </a>
+                <a href="{% url 'accounting:revenue_create' %}" class="btn btn-success">
+                    <i class="bi bi-plus-circle me-2"></i> إيراد جديد
+                </a>
+                <a href="{% url 'accounting:expense_create' %}" class="btn btn-danger">
+                    <i class="bi bi-plus-circle me-2"></i> منصرف جديد
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- فلاتر -->
+            <form method="get" class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <select name="type" class="form-select" onchange="this.form.submit()">
+                        <option value="">كل الأنواع</option>
+                        <option value="revenue" {% if current_type == 'revenue' %}selected{% endif %}>إيرادات</option>
+                        <option value="expense" {% if current_type == 'expense' %}selected{% endif %}>منصرفات</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <input type="date" name="date_from" class="form-control" placeholder="من تاريخ"
+                           value="{{ request.GET.date_from }}">
+                </div>
+                <div class="col-md-3">
+                    <input type="date" name="date_to" class="form-control" placeholder="إلى تاريخ"
+                           value="{{ request.GET.date_to }}">
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-funnel"></i> فلترة
+                    </button>
+                </div>
+            </form>
+            
+            <!-- ملخص -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="card bg-success bg-opacity-10 border-success">
+                        <div class="card-body text-center">
+                            <h6 class="text-success">إجمالي الإيرادات</h6>
+                            <h3 class="text-success">{{ totals.total_revenue|default:"0.00" }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-danger bg-opacity-10 border-danger">
+                        <div class="card-body text-center">
+                            <h6 class="text-danger">إجمالي المنصرفات</h6>
+                            <h3 class="text-danger">{{ totals.total_expense|default:"0.00" }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-primary bg-opacity-10 border-primary">
+                        <div class="card-body text-center">
+                            <h6 class="text-primary">الصافي</h6>
+                            {% with net=totals.total_revenue|default:0|add:"-"|add:totals.total_expense|default:0 %}
+                            <h3 class="text-primary">{{ net|default:"0.00" }}</h3>
+                            {% endwith %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- الجدول -->
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>النوع</th>
+                            <th>التاريخ</th>
+                            <th>حساب الأستاذ</th>
+                            <th>البيان</th>
+                            <th>صاحب التوريد</th>
+                            <th>تحليل مالي 1</th>
+                            <th>تحليل مالي 2</th>
+                            <th>المبلغ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in entries %}
+                        <tr>
+                            <td>{{ entry.id }}</td>
+                            <td>
+                                {% if entry.entry_type == 'revenue' %}
+                                <span class="badge bg-success">إيراد</span>
+                                {% else %}
+                                <span class="badge bg-danger">منصرف</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ entry.date }}</td>
+                            <td>{{ entry.ledger_account.name }}</td>
+                            <td>{{ entry.description|truncatechars:50 }}</td>
+                            <td>
+                                {% if entry.supplier %}
+                                <span class="badge bg-info">{{ entry.supplier.name }}</span>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>{{ entry.financial_analysis_1.name|default:"-" }}</td>
+                            <td>{{ entry.financial_analysis_2.name|default:"-" }}</td>
+                            <td class="fw-bold {% if entry.entry_type == 'revenue' %}text-success{% else %}text-danger{% endif %}">
+                                {{ entry.amount }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-5">
+                                <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                                لا توجد قيود
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

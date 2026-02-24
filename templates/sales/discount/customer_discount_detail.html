@@ -1,0 +1,465 @@
+﻿{% extends 'base_templates/_detail_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'تفاصيل الخصم' %}: {{ discount.name|default:"خصم VIP" }}{% endblock %}
+{% block page_hero_icon %}bi-percent{% endblock %}
+{% block page_hero_title %}{{ discount.name|default:"خصم VIP" }}{% endblock %}
+{% block page_hero_subtitle %}{{ discount.code|default:"DISC-VIP-2024" }}{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'sales:customer_discount_edit' discount.pk|default:1 %}" class="btn btn-primary">
+  <i class="bi bi-pencil me-1"></i>{% trans 'تعديل' %}
+</a>
+<button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+  <i class="bi bi-trash me-1"></i>{% trans 'حذف' %}
+</button>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .discount-hero-card {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  .discount-hero-card .value {
+    font-size: 4rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .discount-hero-card .label {
+    font-size: 1rem;
+    opacity: 0.9;
+    margin-top: 0.5rem;
+  }
+  .discount-hero-card .type-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    padding: 0.25rem 1rem;
+    border-radius: 2rem;
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+  }
+  
+  .status-pill {
+    padding: 0.5rem 1.5rem;
+    border-radius: 2rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .status-pill.active { background: #10b98120; color: #10b981; }
+  .status-pill.expired { background: #ef444420; color: #ef4444; }
+  .status-pill.upcoming { background: #3b82f620; color: #3b82f6; }
+  
+  .usage-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .usage-stat {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    text-align: center;
+  }
+  .usage-stat .icon {
+    width: 45px;
+    height: 45px;
+    margin: 0 auto 0.75rem;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+  }
+  .usage-stat .value { font-size: 1.5rem; font-weight: 700; }
+  .usage-stat .label { font-size: 0.8rem; color: var(--text-muted); }
+  
+  .progress-ring {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 1rem;
+  }
+  
+  .tier-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .tier-table th, .tier-table td {
+    padding: 0.75rem 1rem;
+    text-align: center;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .tier-table th {
+    background: var(--bg-light);
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+  .tier-table tr:last-child td { border-bottom: none; }
+  .tier-active { background: var(--bg-light); }
+  
+  .customer-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .customer-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--bg-light);
+    border-radius: 2rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+  }
+  .customer-chip .avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+  
+  .usage-timeline {
+    position: relative;
+    padding-right: 2rem;
+  }
+  .usage-timeline::before {
+    content: '';
+    position: absolute;
+    right: 0.5rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border-color);
+  }
+  .usage-item {
+    position: relative;
+    padding-bottom: 1.5rem;
+    padding-right: 1.5rem;
+  }
+  .usage-item::before {
+    content: '';
+    position: absolute;
+    right: -2rem;
+    top: 0.5rem;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 2px solid white;
+  }
+  .usage-item .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+  }
+  .usage-item .customer { font-weight: 600; }
+  .usage-item .invoice { font-size: 0.85rem; color: var(--text-muted); }
+  .usage-item .amount {
+    font-weight: 700;
+    color: #10b981;
+  }
+</style>
+{% endblock %}
+
+{% block detail_content %}
+<div class="row g-4">
+  <!-- Main Content -->
+  <div class="col-lg-8">
+    <!-- Discount Value Card -->
+    <div class="discount-hero-card">
+      <span class="type-badge"><i class="bi bi-percent me-1"></i>{% trans 'نسبة مئوية' %}</span>
+      <div class="value">15<span style="font-size: 2rem;">%</span></div>
+      <div class="label">{% trans 'قيمة الخصم' %}</div>
+    </div>
+    
+    <!-- Usage Statistics -->
+    <div class="usage-stats">
+      <div class="usage-stat">
+        <div class="icon bg-primary text-white"><i class="bi bi-people"></i></div>
+        <div class="value">68</div>
+        <div class="label">{% trans 'عملاء مستفيدين' %}</div>
+      </div>
+      <div class="usage-stat">
+        <div class="icon bg-success text-white"><i class="bi bi-receipt"></i></div>
+        <div class="value">245</div>
+        <div class="label">{% trans 'مرات الاستخدام' %}</div>
+      </div>
+      <div class="usage-stat">
+        <div class="icon bg-warning text-white"><i class="bi bi-currency-dollar"></i></div>
+        <div class="value">12.5K</div>
+        <div class="label">{% trans 'إجمالي التوفير' %}</div>
+      </div>
+      <div class="usage-stat">
+        <div class="icon bg-info text-white"><i class="bi bi-graph-up"></i></div>
+        <div class="value">+23%</div>
+        <div class="label">{% trans 'نمو المبيعات' %}</div>
+      </div>
+    </div>
+    
+    <!-- Details Sections -->
+    <div class="info-card mb-4">
+      <div class="info-card-header">
+        <h5><i class="bi bi-info-circle me-2"></i>{% trans 'تفاصيل الخصم' %}</h5>
+      </div>
+      <div class="info-card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="info-item">
+              <span class="info-label">{% trans 'الاسم' %}</span>
+              <span class="info-value">{% trans 'خصم عملاء VIP' %}</span>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="info-item">
+              <span class="info-label">{% trans 'الرمز' %}</span>
+              <span class="info-value"><code>VIP-2024</code></span>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="info-item">
+              <span class="info-label">{% trans 'الحد الأدنى للطلب' %}</span>
+              <span class="info-value">500 {% trans 'ج.م' %}</span>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="info-item">
+              <span class="info-label">{% trans 'الحد الأقصى للخصم' %}</span>
+              <span class="info-value">1,000 {% trans 'ج.م' %}</span>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="info-item">
+              <span class="info-label">{% trans 'تاريخ البداية' %}</span>
+              <span class="info-value">01/01/2024</span>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="info-item">
+              <span class="info-label">{% trans 'تاريخ النهاية' %}</span>
+              <span class="info-value">31/12/2024</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Beneficiary Customers -->
+    <div class="info-card mb-4">
+      <div class="info-card-header">
+        <h5><i class="bi bi-people me-2"></i>{% trans 'العملاء المستفيدين' %}</h5>
+        <span class="badge bg-primary">68 {% trans 'عميل' %}</span>
+      </div>
+      <div class="info-card-body">
+        <div class="customer-chips">
+          <span class="customer-chip">
+            <span class="avatar">أح</span>
+            {% trans 'أحمد محمد' %}
+          </span>
+          <span class="customer-chip">
+            <span class="avatar">سع</span>
+            {% trans 'سعيد علي' %}
+          </span>
+          <span class="customer-chip">
+            <span class="avatar">خا</span>
+            {% trans 'خالد عبدالله' %}
+          </span>
+          <span class="customer-chip">
+            <span class="avatar">مح</span>
+            {% trans 'محمد ياسر' %}
+          </span>
+          <span class="customer-chip">
+            <span class="avatar">عب</span>
+            {% trans 'عبدالرحمن' %}
+          </span>
+          <button class="customer-chip" style="background: var(--primary); color: white;">
+            +63 {% trans 'آخرين' %}
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Recent Usage -->
+    <div class="info-card">
+      <div class="info-card-header">
+        <h5><i class="bi bi-clock-history me-2"></i>{% trans 'آخر الاستخدامات' %}</h5>
+        <a href="#" class="btn btn-sm btn-outline-primary">{% trans 'عرض الكل' %}</a>
+      </div>
+      <div class="info-card-body">
+        <div class="usage-timeline">
+          <div class="usage-item">
+            <div class="header">
+              <div>
+                <div class="customer">{% trans 'أحمد محمد' %}</div>
+                <div class="invoice">{% trans 'فاتورة' %} #INV-2024-0156</div>
+              </div>
+              <div class="text-end">
+                <div class="amount">- 150 {% trans 'ج.م' %}</div>
+                <small class="text-muted">{% trans 'منذ ساعتين' %}</small>
+              </div>
+            </div>
+          </div>
+          <div class="usage-item">
+            <div class="header">
+              <div>
+                <div class="customer">{% trans 'سعيد علي' %}</div>
+                <div class="invoice">{% trans 'فاتورة' %} #INV-2024-0154</div>
+              </div>
+              <div class="text-end">
+                <div class="amount">- 230 {% trans 'ج.م' %}</div>
+                <small class="text-muted">{% trans 'منذ 5 ساعات' %}</small>
+              </div>
+            </div>
+          </div>
+          <div class="usage-item">
+            <div class="header">
+              <div>
+                <div class="customer">{% trans 'خالد عبدالله' %}</div>
+                <div class="invoice">{% trans 'فاتورة' %} #INV-2024-0151</div>
+              </div>
+              <div class="text-end">
+                <div class="amount">- 85 {% trans 'ج.م' %}</div>
+                <small class="text-muted">{% trans 'أمس' %}</small>
+              </div>
+            </div>
+          </div>
+          <div class="usage-item">
+            <div class="header">
+              <div>
+                <div class="customer">{% trans 'محمد ياسر' %}</div>
+                <div class="invoice">{% trans 'فاتورة' %} #INV-2024-0148</div>
+              </div>
+              <div class="text-end">
+                <div class="amount">- 320 {% trans 'ج.م' %}</div>
+                <small class="text-muted">{% trans 'منذ يومين' %}</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Sidebar -->
+  <div class="col-lg-4">
+    <!-- Status Card -->
+    <div class="info-card mb-4">
+      <div class="info-card-header">
+        <h5><i class="bi bi-activity me-2"></i>{% trans 'الحالة' %}</h5>
+      </div>
+      <div class="info-card-body text-center">
+        <span class="status-pill active">
+          <i class="bi bi-check-circle-fill"></i>
+          {% trans 'نشط' %}
+        </span>
+        <div class="mt-3">
+          <small class="text-muted">{% trans 'متبقي' %}</small>
+          <h4 class="mb-0">245 {% trans 'يوم' %}</h4>
+        </div>
+        <div class="progress mt-2" style="height: 6px;">
+          <div class="progress-bar bg-success" style="width: 33%;"></div>
+        </div>
+        <small class="text-muted">{% trans 'انتهى 33% من الفترة' %}</small>
+      </div>
+    </div>
+    
+    <!-- Usage Limit -->
+    <div class="info-card mb-4">
+      <div class="info-card-header">
+        <h5><i class="bi bi-pie-chart me-2"></i>{% trans 'حد الاستخدام' %}</h5>
+      </div>
+      <div class="info-card-body text-center">
+        <div class="position-relative d-inline-block mb-3">
+          <svg class="progress-ring" viewBox="0 0 36 36">
+            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
+                  fill="none" stroke="#e5e7eb" stroke-width="3"/>
+            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
+                  fill="none" stroke="var(--primary)" stroke-width="3" 
+                  stroke-dasharray="49, 100" stroke-linecap="round"/>
+          </svg>
+          <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+            <div style="font-size: 1.5rem; font-weight: 700;">49%</div>
+          </div>
+        </div>
+        <div class="d-flex justify-content-between text-muted small">
+          <span>{% trans 'المستخدم' %}: 245</span>
+          <span>{% trans 'الحد' %}: 500</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="info-card mb-4">
+      <div class="info-card-header">
+        <h5><i class="bi bi-lightning me-2"></i>{% trans 'إجراءات سريعة' %}</h5>
+      </div>
+      <div class="info-card-body">
+        <div class="d-grid gap-2">
+          <button class="btn btn-outline-primary">
+            <i class="bi bi-person-plus me-1"></i>{% trans 'إضافة عملاء' %}
+          </button>
+          <button class="btn btn-outline-secondary">
+            <i class="bi bi-copy me-1"></i>{% trans 'نسخ الخصم' %}
+          </button>
+          <button class="btn btn-outline-warning">
+            <i class="bi bi-pause me-1"></i>{% trans 'إيقاف مؤقت' %}
+          </button>
+          <button class="btn btn-outline-info">
+            <i class="bi bi-file-earmark-pdf me-1"></i>{% trans 'تقرير الاستخدام' %}
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Notes -->
+    <div class="info-card">
+      <div class="info-card-header">
+        <h5><i class="bi bi-sticky me-2"></i>{% trans 'ملاحظات' %}</h5>
+      </div>
+      <div class="info-card-body">
+        <p class="text-muted mb-0">{% trans 'خصم خاص بعملاء VIP الذين تجاوزت مشترياتهم السنوية 100,000 ج.م. يطبق تلقائياً على جميع الفواتير.' %}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-danger"><i class="bi bi-exclamation-triangle me-2"></i>{% trans 'حذف الخصم' %}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>{% trans 'هل أنت متأكد من حذف هذا الخصم؟' %}</p>
+        <div class="alert alert-warning">
+          <i class="bi bi-info-circle me-2"></i>
+          {% trans 'سيتم إلغاء الخصم من جميع العملاء المرتبطين.' %}
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans 'إلغاء' %}</button>
+        <button type="button" class="btn btn-danger">{% trans 'تأكيد الحذف' %}</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

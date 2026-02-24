@@ -1,0 +1,147 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "ربط الطلبات" %} - {{ SYSTEM_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="bi bi-cart-check me-2"></i>{% trans "ربط الطلبات" %}</h2>
+            <p class="text-muted mb-0">{% trans "ربط طلبات WooCommerce بفواتير النظام" %}</p>
+        </div>
+        <a href="{% url 'woocommerce_integration:dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i>{% trans "العودة" %}
+        </a>
+    </div>
+    
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-primary text-white">
+                <div class="card-body text-center">
+                    <h4 class="mb-1">{{ total_orders|default:0 }}</h4>
+                    <small>{% trans "إجمالي الطلبات" %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-success text-white">
+                <div class="card-body text-center">
+                    <h4 class="mb-1">{{ processed_count|default:0 }}</h4>
+                    <small>{% trans "تمت معالجتها" %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-warning text-dark">
+                <div class="card-body text-center">
+                    <h4 class="mb-1">{{ pending_count|default:0 }}</h4>
+                    <small>{% trans "قيد الانتظار" %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-danger text-white">
+                <div class="card-body text-center">
+                    <h4 class="mb-1">{{ failed_count|default:0 }}</h4>
+                    <small>{% trans "فشلت" %}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Orders Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h5 class="mb-0">{% trans "الطلبات المستوردة" %}</h5>
+                </div>
+                <div class="col-auto">
+                    <form method="get" class="d-flex gap-2">
+                        <select name="status" class="form-select" style="width: auto;">
+                            <option value="">{% trans "الكل" %}</option>
+                            <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>{% trans "قيد الانتظار" %}</option>
+                            <option value="processed" {% if request.GET.status == 'processed' %}selected{% endif %}>{% trans "تمت المعالجة" %}</option>
+                            <option value="failed" {% if request.GET.status == 'failed' %}selected{% endif %}>{% trans "فشل" %}</option>
+                        </select>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-filter"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>{% trans "رقم الطلب WC" %}</th>
+                            <th>{% trans "التاريخ" %}</th>
+                            <th>{% trans "العميل" %}</th>
+                            <th>{% trans "المبلغ" %}</th>
+                            <th>{% trans "حالة الطلب" %}</th>
+                            <th>{% trans "الفاتورة المحلية" %}</th>
+                            <th>{% trans "حالة الربط" %}</th>
+                            <th>{% trans "الإجراءات" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr>
+                            <td><strong>#{{ order.wc_order_id }}</strong></td>
+                            <td>{{ order.order_date }}</td>
+                            <td>{{ order.customer_name }}</td>
+                            <td>{{ order.total|floatformat:2|intcomma }}</td>
+                            <td>
+                                {% if order.wc_status == 'completed' %}
+                                <span class="badge bg-success">{% trans "مكتمل" %}</span>
+                                {% elif order.wc_status == 'processing' %}
+                                <span class="badge bg-primary">{% trans "قيد المعالجة" %}</span>
+                                {% elif order.wc_status == 'pending' %}
+                                <span class="badge bg-warning text-dark">{% trans "معلق" %}</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ order.wc_status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if order.local_invoice %}
+                                <a href="#">{{ order.local_invoice.number }}</a>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if order.local_invoice %}
+                                <span class="badge bg-success">{% trans "مربوط" %}</span>
+                                {% else %}
+                                <span class="badge bg-warning text-dark">{% trans "غير مربوط" %}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if not order.local_invoice %}
+                                <button type="button" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-file-earmark-plus"></i> {% trans "إنشاء فاتورة" %}
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                {% trans "لا توجد طلبات مستوردة" %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

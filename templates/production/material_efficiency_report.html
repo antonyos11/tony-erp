@@ -1,0 +1,132 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تقرير كفاءة استخدام المواد{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        margin-bottom: 20px;
+    }
+    .efficiency-badge {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+    .efficiency-badge.excellent { background: #dcfce7; color: #166534; }
+    .efficiency-badge.good { background: #dbeafe; color: #1d4ed8; }
+    .efficiency-badge.average { background: #fef3c7; color: #92400e; }
+    .efficiency-badge.poor { background: #fee2e2; color: #991b1b; }
+    .chart-container {
+        height: 300px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-leaf me-2 text-success"></i>تقرير كفاءة استخدام المواد</h2>
+            <p class="text-muted mb-0">تحليل استهلاك المواد الخام مقارنة بالمعايير</p>
+        </div>
+        <div class="d-flex gap-2">
+            <select class="form-select" style="width: 200px;" id="periodFilter">
+                <option value="week">هذا الأسبوع</option>
+                <option value="month" selected>هذا الشهر</option>
+                <option value="quarter">هذا الربع</option>
+                <option value="year">هذا العام</option>
+            </select>
+            <button class="btn btn-outline-primary" onclick="window.print()">
+                <i class="fas fa-print me-1"></i> طباعة
+            </button>
+        </div>
+    </div>
+
+    <!-- ملخص الكفاءة -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="report-card text-center">
+                <h3 class="text-success mb-1">{{ overall_efficiency|default:"92" }}%</h3>
+                <p class="text-muted mb-0">كفاءة الاستخدام الإجمالية</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="report-card text-center">
+                <h3 class="text-primary mb-1">{{ materials_used|default:"1,250" }} كجم</h3>
+                <p class="text-muted mb-0">إجمالي المواد المستخدمة</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="report-card text-center">
+                <h3 class="text-warning mb-1">{{ waste_amount|default:"95" }} كجم</h3>
+                <p class="text-muted mb-0">الفاقد/الهدر</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="report-card text-center">
+                <h3 class="text-danger mb-1">{{ waste_cost|default:"4,750" }} ج.م</h3>
+                <p class="text-muted mb-0">تكلفة الهدر</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- جدول التفاصيل -->
+    <div class="report-card">
+        <h5 class="mb-4">تفاصيل كفاءة المواد حسب المنتج</h5>
+        <div class="table-responsive">
+            <table class="table">
+                <thead class="bg-light">
+                    <tr>
+                        <th>المنتج</th>
+                        <th>المادة الخام</th>
+                        <th>الكمية المعيارية</th>
+                        <th>الكمية الفعلية</th>
+                        <th>الفرق</th>
+                        <th>الكفاءة</th>
+                        <th>التقييم</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in efficiency_data %}
+                    <tr>
+                        <td><strong>{{ item.product }}</strong></td>
+                        <td>{{ item.material }}</td>
+                        <td>{{ item.standard_qty }} {{ item.unit }}</td>
+                        <td>{{ item.actual_qty }} {{ item.unit }}</td>
+                        <td class="{% if item.variance > 0 %}text-danger{% else %}text-success{% endif %}">
+                            {{ item.variance }} {{ item.unit }}
+                        </td>
+                        <td>{{ item.efficiency }}%</td>
+                        <td>
+                            <span class="efficiency-badge {% if item.efficiency >= 95 %}excellent{% elif item.efficiency >= 85 %}good{% elif item.efficiency >= 75 %}average{% else %}poor{% endif %}">
+                                {% if item.efficiency >= 95 %}ممتاز{% elif item.efficiency >= 85 %}جيد{% elif item.efficiency >= 75 %}متوسط{% else %}ضعيف{% endif %}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">لا توجد بيانات متاحة</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- التوصيات -->
+    <div class="report-card">
+        <h5 class="mb-3"><i class="fas fa-lightbulb me-2 text-warning"></i>توصيات لتحسين الكفاءة</h5>
+        <ul class="list-unstyled mb-0">
+            <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>مراجعة عمليات القطع لتقليل الهدر</li>
+            <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>تدريب العمال على الاستخدام الأمثل للمواد</li>
+            <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>تحديث المعايير بناءً على البيانات الفعلية</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,127 @@
+﻿{% comment %}
+==============================================================================
+مكون نموذج محسّن
+Enhanced Form Component
+
+الاستخدام:
+{% include 'components/form_card.html' with form=form title="إضافة منتج" submit_text="حفظ" %}
+
+المعاملات:
+- form: نموذج Django
+- title: عنوان النموذج
+- subtitle: عنوان فرعي (اختياري)
+- submit_text: نص زر الإرسال
+- submit_icon: أيقونة زر الإرسال (اختياري)
+- cancel_url: رابط الإلغاء (اختياري)
+- autosave: تفعيل الحفظ التلقائي (اختياري)
+- columns: عدد الأعمدة 1 | 2 (اختياري)
+==============================================================================
+{% endcomment %}
+
+{% load i18n %}
+
+<div class="card-enhanced">
+  {% if title %}
+  <div class="card-header border-bottom pb-3 mb-4">
+    <h5 class="card-title mb-1">
+      {% if icon %}<i class="bi {{ icon }} me-2 text-accent"></i>{% endif %}
+      {{ title }}
+    </h5>
+    {% if subtitle %}
+    <p class="card-subtitle text-muted small mb-0">{{ subtitle }}</p>
+    {% endif %}
+  </div>
+  {% endif %}
+  
+  <form method="post" enctype="multipart/form-data" {% if autosave %}data-autosave="{{ autosave }}"{% endif %} class="needs-validation" novalidate>
+    {% csrf_token %}
+    
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger alert-dismissible fade show mb-4">
+      <i class="bi bi-exclamation-triangle me-2"></i>
+      {{ form.non_field_errors }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+    
+    <div class="row g-3 {% if columns == 2 %}row-cols-md-2{% endif %}">
+      {% for field in form %}
+      <div class="{% if columns == 2 %}col{% else %}col-12{% endif %} {% if field.field.widget.input_type == 'hidden' %}d-none{% endif %}">
+        {% if field.field.widget.input_type == 'checkbox' %}
+        <div class="form-check">
+          {{ field }}
+          <label class="form-check-label" for="{{ field.id_for_label }}">
+            {{ field.label }}
+            {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
+          </label>
+          {% if field.help_text %}
+          <small class="form-text text-muted d-block">{{ field.help_text }}</small>
+          {% endif %}
+          {% if field.errors %}
+          <div class="invalid-feedback d-block">{{ field.errors.0 }}</div>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="form-floating-modern">
+          <label for="{{ field.id_for_label }}" class="form-label">
+            {{ field.label }}
+            {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
+          </label>
+          
+          {% with widget_type=field.field.widget.input_type %}
+          {% if widget_type == 'select' or field.field.widget.template_name|stringformat:"s"|truncatewords:1 == "Select" %}
+            {{ field|add_class:"form-select form-control-modern" }}
+          {% elif widget_type == 'textarea' or 'Textarea' in field.field.widget|stringformat:"s" %}
+            {{ field|add_class:"form-control form-control-modern" }}
+          {% else %}
+            {{ field|add_class:"form-control form-control-modern" }}
+          {% endif %}
+          {% endwith %}
+          
+          {% if field.help_text %}
+          <small class="form-text text-muted">{{ field.help_text }}</small>
+          {% endif %}
+          
+          {% if field.errors %}
+          <div class="invalid-feedback d-block">{{ field.errors.0 }}</div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    
+    {% block form_extra %}{% endblock %}
+    
+    <div class="form-actions d-flex gap-2 mt-4 pt-3 border-top">
+      <button type="submit" class="btn btn-accent btn-modern">
+        {% if submit_icon %}<i class="bi {{ submit_icon }} me-1"></i>{% else %}<i class="bi bi-check-lg me-1"></i>{% endif %}
+        {{ submit_text|default:"حفظ" }}
+      </button>
+      
+      {% if cancel_url %}
+      <a href="{{ cancel_url }}" class="btn btn-outline-secondary">
+        <i class="bi bi-x-lg me-1"></i> {% trans 'إلغاء' %}
+      </a>
+      {% endif %}
+      
+      {% block form_actions %}{% endblock %}
+    </div>
+  </form>
+</div>
+
+<script>
+// تحقق Bootstrap من صحة النموذج
+(function(){
+  const forms = document.querySelectorAll('.needs-validation');
+  forms.forEach(form => {
+    form.addEventListener('submit', function(event) {
+      if (!form.checkValidity()) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      form.classList.add('was-validated');
+    });
+  });
+})();
+</script>

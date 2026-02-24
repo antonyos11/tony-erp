@@ -1,0 +1,391 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'طباعة الكتالوج' %}{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root {
+    --primary: #1e3a5f;
+    --border-color: #e2e8f0;
+    --bg-light: #f8fafc;
+    --text-secondary: #64748b;
+    --radius: 8px;
+  }
+  
+  @media screen {
+    .print-only { display: none; }
+    .page-hero {
+      background: linear-gradient(135deg, var(--primary) 0%, #152a45 100%);
+      color: white;
+      padding: 2rem;
+      border-radius: 12px;
+      margin-bottom: 2rem;
+    }
+    .page-hero h1 { margin: 0; font-weight: 700; }
+    
+    .print-preview {
+      background: #e5e5e5;
+      padding: 2rem;
+      border-radius: var(--radius);
+      min-height: 600px;
+    }
+    .print-page {
+      background: white;
+      max-width: 210mm;
+      margin: 0 auto 2rem;
+      padding: 15mm;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    .settings-sidebar {
+      background: white;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      position: sticky;
+      top: 1rem;
+    }
+    .setting-group { margin-bottom: 1.25rem; }
+    .setting-group label { font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 0.5rem; }
+  }
+  
+  .catalog-header {
+    text-align: center;
+    border-bottom: 2px solid var(--primary);
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .catalog-header .logo { height: 50px; margin-bottom: 0.5rem; }
+  .catalog-header h1 { font-size: 1.5rem; margin: 0; color: var(--primary); }
+  .catalog-header p { margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--text-secondary); }
+  
+  .products-grid-print {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+  .product-card-print {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 0.75rem;
+    text-align: center;
+    page-break-inside: avoid;
+  }
+  .product-card-print .image {
+    width: 60px;
+    height: 60px;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    margin: 0 auto 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .product-card-print .name { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; }
+  .product-card-print .sku { font-size: 0.75rem; color: var(--text-secondary); font-family: monospace; }
+  .product-card-print .price { font-weight: 700; color: var(--primary); font-size: 0.9rem; margin-top: 0.5rem; }
+  
+  .catalog-footer {
+    border-top: 1px solid var(--border-color);
+    padding-top: 0.75rem;
+    margin-top: 1.5rem;
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+  
+  .page-number { font-weight: 600; }
+  
+  @media print {
+    body { margin: 0; padding: 0; }
+    .no-print { display: none !important; }
+    .print-only { display: block; }
+    .print-preview { background: none; padding: 0; }
+    .print-page { box-shadow: none; margin: 0; padding: 10mm; }
+    .products-grid-print { gap: 0.5rem; }
+    .product-card-print { padding: 0.5rem; }
+    @page { margin: 5mm; size: A4; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Header - Screen Only -->
+  <div class="page-hero no-print">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1><i class="bi bi-printer me-2"></i>{% trans 'طباعة الكتالوج' %}</h1>
+        <p class="mb-0 opacity-75">{% trans 'معاينة وطباعة كتالوج المنتجات' %}</p>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{% url 'inventory:catalog_list' %}" class="btn btn-light">
+          <i class="bi bi-arrow-right me-1"></i>{% trans 'العودة' %}
+        </a>
+        <button class="btn btn-light" onclick="window.print()">
+          <i class="bi bi-printer me-1"></i>{% trans 'طباعة' %}
+        </button>
+        <button class="btn btn-light">
+          <i class="bi bi-file-earmark-pdf me-1"></i>{% trans 'تحميل PDF' %}
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <div class="row">
+    <!-- Settings Sidebar - Screen Only -->
+    <div class="col-lg-3 no-print">
+      <div class="settings-sidebar">
+        <h5 class="mb-3"><i class="bi bi-sliders me-2"></i>{% trans 'إعدادات الطباعة' %}</h5>
+        
+        <div class="setting-group">
+          <label>{% trans 'حجم الورق' %}</label>
+          <select class="form-select form-select-sm" id="paperSize">
+            <option value="a4" selected>A4</option>
+            <option value="letter">Letter</option>
+            <option value="a3">A3</option>
+          </select>
+        </div>
+        
+        <div class="setting-group">
+          <label>{% trans 'اتجاه الورق' %}</label>
+          <select class="form-select form-select-sm" id="orientation">
+            <option value="portrait">{% trans 'عمودي' %}</option>
+            <option value="landscape">{% trans 'أفقي' %}</option>
+          </select>
+        </div>
+        
+        <div class="setting-group">
+          <label>{% trans 'منتجات في الصف' %}</label>
+          <select class="form-select form-select-sm" id="columns">
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+          </select>
+        </div>
+        
+        <div class="setting-group">
+          <label>{% trans 'العناصر' %}</label>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="showImages" checked>
+            <label class="form-check-label small" for="showImages">{% trans 'الصور' %}</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="showPrices" checked>
+            <label class="form-check-label small" for="showPrices">{% trans 'الأسعار' %}</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="showSku" checked>
+            <label class="form-check-label small" for="showSku">{% trans 'الكود' %}</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="showBarcode">
+            <label class="form-check-label small" for="showBarcode">{% trans 'الباركود' %}</label>
+          </div>
+        </div>
+        
+        <div class="setting-group">
+          <label>{% trans 'الرأس والتذييل' %}</label>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="showHeader" checked>
+            <label class="form-check-label small" for="showHeader">{% trans 'رأس الصفحة' %}</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="showFooter" checked>
+            <label class="form-check-label small" for="showFooter">{% trans 'تذييل الصفحة' %}</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="showPageNumbers" checked>
+            <label class="form-check-label small" for="showPageNumbers">{% trans 'أرقام الصفحات' %}</label>
+          </div>
+        </div>
+        
+        <div class="setting-group">
+          <label>{% trans 'الفئات' %}</label>
+          <select class="form-select form-select-sm" id="categoryFilter">
+            <option value="">{% trans 'جميع الفئات' %}</option>
+            <option value="1">{% trans 'مواد خام' %}</option>
+            <option value="2">{% trans 'منتجات تامة' %}</option>
+            <option value="3">{% trans 'قطع غيار' %}</option>
+          </select>
+        </div>
+        
+        <button class="btn btn-primary w-100" onclick="window.print()">
+          <i class="bi bi-printer me-1"></i>{% trans 'طباعة الآن' %}
+        </button>
+      </div>
+    </div>
+    
+    <!-- Print Preview -->
+    <div class="col-lg-9">
+      <div class="print-preview">
+        <!-- Page 1 -->
+        <div class="print-page">
+          <!-- Header -->
+          <div class="catalog-header">
+            <img src="{% static 'images/logo.png' %}" alt="Logo" class="logo" onerror="this.style.display='none'">
+            <h1>{% trans 'كتالوج المنتجات' %}</h1>
+            <p>{% trans 'تاريخ الإصدار:' %} {{ today|default:'2024-01-15' }}</p>
+          </div>
+          
+          <!-- Products Grid -->
+          <div class="products-grid-print">
+            {% for product in products %}
+            <div class="product-card-print">
+              <div class="image"><i class="bi bi-box" style="font-size: 1.5rem; color: #ccc;"></i></div>
+              <div class="name">{{ product.name }}</div>
+              <div class="sku">{{ product.sku }}</div>
+              <div class="price">{{ product.price }} {% trans 'ج.م' %}</div>
+            </div>
+            {% empty %}
+            <!-- Sample Products -->
+            <div class="product-card-print">
+              <div class="image"><i class="bi bi-box" style="font-size: 1.5rem; color: #ccc;"></i></div>
+              <div class="name">{% trans 'منتج A-001' %}</div>
+              <div class="sku">PRD-001</div>
+              <div class="price">150.00 {% trans 'ج.م' %}</div>
+            </div>
+            <div class="product-card-print">
+              <div class="image"><i class="bi bi-box" style="font-size: 1.5rem; color: #ccc;"></i></div>
+              <div class="name">{% trans 'منتج B-002' %}</div>
+              <div class="sku">PRD-002</div>
+              <div class="price">250.00 {% trans 'ج.م' %}</div>
+            </div>
+            <div class="product-card-print">
+              <div class="image"><i class="bi bi-box" style="font-size: 1.5rem; color: #ccc;"></i></div>
+              <div class="name">{% trans 'منتج C-003' %}</div>
+              <div class="sku">PRD-003</div>
+              <div class="price">85.00 {% trans 'ج.م' %}</div>
+            </div>
+            <div class="product-card-print">
+              <div class="image"><i class="bi bi-box" style="font-size: 1.5rem; color: #ccc;"></i></div>
+              <div class="name">{% trans 'منتج D-004' %}</div>
+              <div class="sku">PRD-004</div>
+              <div class="price">320.00 {% trans 'ج.م' %}</div>
+            </div>
+            <div class="product-card-print">
+              <div class="image"><i class="bi bi-box" style="font-size: 1.5rem; color: #ccc;"></i></div>
+              <div class="name">{% trans 'منتج E-005' %}</div>
+              <div class="sku">PRD-005</div>
+              <div class="price">175.00 {% trans 'ج.م' %}</div>
+            </div>
+            <div class="product-card-print">
+              <div class="image"><i class="bi bi-box" style="font-size: 1.5rem; color: #ccc;"></i></div>
+              <div class="name">{% trans 'منتج F-006' %}</div>
+              <div class="sku">PRD-006</div>
+              <div class="price">420.00 {% trans 'ج.م' %}</div>
+            </div>
+            <div class="product-card-print">
+              <div class="image"><i class="bi bi-box" style="font-size: 1.5rem; color: #ccc;"></i></div>
+              <div class="name">{% trans 'منتج G-007' %}</div>
+              <div class="sku">PRD-007</div>
+              <div class="price">95.00 {% trans 'ج.م' %}</div>
+            </div>
+            <div class="product-card-print">
+              <div class="image"><i class="bi bi-box" style="font-size: 1.5rem; color: #ccc;"></i></div>
+              <div class="name">{% trans 'منتج H-008' %}</div>
+              <div class="sku">PRD-008</div>
+              <div class="price">280.00 {% trans 'ج.م' %}</div>
+            </div>
+            <div class="product-card-print">
+              <div class="image"><i class="bi bi-box" style="font-size: 1.5rem; color: #ccc;"></i></div>
+              <div class="name">{% trans 'منتج I-009' %}</div>
+              <div class="sku">PRD-009</div>
+              <div class="price">550.00 {% trans 'ج.م' %}</div>
+            </div>
+            {% endfor %}
+          </div>
+          
+          <!-- Footer -->
+          <div class="catalog-footer">
+            <span>{{ company_name|default:'شركة كيانك للتجارة' }}</span>
+            <span class="mx-3">|</span>
+            <span>{{ company_phone|default:'01234567890' }}</span>
+            <span class="mx-3">|</span>
+            <span class="page-number">{% trans 'صفحة' %} 1 {% trans 'من' %} 3</span>
+          </div>
+        </div>
+        
+        <!-- Page 2 -->
+        <div class="print-page">
+          <div class="catalog-header">
+            <h1>{% trans 'كتالوج المنتجات' %} - {% trans 'تابع' %}</h1>
+          </div>
+          
+          <div class="products-grid-print">
+            <div class="product-card-print">
+              <div class="image"><i class="bi bi-box" style="font-size: 1.5rem; color: #ccc;"></i></div>
+              <div class="name">{% trans 'منتج J-010' %}</div>
+              <div class="sku">PRD-010</div>
+              <div class="price">180.00 {% trans 'ج.م' %}</div>
+            </div>
+            <div class="product-card-print">
+              <div class="image"><i class="bi bi-box" style="font-size: 1.5rem; color: #ccc;"></i></div>
+              <div class="name">{% trans 'منتج K-011' %}</div>
+              <div class="sku">PRD-011</div>
+              <div class="price">290.00 {% trans 'ج.م' %}</div>
+            </div>
+            <div class="product-card-print">
+              <div class="image"><i class="bi bi-box" style="font-size: 1.5rem; color: #ccc;"></i></div>
+              <div class="name">{% trans 'منتج L-012' %}</div>
+              <div class="sku">PRD-012</div>
+              <div class="price">125.00 {% trans 'ج.م' %}</div>
+            </div>
+          </div>
+          
+          <div class="catalog-footer">
+            <span>{{ company_name|default:'شركة كيانك للتجارة' }}</span>
+            <span class="mx-3">|</span>
+            <span>{{ company_phone|default:'01234567890' }}</span>
+            <span class="mx-3">|</span>
+            <span class="page-number">{% trans 'صفحة' %} 2 {% trans 'من' %} 3</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.getElementById('columns').addEventListener('change', function() {
+    const columns = this.value;
+    document.querySelectorAll('.products-grid-print').forEach(grid => {
+      grid.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+    });
+  });
+  
+  document.getElementById('showImages').addEventListener('change', function() {
+    document.querySelectorAll('.product-card-print .image').forEach(img => {
+      img.style.display = this.checked ? '' : 'none';
+    });
+  });
+  
+  document.getElementById('showPrices').addEventListener('change', function() {
+    document.querySelectorAll('.product-card-print .price').forEach(price => {
+      price.style.display = this.checked ? '' : 'none';
+    });
+  });
+  
+  document.getElementById('showSku').addEventListener('change', function() {
+    document.querySelectorAll('.product-card-print .sku').forEach(sku => {
+      sku.style.display = this.checked ? '' : 'none';
+    });
+  });
+  
+  document.getElementById('showHeader').addEventListener('change', function() {
+    document.querySelectorAll('.catalog-header').forEach(header => {
+      header.style.display = this.checked ? '' : 'none';
+    });
+  });
+  
+  document.getElementById('showFooter').addEventListener('change', function() {
+    document.querySelectorAll('.catalog-footer').forEach(footer => {
+      footer.style.display = this.checked ? '' : 'none';
+    });
+  });
+</script>
+{% endblock %}
+

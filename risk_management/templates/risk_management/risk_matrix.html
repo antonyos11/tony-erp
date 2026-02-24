@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% load i18n humanize %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" dir="rtl">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fas fa-th me-2 text-primary"></i>
+                {{ page_title }}
+            </h1>
+            <a href="{% url 'risk_management:dashboard' %}" class="btn btn-sm btn-secondary">
+                <i class="fas fa-arrow-right me-1"></i> {% trans "العودة للوحة التحكم" %}
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 bg-white">
+            <h6 class="m-0 font-weight-bold text-primary">{% trans "توزيع المخاطر حسب الاحتمالية والتأثير" %}</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered text-center risk-matrix-table" style="min-width: 600px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 15rem; vertical-align: middle;">{% trans "الاحتمالية \ التأثير" %}</th>
+                            <th class="bg-success text-white">1 - {% trans "منخفض جداً" %}</th>
+                            <th class="bg-success text-white">2 - {% trans "منخفض" %}</th>
+                            <th class="bg-warning text-white">3 - {% trans "متوسط" %}</th>
+                            <th class="bg-danger text-white">4 - {% trans "عالي" %}</th>
+                            <th class="bg-danger text-white">5 - {% trans "عالي جداً" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for prob in "54321"|make_list %}{% with prob_int=prob|add:"0" %}
+                        <tr>
+                            <td class="font-weight-bold align-middle bg-light">{{ prob_int }} - {% if prob_int == 5 %}{% trans "عالية جداً" %}{% elif prob_int == 4 %}{% trans "عالية" %}{% elif prob_int == 3 %}{% trans "متوسطة" %}{% elif prob_int == 2 %}{% trans "منخفضة" %}{% else %}{% trans "منخفضة جداً" %}{% endif %}</td>
+                            {% for impact in "12345"|make_list %}{% with impact_int=impact|add:"0" %}
+                            {% with score=prob_int|add:0 %} {# This is just a placeholder for multiplication in template which is hard #}
+                            <td class="risk-cell" data-prob="{{ prob_int }}" data-impact="{{ impact_int }}" style="height: 6rem; width: 6rem; position: relative;">
+                                <div class="risk-dots d-flex flex-wrap justify-content-center align-items-center">
+                                    {# This part will be handled by JS for better display #}
+                                </div>
+                            </td>
+                            {% endwith %}
+                            {% endwith %}{% endfor %}
+                        </tr>
+                        {% endwith %}{% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .risk-matrix-table td { position: relative; cursor: pointer; }
+    .risk-dot {
+        width: 12px; height: 12px; border-radius: 50%;
+        background: blue; margin: 2px;
+        display: inline-block;
+        box-shadow: 0 0 4px rgba(0,0,0,0.5);
+    }
+    /* Cell Background Colors */
+    .risk-matrix-table tr:nth-child(1) td:nth-child(n+2) { background-color: #ffcccc; } /* Prob 5 */
+    .risk-matrix-table tr:nth-child(1) td:nth-child(5), .risk-matrix-table tr:nth-child(1) td:nth-child(6) { background-color: #ff0000; }
+    
+    .risk-cell[data-score="25"], .risk-cell[data-score="20"], .risk-cell[data-score="16"] { background-color: #ff3333 !important; }
+    .risk-cell[data-score="15"], .risk-cell[data-score="12"], .risk-cell[data-score="10"], .risk-cell[data-score="9"], .risk-cell[data-score="8"] { background-color: #ffcc66 !important; }
+    .risk-matrix-table td:nth-child(n+2) { background-color: #ccffcc; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const matrixData = {{ matrix_data|safe }};
+    
+    document.querySelectorAll('.risk-cell').forEach(cell => {
+        const prob = parseInt(cell.dataset.prob);
+        const impact = parseInt(cell.dataset.impact);
+        const score = prob * impact;
+        
+        // Apply color based on score
+        if (score >= 12) {
+            cell.style.backgroundColor = '#fecaca'; // red-200
+        } else if (score >= 6) {
+            cell.style.backgroundColor = '#fef08a'; // yellow-200
+        } else {
+            cell.style.backgroundColor = '#bbf7d0'; // green-200
+        }
+        
+        // Find risks for this cell
+        const risksHere = matrixData.filter(r => r.probability == prob && r.impact == impact);
+        if (risksHere.length > 0) {
+            const container = cell.querySelector('.risk-dots');
+            risksHere.forEach(r => {
+                const dot = document.createElement('div');
+                dot.className = 'risk-dot';
+                dot.title = r.title;
+                dot.style.backgroundColor = (score >= 12) ? '#991b1b' : (score >= 6 ? '#854d0e' : '#166534');
+                container.appendChild(dot);
+            });
+            
+            const badge = document.createElement('span');
+            badge.className = 'position-absolute top-0 end-0 badge rounded-pill bg-dark text-white m-1';
+            badge.style.fontSize = '0.6rem';
+            badge.innerText = risksHere.length;
+            cell.appendChild(badge);
+        }
+    });
+</script>
+{% endblock %}

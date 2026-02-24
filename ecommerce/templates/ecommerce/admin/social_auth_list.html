@@ -1,0 +1,187 @@
+{% extends 'ecommerce/admin/base_admin.html' %}
+{% load static i18n %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0"><i class="fas fa-key me-2"></i>{{ page_title }}</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'ecommerce:admin_dashboard' %}">المتجر</a></li>
+                    <li class="breadcrumb-item active">مزودي تسجيل الدخول</li>
+                </ol>
+            </nav>
+        </div>
+        <a href="{% url 'ecommerce:admin_social_auth_add' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> إضافة مزود
+        </a>
+    </div>
+    
+    <!-- معلومات مساعدة -->
+    <div class="alert alert-info mb-4">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>تسجيل الدخول الاجتماعي:</strong> 
+        يمكنك تمكين عملائك من تسجيل الدخول باستخدام حساباتهم في Google, Facebook, Twitter وغيرها.
+        <br>
+        <small class="text-muted">
+            للحصول على بيانات OAuth:
+            <a href="https://console.developers.google.com/" target="_blank">Google Console</a> |
+            <a href="https://developers.facebook.com/" target="_blank">Facebook Developers</a> |
+            <a href="https://developer.twitter.com/" target="_blank">Twitter Developer</a>
+        </small>
+    </div>
+    
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th>المزود</th>
+                            <th>الاسم المعروض</th>
+                            <th>Client ID</th>
+                            <th class="text-center">الحالة</th>
+                            <th class="text-center" style="width: 150px;">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for provider in providers %}
+                        <tr>
+                            <td>{{ provider.sort_order }}</td>
+                            <td>
+                                <i class="{{ provider.get_oauth_config.icon_class }} fa-lg me-2" 
+                                   style="color: {{ provider.get_oauth_config.button_color }}"></i>
+                                {{ provider.get_provider_display }}
+                            </td>
+                            <td>{{ provider.name }}</td>
+                            <td>
+                                <code class="text-truncate d-inline-block" style="max-width: 200px;">
+                                    {{ provider.client_id|slice:":30" }}...
+                                </code>
+                            </td>
+                            <td class="text-center">
+                                {% if provider.is_active %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check me-1"></i> مفعل
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary">
+                                        <i class="fas fa-times me-1"></i> معطل
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'ecommerce:admin_social_auth_edit' provider.pk %}" 
+                                       class="btn btn-outline-primary" title="تعديل">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'ecommerce:admin_social_auth_toggle' provider.pk %}" 
+                                       class="btn btn-outline-{{ provider.is_active|yesno:'warning,success' }}"
+                                       title="{{ provider.is_active|yesno:'تعطيل,تفعيل' }}">
+                                        <i class="fas fa-{{ provider.is_active|yesno:'pause,play' }}"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-outline-danger" 
+                                            onclick="confirmDelete({{ provider.pk }}, '{{ provider.name }}')" title="حذف">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5">
+                                <i class="fas fa-key fa-3x text-muted mb-3"></i>
+                                <h5>لا يوجد مزودي تسجيل دخول</h5>
+                                <p class="text-muted">أضف مزود تسجيل دخول اجتماعي لتمكين العملاء من تسجيل الدخول بسهولة</p>
+                                <a href="{% url 'ecommerce:admin_social_auth_add' %}" class="btn btn-primary">
+                                    <i class="fas fa-plus me-1"></i> إضافة مزود
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- إحصائيات سريعة -->
+    {% if providers %}
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title mb-0">إجمالي المزودين</h6>
+                            <h2 class="mb-0">{{ providers.count }}</h2>
+                        </div>
+                        <i class="fas fa-key fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title mb-0">المفعلين</h6>
+                            <h2 class="mb-0">{{ providers|length }}</h2>
+                        </div>
+                        <i class="fas fa-check-circle fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title mb-0">حسابات مرتبطة</h6>
+                            <h2 class="mb-0">-</h2>
+                        </div>
+                        <i class="fas fa-users fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal للحذف -->
+<div class="modal fade" id="deleteModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تأكيد الحذف</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                هل أنت متأكد من حذف <strong id="providerName"></strong>؟
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <a href="#" id="deleteLink" class="btn btn-danger">حذف</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmDelete(id, name) {
+    document.getElementById('providerName').textContent = name;
+    document.getElementById('deleteLink').href = '{% url "ecommerce:admin_social_auth_delete" 0 %}'.replace('0', id);
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+{% endblock %}

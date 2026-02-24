@@ -1,0 +1,134 @@
+﻿{% extends 'base_templates/modern_detail.html' %}
+
+{% block page_module %}payments{% endblock %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "تفاصيل المعاملة" %}: {{ transaction.transaction_number }} - {{ SYSTEM_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="bi bi-receipt me-2"></i>{% trans "تفاصيل المعاملة" %}</h2>
+            <p class="text-muted mb-0">{{ transaction.transaction_number }}</p>
+        </div>
+        <a href="{% url 'payments:transactions_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i>{% trans "العودة للقائمة" %}
+        </a>
+    </div>
+    
+    <div class="row g-4">
+        <!-- Transaction Info -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0"><i class="bi bi-info-circle me-2"></i>{% trans "معلومات المعاملة" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="table-responsive"><table class="table table-borderless">
+                                <tr>
+                                    <td class="text-muted">{% trans "رقم المعاملة" %}</td>
+                                    <td class="fw-bold">{{ transaction.transaction_number }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "نوع المعاملة" %}</td>
+                                    <td>
+                                        {% if transaction.transaction_type == 'payment' %}
+                                        <span class="badge bg-success">{% trans "دفع" %}</span>
+                                        {% elif transaction.transaction_type == 'refund' %}
+                                        <span class="badge bg-warning text-dark">{% trans "استرداد" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-info">{% trans "تسوية" %}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "الحالة" %}</td>
+                                    <td>
+                                        {% if transaction.status == 'completed' %}
+                                        <span class="badge bg-success">{% trans "مكتمل" %}</span>
+                                        {% elif transaction.status == 'pending' %}
+                                        <span class="badge bg-warning text-dark">{% trans "معلق" %}</span>
+                                        {% elif transaction.status == 'failed' %}
+                                        <span class="badge bg-danger">{% trans "فشل" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">{{ transaction.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "تاريخ الإنشاء" %}</td>
+                                    <td>{{ transaction.created_at|date:"Y-m-d H:i" }}</td>
+                                </tr>
+                            </table></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="table-responsive"><table class="table table-borderless">
+                                <tr>
+                                    <td class="text-muted">{% trans "طريقة الدفع" %}</td>
+                                    <td>{{ transaction.payment_method.name }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "رقم المرجع" %}</td>
+                                    <td>{{ transaction.reference_number|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "تم المعالجة بواسطة" %}</td>
+                                    <td>{% if transaction.processed_by %}{{ transaction.processed_by.get_full_name|default:transaction.processed_by.username }}{% else %}-{% endif %}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "تاريخ المعالجة" %}</td>
+                                    <td>{{ transaction.processed_at|date:"Y-m-d H:i"|default:"-" }}</td>
+                                </tr>
+                            </table></div>
+                        </div>
+                    </div>
+                    
+                    {% if transaction.description %}
+                    <hr>
+                    <h6 class="text-muted mb-2">{% trans "الوصف" %}</h6>
+                    <p class="mb-0">{{ transaction.description }}</p>
+                    {% endif %}
+                    
+                    {% if transaction.installment %}
+                    <hr>
+                    <h6 class="text-muted mb-2">{% trans "القسط المرتبط" %}</h6>
+                    <a href="{% url 'payments:loan_detail' transaction.installment.loan.pk %}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-link me-1"></i>{{ transaction.installment.loan.loan_number }} - {% trans "قسط" %} {{ transaction.installment.installment_number }}
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Amount Card -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm bg-primary text-white">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-cash-coin display-4 mb-3"></i>
+                    <h6 class="opacity-75 mb-2">{% trans "مبلغ المعاملة" %}</h6>
+                    <h2 class="display-5 fw-bold mb-0">{{ transaction.amount|floatformat:2|intcomma }}</h2>
+                </div>
+            </div>
+            
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0"><i class="bi bi-printer me-2"></i>{% trans "إجراءات" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="window.print()">
+                            <i class="bi bi-printer me-2"></i>{% trans "طباعة" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

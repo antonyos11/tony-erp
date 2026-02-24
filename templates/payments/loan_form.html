@@ -1,0 +1,213 @@
+﻿{% extends 'base_templates/modern_form.html' %}
+
+{% block page_module %}payments{% endblock %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if loan %}{% trans "تعديل القرض" %}{% else %}{% trans "إنشاء قرض جديد" %}{% endif %} - {{ SYSTEM_NAME }}{% endblock %}
+
+{% block form_content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">
+                <i class="bi bi-bank me-2"></i>
+                {% if loan %}{% trans "تعديل القرض" %}: {{ loan.loan_number }}{% else %}{% trans "إنشاء قرض جديد" %}{% endif %}
+            </h2>
+            <p class="text-muted mb-0">{% if loan %}{% trans "تعديل بيانات القرض" %}{% else %}{% trans "إنشاء قرض جديد للعميل" %}{% endif %}</p>
+        </div>
+        <a href="{% url 'payments:loans_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i>{% trans "العودة للقائمة" %}
+        </a>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0"><i class="bi bi-info-circle me-2"></i>{% trans "بيانات القرض" %}</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="id_loan_number" class="form-label">{% trans "رقم القرض" %} <span class="text-danger">*</span></label>
+                                <input type="text" name="loan_number" id="id_loan_number" class="form-control {% if form.loan_number.errors %}is-invalid{% endif %}" value="{{ form.loan_number.value|default:'' }}" required>
+                                {% if form.loan_number.errors %}
+                                <div class="invalid-feedback">{{ form.loan_number.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="id_borrower" class="form-label">{% trans "المقترض" %} <span class="text-danger">*</span></label>
+                                <select name="borrower" id="id_borrower" class="form-select {% if form.borrower.errors %}is-invalid{% endif %}" required>
+                                    <option value="">{% trans "اختر المقترض" %}</option>
+                                    {% for partner in form.borrower.field.queryset %}
+                                    <option value="{{ partner.pk }}" {% if form.borrower.value == partner.pk|stringformat:'i' %}selected{% endif %}>{{ partner.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                {% if form.borrower.errors %}
+                                <div class="invalid-feedback">{{ form.borrower.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="id_loan_type" class="form-label">{% trans "نوع القرض" %} <span class="text-danger">*</span></label>
+                                <select name="loan_type" id="id_loan_type" class="form-select {% if form.loan_type.errors %}is-invalid{% endif %}" required>
+                                    {% for value, label in form.fields.loan_type.choices %}
+                                    <option value="{{ value }}" {% if form.loan_type.value == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                {% if form.loan_type.errors %}
+                                <div class="invalid-feedback">{{ form.loan_type.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="id_principal_amount" class="form-label">{% trans "مبلغ القرض الأساسي" %} <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" name="principal_amount" id="id_principal_amount" class="form-control {% if form.principal_amount.errors %}is-invalid{% endif %}" value="{{ form.principal_amount.value|default:'' }}" required>
+                                {% if form.principal_amount.errors %}
+                                <div class="invalid-feedback">{{ form.principal_amount.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <label for="id_interest_rate" class="form-label">{% trans "معدل الفائدة %" %}</label>
+                                <input type="number" step="0.01" name="interest_rate" id="id_interest_rate" class="form-control {% if form.interest_rate.errors %}is-invalid{% endif %}" value="{{ form.interest_rate.value|default:'0' }}">
+                                {% if form.interest_rate.errors %}
+                                <div class="invalid-feedback">{{ form.interest_rate.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <label for="id_duration_months" class="form-label">{% trans "مدة القرض (شهور)" %} <span class="text-danger">*</span></label>
+                                <input type="number" name="duration_months" id="id_duration_months" class="form-control {% if form.duration_months.errors %}is-invalid{% endif %}" value="{{ form.duration_months.value|default:'' }}" required>
+                                {% if form.duration_months.errors %}
+                                <div class="invalid-feedback">{{ form.duration_months.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <label for="id_monthly_payment" class="form-label">{% trans "القسط الشهري" %} <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" name="monthly_payment" id="id_monthly_payment" class="form-control {% if form.monthly_payment.errors %}is-invalid{% endif %}" value="{{ form.monthly_payment.value|default:'' }}" required>
+                                {% if form.monthly_payment.errors %}
+                                <div class="invalid-feedback">{{ form.monthly_payment.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="id_start_date" class="form-label">{% trans "تاريخ البدء" %} <span class="text-danger">*</span></label>
+                                <input type="date" name="start_date" id="id_start_date" class="form-control {% if form.start_date.errors %}is-invalid{% endif %}" value="{{ form.start_date.value|default:'' }}" required>
+                                {% if form.start_date.errors %}
+                                <div class="invalid-feedback">{{ form.start_date.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="id_end_date" class="form-label">{% trans "تاريخ الانتهاء" %} <span class="text-danger">*</span></label>
+                                <input type="date" name="end_date" id="id_end_date" class="form-control {% if form.end_date.errors %}is-invalid{% endif %}" value="{{ form.end_date.value|default:'' }}" required>
+                                {% if form.end_date.errors %}
+                                <div class="invalid-feedback">{{ form.end_date.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            {% if loan %}
+                            <div class="col-md-6">
+                                <label for="id_status" class="form-label">{% trans "حالة القرض" %}</label>
+                                <select name="status" id="id_status" class="form-select">
+                                    {% for value, label in form.fields.status.choices %}
+                                    <option value="{{ value }}" {% if form.status.value == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="col-12">
+                                <label for="id_notes" class="form-label">{% trans "ملاحظات" %}</label>
+                                <textarea name="notes" id="id_notes" rows="3" class="form-control">{{ form.notes.value|default:'' }}</textarea>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>
+                                {% if loan %}{% trans "حفظ التغييرات" %}{% else %}{% trans "إنشاء القرض" %}{% endif %}
+                            </button>
+                            <a href="{% url 'payments:loans_list' %}" class="btn btn-outline-secondary">{% trans "إلغاء" %}</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0"><i class="bi bi-calculator me-2"></i>{% trans "حاسبة القسط" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">{% trans "إجمالي القرض مع الفائدة" %}</label>
+                        <h4 id="totalAmount">0.00</h4>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">{% trans "إجمالي الفوائد" %}</label>
+                        <h5 id="totalInterest" class="text-warning">0.00</h5>
+                    </div>
+                    <div>
+                        <label class="form-label text-muted small">{% trans "القسط الشهري المقترح" %}</label>
+                        <h5 id="suggestedPayment" class="text-success">0.00</h5>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0"><i class="bi bi-lightbulb me-2"></i>{% trans "نصائح" %}</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0 small text-muted">
+                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>{% trans "تأكد من إدخال رقم قرض فريد" %}</li>
+                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>{% trans "سيتم إنشاء الأقساط تلقائياً بعد حفظ القرض" %}</li>
+                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>{% trans "يمكنك تعديل القرض لاحقاً من صفحة التفاصيل" %}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const principalInput = document.getElementById('id_principal_amount');
+    const interestInput = document.getElementById('id_interest_rate');
+    const durationInput = document.getElementById('id_duration_months');
+    const monthlyPaymentInput = document.getElementById('id_monthly_payment');
+    
+    function calculateLoan() {
+        const principal = parseFloat(principalInput.value) || 0;
+        const interestRate = parseFloat(interestInput.value) || 0;
+        const duration = parseInt(durationInput.value) || 1;
+        
+        const totalInterest = principal * (interestRate / 100) * (duration / 12);
+        const totalAmount = principal + totalInterest;
+        const monthlyPayment = totalAmount / duration;
+        
+        document.getElementById('totalAmount').textContent = totalAmount.toFixed(2);
+        document.getElementById('totalInterest').textContent = totalInterest.toFixed(2);
+        document.getElementById('suggestedPayment').textContent = monthlyPayment.toFixed(2);
+    }
+    
+    principalInput.addEventListener('input', calculateLoan);
+    interestInput.addEventListener('input', calculateLoan);
+    durationInput.addEventListener('input', calculateLoan);
+    
+    calculateLoan();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,148 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-building me-2"></i>{{ title }}</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">اسم الفرع <span class="text-danger">*</span></label>
+                                {{ form.name }}
+                                {% if form.name.errors %}
+                                <div class="invalid-feedback d-block">{{ form.name.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">كود الفرع <span class="text-danger">*</span></label>
+                                {{ form.code }}
+                                {% if form.code.errors %}
+                                <div class="invalid-feedback d-block">{{ form.code.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">الدولة</label>
+                                {{ form.country }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">المحافظة</label>
+                                {{ form.state }}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">العنوان</label>
+                            {{ form.address }}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">الهاتف</label>
+                                {{ form.phone }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">البريد الإلكتروني</label>
+                                {{ form.email }}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check">
+                                    {{ form.is_main }}
+                                    <label class="form-check-label">الفرع الرئيسي</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check">
+                                    {{ form.is_active }}
+                                    <label class="form-check-label">نشط</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>حفظ
+                            </button>
+                            <a href="{% url 'core:branch_list' %}" class="btn btn-secondary">
+                                <i class="bi bi-x-lg me-1"></i>إلغاء
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const countrySelect = document.getElementById('id_country');
+    const stateSelect = document.getElementById('id_state');
+    const statesUrlTemplate = "{% url 'core:states_by_country' 0 %}";
+
+    if (!countrySelect || !stateSelect) {
+        return;
+    }
+
+    const setLoading = (message) => {
+        stateSelect.innerHTML = `<option value="">${message}</option>`;
+        stateSelect.disabled = true;
+    };
+
+    const renderOptions = (states, selectedId) => {
+        const options = ['<option value="">اختر المحافظة</option>'];
+        states.forEach((state) => {
+            const isSelected = selectedId && String(selectedId) === String(state.id);
+            options.push(`<option value="${state.id}"${isSelected ? ' selected' : ''}>${state.name}</option>`);
+        });
+        stateSelect.innerHTML = options.join('');
+        stateSelect.disabled = false;
+    };
+
+    const loadStates = (countryId, selectedId = null) => {
+        if (!countryId) {
+            setLoading('اختر الدولة أولاً');
+            return;
+        }
+
+        setLoading('...جاري تحميل المحافظات');
+        const url = statesUrlTemplate.replace('0', countryId);
+
+        fetch(url, { credentials: 'same-origin' })
+            .then((response) => response.json())
+            .then((data) => renderOptions(data.states || [], selectedId))
+            .catch(() => setLoading('تعذر تحميل المحافظات'));
+    };
+
+    countrySelect.addEventListener('change', (event) => {
+        loadStates(event.target.value, null);
+    });
+
+    const initialCountry = countrySelect.value;
+    const initialState = stateSelect.value;
+
+    if (initialCountry) {
+        loadStates(initialCountry, initialState);
+    } else {
+        setLoading('اختر الدولة أولاً');
+    }
+});
+</script>
+{% endblock %}

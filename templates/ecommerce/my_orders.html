@@ -1,0 +1,295 @@
+﻿{% extends 'ecommerce/store_base_new.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'طلباتي' %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .orders-container {
+        background: var(--card-bg);
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: var(--card-shadow);
+    }
+    
+    .order-card {
+        border-bottom: 1px solid var(--border-color);
+        padding: 1.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .order-card:last-child {
+        border-bottom: none;
+    }
+    
+    .order-card:hover {
+        background: rgba(var(--primary-rgb), 0.05);
+    }
+    
+    .order-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+    
+    .order-number {
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: var(--primary-color);
+    }
+    
+    .order-date {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+    
+    .order-status {
+        padding: 0.4rem 1rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    
+    .status-pending {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-processing {
+        background: #cce5ff;
+        color: #004085;
+    }
+    
+    .status-shipped {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status-delivered {
+        background: #28a745;
+        color: white;
+    }
+    
+    .status-cancelled {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .order-items-preview {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .preview-item {
+        width: 50px;
+        height: 50px;
+        border-radius: 8px;
+        object-fit: cover;
+        border: 2px solid var(--border-color);
+    }
+    
+    .preview-more {
+        width: 50px;
+        height: 50px;
+        border-radius: 8px;
+        background: var(--light-bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        color: var(--text-muted);
+    }
+    
+    .order-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .order-total {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .empty-orders {
+        text-align: center;
+        padding: 4rem 2rem;
+    }
+    
+    .empty-icon {
+        font-size: 5rem;
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+    }
+    
+    .filter-tabs {
+        display: flex;
+        gap: 0.5rem;
+        padding: 1rem;
+        background: var(--light-bg);
+        border-radius: 15px;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .filter-tab {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        border: none;
+        background: transparent;
+        color: var(--text-color);
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .filter-tab:hover {
+        background: rgba(var(--primary-rgb), 0.1);
+    }
+    
+    .filter-tab.active {
+        background: var(--primary-color);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- عنوان الصفحة -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-bag me-2"></i>{% trans 'طلباتي' %}</h2>
+        <a href="{% url 'ecommerce:store_home' %}" class="btn btn-outline-primary">
+            <i class="bi bi-shop me-1"></i>{% trans 'متابعة التسوق' %}
+        </a>
+    </div>
+    
+    {% if orders %}
+    <!-- فلترة الطلبات -->
+    <div class="filter-tabs">
+        <button class="filter-tab active" data-filter="all">
+            <i class="bi bi-list me-1"></i>{% trans 'الكل' %}
+            <span class="badge bg-secondary ms-1">{{ orders.count }}</span>
+        </button>
+        <button class="filter-tab" data-filter="pending">
+            <i class="bi bi-clock me-1"></i>{% trans 'قيد الانتظار' %}
+        </button>
+        <button class="filter-tab" data-filter="processing">
+            <i class="bi bi-gear me-1"></i>{% trans 'قيد التجهيز' %}
+        </button>
+        <button class="filter-tab" data-filter="shipped">
+            <i class="bi bi-truck me-1"></i>{% trans 'تم الشحن' %}
+        </button>
+        <button class="filter-tab" data-filter="delivered">
+            <i class="bi bi-check-circle me-1"></i>{% trans 'تم التسليم' %}
+        </button>
+    </div>
+    
+    <!-- قائمة الطلبات -->
+    <div class="orders-container">
+        {% for order in orders %}
+        <div class="order-card" data-status="{ order.status }">
+            <div class="order-header">
+                <div>
+                    <div class="order-number">
+                        {% trans 'طلب رقم' %} #{{ order.order_number }}
+                    </div>
+                    <div class="order-date">
+                        <i class="bi bi-calendar3 me-1"></i>
+                        {{ order.created_at|date:"Y/m/d - H:i" }}
+                    </div>
+                </div>
+                <span class="order-status status-{ order.status }">
+                    {% if order.status == 'pending' %}
+                        <i class="bi bi-clock me-1"></i>{% trans 'قيد الانتظار' %}
+                    {% elif order.status == 'processing' %}
+                        <i class="bi bi-gear me-1"></i>{% trans 'قيد التجهيز' %}
+                    {% elif order.status == 'shipped' %}
+                        <i class="bi bi-truck me-1"></i>{% trans 'تم الشحن' %}
+                    {% elif order.status == 'delivered' %}
+                        <i class="bi bi-check-circle me-1"></i>{% trans 'تم التسليم' %}
+                    {% elif order.status == 'cancelled' %}
+                        <i class="bi bi-x-circle me-1"></i>{% trans 'ملغي' %}
+                    {% endif %}
+                </span>
+            </div>
+            
+            <!-- معاينة المنتجات -->
+            <div class="order-items-preview">
+                {% for item in order.items.all|slice:":4" %}
+                {% if item.product.main_image %}
+                <img src="{{ item.product.main_image.url }}" alt="{ item.product.name }}" class="preview-item">
+                {% else %}
+                <div class="preview-item bg-light d-flex align-items-center justify-content-center">
+                    <i class="bi bi-image text-muted"></i>
+                </div>
+                {% endif %}
+                {% endfor %}
+                {% if order.items.count > 4 %}
+                <div class="preview-more">+{{ order.items.count|add:"-4" }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="order-footer">
+                <div>
+                    <span class="text-muted">{% trans 'عدد المنتجات:' %}</span>
+                    <strong>{{ order.items.count }}</strong>
+                </div>
+                <div class="order-total">
+                    {{ order.total }} {{ currency_symbol }}
+                </div>
+                <a href="{% url 'ecommerce:order_detail' order.id %}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-eye me-1"></i>{% trans 'عرض التفاصيل' %}
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    {% else %}
+    <!-- لا توجد طلبات -->
+    <div class="orders-container">
+        <div class="empty-orders">
+            <i class="bi bi-bag-x empty-icon"></i>
+            <h4>{% trans 'لا توجد طلبات بعد' %}</h4>
+            <p class="text-muted">{% trans 'ابدأ التسوق الآن واستمتع بأفضل المنتجات' %}</p>
+            <a href="{% url 'ecommerce:product_list' %}" class="btn btn-primary btn-lg mt-3">
+                <i class="bi bi-shop me-2"></i>{% trans 'تصفح المنتجات' %}
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filterTabs = document.querySelectorAll('.filter-tab');
+    const orderCards = document.querySelectorAll('.order-card');
+    
+    filterTabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            // تحديث التبويب النشط
+            filterTabs.forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            
+            // فلترة الطلبات
+            const filter = this.dataset.filter;
+            
+            orderCards.forEach(card => {
+                if (filter === 'all' || card.dataset.status === filter) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+    });
+});
+</script>
+{% endblock %}
+

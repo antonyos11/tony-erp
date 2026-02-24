@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}أسعار الموردين - {{ product.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-1">💰 أسعار الموردين</h4>
+                            <p class="text-muted mb-0">
+                                <strong>{{ product.name }}</strong> ({{ product.sku }})
+                                {% if product.preferred_supplier %}
+                                    <span class="badge bg-warning">⭐ المورد المفضل: {{ product.preferred_supplier.name }}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div>
+                            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addPriceModal">
+                                <i class="fas fa-plus"></i> إضافة سعر مورد
+                            </button>
+                            <a href="{% url 'inventory:raw_material_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-right"></i> رجوع
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prices Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>المورد</th>
+                                    <th>التكلفة</th>
+                                    <th>العملة</th>
+                                    <th>الحد الأدنى للطلب</th>
+                                    <th>مدة التوريد</th>
+                                    <th>تاريخ السريان</th>
+                                    <th>الحالة</th>
+                                    <th>إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for price in prices %}
+                                <tr class="{% if price.is_preferred %}table-warning{% endif %}">
+                                    <td>
+                                        {{ price.supplier.name }}
+                                        {% if price.is_preferred %}
+                                            <span class="badge bg-warning">⭐ مفضل</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><strong>{{ price.cost }}</strong> ج.م / {{ product.purchase_uom_display }}</td>
+                                    <td>{{ price.currency }}</td>
+                                    <td>
+                                        {% if price.min_order_qty %}
+                                            {{ price.min_order_qty }} {{ product.purchase_uom_display }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if price.lead_time_days %}
+                                            {{ price.lead_time_days }} يوم
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ price.effective_date|date:"Y-m-d" }}</td>
+                                    <td>
+                                        {% if price.is_active %}
+                                            <span class="badge bg-success">نشط</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">غير نشط</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary" onclick="editPrice({{ price.id }}, '{{ price.supplier.name }}', {{ price.cost }}, {{ price.min_order_qty|default:'null' }}, {{ price.lead_time_days|default:'null' }}, {{ price.is_active|yesno:'true,false' }})">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        {% if not price.is_preferred %}
+                                        <button class="btn btn-sm btn-warning" onclick="setPreferred({{ price.id }})">
+                                            <i class="fas fa-star"></i> تفضيل
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">
+                                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                                        لا توجد أسعار موردين لهذا المنتج
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock Batches by Supplier -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">📦 المخزون حسب المورد</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>المورد</th>
+                                    <th>الكمية</th>
+                                    <th>التكلفة/الوحدة</th>
+                                    <th>القيمة الإجمالية</th>
+                                    <th>تاريخ الاستلام</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for batch in batches %}
+                                <tr>
+                                    <td>{{ batch.supplier.name|default:"غير محدد" }}</td>
+                                    <td>{{ batch.quantity }} {{ product.purchase_uom_display }}</td>
+                                    <td>{{ batch.unit_cost }} ج.م</td>
+                                    <td><strong>{{ batch.total_value }} ج.م</strong></td>
+                                    <td>{{ batch.received_at|date:"Y-m-d H:i" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">لا توجد دفعات مخزون</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Price Modal -->
+<div class="modal fade" id="addPriceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'inventory:supplier_price_add' product.id %}">
+                {% csrf_token %}
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">إضافة سعر مورد جديد</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">المورد *</label>
+                        <select name="supplier" class="form-select" required>
+                            <option value="">اختر المورد...</option>
+                            {% for supplier in suppliers %}
+                            <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">التكلفة (ج.م / {{ product.purchase_uom_display }}) *</label>
+                        <input type="number" name="cost" class="form-control" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الحد الأدنى للطلب</label>
+                        <input type="number" name="min_order_qty" class="form-control" step="0.01">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">مدة التوريد (أيام)</label>
+                        <input type="number" name="lead_time_days" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">ملاحظات</label>
+                        <textarea name="notes" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" name="is_active" class="form-check-input" id="isActive" checked>
+                        <label class="form-check-label" for="isActive">نشط</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-success">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function editPrice(id, supplierName, cost, minQty, leadTime, isActive) {
+    // TODO: Implement edit functionality
+    alert('تعديل سعر المورد: ' + supplierName);
+}
+
+function setPreferred(priceId) {
+    if (confirm('هل تريد تعيين هذا المورد كمورد مفضل؟\nسيتم تحديث سعر المنتج الأساسي تلقائياً.')) {
+        fetch(`/inventory/supplier-price/${priceId}/set-preferred/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('خطأ: ' + data.error);
+            }
+        });
+    }
+}
+</script>
+{% endblock %}
+

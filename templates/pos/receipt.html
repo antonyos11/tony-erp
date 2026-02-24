@@ -1,0 +1,307 @@
+﻿{% load static %}
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% trans 'إيصال' %} #{{ order.number|default:order.id }}</title>
+    <style>
+        @page {
+            size: 80mm auto;
+            margin: 0;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            padding: 10px;
+            width: 80mm;
+            direction: rtl;
+        }
+        .receipt-header {
+            text-align: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px dashed #333;
+        }
+        .company-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .company-info {
+            font-size: 10px;
+            color: #555;
+        }
+        .receipt-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .receipt-info {
+            margin-bottom: 15px;
+            font-size: 11px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+        }
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        .items-table th, .items-table td {
+            padding: 5px 3px;
+            text-align: right;
+            border-bottom: 1px solid #ddd;
+        }
+        .items-table th {
+            font-weight: bold;
+            background: #f5f5f5;
+            font-size: 10px;
+        }
+        .items-table .qty {
+            text-align: center;
+            width: 30px;
+        }
+        .items-table .price, .items-table .total {
+            text-align: left;
+            width: 60px;
+        }
+        .totals {
+            border-top: 2px dashed #333;
+            padding-top: 10px;
+            margin-bottom: 15px;
+        }
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .totals-row.grand-total {
+            font-size: 16px;
+            font-weight: bold;
+            border-top: 1px solid #333;
+            padding-top: 8px;
+            margin-top: 8px;
+        }
+        .payment-info {
+            background: #f9f9f9;
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 11px;
+        }
+        .footer {
+            text-align: center;
+            border-top: 2px dashed #333;
+            padding-top: 10px;
+            font-size: 10px;
+        }
+        .footer .thanks {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .barcode {
+            margin: 10px auto;
+            text-align: center;
+        }
+        .barcode img {
+            max-width: 100%;
+            height: 40px;
+        }
+        .qr-code {
+            margin: 10px auto;
+            text-align: center;
+        }
+        .qr-code img {
+            width: 60px;
+            height: 60px;
+        }
+        @media print {
+            body {
+                width: 80mm;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+        .print-actions {
+            text-align: center;
+            margin: 20px 0;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 8px;
+        }
+        .print-actions button {
+            padding: 10px 25px;
+            font-size: 14px;
+            margin: 5px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+        }
+        .print-btn {
+            background: #28a745;
+            color: white;
+        }
+        .close-btn {
+            background: #6c757d;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- أزرار الطباعة -->
+    <div class="print-actions no-print">
+        <button class="print-btn" onclick="window.print()">
+            🖨️ {% trans 'طباعة الإيصال' %}
+        </button>
+        <button class="close-btn" onclick="closeAndNew()">
+            🔄 {% trans 'طلب جديد' %}
+        </button>
+        <button class="close-btn" onclick="window.close()">
+            ✕ {% trans 'إغلاق' %}
+        </button>
+    </div>
+
+    <!-- رأس الإيصال -->
+    <div class="receipt-header">
+        {% if company_logo %}
+        <img src="{ company_logo }}" alt="Logo" style="max-width: 60px; margin-bottom: 5px;">
+        {% endif %}
+        <div class="company-name">{{ company_name|default:"اسم الشركة" }}</div>
+        <div class="company-info">
+            {% if company_address %}{{ company_address }}<br>{% endif %}
+            {% if company_phone %}{% trans 'هاتف:' %} {{ company_phone }}<br>{% endif %}
+            {% if company_tax_number %}{% trans 'الرقم الضريبي:' %} {{ company_tax_number }}{% endif %}
+        </div>
+        <div class="receipt-title">{% trans 'إيصال مبيعات' %}</div>
+    </div>
+
+    <!-- معلومات الإيصال -->
+    <div class="receipt-info">
+        <div class="info-row">
+            <span>{% trans 'رقم الإيصال:' %}</span>
+            <span><strong>{{ order.number|default:order.id }}</strong></span>
+        </div>
+        <div class="info-row">
+            <span>{% trans 'التاريخ:' %}</span>
+            <span>{{ order.created_at|date:"Y/m/d H:i" }}</span>
+        </div>
+        {% if order.customer %}
+        <div class="info-row">
+            <span>{% trans 'العميل:' %}</span>
+            <span>{{ order.customer.name }}</span>
+        </div>
+        {% endif %}
+        <div class="info-row">
+            <span>{% trans 'الكاشير:' %}</span>
+            <span>{{ order.session.user.username|default:request.user.username }}</span>
+        </div>
+    </div>
+
+    <!-- الأصناف -->
+    <div class="table-responsive"><table class="items-table">
+        <thead>
+            <tr>
+                <th>{% trans 'الصنف' %}</th>
+                <th class="qty">{% trans 'الكمية' %}</th>
+                <th class="price">{% trans 'السعر' %}</th>
+                <th class="total">{% trans 'الإجمالي' %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for line in order.lines.all %}
+            <tr>
+                <td>{{ line.product.name }}</td>
+                <td class="qty">{{ line.quantity }}</td>
+                <td class="price">{{ line.price|floatformat:2 }}</td>
+                <td class="total">{{ line.total|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table></div>
+
+    <!-- المجاميع -->
+    <div class="totals">
+        <div class="totals-row">
+            <span>{% trans 'المجموع الفرعي:' %}</span>
+            <span>{{ order.subtotal|floatformat:2 }}</span>
+        </div>
+        {% if order.discount %}
+        <div class="totals-row">
+            <span>{% trans 'الخصم:' %}</span>
+            <span>-{{ order.discount|floatformat:2 }}</span>
+        </div>
+        {% endif %}
+        {% if order.tax %}
+        <div class="totals-row">
+            <span>{% trans 'الضريبة (15%):' %}</span>
+            <span>{{ order.tax|floatformat:2 }}</span>
+        </div>
+        {% endif %}
+        <div class="totals-row grand-total">
+            <span>{% trans 'الإجمالي:' %}</span>
+            <span>{{ order.total|floatformat:2 }} {% trans 'ج.م' %}</span>
+        </div>
+    </div>
+
+    <!-- معلومات الدفع -->
+    <div class="payment-info">
+        <div class="info-row">
+            <span>{% trans 'طريقة الدفع:' %}</span>
+            <span>{{ order.payment_method|default:"نقداً" }}</span>
+        </div>
+        <div class="info-row">
+            <span>{% trans 'المدفوع:' %}</span>
+            <span>{{ order.paid|default:order.total|floatformat:2 }}</span>
+        </div>
+        {% if order.change %}
+        <div class="info-row">
+            <span>{% trans 'الباقي:' %}</span>
+            <span>{{ order.change|floatformat:2 }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- الباركود / QR -->
+    {% if order.barcode %}
+    <div class="barcode">
+        <img src="data:image/png;base64,{ order.barcode }}" alt="Barcode">
+    </div>
+    {% endif %}
+
+    <!-- التذييل -->
+    <div class="footer">
+        <div class="thanks">{% trans 'شكراً لتعاملكم معنا' %}</div>
+        <p>{% trans 'نتمنى لكم يوماً سعيداً' %}</p>
+        <p>{% trans 'لا يُقبل استرجاع البضاعة بعد 7 أيام' %}</p>
+    </div>
+    
+    <script>
+    // فتح طلب جديد
+    function closeAndNew() {
+        window.location.href = '/pos/order/new/';
+    }
+    
+    // طباعة تلقائية عند التحميل (إذا كان مطلوب)
+    {% if auto_print %}
+    window.onload = function() {
+        setTimeout(function() {
+            window.print();
+        }, 300);
+    };
+    {% endif %}
+    </script>
+</body>
+</html>

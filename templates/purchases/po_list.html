@@ -1,0 +1,267 @@
+{% extends 'base_templates/_list_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'أوامر الشراء' %}{% endblock %}
+{% block hero_icon %}bi-cart-check{% endblock %}
+{% block hero_title %}{% trans 'أوامر الشراء' %}{% endblock %}
+{% block hero_subtitle %}{% trans 'إدارة أوامر الشراء والتوريدات ومتابعة الاستلام' %}{% endblock %}
+
+{% block hero_actions %}
+<a href="{% url 'purchases:po_create' %}" class="btn btn-light">
+  <i class="bi bi-plus-lg me-1"></i>{% trans 'أمر شراء جديد' %}
+</a>
+<div class="dropdown">
+  <button class="btn btn-light btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+    <i class="bi bi-three-dots-vertical"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><a class="dropdown-item" href="{% url 'purchases:rfq_list' %}"><i class="bi bi-file-text me-2"></i>{% trans 'طلبات عروض الأسعار' %}</a></li>
+    <li><a class="dropdown-item" href="{% url 'partners:suppliers_list' %}"><i class="bi bi-truck me-2"></i>{% trans 'الموردين' %}</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><a class="dropdown-item" href="?export=excel"><i class="bi bi-file-excel me-2"></i>{% trans 'تصدير Excel' %}</a></li>
+  </ul>
+</div>
+{% endblock %}
+
+{% block stats_section %}
+<div class="stats-grid">
+  <div class="stat-card primary">
+    <div class="stat-icon"><i class="bi bi-cart"></i></div>
+    <div class="stat-value">{{ stats.total|default:0 }}</div>
+    <div class="stat-label">{% trans 'إجمالي الأوامر' %}</div>
+  </div>
+  <div class="stat-card warning">
+    <div class="stat-icon"><i class="bi bi-hourglass-split"></i></div>
+    <div class="stat-value">{{ stats.pending|default:0 }}</div>
+    <div class="stat-label">{% trans 'قيد الانتظار' %}</div>
+  </div>
+  <div class="stat-card info">
+    <div class="stat-icon"><i class="bi bi-box-seam"></i></div>
+    <div class="stat-value">{{ stats.partial|default:0 }}</div>
+    <div class="stat-label">{% trans 'استلام جزئي' %}</div>
+  </div>
+  <div class="stat-card success">
+    <div class="stat-icon"><i class="bi bi-check-circle"></i></div>
+    <div class="stat-value">{{ stats.completed|default:0 }}</div>
+    <div class="stat-label">{% trans 'مكتملة' %}</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block filter_fields %}
+<div class="filter-group">
+  <label>{% trans 'بحث' %}</label>
+  <div class="input-group input-group-sm">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input type="text" name="search" class="form-control" placeholder="{% trans 'رقم الأمر أو المورد...' %}" value="{{ search }}">
+  </div>
+</div>
+<div class="filter-group">
+  <label>{% trans 'الحالة' %}</label>
+  <select name="status" class="form-select form-select-sm">
+    <option value="">{% trans 'جميع الحالات' %}</option>
+    <option value="draft" {% if status == 'draft' %}selected{% endif %}>{% trans 'مسودة' %}</option>
+    <option value="sent" {% if status == 'sent' %}selected{% endif %}>{% trans 'مرسل' %}</option>
+    <option value="confirmed" {% if status == 'confirmed' %}selected{% endif %}>{% trans 'مؤكد' %}</option>
+    <option value="partial" {% if status == 'partial' %}selected{% endif %}>{% trans 'استلام جزئي' %}</option>
+    <option value="completed" {% if status == 'completed' %}selected{% endif %}>{% trans 'مكتمل' %}</option>
+    <option value="cancelled" {% if status == 'cancelled' %}selected{% endif %}>{% trans 'ملغى' %}</option>
+  </select>
+</div>
+<div class="filter-group">
+  <label>{% trans 'المورد' %}</label>
+  <select name="supplier" class="form-select form-select-sm">
+    <option value="">{% trans 'كل الموردين' %}</option>
+    {% for supplier in suppliers %}
+    <option value="{{ supplier.id }}" {% if selected_supplier == supplier.id|stringformat:"s" %}selected{% endif %}>{{ supplier.name }}</option>
+    {% endfor %}
+  </select>
+</div>
+<div class="filter-group">
+  <label>{% trans 'من تاريخ' %}</label>
+  <input type="date" name="from_date" class="form-control form-control-sm" value="{{ from_date }}">
+</div>
+<div class="filter-group">
+  <label>{% trans 'إلى تاريخ' %}</label>
+  <input type="date" name="to_date" class="form-control form-control-sm" value="{{ to_date }}">
+</div>
+{% endblock %}
+
+{% block table_icon %}bi-cart-check{% endblock %}
+{% block table_title %}{% trans 'أوامر الشراء' %}{% endblock %}
+{% block table_count %}
+<span class="badge bg-primary rounded-pill ms-2">{{ purchase_orders|length }}</span>
+{% endblock %}
+
+{% block table_actions %}
+<a href="?export=excel" class="btn btn-outline-success btn-sm">
+  <i class="bi bi-file-excel me-1"></i>{% trans 'تصدير' %}
+</a>
+{% endblock %}
+
+{% block table_headers %}
+<th style="width: 50px;">#</th>
+<th>{% trans 'رقم الأمر' %}</th>
+<th>{% trans 'المورد' %}</th>
+<th>{% trans 'التاريخ' %}</th>
+<th>{% trans 'تاريخ التسليم المتوقع' %}</th>
+<th class="text-end">{% trans 'المبلغ' %}</th>
+<th style="width: 120px;">{% trans 'الاستلام' %}</th>
+<th>{% trans 'الحالة' %}</th>
+<th class="text-center" style="width: 140px;">{% trans 'الإجراءات' %}</th>
+{% endblock %}
+
+{% block table_body %}
+{% for po in purchase_orders %}
+<tr>
+  <td>{{ forloop.counter }}</td>
+  <td>
+    <div class="cell-main">
+      <a href="{% url 'purchases:po_detail' po.pk %}">{{ po.po_number }}</a>
+    </div>
+    {% if po.rfq %}
+    <div class="cell-sub">RFQ: {{ po.rfq.rfq_number }}</div>
+    {% endif %}
+  </td>
+  <td>
+    <div class="d-flex align-items-center gap-2">
+      <div class="cell-avatar">
+        <i class="bi bi-truck"></i>
+      </div>
+      <div>
+        <div class="fw-medium">{{ po.supplier.name }}</div>
+        {% if po.supplier.phone %}
+        <div class="cell-sub">{{ po.supplier.phone }}</div>
+        {% endif %}
+      </div>
+    </div>
+  </td>
+  <td>
+    <div>{{ po.date|date:"Y/m/d" }}</div>
+    <div class="cell-sub">{{ po.date|time:"H:i" }}</div>
+  </td>
+  <td>
+    {% if po.expected_date %}
+    <div>{{ po.expected_date|date:"Y/m/d" }}</div>
+    {% if po.expected_date < today and po.status != 'completed' %}
+    <span class="priority-badge urgent">{% trans 'متأخر' %}</span>
+    {% endif %}
+    {% else %}
+    <span class="text-muted">-</span>
+    {% endif %}
+  </td>
+  <td class="text-end">
+    <div class="fw-bold text-primary">{{ po.total|floatformat:2 }}</div>
+    <div class="cell-sub">{% trans 'ج.م' %}</div>
+  </td>
+  <td>
+    <div class="d-flex align-items-center gap-2">
+      <div class="progress flex-grow-1" style="height: 6px;">
+        <div class="progress-bar bg-success" style="width: {{ po.received_percent|default:0 }}%;"></div>
+      </div>
+      <span class="small text-muted" style="min-width: 35px;">{{ po.received_percent|default:0 }}%</span>
+    </div>
+  </td>
+  <td>
+    {% if po.status == 'draft' %}
+    <span class="pro-badge draft"><i class="bi bi-pencil"></i> {% trans 'مسودة' %}</span>
+    {% elif po.status == 'sent' %}
+    <span class="pro-badge pending"><i class="bi bi-send"></i> {% trans 'مرسل' %}</span>
+    {% elif po.status == 'confirmed' %}
+    <span class="pro-badge approved"><i class="bi bi-check-circle"></i> {% trans 'مؤكد' %}</span>
+    {% elif po.status == 'partial' %}
+    <span class="pro-badge partial"><i class="bi bi-box-seam"></i> {% trans 'جزئي' %}</span>
+    {% elif po.status == 'completed' %}
+    <span class="pro-badge completed"><i class="bi bi-check-all"></i> {% trans 'مكتمل' %}</span>
+    {% elif po.status == 'cancelled' %}
+    <span class="pro-badge cancelled"><i class="bi bi-x-circle"></i> {% trans 'ملغى' %}</span>
+    {% endif %}
+  </td>
+  <td>
+    <div class="action-buttons">
+      <a href="{% url 'purchases:po_detail' po.pk %}" class="action-btn view" title="{% trans 'عرض' %}">
+        <i class="bi bi-eye"></i>
+      </a>
+      {% if po.status == 'confirmed' or po.status == 'partial' %}
+      <a href="{% url 'purchases:po_receive' po.pk %}" class="action-btn approve" title="{% trans 'استلام' %}">
+        <i class="bi bi-box-arrow-in-down"></i>
+      </a>
+      {% endif %}
+      {% if po.status == 'draft' %}
+      <a href="{% url 'purchases:po_edit' po.pk %}" class="action-btn edit" title="{% trans 'تعديل' %}">
+        <i class="bi bi-pencil"></i>
+      </a>
+      {% endif %}
+      <button type="button" class="action-btn print" title="{% trans 'طباعة' %}" onclick="printPO({{ po.pk }})">
+        <i class="bi bi-printer"></i>
+      </button>
+    </div>
+  </td>
+</tr>
+{% empty %}
+<tr>
+  <td colspan="9">
+    <div class="empty-state">
+      <div class="empty-icon"><i class="bi bi-cart"></i></div>
+      <h5>{% trans 'لا توجد أوامر شراء' %}</h5>
+      <p>{% trans 'ابدأ بإنشاء أول أمر شراء للموردين' %}</p>
+      <a href="{% url 'purchases:po_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus me-1"></i>{% trans 'إنشاء أمر شراء' %}
+      </a>
+    </div>
+  </td>
+</tr>
+{% endfor %}
+{% endblock %}
+
+{% block pagination %}
+{% if page_obj.has_other_pages %}
+<div class="pagination-wrapper">
+  <div class="pagination-info">
+    {% trans 'عرض' %} {{ page_obj.start_index }}-{{ page_obj.end_index }} {% trans 'من' %} {{ page_obj.paginator.count }}
+  </div>
+  <nav>
+    <ul class="pagination pagination-sm mb-0">
+      {% if page_obj.has_previous %}
+      <li class="page-item">
+        <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if status %}&status={{ status }}{% endif %}">
+          <i class="bi bi-chevron-double-right"></i>
+        </a>
+      </li>
+      <li class="page-item">
+        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status %}&status={{ status }}{% endif %}">
+          {% trans 'السابق' %}
+        </a>
+      </li>
+      {% endif %}
+      
+      <li class="page-item active">
+        <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+      </li>
+      
+      {% if page_obj.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status %}&status={{ status }}{% endif %}">
+          {% trans 'التالي' %}
+        </a>
+      </li>
+      <li class="page-item">
+        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if status %}&status={{ status }}{% endif %}">
+          <i class="bi bi-chevron-double-left"></i>
+        </a>
+      </li>
+      {% endif %}
+    </ul>
+  </nav>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block list_scripts %}
+<script>
+function printPO(poId) {
+  window.open("{% url 'purchases:po_print' 0 %}".replace('0', poId), '_blank', 'width=800,height=600');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,378 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}{{ page_title }} v2{% endblock %}
+
+{% block extra_css %}
+<style>
+    .gantt-container {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .gantt-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .gantt-filters {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+    
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .filter-group label {
+        font-size: 12px;
+        font-weight: bold;
+        color: #6c757d;
+    }
+    
+    .filter-group input,
+    .filter-group select {
+        padding: 6px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    
+    .gantt-chart-wrapper {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 600px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+    }
+    
+    .gantt-grid {
+        display: grid;
+        grid-template-columns: 200px 1fr;
+        min-width: 800px;
+    }
+    
+    .gantt-sidebar {
+        background: #f8f9fa;
+        border-left: 1px solid #dee2e6;
+        position: sticky;
+        right: 0;
+    }
+    
+    .gantt-timeline {
+        position: relative;
+        min-height: 400px;
+        background: white;
+    }
+    
+    .gantt-row {
+        display: grid;
+        grid-template-columns: 200px 1fr;
+        border-bottom: 1px solid #e9ecef;
+        min-height: 50px;
+    }
+    
+    .gantt-task-label {
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        background: #f8f9fa;
+        border-left: 1px solid #dee2e6;
+        font-size: 13px;
+    }
+    
+    .gantt-task-name {
+        font-weight: bold;
+        color: #212529;
+    }
+    
+    .gantt-task-info {
+        font-size: 11px;
+        color: #6c757d;
+    }
+    
+    .gantt-timeline-row {
+        position: relative;
+        background: white;
+    }
+    
+    .gantt-bar {
+        position: absolute;
+        height: 30px;
+        top: 10px;
+        border-radius: 4px;
+        padding: 5px 10px;
+        font-size: 11px;
+        color: white;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .gantt-bar:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .gantt-date-header {
+        display: flex;
+        border-bottom: 2px solid #dee2e6;
+        background: #f8f9fa;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .gantt-date-cell {
+        flex: 1;
+        padding: 10px;
+        text-align: center;
+        border-left: 1px solid #dee2e6;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    
+    .gantt-legend {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        margin-top: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 4px;
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+    }
+    
+    .legend-color {
+        width: 30px;
+        height: 15px;
+        border-radius: 3px;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: bold;
+        margin-right: 5px;
+    }
+    
+    .priority-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 10px;
+        font-weight: bold;
+    }
+    
+    .priority-urgent { background: #dc3545; color: white; }
+    .priority-high { background: #fd7e14; color: white; }
+    .priority-medium { background: #ffc107; color: #212529; }
+    .priority-low { background: #6c757d; color: white; }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 48px;
+        margin-bottom: 15px;
+        color: #dee2e6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="gantt-container">
+        <div class="gantt-header">
+            <div>
+                <h4 class="mb-1">
+                    <i class="fas fa-chart-gantt"></i>
+                    {{ page_title }}
+                </h4>
+                <p class="text-muted mb-0">عرض الجدول الزمني لمراحل الإنتاج</p>
+            </div>
+            
+            <div class="gantt-filters">
+                <form method="GET" class="d-flex gap-3">
+                    <div class="filter-group">
+                        <label>من تاريخ</label>
+                        <input type="date" name="start_date" class="form-control form-control-sm" 
+                               value="{ start_date|date:'Y-m-d' }">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>إلى تاريخ</label>
+                        <input type="date" name="end_date" class="form-control form-control-sm" 
+                               value="{ end_date|date:'Y-m-d' }">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>مركز العمل</label>
+                        <select name="work_center" class="form-control form-control-sm">
+                            <option value="">الكل</option>
+                            {% for wc in work_centers %}
+                            <option value="{ wc.id }}" {% if selected_work_center == wc.id|stringformat:"s" %}selected{% endif %}>
+                                {{ wc.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group" style="justify-content: flex-end;">
+                        <label>&nbsp;</label>
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="fas fa-filter"></i> تصفية
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div id="gantt-chart-area">
+            {% if gantt_data != '[]' %}
+            <div id="gantt-display"></div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-calendar-times"></i>
+                <h5>لا توجد مراحل مجدولة</h5>
+                <p>لا توجد مراحل إنتاج مجدولة في الفترة المحددة</p>
+                <a href="{% url 'production:auto_schedule_orders' %}" class="btn btn-primary">
+                    <i class="fas fa-clock"></i> جدولة الأوامر
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if gantt_data != '[]' %}
+        <div class="gantt-legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #6c757d;"></div>
+                <span>في الانتظار</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #17a2b8;"></div>
+                <span>جاهز للبدء</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ffc107;"></div>
+                <span>قيد التنفيذ</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #fd7e14;"></div>
+                <span>فحص الجودة</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #28a745;"></div>
+                <span>مكتمل</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #dc3545;"></div>
+                <span>معلق</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #343a40;"></div>
+                <span>ملغي</span>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Gantt chart data from server
+    const ganttData = JSON.parse('{ gantt_data|escapejs|default:"[]" }');
+    
+    function renderGanttChart() {
+        if (!ganttData || ganttData.length === 0) return;
+        
+        const container = document.getElementById('gantt-display');
+        
+        // حساب نطاق التواريخ
+        const dates = ganttData.flatMap(item => [
+            new Date(item.start),
+            new Date(item.end)
+        ]);
+        const minDate = new Date(Math.min(...dates));
+        const maxDate = new Date(Math.max(...dates));
+        
+        // عدد الأيام في النطاق
+        const dayRange = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
+        
+        // بناء HTML للمخطط
+        let html = '<div class="gantt-chart-wrapper">';
+        
+        // صف التواريخ
+        html += '<div class="gantt-date-header" style="grid-column: 1 / -1;">';
+        html += '<div style="width: 200px; padding: 10px; border-left: 1px solid #dee2e6;">المهمة</div>';
+        html += '<div style="flex: 1; display: flex;">';
+        for (let i = 0; i < dayRange; i++) {
+            const date = new Date(minDate);
+            date.setDate(date.getDate() + i);
+            html += `<div class="gantt-date-cell">${date.getDate()}/${date.getMonth() + 1}</div>`;
+        }
+        html += '</div></div>';
+        
+        // صفوف المهام
+        ganttData.forEach(task => {
+            const taskStart = new Date(task.start);
+            const taskEnd = new Date(task.end);
+            const taskDuration = Math.ceil((taskEnd - taskStart) / (1000 * 60 * 60 * 24)) + 1;
+            const startOffset = Math.floor((taskStart - minDate) / (1000 * 60 * 60 * 24));
+            
+            const leftPercent = (startOffset / dayRange) * 100;
+            const widthPercent = (taskDuration / dayRange) * 100;
+            
+            html += '<div class="gantt-row">';
+            html += `<div class="gantt-task-label">
+                <div class="gantt-task-name">${task.stage_name}</div>
+                <div class="gantt-task-info">
+                    ${task.order_number} - ${task.product_name}
+                    <span class="priority-badge priority-${task.priority}">${task.priority}</span>
+                </div>
+            </div>`;
+            
+            html += '<div class="gantt-timeline-row">';
+            html += `<div class="gantt-bar" style="left: ${leftPercent}%; width: ${widthPercent}%; background: ${task.color};"
+                     title="${task.stage_name}: ${task.start} - ${task.end}\n${task.status}\nالتقدم: ${task.progress.toFixed(1)}%">
+                <span>${task.progress.toFixed(0)}%</span>
+            </div>`;
+            html += '</div>';
+            html += '</div>';
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+    }
+    
+    document.addEventListener('DOMContentLoaded', renderGanttChart);
+</script>
+{% endblock %}
+

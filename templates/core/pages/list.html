@@ -1,0 +1,317 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load i18n %}
+
+{% block title %}الصفحات والأقسام{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- شريط العنوان والشرح -->
+    <div class="page-header mb-4">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <h2 class="mb-2"><i class="bi bi-layout-text-window me-2"></i>إدارة الصفحات والأقسام</h2>
+                <p class="text-muted mb-0">
+                    <i class="bi bi-info-circle me-1"></i>
+                    من هنا يمكنك إدارة جميع صفحات النظام وتنظيمها في أقسام. يمكنك إضافة صفحات جديدة، تعديل الترتيب، وتحديد الصفحات التي تظهر في القائمة الجانبية.
+                </p>
+            </div>
+            <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+                <a href="{% url 'core:page_create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-lg me-1"></i>إضافة صفحة جديدة
+                </a>
+                <button type="button" class="btn btn-outline-secondary ms-2" data-bs-toggle="modal" data-bs-target="#helpModal">
+                    <i class="bi bi-question-circle me-1"></i>مساعدة
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- إحصائيات سريعة -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">إجمالي الصفحات</h6>
+                            <h3 class="mb-0">{{ pages.count }}</h3>
+                        </div>
+                        <i class="bi bi-file-earmark-text display-6 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">الصفحات النشطة</h6>
+                            <h3 class="mb-0">{{ active_count|default:pages.count }}</h3>
+                        </div>
+                        <i class="bi bi-check-circle display-6 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">عناصر القائمة</h6>
+                            <h3 class="mb-0">{{ menu_count|default:0 }}</h3>
+                        </div>
+                        <i class="bi bi-list display-6 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-secondary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">الأقسام الرئيسية</h6>
+                            <h3 class="mb-0">{{ parent_count|default:0 }}</h3>
+                        </div>
+                        <i class="bi bi-folder display-6 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-table me-2"></i>قائمة الصفحات</span>
+            <div class="btn-group btn-group-sm">
+                <button type="button" class="btn btn-outline-secondary" id="expandAll">
+                    <i class="bi bi-arrows-expand"></i> توسيع الكل
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="collapseAll">
+                    <i class="bi bi-arrows-collapse"></i> طي الكل
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th>اسم الصفحة</th>
+                            <th>الكود</th>
+                            <th>الرابط</th>
+                            <th>القسم الأب</th>
+                            <th style="width: 80px;">الترتيب</th>
+                            <th style="width: 150px;">الحالة</th>
+                            <th style="width: 120px;">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for page in pages %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                {% if page.icon %}<i class="bi {{ page.icon }} me-2 text-primary"></i>{% else %}<i class="bi bi-file-earmark me-2 text-muted"></i>{% endif %}
+                                <strong>{{ page.name }}</strong>
+                                {% if page.description %}
+                                <br><small class="text-muted">{{ page.description|truncatewords:10 }}</small>
+                                {% endif %}
+                            </td>
+                            <td><code class="bg-light px-2 py-1 rounded">{{ page.code }}</code></td>
+                            <td>
+                                {% if page.url %}
+                                <a href="{{ page.url }}" target="_blank" class="text-decoration-none">
+                                    <code>{{ page.url|truncatechars:30 }}</code>
+                                    <i class="bi bi-box-arrow-up-right ms-1 small"></i>
+                                </a>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if page.parent %}
+                                <span class="badge bg-light text-dark">
+                                    <i class="bi bi-folder me-1"></i>{{ page.parent.name }}
+                                </span>
+                                {% else %}
+                                <span class="badge bg-primary">قسم رئيسي</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary">{{ page.order }}</span>
+                            </td>
+                            <td>
+                                {% if page.is_active %}
+                                <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>نشط</span>
+                                {% else %}
+                                <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>غير نشط</span>
+                                {% endif %}
+                                {% if page.is_menu_item %}
+                                <span class="badge bg-info"><i class="bi bi-list me-1"></i>قائمة</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'core:page_edit' page.pk %}" class="btn btn-outline-primary" title="تعديل">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'core:page_delete' page.pk %}" class="btn btn-outline-danger" title="حذف">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5">
+                                <i class="bi bi-inbox display-4 text-muted d-block mb-3"></i>
+                                <h5 class="text-muted">لا توجد صفحات مسجلة</h5>
+                                <p class="text-muted">ابدأ بإضافة صفحات النظام لتنظيم الوصول والقوائم</p>
+                                <a href="{% url 'core:page_create' %}" class="btn btn-primary">
+                                    <i class="bi bi-plus-lg me-1"></i>إضافة أول صفحة
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal المساعدة -->
+<div class="modal fade" id="helpModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-question-circle me-2"></i>دليل إدارة الصفحات والأقسام</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="accordion" id="helpAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#help1">
+                                <i class="bi bi-question-lg me-2 text-primary"></i>ما هي هذه الصفحة؟
+                            </button>
+                        </h2>
+                        <div id="help1" class="accordion-collapse collapse show" data-bs-parent="#helpAccordion">
+                            <div class="accordion-body">
+                                <p>صفحة إدارة الصفحات والأقسام تتيح لك:</p>
+                                <ul>
+                                    <li><strong>تنظيم صفحات النظام:</strong> إضافة وتعديل وحذف صفحات النظام</li>
+                                    <li><strong>إنشاء هيكل القوائم:</strong> تحديد الصفحات التي تظهر في القائمة الجانبية</li>
+                                    <li><strong>ترتيب الصفحات:</strong> التحكم في ترتيب ظهور الصفحات</li>
+                                    <li><strong>تعيين صلاحيات:</strong> ربط الصفحات بصلاحيات المستخدمين</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#help2">
+                                <i class="bi bi-plus-circle me-2 text-success"></i>كيف أضيف صفحة جديدة؟
+                            </button>
+                        </h2>
+                        <div id="help2" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                            <div class="accordion-body">
+                                <ol>
+                                    <li>اضغط على زر <strong>"إضافة صفحة جديدة"</strong></li>
+                                    <li>أدخل <strong>اسم الصفحة</strong> بالعربية (مثال: إدارة المخزون)</li>
+                                    <li>أدخل <strong>كود الصفحة</strong> بالإنجليزية (مثال: inventory_list)</li>
+                                    <li>أدخل <strong>الرابط</strong> إذا كانت الصفحة موجودة (مثال: /inventory/)</li>
+                                    <li>اختر <strong>القسم الأب</strong> إذا كانت صفحة فرعية</li>
+                                    <li>أضف <strong>الأيقونة</strong> من Bootstrap Icons (مثال: bi-box)</li>
+                                    <li>حدد <strong>الترتيب</strong> لتحديد موقعها في القائمة</li>
+                                    <li>فعّل <strong>"نشط"</strong> لإظهار الصفحة</li>
+                                    <li>فعّل <strong>"عنصر قائمة"</strong> لإظهارها في القائمة الجانبية</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#help3">
+                                <i class="bi bi-folder me-2 text-warning"></i>ما الفرق بين القسم والصفحة؟
+                            </button>
+                        </h2>
+                        <div id="help3" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                            <div class="accordion-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="card bg-light">
+                                            <div class="card-body">
+                                                <h6><i class="bi bi-folder text-warning"></i> القسم (الأب)</h6>
+                                                <ul class="small mb-0">
+                                                    <li>يحتوي على صفحات فرعية</li>
+                                                    <li>قد لا يكون له رابط مباشر</li>
+                                                    <li>يظهر كعنوان مجموعة في القائمة</li>
+                                                    <li>مثال: المخزون، المبيعات، الحسابات</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card bg-light">
+                                            <div class="card-body">
+                                                <h6><i class="bi bi-file-earmark text-primary"></i> الصفحة (الفرعية)</h6>
+                                                <ul class="small mb-0">
+                                                    <li>تنتمي لقسم معين</li>
+                                                    <li>لها رابط مباشر للوصول</li>
+                                                    <li>تظهر تحت القسم في القائمة</li>
+                                                    <li>مثال: قائمة المنتجات، إضافة منتج</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#help4">
+                                <i class="bi bi-icons me-2 text-info"></i>من أين أحصل على الأيقونات؟
+                            </button>
+                        </h2>
+                        <div id="help4" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                            <div class="accordion-body">
+                                <p>نستخدم <strong>Bootstrap Icons</strong>. يمكنك زيارة الموقع الرسمي:</p>
+                                <a href="https://icons.getbootstrap.com/" target="_blank" class="btn btn-outline-primary">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i>Bootstrap Icons
+                                </a>
+                                <hr>
+                                <p><strong>أيقونات شائعة:</strong></p>
+                                <div class="row">
+                                    <div class="col-4"><code>bi-house</code> <i class="bi bi-house"></i> الرئيسية</div>
+                                    <div class="col-4"><code>bi-box</code> <i class="bi bi-box"></i> المخزون</div>
+                                    <div class="col-4"><code>bi-cart</code> <i class="bi bi-cart"></i> المبيعات</div>
+                                    <div class="col-4"><code>bi-people</code> <i class="bi bi-people"></i> العملاء</div>
+                                    <div class="col-4"><code>bi-gear</code> <i class="bi bi-gear"></i> الإعدادات</div>
+                                    <div class="col-4"><code>bi-graph-up</code> <i class="bi bi-graph-up"></i> التقارير</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

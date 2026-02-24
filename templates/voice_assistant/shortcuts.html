@@ -1,0 +1,118 @@
+{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}الاختصارات الصوتية - Tony ERP{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="bi bi-bookmark text-primary me-2"></i>الاختصارات الصوتية</h2>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addShortcutModal">
+                    <i class="bi bi-plus-lg me-2"></i>اختصار جديد
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>العبارة</th>
+                                <th>الإجراء</th>
+                                <th>الرابط/القيمة</th>
+                                <th>الحالة</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for shortcut in shortcuts %}
+                            <tr>
+                                <td><code>{{ shortcut.trigger_phrase }}</code></td>
+                                <td>{{ shortcut.get_action_type_display }}</td>
+                                <td>{{ shortcut.action_value|truncatechars:50 }}</td>
+                                <td>
+                                    {% if shortcut.is_active %}
+                                    <span class="badge bg-success">نشط</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">معطل</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteShortcut({{ shortcut.id }})">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-5">
+                                    <i class="bi bi-bookmark fa-3x text-muted mb-3"></i>
+                                    <p class="text-muted">لا توجد اختصارات</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal إضافة اختصار -->
+<div class="modal fade" id="addShortcutModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">إضافة اختصار جديد</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'voice_assistant:create_shortcut' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">العبارة المحفزة</label>
+                        <input type="text" class="form-control" name="trigger_phrase" required
+                               placeholder="مثال: افتح المبيعات">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">نوع الإجراء</label>
+                        <select class="form-select" name="action_type">
+                            <option value="navigate">الانتقال لصفحة</option>
+                            <option value="create">إنشاء عنصر</option>
+                            <option value="search">بحث</option>
+                            <option value="report">فتح تقرير</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الرابط/القيمة</label>
+                        <input type="text" class="form-control" name="action_value" required
+                               placeholder="مثال: /sales/">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">إضافة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function deleteShortcut(id) {
+    if (confirm('هل تريد حذف هذا الاختصار؟')) {
+        fetch(`/voice/shortcuts/${id}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        }).then(() => location.reload());
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="card shadow-sm">
+        <div class="card-header bg-success text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">
+                    <i class="bi bi-person-badge me-2"></i>
+                    {{ title }}
+                </h4>
+                <div>
+                    <a href="{% url 'accounting:supplier_revenue_report' %}?date_from={{ date_from }}&date_to={{ date_to }}" 
+                       class="btn btn-light btn-sm me-2">
+                        <i class="bi bi-arrow-right me-2"></i> العودة للتقرير الإجمالي
+                    </a>
+                    <a href="{% url 'accounting:revenue_create' %}" class="btn btn-warning btn-sm">
+                        <i class="bi bi-plus-circle me-2"></i> إيراد جديد
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- معلومات المورد -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <div class="alert alert-info">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <strong>اسم المورد:</strong><br>
+                                {{ supplier.name }}
+                            </div>
+                            {% if supplier.phone %}
+                            <div class="col-md-3">
+                                <strong>الهاتف:</strong><br>
+                                {{ supplier.phone }}
+                            </div>
+                            {% endif %}
+                            {% if supplier.email %}
+                            <div class="col-md-3">
+                                <strong>البريد:</strong><br>
+                                {{ supplier.email }}
+                            </div>
+                            {% endif %}
+                            {% if supplier.supply_type %}
+                            <div class="col-md-3">
+                                <strong>نوع التوريد:</strong><br>
+                                {{ supplier.get_supply_type_display }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- فلاتر التاريخ -->
+            <form method="get" class="row g-3 mb-4 p-3 bg-light rounded">
+                <div class="col-md-5">
+                    <label class="form-label fw-bold">من تاريخ</label>
+                    <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label fw-bold">إلى تاريخ</label>
+                    <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-funnel"></i> فلترة
+                    </button>
+                </div>
+            </form>
+
+            <!-- ملخص -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card bg-success bg-opacity-10 border-success">
+                        <div class="card-body text-center">
+                            <h6 class="text-success">إجمالي الإيرادات</h6>
+                            <h3 class="text-success mb-0">{{ total_revenue|floatformat:2 }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-info bg-opacity-10 border-info">
+                        <div class="card-body text-center">
+                            <h6 class="text-info">عدد القيود</h6>
+                            <h3 class="text-info mb-0">{{ entries.count }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-primary bg-opacity-10 border-primary">
+                        <div class="card-body text-center">
+                            <h6 class="text-primary">متوسط قيمة القيد</h6>
+                            <h3 class="text-primary mb-0">
+                                {% if entries.count > 0 %}
+                                {% widthratio total_revenue entries.count 1 as avg %}
+                                {{ avg|floatformat:2 }}
+                                {% else %}
+                                0.00
+                                {% endif %}
+                            </h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- جدول القيود -->
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>التاريخ</th>
+                            <th>حساب الأستاذ</th>
+                            <th>البيان</th>
+                            <th>تحليل مالي 1</th>
+                            <th>تحليل مالي 2</th>
+                            <th>مركز التكلفة</th>
+                            <th>المبلغ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in entries %}
+                        <tr>
+                            <td>{{ entry.id }}</td>
+                            <td>{{ entry.date|date:"Y/m/d" }}</td>
+                            <td>
+                                <small class="text-muted">{{ entry.ledger_account.code }}</small><br>
+                                {{ entry.ledger_account.name }}
+                            </td>
+                            <td>{{ entry.description|truncatechars:60 }}</td>
+                            <td>
+                                {% if entry.financial_analysis_1 %}
+                                <small class="badge bg-secondary">{{ entry.financial_analysis_1.name }}</small>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if entry.financial_analysis_2 %}
+                                <small class="badge bg-secondary">{{ entry.financial_analysis_2.name }}</small>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if entry.cost_center %}
+                                <small class="badge bg-warning text-dark">{{ entry.cost_center.name }}</small>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td class="fw-bold text-success">{{ entry.amount|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-5">
+                                <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                                لا توجد قيود في الفترة المحددة
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    {% if entries %}
+                    <tfoot class="table-light">
+                        <tr>
+                            <th colspan="7" class="text-end">الإجمالي:</th>
+                            <th class="text-success">{{ total_revenue|floatformat:2 }}</th>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

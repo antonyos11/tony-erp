@@ -1,0 +1,325 @@
+﻿{% extends 'base_v2.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}تنفيذ التقرير - {{ report.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .execute-hero {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: white;
+        padding: 40px 0;
+        margin: -24px -24px 30px -24px;
+        border-radius: 0 0 30px 30px;
+    }
+    
+    .params-section {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        padding: 30px;
+        margin-bottom: 30px;
+    }
+    
+    .section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #f0f0f0;
+    }
+    
+    .param-group {
+        margin-bottom: 20px;
+    }
+    
+    .param-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 8px;
+    }
+    
+    .results-section {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .results-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 20px 25px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .execution-stats {
+        display: flex;
+        gap: 30px;
+    }
+    
+    .exec-stat {
+        text-align: center;
+    }
+    
+    .exec-stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #2c3e50;
+    }
+    
+    .exec-stat-label {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    .table { margin-bottom: 0; }
+    .table thead th { 
+        background: #f8f9fa; 
+        padding: 15px; 
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+    }
+    .table tbody td { padding: 12px 15px; }
+    
+    .export-buttons {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .btn-export {
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+    }
+    
+    .btn-export.excel { background: #217346; color: white; }
+    .btn-export.pdf { background: #dc3545; color: white; }
+    .btn-export.csv { background: #6c757d; color: white; }
+    
+    .loading-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .loading-content {
+        background: white;
+        padding: 40px 60px;
+        border-radius: 20px;
+        text-align: center;
+    }
+    
+    .spinner-execute {
+        width: 60px;
+        height: 60px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #11998e;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 20px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .chart-container {
+        background: white;
+        border-radius: 20px;
+        padding: 25px;
+        margin-top: 30px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="execute-hero">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-2">
+                        <li class="breadcrumb-item"><a href="{% url 'core:home' %}" class="text-white-50">الرئيسية</a></li>
+                        <li class="breadcrumb-item"><a href="#" class="text-white-50">التقارير</a></li>
+                        <li class="breadcrumb-item active text-white">تنفيذ</li>
+                    </ol>
+                </nav>
+                <h1><i class="bi bi-play-circle me-2"></i>{{ report.name|default:"تقرير المبيعات" }}</h1>
+                <p class="opacity-75 mb-0">تنفيذ التقرير وعرض النتائج</p>
+            </div>
+            <a href="{% url 'reports:builder_dashboard' %}" class="btn btn-light">
+                <i class="bi bi-arrow-right me-1"></i>العودة للتقارير
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="params-section">
+                <h5 class="section-title"><i class="bi bi-sliders me-2"></i>معاملات التقرير</h5>
+                
+                <form method="post" id="executeForm">
+                    {% csrf_token %}
+                    
+                    <div class="param-group">
+                        <label class="param-label">من تاريخ</label>
+                        <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
+                    </div>
+                    
+                    <div class="param-group">
+                        <label class="param-label">إلى تاريخ</label>
+                        <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
+                    </div>
+                    
+                    <div class="param-group">
+                        <label class="param-label">الفرع</label>
+                        <select name="branch" class="form-select">
+                            <option value="">كل الفروع</option>
+                            {% for branch in branches %}
+                            <option value="{{ branch.id }}">{{ branch.name }}</option>
+                            {% empty %}
+                            <option value="1">الفرع الرئيسي</option>
+                            <option value="2">فرع الرياض</option>
+                            <option value="3">فرع جدة</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="param-group">
+                        <label class="param-label">نوع التجميع</label>
+                        <select name="group_by" class="form-select">
+                            <option value="day">يومي</option>
+                            <option value="week">أسبوعي</option>
+                            <option value="month" selected>شهري</option>
+                            <option value="year">سنوي</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success w-100 mt-3">
+                        <i class="bi bi-play-fill me-2"></i>تنفيذ التقرير
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="col-lg-8">
+            <div class="results-section">
+                <div class="results-header">
+                    <div>
+                        <h5 class="mb-0"><i class="bi bi-table me-2"></i>نتائج التقرير</h5>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="execution-stats">
+                            <div class="exec-stat">
+                                <div class="exec-stat-value">{{ rows_count|default:"156" }}</div>
+                                <div class="exec-stat-label">صف</div>
+                            </div>
+                            <div class="exec-stat">
+                                <div class="exec-stat-value">{{ execution_time|default:"0.8" }}ث</div>
+                                <div class="exec-stat-label">وقت التنفيذ</div>
+                            </div>
+                        </div>
+                        <div class="export-buttons">
+                            <a href="#" class="btn btn-export excel"><i class="bi bi-file-earmark-excel"></i></a>
+                            <a href="#" class="btn btn-export pdf"><i class="bi bi-file-earmark-pdf"></i></a>
+                            <a href="#" class="btn btn-export csv"><i class="bi bi-filetype-csv"></i></a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>التاريخ</th>
+                                <th>الفرع</th>
+                                <th>عدد الفواتير</th>
+                                <th>المبيعات</th>
+                                <th>الضريبة</th>
+                                <th>الإجمالي</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in results %}
+                            <tr>
+                                <td>{{ row.date }}</td>
+                                <td>{{ row.branch }}</td>
+                                <td>{{ row.invoices_count }}</td>
+                                <td>{{ row.sales }}</td>
+                                <td>{{ row.tax }}</td>
+                                <td>{{ row.total }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td>2024-12-01</td><td>الفرع الرئيسي</td><td>45</td><td>125,000</td><td>18,750</td><td>143,750</td></tr>
+                            <tr><td>2024-12-01</td><td>فرع الرياض</td><td>32</td><td>98,500</td><td>14,775</td><td>113,275</td></tr>
+                            <tr><td>2024-12-02</td><td>الفرع الرئيسي</td><td>51</td><td>142,300</td><td>21,345</td><td>163,645</td></tr>
+                            <tr><td>2024-12-02</td><td>فرع الرياض</td><td>28</td><td>87,200</td><td>13,080</td><td>100,280</td></tr>
+                            <tr><td>2024-12-03</td><td>الفرع الرئيسي</td><td>38</td><td>108,400</td><td>16,260</td><td>124,660</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <h5 class="section-title"><i class="bi bi-bar-chart me-2"></i>رسم بياني</h5>
+                <canvas id="reportChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-content">
+        <div class="spinner-execute"></div>
+        <h5>جاري تنفيذ التقرير...</h5>
+        <p class="text-muted">يرجى الانتظار</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+document.getElementById('executeForm').addEventListener('submit', function() {
+    document.getElementById('loadingOverlay').style.display = 'flex';
+});
+
+const ctx = document.getElementById('reportChart').getContext('2d');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: ['ديسمبر 1', 'ديسمبر 2', 'ديسمبر 3', 'ديسمبر 4', 'ديسمبر 5'],
+        datasets: [{
+            label: 'المبيعات',
+            data: [223500, 229500, 195600, 245000, 198000],
+            backgroundColor: 'rgba(17, 153, 142, 0.8)',
+            borderRadius: 8
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { display: false }
+        }
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,626 @@
+<!-- Modal تسديد أقساط العملاء -->
+<div class="modal fade" id="customerInstallmentsModal" tabindex="-1" aria-labelledby="customerInstallmentsModalLabel" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="customerInstallmentsModalLabel">
+                    <i class="fas fa-money-bill-wave me-2"></i>تسديد أقساط العملاء
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="إغلاق"></button>
+            </div>
+            <div class="modal-body p-4">
+                <!-- البحث عن العميل -->
+                <div class="search-section mb-4">
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text bg-light">
+                            <i class="bi bi-search text-muted"></i>
+                        </span>
+                        <input type="text" id="customerSearchInput" class="form-control" 
+                               placeholder="ابحث باسم العميل أو رقم الهاتف..." 
+                               autocomplete="off">
+                        <button class="btn btn-primary" type="button" id="searchCustomerBtn">
+                            <i class="bi bi-search me-1"></i> بحث
+                        </button>
+                    </div>
+                    <small class="text-muted mt-2 d-block">
+                        <i class="bi bi-info-circle me-1"></i>
+                        اكتب جزء من اسم العميل أو رقم هاتفه للبحث عن الأقساط المستحقة
+                    </small>
+                </div>
+                
+                <!-- حالة التحميل -->
+                <div id="searchLoading" class="text-center py-5 d-none">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">جاري البحث...</span>
+                    </div>
+                    <p class="mt-3 text-muted">جاري البحث عن الأقساط...</p>
+                </div>
+                
+                <!-- رسالة عدم وجود نتائج -->
+                <div id="noResultsMsg" class="text-center py-5 d-none">
+                    <i class="bi bi-search fs-1 text-muted mb-3 d-block"></i>
+                    <h5 class="text-muted">لا توجد نتائج</h5>
+                    <p class="text-muted mb-0">لم يتم العثور على عملاء بهذا الاسم لديهم أقساط مستحقة</p>
+                </div>
+                
+                <!-- قائمة العملاء -->
+                <div id="customersList" class="d-none">
+                    <!-- سيتم ملؤها ديناميكياً -->
+                </div>
+                
+                <!-- قائمة الأقساط للعميل المحدد -->
+                <div id="customerPlansSection" class="d-none">
+                    <button type="button" class="btn btn-outline-secondary mb-3" onclick="backToCustomersList()">
+                        <i class="bi bi-arrow-right me-1"></i> رجوع للعملاء
+                    </button>
+                    <div id="customerPlansContent"></div>
+                </div>
+                
+                <!-- نموذج الدفع -->
+                <div id="paymentFormSection" class="d-none">
+                    <div class="card border-success">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0">
+                                <i class="bi bi-cash-coin me-2"></i>
+                                تسديد القسط
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <form id="installmentPaymentForm">
+                                {% csrf_token %}
+                                <input type="hidden" id="selectedInstallmentId" name="installment_id">
+                                
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <div class="info-box bg-light p-3 rounded">
+                                            <label class="text-muted small">اسم العميل</label>
+                                            <div id="payCustomerName" class="fw-bold fs-5"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="info-box bg-light p-3 rounded">
+                                            <label class="text-muted small">رقم العقد</label>
+                                            <div id="payContractNumber" class="fw-bold fs-5"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <div class="info-box bg-warning bg-opacity-25 p-3 rounded text-center">
+                                            <label class="text-muted small d-block">قيمة القسط</label>
+                                            <div id="payInstallmentAmount" class="fw-bold fs-4 text-warning"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="info-box bg-danger bg-opacity-25 p-3 rounded text-center">
+                                            <label class="text-muted small d-block">تاريخ الاستحقاق</label>
+                                            <div id="payDueDate" class="fw-bold fs-5 text-danger"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="info-box bg-info bg-opacity-25 p-3 rounded text-center">
+                                            <label class="text-muted small d-block">رقم القسط</label>
+                                            <div id="payInstallmentNumber" class="fw-bold fs-5 text-info"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <hr>
+                                
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">المبلغ المدفوع</label>
+                                        <div class="input-group input-group-lg">
+                                            <input type="number" step="0.01" id="payAmount" name="amount" 
+                                                   class="form-control text-center fw-bold" required>
+                                            <span class="input-group-text">ج.م</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">طريقة الدفع</label>
+                                        <select id="payMethod" name="payment_method" class="form-select form-select-lg" required>
+                                            <option value="cash">نقدي</option>
+                                            <option value="card">بطاقة</option>
+                                            <option value="transfer">تحويل بنكي</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">ملاحظات (اختياري)</label>
+                                    <textarea id="payNotes" name="notes" class="form-control" rows="2" 
+                                              placeholder="أي ملاحظات إضافية..."></textarea>
+                                </div>
+                                
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="backToPlans()">
+                                        <i class="bi bi-arrow-right me-1"></i> رجوع
+                                    </button>
+                                    <button type="submit" class="btn btn-success btn-lg">
+                                        <i class="bi bi-check-circle me-2"></i> تأكيد السداد
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .customer-card {
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .customer-card:hover {
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        border-color: #28a745;
+    }
+    
+    .customer-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px 20px;
+    }
+    
+    .customer-name {
+        font-size: 18px;
+        font-weight: bold;
+        margin: 0;
+    }
+    
+    .customer-phone {
+        font-size: 14px;
+        opacity: 0.9;
+    }
+    
+    .plan-card {
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        overflow: hidden;
+    }
+    
+    .plan-header {
+        background: #f8f9fa;
+        padding: 15px;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .installments-list {
+        padding: 15px;
+    }
+    
+    .installment-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        transition: all 0.2s ease;
+    }
+    
+    .installment-item:hover {
+        background: #e9ecef;
+    }
+    
+    .installment-info {
+        flex: 1;
+    }
+    
+    .installment-number {
+        font-weight: bold;
+        color: #495057;
+    }
+    
+    .installment-due {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .due-date {
+        font-size: 13px;
+        padding: 4px 10px;
+        border-radius: 20px;
+    }
+    
+    .due-date.overdue {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .due-date.today {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .due-date.upcoming {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .installment-amount {
+        font-size: 18px;
+        font-weight: bold;
+        color: #28a745;
+        margin: 0 20px;
+    }
+    
+    .pay-btn {
+        padding: 8px 20px;
+        font-weight: bold;
+    }
+    
+    .summary-box {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: white;
+        padding: 15px 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    
+    .summary-title {
+        font-size: 14px;
+        opacity: 0.9;
+    }
+    
+    .summary-value {
+        font-size: 28px;
+        font-weight: bold;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('customerSearchInput');
+    const searchBtn = document.getElementById('searchCustomerBtn');
+    const searchLoading = document.getElementById('searchLoading');
+    const noResultsMsg = document.getElementById('noResultsMsg');
+    const customersList = document.getElementById('customersList');
+    const customerPlansSection = document.getElementById('customerPlansSection');
+    const customerPlansContent = document.getElementById('customerPlansContent');
+    const paymentFormSection = document.getElementById('paymentFormSection');
+    const installmentPaymentForm = document.getElementById('installmentPaymentForm');
+    
+    let currentCustomer = null;
+    let currentPlans = null;
+    
+    // البحث عند الضغط على زر البحث
+    searchBtn.addEventListener('click', searchCustomers);
+    
+    // البحث عند الضغط على Enter
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            searchCustomers();
+        }
+    });
+    
+    // البحث التلقائي بعد كتابة 3 أحرف
+    let searchTimeout;
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        if (this.value.length >= 3) {
+            searchTimeout = setTimeout(searchCustomers, 500);
+        }
+    });
+    
+    // دالة البحث عن العملاء
+    function searchCustomers() {
+        const query = searchInput.value.trim();
+        if (!query) {
+            alert('الرجاء إدخال اسم العميل أو رقم الهاتف');
+            return;
+        }
+        
+        // إظهار التحميل
+        searchLoading.classList.remove('d-none');
+        noResultsMsg.classList.add('d-none');
+        customersList.classList.add('d-none');
+        customerPlansSection.classList.add('d-none');
+        paymentFormSection.classList.add('d-none');
+        
+        fetch(`/pos/api/customer-installments/?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                searchLoading.classList.add('d-none');
+                
+                if (!data.success || !data.customers || data.customers.length === 0) {
+                    noResultsMsg.classList.remove('d-none');
+                    return;
+                }
+                
+                displayCustomers(data.customers);
+            })
+            .catch(error => {
+                searchLoading.classList.add('d-none');
+                console.error('Error:', error);
+                alert('حدث خطأ أثناء البحث');
+            });
+    }
+    
+    // عرض قائمة العملاء
+    function displayCustomers(customers) {
+        customersList.innerHTML = '';
+        
+        customers.forEach(customer => {
+            const customerCard = document.createElement('div');
+            customerCard.className = 'customer-card';
+            customerCard.onclick = () => loadCustomerPlans(customer);
+            
+            customerCard.innerHTML = `
+                <div class="customer-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="customer-name">
+                                <i class="bi bi-person me-2"></i>${customer.name}
+                            </div>
+                            <div class="customer-phone">
+                                <i class="bi bi-telephone me-1"></i>${customer.phone || 'غير محدد'}
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-warning fs-6">${customer.plans_count} عقود نشطة</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            customersList.appendChild(customerCard);
+        });
+        
+        customersList.classList.remove('d-none');
+    }
+    
+    // تحميل عقود العميل
+    function loadCustomerPlans(customer) {
+        currentCustomer = customer;
+        
+        customersList.classList.add('d-none');
+        searchLoading.classList.remove('d-none');
+        
+        fetch(`/pos/api/customer-installments/?customer_id=${customer.id}`)
+            .then(response => response.json())
+            .then(data => {
+                searchLoading.classList.add('d-none');
+                
+                if (!data.success || !data.plans || data.plans.length === 0) {
+                    noResultsMsg.classList.remove('d-none');
+                    return;
+                }
+                
+                currentPlans = data.plans;
+                displayCustomerPlans(customer, data.plans);
+            })
+            .catch(error => {
+                searchLoading.classList.add('d-none');
+                console.error('Error:', error);
+                alert('حدث خطأ أثناء تحميل العقود');
+            });
+    }
+    
+    // عرض عقود وأقساط العميل
+    function displayCustomerPlans(customer, plans) {
+        customerPlansContent.innerHTML = '';
+        
+        // ملخص
+        let totalDue = 0;
+        let totalInstallments = 0;
+        plans.forEach(plan => {
+            plan.installments.forEach(inst => {
+                totalDue += inst.total_due || inst.amount;
+                totalInstallments++;
+            });
+        });
+        
+        customerPlansContent.innerHTML = `
+            <div class="mb-3">
+                <h5 class="text-primary"><i class="bi bi-person me-2"></i>${customer.name}</h5>
+            </div>
+            <div class="summary-box">
+                <div class="summary-title">إجمالي الأقساط المستحقة</div>
+                <div class="summary-value">${totalDue.toFixed(2)} ج.م</div>
+                <div class="summary-title">${totalInstallments} قسط من ${plans.length} عقد</div>
+            </div>
+        `;
+        
+        plans.forEach(plan => {
+            const planCard = document.createElement('div');
+            planCard.className = 'plan-card';
+            
+            let installmentsHtml = '';
+            plan.installments.forEach(inst => {
+                const today = new Date().toISOString().split('T')[0];
+                const isOverdue = inst.is_overdue;
+                const isToday = inst.due_date === today;
+                const dueClass = isOverdue ? 'overdue' : (isToday ? 'today' : 'upcoming');
+                const dueText = isOverdue ? `متأخر ${inst.days_overdue} يوم` : (isToday ? 'اليوم' : inst.due_date_formatted);
+                
+                installmentsHtml += `
+                    <div class="installment-item">
+                        <div class="installment-info">
+                            <div class="installment-number">القسط ${inst.number} من ${plan.total_count}</div>
+                            ${inst.late_fee > 0 ? `<small class="text-danger">+ غرامة تأخير: ${inst.late_fee.toFixed(2)} ج.م</small>` : ''}
+                        </div>
+                        <div class="installment-due">
+                            <span class="due-date ${dueClass}">${dueText}</span>
+                        </div>
+                        <div class="installment-amount">${(inst.total_due || inst.amount).toFixed(2)} ج.م</div>
+                        <button type="button" class="btn btn-success pay-btn" 
+                                onclick="selectInstallmentForPayment(${inst.id}, '${customer.name}', '${plan.order_number}', 
+                                         ${inst.total_due || inst.amount}, '${inst.due_date_formatted}', '${inst.number} من ${plan.total_count}')">
+                            <i class="bi bi-wallet2 me-1"></i> دفع
+                        </button>
+                    </div>
+                `;
+            });
+            
+            planCard.innerHTML = `
+                <div class="plan-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0"><i class="bi bi-file-text me-2"></i>عقد: ${plan.order_number}</h6>
+                            <small class="text-muted">إجمالي: ${plan.total_amount.toFixed(2)} ج.م | المتبقي: ${plan.remaining_to_pay.toFixed(2)} ج.م</small>
+                        </div>
+                        <div>
+                            <span class="badge bg-info">${plan.paid_count}/${plan.total_count} مدفوع</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="installments-list">
+                    ${installmentsHtml || '<p class="text-muted text-center">لا توجد أقساط مستحقة</p>'}
+                </div>
+            `;
+            
+            customerPlansContent.appendChild(planCard);
+        });
+        
+        customerPlansSection.classList.remove('d-none');
+    }
+    
+    // اختيار قسط للدفع
+    window.selectInstallmentForPayment = function(id, customerName, contractNumber, amount, dueDate, installmentNumber) {
+        document.getElementById('selectedInstallmentId').value = id;
+        document.getElementById('payCustomerName').textContent = customerName;
+        document.getElementById('payContractNumber').textContent = contractNumber;
+        document.getElementById('payInstallmentAmount').textContent = parseFloat(amount).toFixed(2) + ' ج.م';
+        document.getElementById('payDueDate').textContent = dueDate;
+        document.getElementById('payInstallmentNumber').textContent = installmentNumber;
+        document.getElementById('payAmount').value = parseFloat(amount).toFixed(2);
+        
+        customerPlansSection.classList.add('d-none');
+        paymentFormSection.classList.remove('d-none');
+    };
+    
+    // الرجوع لقائمة العملاء
+    window.backToCustomersList = function() {
+        customerPlansSection.classList.add('d-none');
+        customersList.classList.remove('d-none');
+    };
+    
+    // الرجوع لقائمة العقود
+    window.backToPlans = function() {
+        paymentFormSection.classList.add('d-none');
+        customerPlansSection.classList.remove('d-none');
+    };
+    
+    // تأكيد السداد
+    installmentPaymentForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>جاري التسديد...';
+        
+        fetch('/pos/api/pay-installment/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken') || getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+            
+            if (data.success) {
+                // إظهار رسالة نجاح
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'تم بنجاح!',
+                        text: data.message,
+                        showCancelButton: true,
+                        confirmButtonText: 'طباعة الإيصال',
+                        cancelButtonText: 'إغلاق',
+                        confirmButtonColor: '#28a745'
+                    }).then((result) => {
+                        if (result.isConfirmed && data.receipt_url) {
+                            window.open(data.receipt_url, '_blank');
+                        }
+                        // إعادة تحميل العقود
+                        if (currentCustomer) {
+                            loadCustomerPlans(currentCustomer);
+                        }
+                    });
+                } else {
+                    alert(data.message);
+                    if (confirm('هل تريد طباعة الإيصال؟') && data.receipt_url) {
+                        window.open(data.receipt_url, '_blank');
+                    }
+                    if (currentCustomer) {
+                        loadCustomerPlans(currentCustomer);
+                    }
+                }
+            } else {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'خطأ',
+                        text: data.error || data.message || 'حدث خطأ أثناء تسديد القسط'
+                    });
+                } else {
+                    alert(data.error || data.message || 'حدث خطأ أثناء تسديد القسط');
+                }
+            }
+        })
+        .catch(error => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+            console.error('Error:', error);
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'خطأ',
+                    text: 'حدث خطأ في الاتصال بالخادم'
+                });
+            } else {
+                alert('حدث خطأ في الاتصال بالخادم');
+            }
+        });
+    });
+    
+    // دالة للحصول على CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // إعادة تعيين Modal عند الإغلاق
+    document.getElementById('customerInstallmentsModal').addEventListener('hidden.bs.modal', function() {
+        searchInput.value = '';
+        searchLoading.classList.add('d-none');
+        noResultsMsg.classList.add('d-none');
+        customersList.classList.add('d-none');
+        customerPlansSection.classList.add('d-none');
+        paymentFormSection.classList.add('d-none');
+        currentCustomer = null;
+        currentPlans = null;
+    });
+});
+</script>

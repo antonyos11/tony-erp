@@ -1,0 +1,226 @@
+{% extends 'ecommerce/store_base_new.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}المنتجات - {{ store_settings.store_name|default:"Tony Store" }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="store-breadcrumb">
+    <div class="container">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'ecommerce:store_home' %}">الرئيسية</a></li>
+                {% if current_category %}
+                <li class="breadcrumb-item"><a href="{% url 'ecommerce:product_list' %}">المنتجات</a></li>
+                <li class="breadcrumb-item active">{{ current_category.name }}</li>
+                {% else %}
+                <li class="breadcrumb-item active">المنتجات</li>
+                {% endif %}
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="container py-4">
+    <div class="row g-4">
+        <!-- Sidebar Filters -->
+        <div class="col-lg-3">
+            <div class="filter-panel sticky-top" style="top: 90px;">
+                <h5>
+                    <span><i class="bi bi-funnel ms-1"></i> تصفية</span>
+                    <a href="{% url 'ecommerce:product_list' %}" class="text-muted" style="font-size: 0.75rem; font-weight: 400;">مسح الكل</a>
+                </h5>
+                
+                <form method="get" id="filterForm">
+                    {% if search_query %}
+                    <input type="hidden" name="q" value="{{ search_query }}">
+                    {% endif %}
+                    
+                    <!-- Categories -->
+                    <div class="filter-group">
+                        <h6>الفئات</h6>
+                        {% for category in categories %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="category" value="{{ category.slug }}" id="cat-{{ category.id }}"
+                                   {% if current_category and current_category.id == category.id %}checked{% endif %}
+                                   onchange="document.getElementById('filterForm').submit();">
+                            <label class="form-check-label d-flex justify-content-between" for="cat-{{ category.id }}">
+                                {{ category.name }}
+                                <span class="text-muted" style="font-size: 0.75rem;">({{ category.products_count|default:"" }})</span>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Price Range -->
+                    <div class="filter-group">
+                        <h6>السعر</h6>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <input type="number" name="min_price" class="form-control form-control-sm" placeholder="من" 
+                                       value="{{ request.GET.min_price }}" style="font-size: 0.85rem;">
+                            </div>
+                            <div class="col-6">
+                                <input type="number" name="max_price" class="form-control form-control-sm" placeholder="إلى" 
+                                       value="{{ request.GET.max_price }}" style="font-size: 0.85rem;">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Availability -->
+                    <div class="filter-group">
+                        <h6>التوفر</h6>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="in_stock" value="1" id="inStock"
+                                   {% if request.GET.in_stock %}checked{% endif %}
+                                   onchange="document.getElementById('filterForm').submit();">
+                            <label class="form-check-label" for="inStock">المتاح فقط</label>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn-primary-store w-100" style="padding: 10px;">
+                        <i class="bi bi-funnel"></i> تطبيق
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Products Grid -->
+        <div class="col-lg-9">
+            <!-- Header & Sort -->
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+                <div>
+                    <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--text-dark); margin: 0;">
+                        {% if search_query %}
+                        نتائج البحث: "{{ search_query }}"
+                        {% elif current_category %}
+                        {{ current_category.name }}
+                        {% else %}
+                        جميع المنتجات
+                        {% endif %}
+                    </h1>
+                    {% if products.paginator %}
+                    <p class="text-muted mb-0" style="font-size: 0.85rem;">{{ products.paginator.count }} منتج</p>
+                    {% endif %}
+                </div>
+                
+                <div class="d-flex align-items-center gap-2">
+                    <select class="form-select form-select-sm" style="width: auto; font-size: 0.85rem; border-radius: var(--radius-pill);" 
+                            onchange="window.location.href='?sort='+this.value+'{% if search_query %}&q={{ search_query }}{% endif %}{% if current_category %}&category={{ current_category.slug }}{% endif %}'">
+                        <option value="" {% if not sort_by %}selected{% endif %}>ترتيب حسب</option>
+                        <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>الأحدث</option>
+                        <option value="price_low" {% if sort_by == 'price_low' %}selected{% endif %}>السعر: الأقل للأعلى</option>
+                        <option value="price_high" {% if sort_by == 'price_high' %}selected{% endif %}>السعر: الأعلى للأقل</option>
+                        <option value="popular" {% if sort_by == 'popular' %}selected{% endif %}>الأكثر مبيعاً</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Products -->
+            <div class="row g-3">
+                {% for product in products %}
+                <div class="col-xl-4 col-md-6 col-6">
+                    <div class="product-card">
+                        <div class="card-image">
+                            <div class="card-badges">
+                                {% if product.is_new %}<span class="card-badge badge-new">جديد</span>{% endif %}
+                                {% if product.is_featured %}<span class="card-badge badge-featured">مميز</span>{% endif %}
+                            </div>
+                            <div class="card-actions">
+                                <button class="action-btn {% if product.id in wishlist_ids %}active{% endif %}" 
+                                        onclick="toggleWishlist({{ product.id }}, this)" title="المفضلة">
+                                    <i class="bi bi-heart{% if product.id in wishlist_ids %}-fill{% endif %}"></i>
+                                </button>
+                            </div>
+                            <a href="{{ product.get_absolute_url }}">
+                                {% if product.image %}
+                                <img src="{{ product.image.url }}" alt="{{ product.name }}">
+                                {% else %}
+                                <img src="{% static 'img/no_image.png' %}" alt="{{ product.name }}">
+                                {% endif %}
+                            </a>
+                        </div>
+                        <div class="card-body">
+                            {% if product.category %}
+                            <div class="card-category">{{ product.category.name }}</div>
+                            {% endif %}
+                            <h3 class="card-title"><a href="{{ product.get_absolute_url }}">{{ product.name }}</a></h3>
+                            {% if product.short_description %}
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                {{ product.short_description }}
+                            </p>
+                            {% endif %}
+
+                            {% if product.stock is not None %}
+                            <div class="mb-2">
+                                {% if product.stock > 5 %}
+                                <span class="stock-badge in-stock"><i class="bi bi-check-circle"></i> متوفر</span>
+                                {% elif product.stock > 0 %}
+                                <span class="stock-badge low-stock"><i class="bi bi-exclamation-circle"></i> كمية محدودة</span>
+                                {% else %}
+                                <span class="stock-badge out-of-stock"><i class="bi bi-x-circle"></i> غير متوفر</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            
+                            <div class="card-price">
+                                <span class="current">{{ product.price }}</span>
+                                <span class="currency">ج.م</span>
+                            </div>
+                            <button class="btn-cart" onclick="addToCart({{ product.id }})">
+                                <i class="bi bi-bag-plus"></i> أضف للسلة
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <div class="empty-state">
+                        <i class="bi bi-search d-block"></i>
+                        <h3>لا توجد منتجات</h3>
+                        <p>جرّب تغيير معايير البحث أو التصفية</p>
+                        <a href="{% url 'ecommerce:product_list' %}" class="btn-primary-store">عرض كل المنتجات</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Pagination -->
+            {% if products.has_other_pages %}
+            <nav class="mt-5 d-flex justify-content-center">
+                <ul class="pagination">
+                    {% if products.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ products.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in products.paginator.page_range %}
+                        {% if products.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link" style="background: var(--secondary); border-color: var(--secondary);">{{ num }}</span>
+                        </li>
+                        {% elif num > products.number|add:'-3' and num < products.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if products.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ products.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

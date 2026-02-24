@@ -1,0 +1,326 @@
+﻿{% extends 'base_templates/_form_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'توزيع الدفعة' %}{% endblock %}
+{% block form_hero_icon %}bi-diagram-3{% endblock %}
+{% block form_hero_title %}{% trans 'توزيع الدفعة على الفواتير' %}{% endblock %}
+{% block form_hero_subtitle %}{% trans 'إيصال رقم' %} {{ payment.receipt_number }} - {{ payment.customer.name }}{% endblock %}
+
+{% block form_content %}
+<style>
+  .payment-summary {
+    background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+    color: white;
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .payment-summary-item {
+    text-align: center;
+    padding: 1rem;
+    background: rgba(255,255,255,0.15);
+    border-radius: var(--radius);
+  }
+  .payment-summary-item .value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+  .payment-summary-item .label {
+    font-size: 0.8rem;
+    opacity: 0.9;
+  }
+  .allocation-table {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+  }
+  .allocation-table table {
+    width: 100%;
+    margin-bottom: 0;
+  }
+  .allocation-table th {
+    background: var(--bg-light);
+    padding: 1rem;
+    font-weight: 600;
+    border-bottom: 2px solid var(--border-color);
+    text-align: center;
+  }
+  .allocation-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+  }
+  .allocation-table tr:last-child td {
+    border-bottom: none;
+  }
+  .allocation-table tr:hover {
+    background: var(--bg-light);
+  }
+  .invoice-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .invoice-number {
+    font-weight: 600;
+    color: var(--primary);
+  }
+  .invoice-date {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .amount-input-cell {
+    width: 180px;
+  }
+  .amount-input-cell input {
+    text-align: center;
+    font-weight: 600;
+    font-size: 1.1rem;
+  }
+  .balance-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  .balance-badge.due { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+  .balance-badge.partial { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+  .balance-badge.paid { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+  .allocation-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .allocation-actions button {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8rem;
+  }
+  .remaining-box {
+    background: var(--bg-light);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    text-align: center;
+  }
+  .remaining-box .amount {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .remaining-box .amount.zero { color: var(--success); }
+  .remaining-box .amount.negative { color: var(--danger); }
+  .auto-allocate-hint {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: var(--radius);
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+  .auto-allocate-hint i {
+    font-size: 1.5rem;
+    color: #3b82f6;
+  }
+</style>
+
+<form method="post" id="allocation-form" novalidate>
+  {% csrf_token %}
+
+  <!-- Payment Summary -->
+  <div class="payment-summary">
+    <div class="payment-summary-item">
+      <div class="value">{{ payment.amount|floatformat:2 }}</div>
+      <div class="label">{% trans 'مبلغ الدفعة' %}</div>
+    </div>
+    <div class="payment-summary-item">
+      <div class="value" id="allocated-total">0.00</div>
+      <div class="label">{% trans 'الموزع' %}</div>
+    </div>
+    <div class="payment-summary-item">
+      <div class="value" id="remaining-amount">{{ payment.amount|floatformat:2 }}</div>
+      <div class="label">{% trans 'المتبقي للتوزيع' %}</div>
+    </div>
+  </div>
+
+  <!-- Auto Allocate Hint -->
+  <div class="auto-allocate-hint">
+    <i class="bi bi-magic"></i>
+    <div class="flex-grow-1">
+      <div class="fw-medium">{% trans 'التوزيع التلقائي' %}</div>
+      <div class="small text-muted">{% trans 'يمكنك توزيع المبلغ تلقائياً على الفواتير الأقدم أولاً' %}</div>
+    </div>
+    <button type="button" class="btn btn-primary" onclick="autoAllocate()">
+      <i class="bi bi-magic me-1"></i>{% trans 'توزيع تلقائي' %}
+    </button>
+  </div>
+
+  <!-- Allocation Table -->
+  <div class="allocation-table">
+    <div class="table-responsive"><table>
+      <thead>
+        <tr>
+          <th style="width: 40px;"><input type="checkbox" id="select-all" onclick="toggleSelectAll()"></th>
+          <th>{% trans 'الفاتورة' %}</th>
+          <th>{% trans 'إجمالي الفاتورة' %}</th>
+          <th>{% trans 'المدفوع' %}</th>
+          <th>{% trans 'المتبقي' %}</th>
+          <th>{% trans 'المبلغ الموزع' %}</th>
+          <th>{% trans 'إجراءات' %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for invoice in invoices %}
+        <tr data-invoice="{{ invoice.id }}" data-balance="{ invoice.remaining }">
+          <td class="text-center">
+            <input type="checkbox" name="invoices[]" value="{ invoice.id }}" class="invoice-checkbox" onchange="updateTotals()">
+          </td>
+          <td>
+            <div class="invoice-info">
+              <span class="invoice-number">{{ invoice.number }}</span>
+              <span class="invoice-date">{{ invoice.date|date:"Y/m/d" }}</span>
+            </div>
+          </td>
+          <td class="text-center fw-medium">{{ invoice.total|floatformat:2 }}</td>
+          <td class="text-center">{{ invoice.paid|floatformat:2 }}</td>
+          <td class="text-center">
+            <span class="balance-badge due">{{ invoice.remaining|floatformat:2 }}</span>
+          </td>
+          <td class="amount-input-cell">
+            <input type="number" name="amounts[{{ invoice.id }}]" class="form-control allocation-amount" 
+                   value="0" min="0" max="{ invoice.remaining }}" step="0.01" 
+                   onchange="updateTotals()" oninput="updateTotals()">
+          </td>
+          <td class="text-center">
+            <div class="allocation-actions">
+              <button type="button" class="btn btn-sm btn-outline-success" onclick="allocateFull(this)" title="{% trans 'كامل المبلغ' %}">
+                <i class="bi bi-check-all"></i>
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearAllocation(this)" title="{% trans 'مسح' %}">
+                <i class="bi bi-x"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="text-center py-4 text-muted">
+            <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+            {% trans 'لا توجد فواتير مستحقة لهذا العميل' %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- Remaining Box -->
+  <div class="remaining-box">
+    <div class="small text-muted mb-2">{% trans 'المبلغ المتبقي بعد التوزيع' %}</div>
+    <div class="amount" id="final-remaining">{{ payment.amount|floatformat:2 }}</div>
+    <div class="small text-muted mt-2" id="remaining-hint">{% trans 'قم بتوزيع كامل المبلغ على الفواتير' %}</div>
+  </div>
+</form>
+{% endblock %}
+
+{% block form_actions_left %}
+<a href="{% url 'sales:payment_detail' payment.pk %}" class="btn btn-outline-secondary">
+  <i class="bi bi-arrow-right me-1"></i>{% trans 'إلغاء' %}
+</a>
+{% endblock %}
+
+{% block form_actions_right %}
+<button type="submit" form="allocation-form" class="btn btn-success">
+  <i class="bi bi-check-circle me-1"></i>{% trans 'حفظ التوزيع' %}
+</button>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const paymentAmount = { payment.amount|default:0 };
+
+  function updateTotals() {
+    let allocated = 0;
+    document.querySelectorAll('.allocation-amount').forEach(input => {
+      allocated += parseFloat(input.value) || 0;
+    });
+    
+    const remaining = paymentAmount - allocated;
+    
+    document.getElementById('allocated-total').textContent = allocated.toFixed(2);
+    document.getElementById('remaining-amount').textContent = remaining.toFixed(2);
+    
+    const finalRemainingEl = document.getElementById('final-remaining');
+    finalRemainingEl.textContent = remaining.toFixed(2);
+    finalRemainingEl.classList.remove('zero', 'negative');
+    
+    const hintEl = document.getElementById('remaining-hint');
+    
+    if (remaining === 0) {
+      finalRemainingEl.classList.add('zero');
+      hintEl.textContent = '✓ تم توزيع كامل المبلغ';
+      hintEl.className = 'small text-success mt-2';
+    } else if (remaining < 0) {
+      finalRemainingEl.classList.add('negative');
+      hintEl.textContent = '⚠ المبلغ الموزع أكبر من مبلغ الدفعة';
+      hintEl.className = 'small text-danger mt-2';
+    } else {
+      hintEl.textContent = 'قم بتوزيع كامل المبلغ على الفواتير';
+      hintEl.className = 'small text-muted mt-2';
+    }
+  }
+
+  function autoAllocate() {
+    let remaining = paymentAmount;
+    
+    document.querySelectorAll('tbody tr').forEach(row => {
+      if (remaining <= 0) return;
+      
+      const balance = parseFloat(row.dataset.balance) || 0;
+      const input = row.querySelector('.allocation-amount');
+      const checkbox = row.querySelector('.invoice-checkbox');
+      
+      const toAllocate = Math.min(remaining, balance);
+      input.value = toAllocate.toFixed(2);
+      checkbox.checked = toAllocate > 0;
+      remaining -= toAllocate;
+    });
+    
+    updateTotals();
+  }
+
+  function allocateFull(btn) {
+    const row = btn.closest('tr');
+    const balance = parseFloat(row.dataset.balance) || 0;
+    const input = row.querySelector('.allocation-amount');
+    const checkbox = row.querySelector('.invoice-checkbox');
+    
+    input.value = balance.toFixed(2);
+    checkbox.checked = true;
+    updateTotals();
+  }
+
+  function clearAllocation(btn) {
+    const row = btn.closest('tr');
+    const input = row.querySelector('.allocation-amount');
+    const checkbox = row.querySelector('.invoice-checkbox');
+    
+    input.value = '0';
+    checkbox.checked = false;
+    updateTotals();
+  }
+
+  function toggleSelectAll() {
+    const checked = document.getElementById('select-all').checked;
+    document.querySelectorAll('.invoice-checkbox').forEach(cb => cb.checked = checked);
+  }
+</script>
+{% endblock %}
+

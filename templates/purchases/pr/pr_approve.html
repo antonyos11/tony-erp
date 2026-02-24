@@ -1,0 +1,240 @@
+﻿{% extends 'base_templates/_form_professional.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}{% trans 'اعتماد طلب الشراء' %}{% endblock %}
+{% block hero_icon %}bi-check-circle{% endblock %}
+{% block hero_title %}{% trans 'اعتماد طلب الشراء' %} - {{ pr.pr_number }}{% endblock %}
+{% block hero_subtitle %}{% trans 'مراجعة واعتماد طلب الشراء المقدم' %}{% endblock %}
+
+{% block back_url %}{% url 'purchases:pr_detail' pr.pk %}{% endblock %}
+
+{% block form_styles %}
+<style>
+.pr-summary-card {
+  background: var(--bs-tertiary-bg);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.pr-summary-card .summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1.25rem;
+}
+.pr-summary-card .summary-item {
+  text-align: center;
+}
+.pr-summary-card .summary-item .label {
+  font-size: 0.75rem;
+  color: var(--bs-secondary-color);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.pr-summary-card .summary-item .value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-brand-primary);
+}
+.items-preview {
+  margin-bottom: 1.5rem;
+}
+.items-preview table {
+  font-size: 0.875rem;
+}
+.items-preview thead th {
+  background: var(--bs-tertiary-bg);
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+.items-preview tbody td {
+  vertical-align: middle;
+}
+.approval-actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.approval-btn {
+  flex: 1;
+  min-width: 200px;
+  padding: 1.25rem;
+  border-radius: 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 2px solid;
+}
+.approval-btn.approve {
+  background: rgba(25,135,84,0.08);
+  border-color: #198754;
+  color: #198754;
+}
+.approval-btn.approve:hover {
+  background: #198754;
+  color: white;
+}
+.approval-btn.reject {
+  background: rgba(220,53,69,0.08);
+  border-color: #dc3545;
+  color: #dc3545;
+}
+.approval-btn.reject:hover {
+  background: #dc3545;
+  color: white;
+}
+.approval-btn i {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+.approval-btn .btn-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.approval-btn .btn-desc {
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+</style>
+{% endblock %}
+
+{% block form_content %}
+{# PR Summary #}
+<div class="pr-summary-card">
+  <div class="summary-grid">
+    <div class="summary-item">
+      <div class="label">{% trans 'رقم الطلب' %}</div>
+      <div class="value">{{ pr.pr_number }}</div>
+    </div>
+    <div class="summary-item">
+      <div class="label">{% trans 'الطالب' %}</div>
+      <div class="value">{{ pr.requested_by.get_full_name|default:pr.requested_by.username }}</div>
+    </div>
+    <div class="summary-item">
+      <div class="label">{% trans 'القسم' %}</div>
+      <div class="value">{{ pr.department.name|default:"-" }}</div>
+    </div>
+    <div class="summary-item">
+      <div class="label">{% trans 'التاريخ' %}</div>
+      <div class="value">{{ pr.date|date:"Y/m/d" }}</div>
+    </div>
+    <div class="summary-item">
+      <div class="label">{% trans 'الأولوية' %}</div>
+      <div class="value">
+        {% if pr.priority == 'urgent' %}
+        <span class="badge bg-danger">{% trans 'عاجل' %}</span>
+        {% elif pr.priority == 'high' %}
+        <span class="badge bg-warning text-dark">{% trans 'عالي' %}</span>
+        {% else %}
+        <span class="badge bg-secondary">{% trans 'عادي' %}</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="summary-item">
+      <div class="label">{% trans 'المبلغ التقديري' %}</div>
+      <div class="value">{{ pr.estimated_total|floatformat:2 }} {% trans 'ج.م' %}</div>
+    </div>
+  </div>
+</div>
+
+{# Items Preview #}
+<div class="form-card items-preview">
+  <div class="card-header">
+    <div class="section-icon primary">
+      <i class="bi bi-box-seam"></i>
+    </div>
+    <h5>{% trans 'الأصناف المطلوبة' %}</h5>
+    <span class="badge bg-primary ms-auto">{{ pr.items.count }} {% trans 'صنف' %}</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>{% trans 'الصنف' %}</th>
+            <th class="text-center">{% trans 'الكمية' %}</th>
+            <th class="text-center">{% trans 'الوحدة' %}</th>
+            <th class="text-end">{% trans 'السعر التقديري' %}</th>
+            <th class="text-end">{% trans 'الإجمالي' %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in pr.items.all %}
+          <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>
+              <div class="fw-medium">{{ item.product.name }}</div>
+              <div class="small text-muted">{{ item.product.code }}</div>
+            </td>
+            <td class="text-center">{{ item.quantity }}</td>
+            <td class="text-center">{{ item.product.unit }}</td>
+            <td class="text-end">{{ item.estimated_price|floatformat:2 }}</td>
+            <td class="text-end fw-medium">{{ item.line_total|floatformat:2 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr class="table-light">
+            <td colspan="5" class="text-end fw-bold">{% trans 'الإجمالي' %}</td>
+            <td class="text-end fw-bold text-primary">{{ pr.estimated_total|floatformat:2 }} {% trans 'ج.م' %}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# Notes if any #}
+{% if pr.notes %}
+<div class="form-card mb-4">
+  <div class="card-header">
+    <div class="section-icon warning">
+      <i class="bi bi-sticky"></i>
+    </div>
+    <h5>{% trans 'ملاحظات الطالب' %}</h5>
+  </div>
+  <div class="card-body">
+    <p class="mb-0">{{ pr.notes }}</p>
+  </div>
+</div>
+{% endif %}
+
+{# Approval Decision #}
+<div class="form-card">
+  <div class="card-header">
+    <div class="section-icon success">
+      <i class="bi bi-check2-square"></i>
+    </div>
+    <h5>{% trans 'قرار الاعتماد' %}</h5>
+  </div>
+  <div class="card-body">
+    <div class="form-field mb-4">
+      <label class="form-label">{% trans 'ملاحظات المعتمد' %}</label>
+      <textarea name="approval_notes" class="form-control" rows="2" placeholder="{% trans 'أضف أي ملاحظات على الاعتماد (اختياري)...' %}"></textarea>
+    </div>
+    
+    <div class="approval-actions">
+      <button type="submit" name="action" value="approve" class="approval-btn approve">
+        <i class="bi bi-check-circle d-block"></i>
+        <div class="btn-title">{% trans 'اعتماد الطلب' %}</div>
+        <div class="btn-desc">{% trans 'الموافقة على طلب الشراء' %}</div>
+      </button>
+      <button type="submit" name="action" value="reject" class="approval-btn reject">
+        <i class="bi bi-x-circle d-block"></i>
+        <div class="btn-title">{% trans 'رفض الطلب' %}</div>
+        <div class="btn-desc">{% trans 'رفض طلب الشراء مع إبداء السبب' %}</div>
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block form_buttons %}
+<a href="{% url 'purchases:pr_detail' pr.pk %}" class="btn btn-outline-secondary">
+  <i class="bi bi-arrow-right me-1"></i>{% trans 'رجوع للتفاصيل' %}
+</a>
+{% endblock %}
+
+{% block cancel_url %}{% url 'purchases:pr_detail' pr.pk %}{% endblock %}
+

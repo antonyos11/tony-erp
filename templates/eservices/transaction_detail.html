@@ -1,0 +1,146 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load i18n %}
+
+{% block title %}{% trans "تفاصيل المعاملة" %} - {{ transaction.transaction_id }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-receipt-cutoff me-2"></i>{{ transaction.transaction_id }}</h2>
+        <a href="{% url 'eservices:transaction_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i>{% trans "العودة" %}
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- تفاصيل المعاملة -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">{% trans "تفاصيل المعاملة" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive"><table class="table table-borderless">
+                        <tr>
+                            <th class="text-muted" width="30%">{% trans "رقم المعاملة" %}</th>
+                            <td><strong>{{ transaction.transaction_id }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted">{% trans "الخدمة" %}</th>
+                            <td>{{ transaction.service.name }}</td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted">{% trans "المزود" %}</th>
+                            <td>{{ transaction.service.provider.name }}</td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted">{% trans "الحالة" %}</th>
+                            <td>
+                                <span class="badge 
+                                    {% if transaction.status == 'completed' %}bg-success
+                                    {% elif transaction.status == 'processing' %}bg-info
+                                    {% elif transaction.status == 'pending' %}bg-warning text-dark
+                                    {% elif transaction.status == 'failed' %}bg-danger
+                                    {% else %}bg-secondary{% endif %} fs-6">
+                                    {{ transaction.get_status_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted">{% trans "تاريخ الإنشاء" %}</th>
+                            <td>{{ transaction.created_at|date:"Y/m/d H:i:s" }}</td>
+                        </tr>
+                        {% if transaction.completed_at %}
+                        <tr>
+                            <th class="text-muted">{% trans "تاريخ الإتمام" %}</th>
+                            <td>{{ transaction.completed_at|date:"Y/m/d H:i:s" }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <th class="text-muted">{% trans "المستخدم" %}</th>
+                            <td>{{ transaction.created_by.username|default:"-" }}</td>
+                        </tr>
+                    </table></div>
+                </div>
+            </div>
+
+            <!-- بيانات الخدمة -->
+            {% if transaction.service_data %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">{% trans "بيانات الخدمة" %}</h5>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-light p-3 rounded">{{ transaction.service_data|safe }}</pre>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- رد المزود -->
+            {% if transaction.provider_response %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">{% trans "رد المزود" %}</h5>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-light p-3 rounded">{{ transaction.provider_response|safe }}</pre>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if transaction.error_message %}
+            <div class="alert alert-danger">
+                <strong>{% trans "رسالة الخطأ:" %}</strong>
+                {{ transaction.error_message }}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-lg-4">
+            <!-- ملخص مالي -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">{% trans "الملخص المالي" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>{% trans "المبلغ" %}</span>
+                        <span>{{ transaction.amount }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>{% trans "الرسوم" %}</span>
+                        <span>{{ transaction.fee }}</span>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <strong>{% trans "الإجمالي" %}</strong>
+                        <strong class="text-primary fs-5">{{ transaction.total }}</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- إجراءات -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">{% trans "إجراءات" %}</h5>
+                </div>
+                <div class="card-body">
+                    <button onclick="window.print()" class="btn btn-outline-primary w-100 mb-2">
+                        <i class="bi bi-printer me-1"></i>{% trans "طباعة" %}
+                    </button>
+                    {% if transaction.status == 'pending' %}
+                    <button type="button" class="btn btn-outline-danger w-100" 
+                            onclick="if(confirm('{% trans 'هل أنت متأكد من إلغاء هذه العملية؟' %}')) { document.getElementById('cancelForm').submit(); }">
+                        <i class="bi bi-x-lg me-1"></i>{% trans "إلغاء" %}
+                    </button>
+                    <form id="cancelForm" method="post" action="{% url 'eservices:transaction_detail' transaction.pk %}?action=cancel" style="display:none;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="cancel">
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

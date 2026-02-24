@@ -1,0 +1,808 @@
+﻿{% extends "base.html" %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "تحليلات المحاسبة" %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1e3a5f;
+        --secondary-color: #2c5282;
+        --accent-color: #00d4aa;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --info-color: #17a2b8;
+    }
+    
+    .analytics-hero {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .analytics-hero::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -30%;
+        width: 60%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    }
+    
+    .period-selector {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem 1.5rem;
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    }
+    
+    .period-btn {
+        padding: 0.5rem 1.25rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        background: white;
+        color: #333;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .period-btn:hover {
+        border-color: var(--accent-color);
+    }
+    
+    .period-btn.active {
+        background: var(--accent-color);
+        border-color: var(--accent-color);
+        color: white;
+    }
+    
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .kpi-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        border: 1px solid #eee;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .kpi-card::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+    }
+    
+    .kpi-card.revenue::after { background: linear-gradient(90deg, var(--success-color), var(--accent-color)); }
+    .kpi-card.expense::after { background: linear-gradient(90deg, var(--danger-color), var(--warning-color)); }
+    .kpi-card.profit::after { background: linear-gradient(90deg, var(--info-color), var(--primary-color)); }
+    .kpi-card.ratio::after { background: linear-gradient(90deg, var(--warning-color), var(--accent-color)); }
+    
+    .kpi-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+    
+    .kpi-title {
+        color: #6c757d;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    .kpi-icon {
+        width: 45px;
+        height: 45px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+    
+    .kpi-card.revenue .kpi-icon { background: rgba(40, 167, 69, 0.1); color: var(--success-color); }
+    .kpi-card.expense .kpi-icon { background: rgba(220, 53, 69, 0.1); color: var(--danger-color); }
+    .kpi-card.profit .kpi-icon { background: rgba(23, 162, 184, 0.1); color: var(--info-color); }
+    .kpi-card.ratio .kpi-icon { background: rgba(255, 193, 7, 0.1); color: var(--warning-color); }
+    
+    .kpi-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin-bottom: 0.5rem;
+    }
+    
+    .kpi-change {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.85rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+    }
+    
+    .kpi-change.positive { background: rgba(40, 167, 69, 0.1); color: var(--success-color); }
+    .kpi-change.negative { background: rgba(220, 53, 69, 0.1); color: var(--danger-color); }
+    
+    .kpi-sparkline {
+        height: 40px;
+        margin-top: 1rem;
+    }
+    
+    .charts-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    @media (max-width: 1200px) {
+        .charts-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .chart-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        border: 1px solid #eee;
+        overflow: hidden;
+    }
+    
+    .chart-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #fafbfc;
+    }
+    
+    .chart-title {
+        font-weight: 600;
+        color: var(--primary-color);
+        margin: 0;
+    }
+    
+    .chart-body {
+        padding: 1.5rem;
+    }
+    
+    .chart-container {
+        height: 300px;
+        position: relative;
+    }
+    
+    .chart-container.large {
+        height: 400px;
+    }
+    
+    .ratio-grid {
+        display: grid;
+        gap: 1rem;
+    }
+    
+    .ratio-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+    }
+    
+    .ratio-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .ratio-icon.good { background: rgba(40, 167, 69, 0.1); color: var(--success-color); }
+    .ratio-icon.warning { background: rgba(255, 193, 7, 0.1); color: var(--warning-color); }
+    .ratio-icon.danger { background: rgba(220, 53, 69, 0.1); color: var(--danger-color); }
+    
+    .ratio-info {
+        flex: 1;
+    }
+    
+    .ratio-name {
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 0.25rem;
+    }
+    
+    .ratio-bar {
+        height: 6px;
+        background: #e9ecef;
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    
+    .ratio-bar-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.5s ease;
+    }
+    
+    .ratio-bar-fill.good { background: var(--success-color); }
+    .ratio-bar-fill.warning { background: var(--warning-color); }
+    .ratio-bar-fill.danger { background: var(--danger-color); }
+    
+    .ratio-value {
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: var(--primary-color);
+    }
+    
+    .trends-section {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        margin-bottom: 2rem;
+    }
+    
+    .trend-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    
+    .trend-card {
+        text-align: center;
+        padding: 1.5rem;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    }
+    
+    .trend-card .value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .trend-card .label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .forecast-section {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+    }
+    
+    @media (max-width: 992px) {
+        .forecast-section {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .forecast-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    }
+    
+    .forecast-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    
+    .forecast-title {
+        font-weight: 600;
+        color: var(--primary-color);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .forecast-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .forecast-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px dashed #eee;
+    }
+    
+    .forecast-item:last-child {
+        border-bottom: none;
+    }
+    
+    [data-bs-theme="dark"] .kpi-card,
+    [data-bs-theme="dark"] .chart-card,
+    [data-bs-theme="dark"] .trends-section,
+    [data-bs-theme="dark"] .forecast-card,
+    [data-bs-theme="dark"] .period-selector {
+        background: #1a1d21;
+        border-color: #2d3238;
+    }
+    
+    [data-bs-theme="dark"] .chart-header {
+        background: #2d3238;
+        border-color: #3d4248;
+    }
+    
+    [data-bs-theme="dark"] .ratio-item,
+    [data-bs-theme="dark"] .trend-card {
+        background: #2d3238;
+    }
+    
+    [data-bs-theme="dark"] .period-btn {
+        background: #2d3238;
+        border-color: #3d4248;
+        color: #e9ecef;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Hero Section -->
+    <div class="analytics-hero">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="h2 mb-2">
+                    <i class="fas fa-chart-pie me-2"></i>
+                    {% trans "تحليلات المحاسبة" %}
+                </h1>
+                <p class="mb-0 opacity-75">
+                    {% trans "تحليل شامل للأداء المالي والمؤشرات الرئيسية" %}
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <button class="btn btn-light">
+                    <i class="fas fa-download me-1"></i>
+                    {% trans "تصدير التقرير" %}
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Period Selector -->
+    <div class="period-selector">
+        <span class="text-muted me-2">{% trans "الفترة:" %}</span>
+        <button class="period-btn">{% trans "اليوم" %}</button>
+        <button class="period-btn">{% trans "الأسبوع" %}</button>
+        <button class="period-btn active">{% trans "الشهر" %}</button>
+        <button class="period-btn">{% trans "الربع" %}</button>
+        <button class="period-btn">{% trans "السنة" %}</button>
+        <div class="ms-auto">
+            <input type="date" class="form-control form-control-sm d-inline-block" style="width: 140px;">
+            <span class="mx-2">-</span>
+            <input type="date" class="form-control form-control-sm d-inline-block" style="width: 140px;">
+        </div>
+    </div>
+    
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+        <div class="kpi-card revenue">
+            <div class="kpi-header">
+                <div>
+                    <div class="kpi-title">{% trans "إجمالي الإيرادات" %}</div>
+                </div>
+                <div class="kpi-icon">
+                    <i class="fas fa-arrow-down"></i>
+                </div>
+            </div>
+            <div class="kpi-value">{{ total_revenue|default:"125,000"|intcomma }} <small>ج.م</small></div>
+            <span class="kpi-change positive">
+                <i class="fas fa-arrow-up"></i> +15.3%
+                <span class="text-muted ms-1">{% trans "عن الشهر السابق" %}</span>
+            </span>
+            <div class="kpi-sparkline">
+                <canvas id="revenueSparkline"></canvas>
+            </div>
+        </div>
+        
+        <div class="kpi-card expense">
+            <div class="kpi-header">
+                <div>
+                    <div class="kpi-title">{% trans "إجمالي المصروفات" %}</div>
+                </div>
+                <div class="kpi-icon">
+                    <i class="fas fa-arrow-up"></i>
+                </div>
+            </div>
+            <div class="kpi-value">{{ total_expense|default:"85,000"|intcomma }} <small>ج.م</small></div>
+            <span class="kpi-change negative">
+                <i class="fas fa-arrow-up"></i> +8.2%
+                <span class="text-muted ms-1">{% trans "عن الشهر السابق" %}</span>
+            </span>
+            <div class="kpi-sparkline">
+                <canvas id="expenseSparkline"></canvas>
+            </div>
+        </div>
+        
+        <div class="kpi-card profit">
+            <div class="kpi-header">
+                <div>
+                    <div class="kpi-title">{% trans "صافي الربح" %}</div>
+                </div>
+                <div class="kpi-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+            </div>
+            <div class="kpi-value">{{ net_profit|default:"40,000"|intcomma }} <small>ج.م</small></div>
+            <span class="kpi-change positive">
+                <i class="fas fa-arrow-up"></i> +25.8%
+                <span class="text-muted ms-1">{% trans "عن الشهر السابق" %}</span>
+            </span>
+            <div class="kpi-sparkline">
+                <canvas id="profitSparkline"></canvas>
+            </div>
+        </div>
+        
+        <div class="kpi-card ratio">
+            <div class="kpi-header">
+                <div>
+                    <div class="kpi-title">{% trans "هامش الربح" %}</div>
+                </div>
+                <div class="kpi-icon">
+                    <i class="fas fa-percentage"></i>
+                </div>
+            </div>
+            <div class="kpi-value">{{ profit_margin|default:"32" }}%</div>
+            <span class="kpi-change positive">
+                <i class="fas fa-arrow-up"></i> +3.2%
+                <span class="text-muted ms-1">{% trans "عن الشهر السابق" %}</span>
+            </span>
+            <div class="kpi-sparkline">
+                <canvas id="marginSparkline"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Charts Section -->
+    <div class="charts-grid">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h5 class="chart-title">
+                    <i class="fas fa-chart-area me-2"></i>
+                    {% trans "الإيرادات vs المصروفات" %}
+                </h5>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary active">{% trans "خطي" %}</button>
+                    <button class="btn btn-outline-secondary">{% trans "شريطي" %}</button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <div class="chart-container large">
+                    <canvas id="revenueExpenseChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="chart-card">
+            <div class="chart-header">
+                <h5 class="chart-title">
+                    <i class="fas fa-chart-pie me-2"></i>
+                    {% trans "توزيع المصروفات" %}
+                </h5>
+            </div>
+            <div class="chart-body">
+                <div class="chart-container">
+                    <canvas id="expenseDistributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Financial Ratios -->
+    <div class="charts-grid">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h5 class="chart-title">
+                    <i class="fas fa-tachometer-alt me-2"></i>
+                    {% trans "المؤشرات المالية" %}
+                </h5>
+            </div>
+            <div class="chart-body">
+                <div class="ratio-grid">
+                    <div class="ratio-item">
+                        <div class="ratio-icon good">
+                            <i class="fas fa-tint"></i>
+                        </div>
+                        <div class="ratio-info">
+                            <div class="ratio-name">{% trans "نسبة السيولة الجارية" %}</div>
+                            <div class="ratio-bar">
+                                <div class="ratio-bar-fill good" style="width: 85%"></div>
+                            </div>
+                        </div>
+                        <div class="ratio-value">2.3</div>
+                    </div>
+                    
+                    <div class="ratio-item">
+                        <div class="ratio-icon good">
+                            <i class="fas fa-bolt"></i>
+                        </div>
+                        <div class="ratio-info">
+                            <div class="ratio-name">{% trans "نسبة السيولة السريعة" %}</div>
+                            <div class="ratio-bar">
+                                <div class="ratio-bar-fill good" style="width: 75%"></div>
+                            </div>
+                        </div>
+                        <div class="ratio-value">1.8</div>
+                    </div>
+                    
+                    <div class="ratio-item">
+                        <div class="ratio-icon warning">
+                            <i class="fas fa-balance-scale"></i>
+                        </div>
+                        <div class="ratio-info">
+                            <div class="ratio-name">{% trans "نسبة الديون" %}</div>
+                            <div class="ratio-bar">
+                                <div class="ratio-bar-fill warning" style="width: 45%"></div>
+                            </div>
+                        </div>
+                        <div class="ratio-value">0.45</div>
+                    </div>
+                    
+                    <div class="ratio-item">
+                        <div class="ratio-icon good">
+                            <i class="fas fa-sync"></i>
+                        </div>
+                        <div class="ratio-info">
+                            <div class="ratio-name">{% trans "دوران الأصول" %}</div>
+                            <div class="ratio-bar">
+                                <div class="ratio-bar-fill good" style="width: 65%"></div>
+                            </div>
+                        </div>
+                        <div class="ratio-value">1.5</div>
+                    </div>
+                    
+                    <div class="ratio-item">
+                        <div class="ratio-icon good">
+                            <i class="fas fa-percentage"></i>
+                        </div>
+                        <div class="ratio-info">
+                            <div class="ratio-name">{% trans "العائد على حقوق الملكية (ROE)" %}</div>
+                            <div class="ratio-bar">
+                                <div class="ratio-bar-fill good" style="width: 80%"></div>
+                            </div>
+                        </div>
+                        <div class="ratio-value">18%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="chart-card">
+            <div class="chart-header">
+                <h5 class="chart-title">
+                    <i class="fas fa-coins me-2"></i>
+                    {% trans "التدفق النقدي" %}
+                </h5>
+            </div>
+            <div class="chart-body">
+                <div class="chart-container">
+                    <canvas id="cashFlowChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Trends Section -->
+    <div class="trends-section">
+        <h5 class="mb-4">
+            <i class="fas fa-chart-line me-2"></i>
+            {% trans "الاتجاهات الرئيسية" %}
+        </h5>
+        <div class="trend-cards">
+            <div class="trend-card">
+                <div class="value">{{ avg_daily_revenue|default:"4,166" }}</div>
+                <div class="label">{% trans "متوسط الإيراد اليومي" %}</div>
+            </div>
+            <div class="trend-card">
+                <div class="value">{{ collection_days|default:"28" }}</div>
+                <div class="label">{% trans "أيام التحصيل" %}</div>
+            </div>
+            <div class="trend-card">
+                <div class="value">{{ payment_days|default:"35" }}</div>
+                <div class="label">{% trans "أيام السداد" %}</div>
+            </div>
+            <div class="trend-card">
+                <div class="value">{{ inventory_turnover|default:"6.2" }}</div>
+                <div class="label">{% trans "دوران المخزون" %}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Forecast Section -->
+    <div class="forecast-section">
+        <div class="forecast-card">
+            <div class="forecast-header">
+                <h5 class="forecast-title">
+                    <i class="fas fa-calendar-check text-success"></i>
+                    {% trans "المستحقات القادمة" %}
+                </h5>
+                <a href="#" class="btn btn-sm btn-outline-primary">{% trans "عرض الكل" %}</a>
+            </div>
+            <ul class="forecast-list">
+                <li class="forecast-item">
+                    <div>
+                        <div class="fw-bold">{% trans "شركة الفجر" %}</div>
+                        <small class="text-muted">{% trans "مستحق خلال 3 أيام" %}</small>
+                    </div>
+                    <span class="text-success fw-bold">+15,000 ج.م</span>
+                </li>
+                <li class="forecast-item">
+                    <div>
+                        <div class="fw-bold">{% trans "مؤسسة النور" %}</div>
+                        <small class="text-muted">{% trans "مستحق خلال 7 أيام" %}</small>
+                    </div>
+                    <span class="text-success fw-bold">+8,500 ج.م</span>
+                </li>
+                <li class="forecast-item">
+                    <div>
+                        <div class="fw-bold">{% trans "شركة الأمل" %}</div>
+                        <small class="text-muted">{% trans "مستحق خلال 10 أيام" %}</small>
+                    </div>
+                    <span class="text-success fw-bold">+22,000 ج.م</span>
+                </li>
+            </ul>
+        </div>
+        
+        <div class="forecast-card">
+            <div class="forecast-header">
+                <h5 class="forecast-title">
+                    <i class="fas fa-calendar-times text-danger"></i>
+                    {% trans "الالتزامات القادمة" %}
+                </h5>
+                <a href="#" class="btn btn-sm btn-outline-primary">{% trans "عرض الكل" %}</a>
+            </div>
+            <ul class="forecast-list">
+                <li class="forecast-item">
+                    <div>
+                        <div class="fw-bold">{% trans "إيجار المكتب" %}</div>
+                        <small class="text-muted">{% trans "مستحق خلال 5 أيام" %}</small>
+                    </div>
+                    <span class="text-danger fw-bold">-12,000 ج.م</span>
+                </li>
+                <li class="forecast-item">
+                    <div>
+                        <div class="fw-bold">{% trans "رواتب الموظفين" %}</div>
+                        <small class="text-muted">{% trans "مستحق خلال 15 يوم" %}</small>
+                    </div>
+                    <span class="text-danger fw-bold">-45,000 ج.م</span>
+                </li>
+                <li class="forecast-item">
+                    <div>
+                        <div class="fw-bold">{% trans "مورد الخامات" %}</div>
+                        <small class="text-muted">{% trans "مستحق خلال 20 يوم" %}</small>
+                    </div>
+                    <span class="text-danger fw-bold">-18,500 ج.م</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Revenue vs Expense Chart
+    const revenueExpenseCtx = document.getElementById('revenueExpenseChart');
+    if (revenueExpenseCtx) {
+        new Chart(revenueExpenseCtx, {
+            type: 'line',
+            data: {
+                labels: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو'],
+                datasets: [{
+                    label: 'الإيرادات',
+                    data: [100000, 110000, 105000, 125000, 130000, 140000],
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }, {
+                    label: 'المصروفات',
+                    data: [70000, 75000, 72000, 85000, 88000, 90000],
+                    borderColor: '#dc3545',
+                    backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top', rtl: true }
+                }
+            }
+        });
+    }
+    
+    // Expense Distribution Chart
+    const expenseDistCtx = document.getElementById('expenseDistributionChart');
+    if (expenseDistCtx) {
+        new Chart(expenseDistCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['رواتب', 'إيجارات', 'مشتريات', 'خدمات', 'أخرى'],
+                datasets: [{
+                    data: [40, 20, 25, 10, 5],
+                    backgroundColor: ['#1e3a5f', '#00d4aa', '#ffc107', '#17a2b8', '#6c757d']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', rtl: true }
+                }
+            }
+        });
+    }
+    
+    // Cash Flow Chart
+    const cashFlowCtx = document.getElementById('cashFlowChart');
+    if (cashFlowCtx) {
+        new Chart(cashFlowCtx, {
+            type: 'bar',
+            data: {
+                labels: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو'],
+                datasets: [{
+                    label: 'التدفق النقدي',
+                    data: [30000, 35000, 33000, 40000, 42000, 50000],
+                    backgroundColor: '#00d4aa'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+    
+    // Period selector
+    document.querySelectorAll('.period-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+});
+</script>
+{% endblock %}
+

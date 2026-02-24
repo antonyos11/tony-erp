@@ -1,0 +1,151 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}الأدوار والصلاحيات{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="mb-0"><i class="fas fa-user-shield text-primary"></i> الأدوار والصلاحيات</h4>
+            </div>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal">
+                <i class="fas fa-plus"></i> دور جديد
+            </button>
+        </div>
+    </div>
+    
+    <div class="row">
+        {% for role in roles %}
+        <div class="col-md-4 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-user-tag text-primary"></i> {{ role.name }}
+                    </h6>
+                    <span class="badge bg-info">{{ role.users_count }} مستخدم</span>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">{{ role.description|default:"لا يوجد وصف" }}</p>
+                    
+                    <h6 class="small text-muted mb-2">الصلاحيات:</h6>
+                    <div class="d-flex flex-wrap gap-1 mb-3">
+                        {% for permission in role.permissions.all|slice:":5" %}
+                        <span class="badge bg-light text-dark">{{ permission.name }}</span>
+                        {% empty %}
+                        <span class="text-muted small">لا توجد صلاحيات</span>
+                        {% endfor %}
+                        {% if role.permissions.count > 5 %}
+                        <span class="badge bg-secondary">+{{ role.permissions.count|add:"-5" }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0">
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a href="#" class="btn btn-sm btn-outline-info" onclick="viewPermissions({{ role.id }})">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="#" class="btn btn-sm btn-outline-primary" onclick="editRole({{ role.id }})">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        {% if not role.is_system %}
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteRole({{ role.id }})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-user-shield fa-4x text-muted mb-3"></i>
+                    <h5 class="text-muted">لا توجد أدوار</h5>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal">
+                        <i class="fas fa-plus"></i> إضافة دور
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Add Modal -->
+<div class="modal fade" id="addModal" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-plus text-primary"></i> إضافة دور جديد</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="name" class="form-label">اسم الدور <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="code" class="form-label">الكود</label>
+                            <input type="text" class="form-control" id="code" name="code">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">الوصف</label>
+                        <textarea class="form-control" id="description" name="description" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الصلاحيات</label>
+                        <div class="border rounded p-3" style="max-height: 250px; overflow-y: auto;">
+                            {% for permission in all_permissions %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="permissions" 
+                                       value="{{ permission.id }}" id="perm_{{ permission.id }}">
+                                <label class="form-check-label" for="perm_{{ permission.id }}">
+                                    {{ permission.name }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<form id="deleteForm" method="post" style="display: none;">
+    {% csrf_token %}
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function editRole(id) {
+    // Redirect to edit page or open modal
+    window.location.href = `{% url 'crm:admin_roles' %}${id}/edit/`;
+}
+
+function viewPermissions(id) {
+    // Show permissions modal
+    alert('عرض صلاحيات الدور');
+}
+
+function deleteRole(id) {
+    if (confirm('هل أنت متأكد من حذف هذا الدور؟')) {
+        const form = document.getElementById('deleteForm');
+        form.action = `{% url 'crm:admin_roles' %}${id}/delete/`;
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

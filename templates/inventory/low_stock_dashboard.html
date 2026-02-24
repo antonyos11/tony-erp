@@ -1,0 +1,437 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static currency_tags %}
+
+{% block title %}مراقبة المخزون المنخفض - Tony ERP{% endblock %}
+
+{% block extra_head %}
+<style>
+.stat-card {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.alert-badge {
+    position: relative;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.filter-card {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.product-card {
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+}
+
+.product-card.critical {
+    border-left-color: #dc3545;
+    background: linear-gradient(90deg, rgba(220,53,69,0.05) 0%, transparent 100%);
+}
+
+.product-card.warning {
+    border-left-color: #fd7e14;
+    background: linear-gradient(90deg, rgba(253,126,20,0.05) 0%, transparent 100%);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="h4 mb-1">
+                <i class="bi bi-exclamation-triangle text-warning"></i>
+                مراقبة المخزون المنخفض
+            </h2>
+            <small class="text-muted">المنتجات التي تحتاج إلى إعادة تزويد</small>
+        </div>
+        <div class="btn-group">
+            <a href="?export=excel" class="btn btn-success">
+                <i class="bi bi-file-excel"></i> تصدير Excel
+            </a>
+            <a href="?export=pdf" class="btn btn-danger">
+                <i class="bi bi-file-pdf"></i> تصدير PDF
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <div class="stat-icon bg-danger text-white mx-auto mb-2">
+                        <i class="bi bi-exclamation-circle"></i>
+                    </div>
+                    <h3 class="mb-1">{{ stats.total_low_stock }}</h3>
+                    <p class="text-muted mb-0">منتج منخفض المخزون</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <div class="stat-icon bg-danger text-white mx-auto mb-2 alert-badge">
+                        <i class="bi bi-x-circle"></i>
+                    </div>
+                    <h3 class="mb-1">{{ stats.critical_stock }}</h3>
+                    <p class="text-muted mb-0">نفد المخزون</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <div class="stat-icon bg-warning text-white mx-auto mb-2">
+                        <i class="bi bi-dash-circle"></i>
+                    </div>
+                    <h3 class="mb-1">{{ stats.warning_stock }}</h3>
+                    <p class="text-muted mb-0">مخزون منخفض</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <div class="stat-icon bg-info text-white mx-auto mb-2">
+                        <i class="bi bi-currency-dollar"></i>
+                    </div>
+                    <h3 class="mb-1">{{ stats.total_value_at_risk|floatformat:0 }}</h3>
+                    <p class="text-muted mb-0">قيمة معرضة للخطر</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-card">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                {{ filter.name }}
+            </div>
+            <div class="col-md-2">
+                {{ filter.stock_status }}
+            </div>
+            <div class="col-md-2">
+                {{ filter.location }}
+            </div>
+            <div class="col-md-2">
+                {{ filter.purchase_uom }}
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-funnel"></i> تطبيق المرشح
+                </button>
+                <a href="?" class="btn btn-outline-secondary">
+                    <i class="bi bi-x"></i> إزالة
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Products List -->
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">المنتجات منخفضة المخزون ({{ products.count }})</h5>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" id="refreshBtn">
+                        <i class="bi bi-arrow-clockwise"></i> تحديث
+                    </button>
+                    <button class="btn btn-sm btn-outline-info" id="connectWebSocket">
+                        <i class="bi bi-wifi"></i> اتصال مباشر
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>المنتج</th>
+                            <th>رمز المنتج</th>
+                            <th>المخزون الحالي</th>
+                            <th>الحد الأدنى</th>
+                            <th>النقص</th>
+                            <th>التكلفة</th>
+                            <th>القيمة الحالية</th>
+                            <th>الحالة</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productsTable">
+                        {% for product in products %}
+                        <tr class="product-card {% if product.current_stock == 0 %}critical{% else %}warning{% endif %}" 
+                            data-product-id="{ product.id }">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="me-2">
+                                        {% if product.current_stock == 0 %}
+                                            <span class="badge bg-danger">نفد</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">منخفض</span>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold">{{ product.name }}</div>
+                                        <small class="text-muted">{{ product.description|truncatechars:50 }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><code>{{ product.sku }}</code></td>
+                            <td>
+                                <span class="stock-quantity" data-product="{ product.id }">
+                                    {{ product.current_stock }}
+                                </span>
+                                <small class="text-muted">{{ product.get_usage_uom_display }}</small>
+                            </td>
+                            <td>{{ product.min_stock }}</td>
+                            <td>
+                                <span class="text-danger fw-bold">
+                                    {{ product.min_stock|sub:product.current_stock }}
+                                </span>
+                            </td>
+                            <td>{{ product.cost|floatformat:2 }}</td>
+                            <td class="stock-value" data-product="{ product.id }">
+                                {{ product.total_value|floatformat:2 }}
+                            </td>
+                            <td>
+                                {% if product.current_stock == 0 %}
+                                    <span class="badge bg-danger">نفد المخزون</span>
+                                {% else %}
+                                    <span class="badge bg-warning">مخزون منخفض</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group-vertical btn-group-sm">
+                                    <a href="{% url 'inventory:product_edit' product.pk %}" 
+                                       class="btn btn-outline-primary btn-sm">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="#" class="btn btn-outline-success btn-sm reorder-btn" 
+                                       data-product="{ product.id }">
+                                        <i class="bi bi-cart-plus"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">
+                                <i class="bi bi-check-circle fs-1 d-block mb-2"></i>
+                                لا توجد منتجات منخفضة المخزون
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notification Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer">
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// WebSocket connection for real-time updates
+let inventorySocket = null;
+let isConnected = false;
+
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/inventory/`;
+    
+    inventorySocket = new WebSocket(wsUrl);
+    
+    inventorySocket.onopen = function(e) {
+        console.log('Connected to inventory WebSocket');
+        isConnected = true;
+        updateConnectionStatus(true);
+        showNotification('تم الاتصال بنظام التحديث المباشر', 'success');
+    };
+    
+    inventorySocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        handleWebSocketMessage(data);
+    };
+    
+    inventorySocket.onclose = function(e) {
+        console.log('Disconnected from inventory WebSocket');
+        isConnected = false;
+        updateConnectionStatus(false);
+        
+        // Attempt to reconnect after 5 seconds
+        setTimeout(function() {
+            if (!isConnected) {
+                connectWebSocket();
+            }
+        }, 5000);
+    };
+    
+    inventorySocket.onerror = function(e) {
+        console.error('WebSocket error:', e);
+        showNotification('خطأ في الاتصال المباشر', 'danger');
+    };
+}
+
+function handleWebSocketMessage(data) {
+    if (data.type === 'low_stock_alert') {
+        handleLowStockAlert(data.alert);
+    } else if (data.type === 'inventory_update') {
+        handleInventoryUpdate(data.update);
+    }
+}
+
+function handleLowStockAlert(alert) {
+    showNotification(alert.message, 'warning');
+    
+    // Update product row if visible
+    const productRow = document.querySelector(`tr[data-product-id="${alert.product_id}"]`);
+    if (productRow) {
+        updateProductRow(alert.product_id, alert);
+    }
+}
+
+function handleInventoryUpdate(update) {
+    if (update.type === 'stock_update') {
+        updateProductRow(update.product_id, {
+            current_stock: update.quantity,
+            is_low_stock: update.is_low_stock
+        });
+    }
+}
+
+function updateProductRow(productId, data) {
+    const row = document.querySelector(`tr[data-product-id="${productId}"]`);
+    if (!row) return;
+    
+    // Update stock quantity
+    const stockQty = row.querySelector(`span.stock-quantity[data-product="${productId}"]`);
+    if (stockQty && data.current_stock !== undefined) {
+        stockQty.textContent = data.current_stock;
+    }
+    
+    // Update value
+    const stockValue = row.querySelector(`td.stock-value[data-product="${productId}"]`);
+    if (stockValue && data.total_value !== undefined) {
+        stockValue.textContent = parseFloat(data.total_value).toFixed(2);
+    }
+    
+    // Update row class based on stock status
+    if (data.is_low_stock !== undefined) {
+        if (data.current_stock === 0) {
+            row.className = 'product-card critical';
+        } else if (data.is_low_stock) {
+            row.className = 'product-card warning';
+        } else {
+            row.className = 'product-card';
+        }
+    }
+}
+
+function updateConnectionStatus(connected) {
+    const btn = document.getElementById('connectWebSocket');
+    if (connected) {
+        btn.className = 'btn btn-sm btn-success';
+        btn.innerHTML = '<i class="bi bi-wifi"></i> متصل';
+    } else {
+        btn.className = 'btn btn-sm btn-outline-info';
+        btn.innerHTML = '<i class="bi bi-wifi-off"></i> غير متصل';
+    }
+}
+
+function showNotification(message, type = 'info') {
+    const toastContainer = document.getElementById('toastContainer');
+    const toastId = 'toast_' + Date.now();
+    
+    const toast = document.createElement('div');
+    toast.id = toastId;
+    toast.className = `toast align-items-center text-bg-${type} border-0`;
+    toast.setAttribute('role', 'alert');
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" 
+                    data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    // Remove toast element after it hides
+    toast.addEventListener('hidden.bs.toast', function() {
+        toast.remove();
+    });
+}
+
+// Event handlers
+document.getElementById('connectWebSocket').addEventListener('click', function() {
+    if (isConnected) {
+        if (inventorySocket) {
+            inventorySocket.close();
+        }
+    } else {
+        connectWebSocket();
+    }
+});
+
+document.getElementById('refreshBtn').addEventListener('click', function() {
+    location.reload();
+});
+
+// Auto-connect on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Connect WebSocket after 1 second
+    setTimeout(connectWebSocket, 1000);
+});
+
+// Handle reorder buttons
+document.querySelectorAll('.reorder-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const productId = this.dataset.product;
+        showNotification('تم إضافة المنتج إلى قائمة الطلب', 'success');
+        // Here you would typically call an API to create a purchase request
+    });
+});
+</script>
+{% endblock %}

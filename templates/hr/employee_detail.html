@@ -1,0 +1,408 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load currency_tags %}
+{% load static %}
+
+{% block title %}تفاصيل الموظف - {{ employee.arabic_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .employee-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+    }
+    .employee-photo {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        border: 4px solid rgba(255,255,255,0.3);
+        object-fit: cover;
+    }
+    .info-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        margin-bottom: 25px;
+        overflow: hidden;
+    }
+    .info-card-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-bottom: none;
+        padding: 20px;
+        font-weight: 600;
+        color: #495057;
+    }
+    .info-row {
+        padding: 15px 0;
+        border-bottom: 1px solid #f1f3f4;
+    }
+    .info-row:last-child {
+        border-bottom: none;
+    }
+    .info-label {
+        font-weight: 600;
+        color: #6c757d;
+        margin-bottom: 5px;
+    }
+    .info-value {
+        color: #495057;
+        font-size: 1.1rem;
+    }
+    .status-badge {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+    }
+    .status-active { background-color: #d4edda; color: #155724; }
+    .status-inactive { background-color: #f8d7da; color: #721c24; }
+    .status-terminated { background-color: #d1ecf1; color: #0c5460; }
+    .action-btn {
+        border-radius: 25px;
+        padding: 10px 25px;
+        font-weight: 600;
+        margin: 5px;
+    }
+    .timeline-item {
+        border-left: 3px solid #007bff;
+        padding-left: 20px;
+        margin-bottom: 20px;
+        position: relative;
+    }
+    .timeline-item::before {
+        content: '';
+        width: 12px;
+        height: 12px;
+        background: #007bff;
+        border-radius: 50%;
+        position: absolute;
+        left: -7px;
+        top: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- رأس الصفحة -->
+    <div class="employee-header">
+        <div class="row align-items-center">
+            <div class="col-auto">
+                {% if employee.photo %}
+                    <img src="{ employee.photo.url }}" class="employee-photo" alt="صورة الموظف">
+                {% else %}
+                    <div class="employee-photo d-flex align-items-center justify-content-center bg-white text-primary">
+                        <i class="fas fa-user fa-3x"></i>
+                    </div>
+                {% endif %}
+            </div>
+            <div class="col">
+                <h1 class="h2 mb-2">{{ employee.arabic_name }}</h1>
+                {% if employee.english_name %}
+                    <h2 class="h5 mb-2 opacity-75">{{ employee.english_name }}</h2>
+                {% endif %}
+                <div class="d-flex align-items-center mb-3">
+                    <span class="me-4">
+                        <i class="fas fa-id-card me-2"></i>
+                        رقم الموظف: {{ employee.employee_id }}
+                    </span>
+                    <span class="me-4">
+                        <i class="fas fa-building me-2"></i>
+                        {{ employee.department.name }}
+                    </span>
+                    {% if employee.position %}
+                        <span>
+                            <i class="fas fa-briefcase me-2"></i>
+                            {{ employee.position.title }}
+                        </span>
+                    {% endif %}
+                </div>
+                <div>
+                    {% if employee.status == 'active' %}
+                        <span class="status-badge status-active">نشط</span>
+                    {% elif employee.status == 'inactive' %}
+                        <span class="status-badge status-inactive">غير نشط</span>
+                    {% elif employee.status == 'terminated' %}
+                        <span class="status-badge status-terminated">منتهي الخدمة</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-auto">
+                <div class="d-flex flex-column">
+                    <a href="{% url 'hr:employee_edit' employee.pk %}" class="btn btn-warning action-btn">
+                        <i class="fas fa-edit"></i> تعديل
+                    </a>
+                    <a href="{% url 'hr:employee_list' %}" class="btn btn-light action-btn">
+                        <i class="fas fa-arrow-right"></i> العودة
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- المعلومات الشخصية -->
+        <div class="col-lg-6">
+            <div class="card info-card">
+                <div class="card-header info-card-header">
+                    <i class="fas fa-user me-2"></i>المعلومات الشخصية
+                </div>
+                <div class="card-body">
+                    <div class="info-row">
+                        <div class="info-label">رقم الهوية</div>
+                        <div class="info-value">{{ employee.national_id|default:"غير محدد" }}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">تاريخ الميلاد</div>
+                        <div class="info-value">
+                            {{ employee.birth_date|default:"غير محدد" }}
+                            {% if employee.birth_date %}
+                                <small class="text-muted">({{ employee.age }} سنة)</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">الجنس</div>
+                        <div class="info-value">
+                            {% if employee.gender == 'male' %}ذكر
+                            {% elif employee.gender == 'female' %}أنثى
+                            {% else %}غير محدد{% endif %}
+                        </div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">الجنسية</div>
+                        <div class="info-value">{{ employee.nationality|default:"غير محدد" }}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">الحالة الاجتماعية</div>
+                        <div class="info-value">
+                            {% if employee.marital_status == 'single' %}أعزب
+                            {% elif employee.marital_status == 'married' %}متزوج
+                            {% elif employee.marital_status == 'divorced' %}مطلق
+                            {% elif employee.marital_status == 'widowed' %}أرمل
+                            {% else %}غير محدد{% endif %}
+                        </div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">عدد الأطفال</div>
+                        <div class="info-value">{{ employee.children_count|default:0 }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- معلومات الاتصال -->
+        <div class="col-lg-6">
+            <div class="card info-card">
+                <div class="card-header info-card-header">
+                    <i class="fas fa-phone me-2"></i>معلومات الاتصال
+                </div>
+                <div class="card-body">
+                    <div class="info-row">
+                        <div class="info-label">رقم الجوال</div>
+                        <div class="info-value">
+                            <a href="tel:{{ employee.phone }}" class="text-decoration-none">
+                                {{ employee.phone }}
+                            </a>
+                        </div>
+                    </div>
+                    {% if employee.phone_secondary %}
+                    <div class="info-row">
+                        <div class="info-label">رقم إضافي</div>
+                        <div class="info-value">
+                            <a href="tel:{{ employee.phone_secondary }}" class="text-decoration-none">
+                                {{ employee.phone_secondary }}
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div class="info-row">
+                        <div class="info-label">البريد الإلكتروني</div>
+                        <div class="info-value">
+                            <a href="mailto:{{ employee.email }}" class="text-decoration-none">
+                                {{ employee.email }}
+                            </a>
+                        </div>
+                    </div>
+                    {% if employee.email_secondary %}
+                    <div class="info-row">
+                        <div class="info-label">بريد إضافي</div>
+                        <div class="info-value">
+                            <a href="mailto:{{ employee.email_secondary }}" class="text-decoration-none">
+                                {{ employee.email_secondary }}
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if employee.address %}
+                    <div class="info-row">
+                        <div class="info-label">العنوان</div>
+                        <div class="info-value">{{ employee.address }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- المعلومات الوظيفية -->
+        <div class="col-lg-6">
+            <div class="card info-card">
+                <div class="card-header info-card-header">
+                    <i class="fas fa-briefcase me-2"></i>المعلومات الوظيفية
+                </div>
+                <div class="card-body">
+                    <div class="info-row">
+                        <div class="info-label">تاريخ التعيين</div>
+                        <div class="info-value">
+                            {{ employee.hire_date }}
+                            <small class="text-muted">({{ employee.years_of_service }} سنة خدمة)</small>
+                        </div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">نوع التوظيف</div>
+                        <div class="info-value">
+                            {% if employee.employment_type == 'full_time' %}دوام كامل
+                            {% elif employee.employment_type == 'part_time' %}دوام جزئي
+                            {% elif employee.employment_type == 'contract' %}تعاقد
+                            {% elif employee.employment_type == 'temporary' %}مؤقت
+                            {% else %}غير محدد{% endif %}
+                        </div>
+                    </div>
+                    {% if employee.manager %}
+                    <div class="info-row">
+                        <div class="info-label">المدير المباشر</div>
+                        <div class="info-value">
+                            <a href="{% url 'hr:employee_detail' employee.manager.pk %}" class="text-decoration-none">
+                                {{ employee.manager.arabic_name }}
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div class="info-row">
+                        <div class="info-label">الراتب الأساسي</div>
+                        <div class="info-value">
+                            {% if employee.basic_salary %}
+                                {{ employee.basic_salary|currency_format }}
+                            {% else %}
+                                غير محدد
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- المعلومات المصرفية -->
+        <div class="col-lg-6">
+            <div class="card info-card">
+                <div class="card-header info-card-header">
+                    <i class="fas fa-university me-2"></i>المعلومات المصرفية
+                </div>
+                <div class="card-body">
+                    {% if employee.bank_name %}
+                    <div class="info-row">
+                        <div class="info-label">اسم البنك</div>
+                        <div class="info-value">{{ employee.bank_name }}</div>
+                    </div>
+                    {% endif %}
+                    {% if employee.bank_account %}
+                    <div class="info-row">
+                        <div class="info-label">رقم الحساب</div>
+                        <div class="info-value">{{ employee.bank_account }}</div>
+                    </div>
+                    {% endif %}
+                    {% if employee.iban %}
+                    <div class="info-row">
+                        <div class="info-label">الآيبان</div>
+                        <div class="info-value">{{ employee.iban }}</div>
+                    </div>
+                    {% endif %}
+                    {% if employee.social_security_number %}
+                    <div class="info-row">
+                        <div class="info-label">رقم التأمينات</div>
+                        <div class="info-value">{{ employee.social_security_number }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- إحصائيات الموظف -->
+        <div class="col-12">
+            <div class="card info-card">
+                <div class="card-header info-card-header">
+                    <i class="fas fa-chart-bar me-2"></i>إحصائيات الموظف
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <div class="p-3 bg-light rounded">
+                                <h4 class="text-primary">{{ attendance_stats.days_present|default:0 }}</h4>
+                                <small class="text-muted">أيام الحضور هذا الشهر</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 bg-light rounded">
+                                <h4 class="text-warning">{{ attendance_stats.days_late|default:0 }}</h4>
+                                <small class="text-muted">أيام التأخير</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 bg-light rounded">
+                                <h4 class="text-info">{{ leave_stats.total_leave_days|default:0 }}</h4>
+                                <small class="text-muted">أيام الإجازة المأخوذة</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 bg-light rounded">
+                                <h4 class="text-success">{{ performance_stats.average_rating|default:0|floatformat:1 }}</h4>
+                                <small class="text-muted">متوسط تقييم الأداء</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- الملاحظات -->
+        {% if employee.notes %}
+        <div class="col-12">
+            <div class="card info-card">
+                <div class="card-header info-card-header">
+                    <i class="fas fa-sticky-note me-2"></i>ملاحظات
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ employee.notes|linebreaks }}</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- إجراءات سريعة -->
+    <div class="row mt-4">
+        <div class="col-12 text-center">
+            <a href="{% url 'hr:employee_edit' employee.pk %}" class="btn btn-primary action-btn">
+                <i class="fas fa-edit"></i> تعديل البيانات
+            </a>
+            <a href="{% url 'hr:attendance_employee' employee.pk %}" class="btn btn-info action-btn">
+                <i class="fas fa-clock"></i> سجل الحضور
+            </a>
+            <a href="{% url 'hr:leave_employee' employee.pk %}" class="btn btn-success action-btn">
+                <i class="fas fa-calendar-alt"></i> الإجازات
+            </a>
+            <a href="{% url 'hr:payroll_employee' employee.pk %}" class="btn btn-warning action-btn">
+                <i class="fas fa-money-bill-wave"></i> الرواتب
+            </a>
+            {% if employee.resume %}
+            <a href="{{ employee.resume.url }}" target="_blank" class="btn btn-secondary action-btn">
+                <i class="fas fa-file-download"></i> تحميل السيرة الذاتية
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

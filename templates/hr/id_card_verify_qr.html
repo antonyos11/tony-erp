@@ -1,0 +1,399 @@
+{% extends 'base_v2.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}التحقق من البطاقة{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --page-primary: #0f172a;
+        --page-accent: #0ea5e9;
+        --page-success: #10b981;
+        --page-warning: #f59e0b;
+        --page-danger: #ef4444;
+        --page-border: #e5e7eb;
+        --page-muted: #6b7280;
+        --page-bg: #f8fafc;
+    }
+    body { background: var(--page-bg); }
+    
+    .page-hero {
+        background: radial-gradient(circle at 20% 20%, rgba(14,165,233,0.16), transparent 35%),
+                    radial-gradient(circle at 80% 0%, rgba(16,185,129,0.18), transparent 32%),
+                    linear-gradient(135deg, #0f172a 0%, #111827 65%, #0b1224 100%);
+        color: #fff;
+        padding: 2rem 1.5rem;
+        border-radius: 18px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 16px 40px rgba(0,0,0,0.25);
+        text-align: center;
+    }
+    .page-hero h1 { font-size: 1.6rem; font-weight: 800; margin: 0; }
+    .page-hero p { margin: 0.5rem 0 0; color: rgba(255,255,255,0.78); }
+    
+    .scanner-container {
+        background: #fff;
+        border: 1px solid var(--page-border);
+        border-radius: 18px;
+        box-shadow: 0 10px 30px rgba(15,23,42,0.08);
+        padding: 2rem;
+        text-align: center;
+        max-width: 600px;
+        margin: 0 auto 1.5rem;
+    }
+    
+    .scanner-icon {
+        font-size: 4rem;
+        color: var(--page-accent);
+        margin-bottom: 1rem;
+    }
+    
+    .scanner-form {
+        margin-top: 1.5rem;
+    }
+    
+    .qr-input {
+        width: 100%;
+        padding: 1rem;
+        border: 2px dashed var(--page-border);
+        border-radius: 12px;
+        font-size: 1rem;
+        text-align: center;
+        margin-bottom: 1rem;
+        transition: all 0.2s ease;
+    }
+    
+    .qr-input:focus {
+        outline: none;
+        border-color: var(--page-accent);
+        border-style: solid;
+    }
+    
+    .btn-scan {
+        background: linear-gradient(135deg, #0ea5e9, #2563eb);
+        color: #fff;
+        border: none;
+        padding: 0.9rem 2rem;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 1rem;
+        width: 100%;
+        max-width: 300px;
+    }
+    
+    .btn-scan:hover { opacity: 0.92; color: #fff; }
+    
+    .result-card {
+        background: #fff;
+        border-radius: 18px;
+        box-shadow: 0 10px 30px rgba(15,23,42,0.08);
+        overflow: hidden;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .result-header {
+        padding: 1.5rem;
+        text-align: center;
+        color: #fff;
+    }
+    
+    .result-header.valid { background: linear-gradient(135deg, #10b981, #059669); }
+    .result-header.invalid { background: linear-gradient(135deg, #ef4444, #dc2626); }
+    
+    .result-header i { font-size: 3rem; margin-bottom: 0.5rem; }
+    .result-header h3 { margin: 0; font-weight: 700; }
+    
+    .result-body { padding: 1.5rem; }
+    
+    .employee-info-card {
+        display: flex;
+        gap: 1.5rem;
+        padding: 1rem;
+        background: var(--page-bg);
+        border-radius: 12px;
+        margin-bottom: 1rem;
+    }
+    
+    .employee-photo {
+        width: 100px;
+        height: 120px;
+        border-radius: 12px;
+        object-fit: cover;
+        border: 3px solid var(--page-accent);
+    }
+    
+    .employee-photo-placeholder {
+        width: 100px;
+        height: 120px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--page-primary), var(--page-accent));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 2.5rem;
+        font-weight: 700;
+    }
+    
+    .employee-details-list {
+        flex: 1;
+    }
+    
+    .detail-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--page-border);
+    }
+    
+    .detail-item:last-child { border-bottom: none; }
+    .detail-item .label { color: var(--page-muted); }
+    .detail-item .value { font-weight: 600; }
+    
+    .card-status-info {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        text-align: center;
+        padding: 1rem;
+        background: var(--page-bg);
+        border-radius: 12px;
+    }
+    
+    .status-item .value { font-size: 1.3rem; font-weight: 700; }
+    .status-item .label { font-size: 0.8rem; color: var(--page-muted); }
+    
+    .scan-again-btn {
+        display: block;
+        width: 100%;
+        padding: 0.9rem;
+        border: 1px solid var(--page-border);
+        border-radius: 10px;
+        background: #fff;
+        color: var(--page-primary);
+        font-weight: 600;
+        text-align: center;
+        margin-top: 1rem;
+        text-decoration: none;
+    }
+    
+    .scan-again-btn:hover { border-color: var(--page-accent); }
+    
+    #camera-container {
+        width: 100%;
+        max-width: 400px;
+        margin: 0 auto 1rem;
+        border-radius: 12px;
+        overflow: hidden;
+        display: none;
+    }
+    
+    #camera-video {
+        width: 100%;
+        display: block;
+    }
+    
+    .camera-controls {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        margin-bottom: 1rem;
+    }
+    
+    .camera-btn {
+        padding: 0.6rem 1rem;
+        border: 1px solid var(--page-border);
+        border-radius: 8px;
+        background: #fff;
+        cursor: pointer;
+    }
+    
+    .camera-btn.active { background: var(--page-accent); color: #fff; border-color: var(--page-accent); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-hero">
+        <h1><i class="bi bi-qr-code-scan me-2"></i>التحقق من البطاقة</h1>
+        <p>امسح QR Code للتحقق من صحة البطاقة</p>
+    </div>
+    
+    {% if result %}
+        <div class="result-card">
+            <div class="result-header {% if result.valid %}valid{% else %}invalid{% endif %}">
+                {% if result.valid %}
+                    <i class="bi bi-check-circle"></i>
+                    <h3>بطاقة صالحة</h3>
+                {% else %}
+                    <i class="bi bi-x-circle"></i>
+                    <h3>{% if result.error %}{{ result.error }}{% else %}بطاقة غير صالحة{% endif %}</h3>
+                {% endif %}
+            </div>
+            
+            {% if result.card %}
+            <div class="result-body">
+                <div class="employee-info-card">
+                    {% if result.employee.photo %}
+                        <img src="{{ result.employee.photo.url }}" alt="" class="employee-photo">
+                    {% else %}
+                        <div class="employee-photo-placeholder">
+                            {{ result.employee.first_name|slice:":1" }}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="employee-details-list">
+                        <div class="detail-item">
+                            <span class="label">الاسم</span>
+                            <span class="value">{{ result.employee.arabic_name|default:result.employee.get_full_name }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">رقم الموظف</span>
+                            <span class="value">{{ result.employee.employee_id }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">القسم</span>
+                            <span class="value">{{ result.employee.department|default:'—' }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">الوظيفة</span>
+                            <span class="value">{{ result.employee.position|default:'—' }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-status-info">
+                    <div class="status-item">
+                        <div class="value">{{ result.card.issue_date|date:"d/m/Y" }}</div>
+                        <div class="label">تاريخ الإصدار</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="value">{{ result.card.expiry_date|date:"d/m/Y" }}</div>
+                        <div class="label">تاريخ الانتهاء</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="value">{{ result.card.scan_count }}</div>
+                        <div class="label">عدد المسحات</div>
+                    </div>
+                </div>
+                
+                <a href="{% url 'hr:id_card_verify_qr' %}" class="scan-again-btn">
+                    <i class="bi bi-arrow-repeat me-1"></i>مسح بطاقة أخرى
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="scanner-container">
+            <div class="scanner-icon">
+                <i class="bi bi-qr-code"></i>
+            </div>
+            <h4>مسح QR Code</h4>
+            <p class="text-muted">أدخل بيانات QR Code أو استخدم الكاميرا للمسح</p>
+            
+            <div class="camera-controls">
+                <button type="button" class="camera-btn" id="manualBtn" onclick="showManual()">
+                    <i class="bi bi-keyboard"></i> إدخال يدوي
+                </button>
+                <button type="button" class="camera-btn" id="cameraBtn" onclick="startCamera()">
+                    <i class="bi bi-camera"></i> الكاميرا
+                </button>
+            </div>
+            
+            <div id="camera-container">
+                <video id="camera-video" playsinline></video>
+            </div>
+            
+            <form method="post" class="scanner-form" id="scanForm">
+                {% csrf_token %}
+                <textarea name="qr_data" class="qr-input" id="qrInput" rows="3" 
+                          placeholder='{"card_number": "EMP-00001-XXXXXXXX", ...}'></textarea>
+                <button type="submit" class="btn-scan">
+                    <i class="bi bi-search me-2"></i>تحقق
+                </button>
+            </form>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+let video = null;
+let canvas = null;
+let scanning = false;
+
+function showManual() {
+    document.getElementById('camera-container').style.display = 'none';
+    document.getElementById('qrInput').style.display = 'block';
+    document.getElementById('manualBtn').classList.add('active');
+    document.getElementById('cameraBtn').classList.remove('active');
+    stopCamera();
+}
+
+function startCamera() {
+    document.getElementById('camera-container').style.display = 'block';
+    document.getElementById('qrInput').style.display = 'none';
+    document.getElementById('cameraBtn').classList.add('active');
+    document.getElementById('manualBtn').classList.remove('active');
+    
+    video = document.getElementById('camera-video');
+    
+    navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+    }).then(stream => {
+        video.srcObject = stream;
+        video.play();
+        scanning = true;
+        scanQR();
+    }).catch(err => {
+        console.error('Camera error:', err);
+        alert('لا يمكن الوصول للكاميرا');
+        showManual();
+    });
+}
+
+function stopCamera() {
+    scanning = false;
+    if (video && video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+    }
+}
+
+function scanQR() {
+    if (!scanning) return;
+    
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        if (!canvas) {
+            canvas = document.createElement('canvas');
+        }
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        
+        if (code) {
+            document.getElementById('qrInput').value = code.data;
+            stopCamera();
+            document.getElementById('scanForm').submit();
+            return;
+        }
+    }
+    
+    requestAnimationFrame(scanQR);
+}
+
+// تنظيف عند مغادرة الصفحة
+window.addEventListener('beforeunload', stopCamera);
+
+// إظهار الإدخال اليدوي افتراضياً
+document.getElementById('manualBtn').classList.add('active');
+</script>
+{% endblock %}

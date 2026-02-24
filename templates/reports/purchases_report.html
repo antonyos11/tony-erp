@@ -1,0 +1,245 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load currency_tags %}
+{% block title %}تقرير المشتريات - المحاسب الشامل{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>تقرير المشتريات التفصيلي</h2>
+  <a href="{% url 'reports:dashboard' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> العودة للتقارير
+  </a>
+</div>
+
+<!-- Date Filter -->
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="GET" class="row g-3">
+      <div class="col-md-4">
+        <label for="date_from" class="form-label">من تاريخ</label>
+        <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from }}">
+      </div>
+      <div class="col-md-4">
+        <label for="date_to" class="form-label">إلى تاريخ</label>
+        <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">&nbsp;</label>
+        <button type="submit" class="btn btn-success w-100">تحديث التقرير</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Purchases Summary -->
+{% include 'reports/partials/report_actions.html' %}
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card bg-success text-white">
+      <div class="card-body text-center">
+        <i class="bi bi-receipt display-4"></i>
+        <h4 class="mt-2">{{ purchases_summary.total_bills }}</h4>
+        <p class="mb-0">إجمالي الفواتير</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card bg-primary text-white">
+      <div class="card-body text-center">
+        <i class="bi bi-currency-dollar display-4"></i>
+        <h4 class="mt-2">{{ purchases_summary.total_amount|floatformat:0 }}</h4>
+  <p class="mb-0">إجمالي المشتريات ({% currency_symbol %})</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card bg-warning text-white">
+      <div class="card-body text-center">
+        <i class="bi bi-percent display-4"></i>
+        <h4 class="mt-2">{{ purchases_summary.total_discount|floatformat:0 }}</h4>
+  <p class="mb-0">إجمالي الخصومات ({% currency_symbol %})</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card bg-info text-white">
+      <div class="card-body text-center">
+        <i class="bi bi-calculator display-4"></i>
+        <h4 class="mt-2">{{ purchases_summary.average_bill|floatformat:0 }}</h4>
+  <p class="mb-0">متوسط الفاتورة ({% currency_symbol %})</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Analysis Tables -->
+<div class="row mb-4">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header bg-success text-white">
+        <h5 class="mb-0">أفضل الموردين</h5>
+      </div>
+      <div class="card-body">
+        {% if top_suppliers %}
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>المورد</th>
+                <th>الفواتير</th>
+                <th>المبلغ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for supplier in top_suppliers %}
+              <tr>
+                <td>{{ supplier.supplier__name|truncatechars:30 }}</td>
+                <td><span class="badge bg-success">{{ supplier.bill_count }}</span></td>
+                <td><strong>{{ supplier.total_amount|money }}</strong></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted text-center">لا توجد بيانات</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">أكثر المنتجات شراءً</h5>
+      </div>
+      <div class="card-body">
+        {% if top_purchased %}
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>المنتج</th>
+                <th>الكمية</th>
+                <th>التكلفة</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for product in top_purchased %}
+              <tr>
+                <td>{{ product.product__name|truncatechars:25 }}</td>
+                <td><span class="badge bg-primary">{{ product.quantity_purchased }}</span></td>
+                <td><strong>{{ product.total_cost|money }}</strong></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted text-center">لا توجد بيانات</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Purchase vs Sales Analysis -->
+<div class="card mb-4">
+  <div class="card-header bg-warning text-dark">
+    <h5 class="mb-0">تحليل المشتريات مقابل المبيعات</h5>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-4 text-center">
+        <div class="border rounded p-3 mb-3 bg-light">
+          <i class="bi bi-cart-plus display-4 text-primary"></i>
+          <h4 class="text-primary mt-2">{{ purchases_summary.total_amount|money:'|0' }}</h4>
+          <p class="mb-0">إجمالي المشتريات</p>
+        </div>
+      </div>
+      <div class="col-md-4 text-center">
+        <div class="border rounded p-3 mb-3 bg-light">
+          <i class="bi bi-graph-up display-4 text-success"></i>
+          <h4 class="text-success mt-2" id="estimated-sales">-- {% currency_symbol %}</h4>
+          <p class="mb-0">المبيعات المقدرة</p>
+        </div>
+      </div>
+      <div class="col-md-4 text-center">
+        <div class="border rounded p-3 mb-3 bg-light">
+          <i class="bi bi-piggy-bank display-4 text-warning"></i>
+          <h4 class="text-warning mt-2" id="estimated-margin">-- %</h4>
+          <p class="mb-0">هامش الربح المقدر</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Payment Status -->
+<div class="card">
+  <div class="card-header bg-info text-white">
+    <h5 class="mb-0">حالة المدفوعات للموردين</h5>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-4 text-center">
+        <div class="border rounded p-3 mb-3 bg-light">
+          <h4 class="text-success">{{ purchases_summary.total_paid|money:'|0' }}</h4>
+          <p class="mb-0">المدفوع</p>
+          <div class="progress">
+            <div class="progress-bar bg-success" role="progressbar" 
+                 style="width: {% widthratio purchases_summary.total_paid purchases_summary.total_amount 100 %}%"></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 text-center">
+        <div class="border rounded p-3 mb-3 bg-light">
+          <h4 class="text-danger" id="unpaid-amount">0 {% currency_symbol %}</h4>
+          <p class="mb-0">غير مدفوع</p>
+          <div class="progress">
+            <div class="progress-bar bg-danger" role="progressbar" 
+                 id="unpaid-progress" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 text-center">
+        <div class="border rounded p-3 mb-3 bg-light">
+          <h4 class="text-info">{{ purchases_summary.total_bills }}</h4>
+          <p class="mb-0">إجمالي الفواتير</p>
+          <small class="text-muted">في الفترة المحددة</small>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Calculate unpaid amounts
+const totalAmount = {{ purchases_summary.total_amount }};
+const totalPaid = {{ purchases_summary.total_paid }};
+const unpaid = Math.max(0, totalAmount - totalPaid);
+const unpaidPercentage = totalAmount > 0 ? (unpaid / totalAmount * 100) : 0;
+const curSym = (function(){
+  const existing=document.getElementById('currencySymbol');
+  if(existing) return existing.value;
+  const input=document.createElement('input');
+  input.type='hidden'; input.id='currencySymbol'; input.value='{% currency_symbol %}';
+  document.body.appendChild(input); return input.value;
+})();
+
+document.getElementById('unpaid-amount').textContent = unpaid.toLocaleString() + ' ' + curSym;
+document.getElementById('unpaid-progress').style.width = unpaidPercentage + '%';
+
+// Estimate sales and margin (assuming 30% markup)
+const estimatedSales = totalAmount * 1.3;
+const estimatedMargin = 23; // Approximate margin percentage
+
+document.getElementById('estimated-sales').textContent = estimatedSales.toLocaleString() + ' ' + curSym;
+document.getElementById('estimated-margin').textContent = estimatedMargin + '%';
+</script>
+{% endblock %}

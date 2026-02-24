@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load tony_erb_tags %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-cube me-2"></i>{{ family.name }}</h2>
+            <p class="text-muted mb-0">{{ family.code }} | {{ family.name_en }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <!-- زر مزامنة المنتجات مع المخزون -->
+            <form method="post" action="{% url 'smart_pricing:sync_family_to_inventory' family.id %}" 
+                  style="display: inline;" onsubmit="return confirm('سيتم إنشاء/تحديث منتجات تامة في المخزون لجميع مقاسات هذه العائلة. هل تريد المتابعة؟');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-sync me-1"></i> مزامنة مع المخزون
+                </button>
+            </form>
+            <a href="{% url 'smart_pricing:families_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-right me-1"></i> رجوع
+            </a>
+        </div>
+    </div>
+
+    <!-- معلومات أساسية -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body text-center">
+                    <h5 class="text-muted">السعر الأساسي</h5>
+                    <h3 class="text-primary">{{ family.base_price|floatformat:0 }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body text-center">
+                    <h5 class="text-muted">التكلفة الأساسية</h5>
+                    <h3 class="text-success">{{ family.base_cost|floatformat:0 }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body text-center">
+                    <h5 class="text-muted">عدد المقاسات</h5>
+                    <h3 class="text-info">{{ family.available_sizes.count }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body text-center">
+                    <h5 class="text-muted">هامش الربح</h5>
+                    {% if profit_margin %}
+                    <h3 class="text-warning">{{ profit_margin|floatformat:1 }}%</h3>
+                    {% else %}
+                    <h3 class="text-muted">-</h3>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- جدول الأسعار -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-table me-2"></i>مصفوفة الأسعار</h5>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{% url 'smart_pricing:family_update_prices' family.id %}">
+                {% csrf_token %}
+                
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">تحديث السعر الأساسي</label>
+                        <div class="input-group">
+                            <input type="number" name="base_price" class="form-control" 
+                                   value="{{ family.base_price }}" step="0.01">
+                            <span class="input-group-text">ج.م</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">الارتفاع (سم)</label>
+                        <div class="input-group">
+                            <input type="number" name="default_height" class="form-control" 
+                                   value="{{ family.default_height }}" min="1" max="100">
+                            <span class="input-group-text">سم</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="fas fa-save me-1"></i> تحديث
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead style="background-color: #343a40;">
+                            <tr>
+                                <th style="color: #fff; font-weight: bold;">المقاس</th>
+                                <th style="color: #fff; font-weight: bold;">التكلفة</th>
+                                {% for pl in price_lists %}
+                                <th style="color: #fff; font-weight: bold;">
+                                    {{ pl.name }}
+                                    {% if pl.includes_tax %}
+                                    <br><small style="color: #90EE90;">(+ ضريبة)</small>
+                                    {% endif %}
+                                </th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in price_matrix %}
+                            <tr>
+                                <td><strong>{{ row.size }}</strong></td>
+                                <td>{{ row.cost|floatformat:0 }}</td>
+                                {% for pl in price_lists %}
+                                <td>
+                                    <input type="number" 
+                                           name="price_{{ row.size.id }}_{{ pl.code }}"
+                                           class="form-control form-control-sm"
+                                           value="{{ row.prices|get_item:pl.code|floatformat:0 }}"
+                                           step="1"
+                                           style="width: 100px;">
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="{{ price_lists.count|add:2 }}" class="text-center text-muted">
+                                    لا توجد مقاسات مرتبطة
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> حفظ الأسعار
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

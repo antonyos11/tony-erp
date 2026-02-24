@@ -1,0 +1,277 @@
+﻿{% extends BASE_TEMPLATE %}
+{% load static %}
+
+{% block title %}تقرير الدعم الفني{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="mb-0"><i class="fas fa-headset text-primary"></i> تقرير الدعم الفني</h4>
+            </div>
+            <div class="d-flex gap-2">
+                <select class="form-select" style="width: auto;" id="period">
+                    <option value="7">آخر 7 أيام</option>
+                    <option value="30" selected>آخر 30 يوم</option>
+                    <option value="90">آخر 3 أشهر</option>
+                </select>
+                <button type="button" class="btn btn-outline-primary">
+                    <i class="fas fa-download"></i> تصدير PDF
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">{{ stats.total|default:0 }}</h4>
+                            <small>إجمالي التذاكر</small>
+                        </div>
+                        <i class="fas fa-ticket-alt fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">{{ stats.open|default:0 }}</h4>
+                            <small>مفتوحة</small>
+                        </div>
+                        <i class="fas fa-folder-open fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">{{ stats.resolved|default:0 }}</h4>
+                            <small>تم حلها</small>
+                        </div>
+                        <i class="fas fa-check-circle fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">{{ stats.avg_response_time|default:"0" }}</h4>
+                            <small>متوسط وقت الرد (ساعة)</small>
+                        </div>
+                        <i class="fas fa-clock fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0"><i class="fas fa-chart-line text-primary"></i> التذاكر عبر الوقت</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="ticketsChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0"><i class="fas fa-chart-pie text-info"></i> توزيع حسب الأولوية</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="priorityChart" height="230"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0"><i class="fas fa-tags text-warning"></i> التذاكر حسب التصنيف</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive"><table class="table table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>التصنيف</th>
+                                <th>العدد</th>
+                                <th>النسبة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for category in categories %}
+                            <tr>
+                                <td>{{ category.name }}</td>
+                                <td>{{ category.count }}</td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar" style="width: {{ category.percentage }}%">{{ category.percentage }}%</div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3" class="text-center text-muted">لا توجد بيانات</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0"><i class="fas fa-star text-success"></i> أفضل الفنيين</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive"><table class="table table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>الفني</th>
+                                <th>تم حلها</th>
+                                <th>التقييم</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tech in top_technicians %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center me-2" 
+                                             style="width: 30px; height: 30px; font-size: 12px;">
+                                            {{ tech.first_name|slice:":1" }}
+                                        </div>
+                                        {{ tech.get_full_name }}
+                                    </div>
+                                </td>
+                                <td>{{ tech.resolved_count }}</td>
+                                <td>
+                                    {% for i in "12345" %}
+                                    <i class="fas fa-star {% if forloop.counter <= tech.rating %}text-warning{% else %}text-muted{% endif %}"></i>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3" class="text-center text-muted">لا توجد بيانات</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0"><i class="fas fa-exclamation-triangle text-danger"></i> التذاكر المتأخرة</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive"><table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>العميل</th>
+                                <th>الموضوع</th>
+                                <th>الأولوية</th>
+                                <th>منذ</th>
+                                <th>المسؤول</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ticket in overdue_tickets %}
+                            <tr>
+                                <td>{{ ticket.id }}</td>
+                                <td>{{ ticket.customer.name }}</td>
+                                <td>{{ ticket.subject }}</td>
+                                <td>
+                                    {% if ticket.priority == 'high' %}
+                                    <span class="badge bg-danger">عالية</span>
+                                    {% elif ticket.priority == 'medium' %}
+                                    <span class="badge bg-warning">متوسطة</span>
+                                    {% else %}
+                                    <span class="badge bg-info">منخفضة</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ ticket.created_at|timesince }}</td>
+                                <td>{{ ticket.assigned_to.get_full_name|default:"غير معين" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-success py-3">
+                                    <i class="fas fa-check-circle"></i> لا توجد تذاكر متأخرة
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Tickets Chart
+new Chart(document.getElementById('ticketsChart'), {
+    type: 'bar',
+    data: {
+        labels: ['الأسبوع 1', 'الأسبوع 2', 'الأسبوع 3', 'الأسبوع 4'],
+        datasets: [{
+            label: 'جديدة',
+            data: [12, 19, 10, 15],
+            backgroundColor: 'rgba(255, 193, 7, 0.8)'
+        }, {
+            label: 'تم حلها',
+            data: [10, 15, 8, 12],
+            backgroundColor: 'rgba(40, 167, 69, 0.8)'
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { position: 'bottom' }
+        }
+    }
+});
+
+// Priority Chart
+new Chart(document.getElementById('priorityChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['عالية', 'متوسطة', 'منخفضة'],
+        datasets: [{
+            data: [20, 45, 35],
+            backgroundColor: ['#dc3545', '#ffc107', '#17a2b8']
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { position: 'bottom' }
+        }
+    }
+});
+</script>
+{% endblock %}
