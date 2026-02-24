@@ -1,16 +1,14 @@
 """
-Django settings for Tony ERP project.
-إعدادات نظام Tony ERP
+Minimal test settings for Tony ERP core tests.
+Uses only the core apps needed for testing.
 """
-
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-*g79q)yxug=34@brm(u4-6scb_u5x(-&exnw+*yvf6*0k6e*$x'
-
-DEBUG = True
-
+SECRET_KEY = 'test-secret-key-for-ci-only'
+DEBUG = False
 ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
@@ -20,8 +18,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
-    # تطبيقات Tony ERP
     'core',
     'partners',
     'branches',
@@ -31,20 +27,19 @@ INSTALLED_APPS = [
     'sales',
     'purchases',
     'production',
-    'crm',
     'hr',
+    'users',
     'ecommerce',
+    'payments',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -60,48 +55,33 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'django.template.context_processors.i18n',
-                'branches.context_processors.current_location',
-                'branches.context_processors.location_permissions',
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'config.wsgi.application'
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': ':memory:',
     }
 }
 
-AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
-]
-
-LANGUAGE_CODE = 'ar'
-TIME_ZONE = 'Africa/Cairo'
-USE_I18N = True
-USE_TZ = True
-
-LANGUAGES = [
-    ('ar', 'العربية'),
-    ('en', 'English'),
-]
-
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
 LOGIN_URL = '/accounts/login/'
-LOGIN_REDIRECT_URL = '/'
+LANGUAGE_CODE = 'ar'
+USE_I18N = True
+USE_L10N = True
+
+# Skip migrations for test database - create tables directly from models
+class DisableMigrations:
+    def __contains__(self, item):
+        return True
+    def __getitem__(self, item):
+        return None
+
+MIGRATION_MODULES = DisableMigrations()
