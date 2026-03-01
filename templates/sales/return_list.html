@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}المرتجعات — RITA ERP{% endblock %}
+{% block nav_sales %}active{% endblock %}
+{% block nav_sales_open %}show{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-arrow-return-left me-2 text-primary"></i>مرتجعات المبيعات</h4>
+    <a href="{% url 'sales:return_create' %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-circle me-1"></i>مرتجع جديد
+    </a>
+</div>
+
+<!-- فلترة -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <input type="text" name="q" class="form-control form-control-sm"
+                       placeholder="بحث برقم المرتجع أو العميل"
+                       value="{{ request.GET.q|default:'' }}">
+            </div>
+            <div class="col-md-3">
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">— الحالة —</option>
+                    {% for val, label in status_choices %}
+                    <option value="{{ val }}" {% if request.GET.status == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-1">
+                <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-search"></i></button>
+            </div>
+            <div class="col-md-1">
+                <a href="{% url 'sales:return_list' %}" class="btn btn-outline-secondary btn-sm w-100">مسح</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>رقم المرتجع</th>
+                        <th>التاريخ</th>
+                        <th>الفاتورة الأصلية</th>
+                        <th>العميل</th>
+                        <th>الإجمالي</th>
+                        <th>سبب الإرجاع</th>
+                        <th>الحالة</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ret in returns %}
+                    <tr>
+                        <td>{{ ret.return_number }}</td>
+                        <td>{{ ret.date|date:"Y-m-d" }}</td>
+                        <td>
+                            <a href="{% url 'sales:invoice_detail' ret.original_invoice.pk %}">
+                                {{ ret.original_invoice.invoice_number }}
+                            </a>
+                        </td>
+                        <td>{{ ret.customer.name }}</td>
+                        <td>{{ ret.total|floatformat:2 }}</td>
+                        <td>{{ ret.reason|truncatechars:40 }}</td>
+                        <td>
+                            {% if ret.status == 'completed' %}<span class="badge bg-success">مكتمل</span>
+                            {% elif ret.status == 'draft' %}<span class="badge bg-secondary">مسودة</span>
+                            {% elif ret.status == 'cancelled' %}<span class="badge bg-danger">ملغي</span>
+                            {% else %}<span class="badge bg-info">{{ ret.get_status_display }}</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="text-center text-muted py-4">لا توجد مرتجعات</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% if is_paginated %}
+<nav class="mt-3">
+    <ul class="pagination pagination-sm justify-content-center">
+        {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">السابق</a></li>{% endif %}
+        <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+        {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">التالي</a></li>{% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

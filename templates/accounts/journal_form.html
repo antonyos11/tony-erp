@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}قيد يدوي جديد — RITA ERP{% endblock %}
+{% block nav_accounts %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+.line-row td { vertical-align: middle; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-pencil-square me-2 text-primary"></i>قيد يدوي جديد</h4>
+    <a href="{% url 'accounts:journal_list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-right me-1"></i>القائمة
+    </a>
+</div>
+
+<form method="post" id="journalForm" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">
+        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- رأس القيد -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header fw-bold bg-primary text-white">بيانات القيد</div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">{{ form.date.label }}</label>
+                    {{ form.date }}
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label fw-bold">{{ form.description.label }}</label>
+                    {{ form.description }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">{{ form.branch.label }}</label>
+                    {{ form.branch }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- سطور القيد -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center fw-bold">
+            <span>سطور القيد</span>
+            <button type="button" class="btn btn-success btn-sm" id="addLineBtn">
+                <i class="bi bi-plus-lg me-1"></i>إضافة سطر
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm mb-0" id="linesTable">
+                    <thead class="table-dark">
+                        <tr>
+                            <th style="width:35%">الحساب</th>
+                            <th style="width:25%">البيان</th>
+                            <th style="width:15%" class="text-end">مدين</th>
+                            <th style="width:15%" class="text-end">دائن</th>
+                            <th style="width:10%"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="linesBody">
+                        <!-- سيُضاف بـ JavaScript -->
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-light fw-bold">
+                            <td colspan="2" class="text-end">الإجمالي:</td>
+                            <td class="text-end text-danger" id="totalDebit">0.00</td>
+                            <td class="text-end text-success" id="totalCredit">0.00</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- توازن القيد -->
+    <div id="balanceAlert" class="alert d-none mb-3"></div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-save me-1"></i>حفظ القيد
+        </button>
+        <a href="{% url 'accounts:journal_list' %}" class="btn btn-outline-secondary">إلغاء</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// بيانات الحسابات
+const accounts = [
+    {% for acc in detail_accounts %}
+    { id: "{{ acc.id }}", code: "{{ acc.code }}", name: "{{ acc.name }}" },
+    {% endfor %}
+];
+
+let lineIndex = 0;
+
+function buildAccountOptions(selectedId) {
+    let opts = '<option value="">— اختر حساباً —</option>';
+    accounts.forEach(acc => {
+        const sel = acc.id == selectedId ? 'selected' : '';
+        opts += `<option value="${acc.id}" ${sel}>${acc.code} — ${acc.name}</option>`;
+    });
+    return opts;
+}
+
+function addLine() {
+    const idx = lineIndex++;
+    const row = document.createElement('tr');
+    row.classList.add('line-row');
+    row.dataset.idx = idx;
+    row.innerHTML = `
+        <td>
+            <select name="account_id_${idx}" class="form-select form-select-sm account-select" required>
+                ${buildAccountOptions('')}
+            </select>
+        </td>
+        <td>
+            <input type="text" name="line_desc_${idx}" class="form-control form-control-sm" placeholder="بيان السطر">
+        </td>
+        <td>
+            <input type="number" name="debit_${idx}" class="form-control form-control-sm text-end debit-input"
+                   value="0" min="0" step="0.01">
+        </td>
+        <td>
+            <input type="number" name="credit_${idx}" class="form-control form-control-sm text-end credit-input"
+                   value="0" min="0" step="0.01">
+        </td>
+        <td class="text-center">
+            <button type="button" class="btn btn-outline-danger btn-sm remove-line" title="حذف السطر">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    `;
+    document.getElementById('linesBody').appendChild(row);
+    attachListeners(row);
+}
+
+function attachListeners(row) {
+    row.querySelector('.remove-line').addEventListener('click', () => {
+        row.remove();
+        updateTotals();
+    });
+    row.querySelectorAll('.debit-input, .credit-input').forEach(input => {
+        input.addEventListener('input', updateTotals);
+    });
+}
+
+function updateTotals() {
+    let totalD = 0, totalC = 0;
+    document.querySelectorAll('.debit-input').forEach(i => totalD += parseFloat(i.value) || 0);
+    document.querySelectorAll('.credit-input').forEach(i => totalC += parseFloat(i.value) || 0);
+
+    document.getElementById('totalDebit').textContent  = totalD.toFixed(2);
+    document.getElementById('totalCredit').textContent = totalC.toFixed(2);
+
+    const alert = document.getElementById('balanceAlert');
+    if (totalD === 0 && totalC === 0) {
+        alert.className = 'alert d-none';
+    } else if (Math.abs(totalD - totalC) < 0.01) {
+        alert.className = 'alert alert-success';
+        alert.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>القيد متوازن ✓ (${totalD.toFixed(2)})`;
+    } else {
+        alert.className = 'alert alert-warning';
+        alert.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>
+            القيد غير متوازن — الفرق: ${(totalD - totalC).toFixed(2)}`;
+    }
+}
+
+document.getElementById('addLineBtn').addEventListener('click', addLine);
+
+// إضافة سطرين تلقائياً عند فتح الصفحة
+addLine();
+addLine();
+</script>
+{% endblock %}

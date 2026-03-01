@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}{{ order.order_number }} — RITA ERP{% endblock %}
+{% block nav_purchases %}active{% endblock %}
+{% block nav_purchases_open %}show{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">
+        <i class="bi bi-basket me-2 text-primary"></i>{{ order.order_number }}
+        {% if order.status == 'received' %}<span class="badge bg-success ms-2">تم الاستلام</span>
+        {% elif order.status == 'draft' %}<span class="badge bg-secondary ms-2">مسودة</span>
+        {% elif order.status == 'confirmed' %}<span class="badge bg-info ms-2">مؤكد</span>
+        {% elif order.status == 'partial' %}<span class="badge bg-warning text-dark ms-2">جزئي</span>
+        {% elif order.status == 'cancelled' %}<span class="badge bg-danger ms-2">ملغي</span>{% endif %}
+    </h4>
+    <div class="d-flex gap-2">
+        {% if order.status in 'draft,confirmed' %}
+        <form method="post" action="{% url 'purchases:order_receive' order.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success btn-sm"
+                    onclick="return confirm('استلام الأمر وإضافة المخزون؟')">
+                <i class="bi bi-box-arrow-in-down me-1"></i>استلام الأمر
+            </button>
+        </form>
+        {% endif %}
+        <a href="{% url 'purchases:order_list' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-right me-1"></i>العودة
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- تفاصيل الأمر -->
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white fw-semibold">تفاصيل الأمر</div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless mb-0">
+                    <tr><th>المورد</th><td><a href="{% url 'purchases:supplier_detail' order.supplier.pk %}">{{ order.supplier.name }}</a></td></tr>
+                    <tr><th>التاريخ</th><td>{{ order.date|date:"Y-m-d H:i" }}</td></tr>
+                    <tr><th>الفرع</th><td>{{ order.branch.name }}</td></tr>
+                    <tr><th>المخزن</th><td>{{ order.warehouse.name }}</td></tr>
+                    <tr><th>ضريبي</th><td>{% if order.is_taxable %}<span class="badge bg-success">نعم</span>{% else %}<span class="badge bg-secondary">لا</span>{% endif %}</td></tr>
+                    {% if order.notes %}
+                    <tr><th>ملاحظات</th><td>{{ order.notes }}</td></tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+        <div class="card shadow-sm mt-3">
+            <div class="card-header bg-dark text-white fw-semibold">الملخص المالي</div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-1">
+                    <span>الإجمالي قبل الضريبة</span>
+                    <span>{{ order.subtotal|floatformat:2 }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1 text-warning">
+                    <span>الضريبة 14%</span>
+                    <span>{{ order.tax_amount|floatformat:2 }}</span>
+                </div>
+                <hr class="my-2">
+                <div class="d-flex justify-content-between fw-bold fs-5">
+                    <span>الإجمالي</span>
+                    <span>{{ order.total|floatformat:2 }} ج.م</span>
+                </div>
+                <hr class="my-2">
+                <div class="d-flex justify-content-between text-success">
+                    <span>المدفوع</span>
+                    <span>{{ order.paid_amount|floatformat:2 }}</span>
+                </div>
+                <div class="d-flex justify-content-between fw-bold text-danger">
+                    <span>المتبقي</span>
+                    <span>{{ order.remaining_amount|floatformat:2 }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- بنود الأمر -->
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-secondary text-white fw-semibold">بنود أمر الشراء</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>المنتج</th>
+                                <th>الكمية</th>
+                                <th>تكلفة الوحدة</th>
+                                <th>الإجمالي</th>
+                                <th>المستلم</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for line in lines %}
+                            <tr>
+                                <td>{{ line.product.name }}</td>
+                                <td>{{ line.quantity }}</td>
+                                <td>{{ line.unit_cost|floatformat:2 }}</td>
+                                <td>{{ line.total|floatformat:2 }}</td>
+                                <td>
+                                    {% if line.received_quantity >= line.quantity %}
+                                    <span class="badge bg-success">مكتمل</span>
+                                    {% elif line.received_quantity > 0 %}
+                                    <span class="badge bg-warning text-dark">{{ line.received_quantity }}</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">0</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="text-center text-muted py-3">لا توجد بنود</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        {% if order.journal_entry %}
+        <div class="card shadow-sm mt-3">
+            <div class="card-header bg-info text-white fw-semibold">القيد المحاسبي</div>
+            <div class="card-body">
+                <span class="text-muted">رقم القيد: </span>
+                <strong>{{ order.journal_entry.entry_number }}</strong>
+                <span class="ms-3 text-muted">التاريخ: </span>
+                <strong>{{ order.journal_entry.date }}</strong>
+                <span class="ms-3 badge bg-success">مرحّل</span>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

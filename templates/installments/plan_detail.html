@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}خطة أقساط #{{ plan.pk }} — RITA ERP{% endblock %}
+{% block nav_installments %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-calendar2-range me-2 text-primary"></i>خطة أقساط #{{ plan.pk }}</h4>
+    <a href="{% url 'installments:plan_list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-right me-1"></i>رجوع
+    </a>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div class="alert alert-{{ msg.tags }} alert-dismissible fade show">{{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+{% endfor %}
+{% endif %}
+
+<!-- بيانات الخطة -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted mb-3">بيانات الخطة</h6>
+                <dl class="row mb-0 small">
+                    <dt class="col-6">العميل</dt>   <dd class="col-6">{{ plan.customer }}</dd>
+                    <dt class="col-6">الفاتورة</dt> <dd class="col-6">{{ plan.invoice }}</dd>
+                    <dt class="col-6">المجموع</dt>  <dd class="col-6 fw-bold">{{ plan.total_amount|floatformat:2 }}</dd>
+                    <dt class="col-6">المقدم</dt>   <dd class="col-6">{{ plan.down_payment|floatformat:2 }}</dd>
+                    <dt class="col-6">الفائدة</dt>  <dd class="col-6">{{ plan.interest_rate }}%</dd>
+                    <dt class="col-6">قيمة القسط</dt><dd class="col-6">{{ plan.installment_amount|floatformat:2 }}</dd>
+                    <dt class="col-6">البداية</dt>  <dd class="col-6">{{ plan.start_date }}</dd>
+                    <dt class="col-6">الحالة</dt>
+                    <dd class="col-6">
+                        {% if plan.status == 'active' %}<span class="badge bg-success">نشط</span>
+                        {% elif plan.status == 'completed' %}<span class="badge bg-primary">مكتمل</span>
+                        {% else %}<span class="badge bg-danger">متعثر</span>{% endif %}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted mb-3">التقدم</h6>
+                <div class="d-flex justify-content-between mb-1">
+                    <small>{{ plan.paid_installments_count }} / {{ plan.number_of_installments }} قسط مدفوع</small>
+                    <small>{% widthratio plan.paid_installments_count plan.number_of_installments 100 %}%</small>
+                </div>
+                <div class="progress mb-3" style="height:12px;">
+                    <div class="progress-bar bg-success"
+                         style="width:{% widthratio plan.paid_installments_count plan.number_of_installments 100 %}%"></div>
+                </div>
+                <p class="mb-0 small text-muted">
+                    المتبقي: <strong class="text-danger">{{ plan.remaining_amount|floatformat:2 }}</strong>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- جدول الأقساط -->
+<div class="card shadow-sm">
+    <div class="card-header fw-semibold">جدول السداد</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-secondary">
+                    <tr>
+                        <th>#</th>
+                        <th>تاريخ الاستحقاق</th>
+                        <th class="text-end">المبلغ</th>
+                        <th class="text-end">المدفوع</th>
+                        <th class="text-end">المتبقي</th>
+                        <th>تاريخ الدفع</th>
+                        <th>الحالة</th>
+                        <th>دفع</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inst in schedule %}
+                    <tr class="{% if inst.status == 'overdue' %}table-danger{% elif inst.status == 'paid' %}table-success{% endif %}">
+                        <td>{{ inst.installment_number }}</td>
+                        <td>{{ inst.due_date }}</td>
+                        <td class="text-end">{{ inst.amount|floatformat:2 }}</td>
+                        <td class="text-end text-success">{{ inst.paid_amount|floatformat:2 }}</td>
+                        <td class="text-end text-danger">{{ inst.remaining|floatformat:2 }}</td>
+                        <td>{{ inst.paid_date|default:"—" }}</td>
+                        <td>
+                            {% if inst.status == 'paid' %}<span class="badge bg-success">مدفوع</span>
+                            {% elif inst.status == 'partial' %}<span class="badge bg-info text-dark">جزئي</span>
+                            {% elif inst.status == 'overdue' %}<span class="badge bg-danger">متأخر</span>
+                            {% else %}<span class="badge bg-warning text-dark">في الانتظار</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if inst.status != 'paid' %}
+                            <button type="button" class="btn btn-sm btn-primary"
+                                    data-bs-toggle="modal" data-bs-target="#payModal{{ inst.pk }}">
+                                <i class="bi bi-cash-coin"></i>
+                            </button>
+
+                            <!-- Modal دفع -->
+                            <div class="modal fade" id="payModal{{ inst.pk }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">دفع القسط #{{ inst.installment_number }}</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="post" action="{% url 'installments:pay_installment' inst.pk %}">
+                                            {% csrf_token %}
+                                            <div class="modal-body">
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-semibold">المبلغ المدفوع</label>
+                                                    <input type="number" name="paid_amount" class="form-control"
+                                                           step="0.01" min="0.01"
+                                                           value="{{ inst.remaining|floatformat:2 }}" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-semibold">تاريخ الدفع</label>
+                                                    <input type="date" name="payment_date" class="form-control">
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                                                <button type="submit" class="btn btn-primary">
+                                                    <i class="bi bi-save me-1"></i>تسجيل الدفع
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

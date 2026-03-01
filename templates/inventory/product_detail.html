@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name }} — RITA ERP{% endblock %}
+{% block nav_inventory %}active{% endblock %}
+{% block nav_inventory_open %}show{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">
+        <i class="bi bi-box me-2 text-primary"></i>{{ product.name }}
+        <span class="badge bg-secondary ms-2">{{ product.get_product_type_display }}</span>
+    </h4>
+    <div>
+        <a href="{% url 'inventory:product_update' product.pk %}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-pencil me-1"></i>تعديل
+        </a>
+        <a href="{% url 'inventory:product_list' %}" class="btn btn-outline-secondary btn-sm ms-1">
+            <i class="bi bi-arrow-right me-1"></i>عودة
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- بيانات المنتج -->
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-primary text-white py-2">بيانات المنتج</div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless mb-0">
+                    <tr><td class="text-muted">الكود</td><td class="font-monospace">{{ product.code }}</td></tr>
+                    {% if product.barcode %}<tr><td class="text-muted">الباركود</td><td>{{ product.barcode }}</td></tr>{% endif %}
+                    <tr><td class="text-muted">التصنيف</td><td>{{ product.category.name|default:'-' }}</td></tr>
+                    <tr><td class="text-muted">وحدة القياس</td><td>{{ product.unit }}</td></tr>
+                    <tr><td class="text-muted">طريقة التقييم</td><td>{{ product.get_valuation_method_display }}</td></tr>
+                    <tr><td class="text-muted">سعر التكلفة</td><td class="text-success fw-bold">{{ product.cost_price|floatformat:2 }}</td></tr>
+                    <tr><td class="text-muted">سعر التجزئة</td><td>{{ product.retail_price|floatformat:2 }}</td></tr>
+                    <tr><td class="text-muted">سعر الجملة</td><td>{{ product.wholesale_price|floatformat:2 }}</td></tr>
+                    <tr><td class="text-muted">حد إعادة الطلب</td><td>{{ product.reorder_level }}</td></tr>
+                    {% if product.warranty_months %}<tr><td class="text-muted">ضمان</td><td>{{ product.warranty_months }} شهر</td></tr>{% endif %}
+                    <tr><td class="text-muted">الحالة</td>
+                        <td>{% if product.is_active %}<span class="badge bg-success">نشط</span>{% else %}<span class="badge bg-secondary">غير نشط</span>{% endif %}</td>
+                    </tr>
+                </table>
+                {% if product.description %}
+                <hr><p class="small text-muted mb-0">{{ product.description }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- الأرصدة -->
+    <div class="col-md-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-success text-white py-2">
+                <i class="bi bi-layers me-2"></i>الأرصدة في المخازن
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>المخزن</th>
+                                <th class="text-end">الكمية</th>
+                                <th class="text-end">متوسط التكلفة</th>
+                                <th class="text-end">القيمة</th>
+                                <th>آخر تحديث</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sl in stock_levels %}
+                            <tr {% if product.reorder_level > 0 and sl.quantity <= product.reorder_level %}class="table-danger"{% endif %}>
+                                <td>{{ sl.warehouse.name }}</td>
+                                <td class="text-end fw-bold">{{ sl.quantity }}</td>
+                                <td class="text-end">{{ sl.average_cost|floatformat:2 }}</td>
+                                <td class="text-end text-success">{{ sl.quantity|floatformat:2 }}</td>
+                                <td class="small text-muted">{{ sl.last_updated|date:"Y/m/d H:i" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="text-center text-muted py-3">لا يوجد رصيد</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- آخر الحركات -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-info text-white py-2">
+                <i class="bi bi-arrow-left-right me-2"></i>آخر 20 حركة
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>رقم الحركة</th>
+                                <th>التاريخ</th>
+                                <th>النوع</th>
+                                <th class="text-end">الكمية</th>
+                                <th class="text-end">التكلفة</th>
+                                <th>المخزن</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for move in recent_moves %}
+                            <tr>
+                                <td class="font-monospace small">{{ move.move_number }}</td>
+                                <td class="small">{{ move.date|date:"Y/m/d" }}</td>
+                                <td>
+                                    {% if move.move_type == 'in' or move.move_type == 'production_in' or move.move_type == 'return_in' %}
+                                        <span class="badge bg-success">{{ move.get_move_type_display }}</span>
+                                    {% elif move.move_type == 'adjustment' %}
+                                        <span class="badge bg-warning text-dark">{{ move.get_move_type_display }}</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">{{ move.get_move_type_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">{{ move.quantity }}</td>
+                                <td class="text-end">{{ move.total_cost|floatformat:2 }}</td>
+                                <td class="small">
+                                    {% if move.warehouse_from %}{{ move.warehouse_from.name }}{% endif %}
+                                    {% if move.warehouse_to %} → {{ move.warehouse_to.name }}{% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="6" class="text-center text-muted py-3">لا توجد حركات</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- قوائم المواد -->
+{% if boms %}
+<div class="card shadow-sm mt-4">
+    <div class="card-header bg-secondary text-white py-2">
+        <i class="bi bi-list-nested me-2"></i>قوائم المواد (BOM)
+    </div>
+    <div class="card-body p-0">
+        {% for bom in boms %}
+        <div class="p-3 {% if not forloop.last %}border-bottom{% endif %}">
+            <div class="d-flex justify-content-between">
+                <strong>{{ bom.name }}</strong>
+                <a href="{% url 'inventory:bom_detail' bom.pk %}" class="btn btn-outline-secondary btn-sm py-0">عرض</a>
+            </div>
+            <div class="row mt-2">
+                {% for line in bom.lines.all %}
+                <div class="col-md-3 small text-muted">
+                    {{ line.raw_material.name }} × {{ line.quantity }}
+                    {% if line.waste_percentage > 0 %} (هالك {{ line.waste_percentage }}%){% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

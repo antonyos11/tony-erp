@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}الشيكات — RITA ERP{% endblock %}
+{% block nav_treasury %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-receipt me-2 text-primary"></i>الشيكات</h4>
+    <a href="{% url 'treasury:check_create' %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-circle me-1"></i>شيك جديد
+    </a>
+</div>
+
+<!-- فلترة -->
+<div class="card shadow-sm mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <select name="type" class="form-select form-select-sm">
+                    <option value="">— النوع —</option>
+                    {% for val, label in check_types %}
+                    <option value="{{ val }}" {% if request.GET.type == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">— الحالة —</option>
+                    {% for val, label in check_statuses %}
+                    <option value="{{ val }}" {% if request.GET.status == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-search"></i> بحث</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>رقم الشيك</th>
+                        <th>النوع</th>
+                        <th>الطرف</th>
+                        <th class="text-end">المبلغ</th>
+                        <th>الاستحقاق</th>
+                        <th>البنك</th>
+                        <th>الحالة</th>
+                        <th>إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for check in checks %}
+                    <tr>
+                        <td><strong>{{ check.check_number }}</strong></td>
+                        <td>
+                            {% if check.check_type == 'incoming' %}
+                            <span class="badge bg-success">{{ check.get_check_type_display }}</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">{{ check.get_check_type_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ check.partner_name }}</td>
+                        <td class="text-end">{{ check.amount|floatformat:2 }}</td>
+                        <td>{{ check.due_date }}</td>
+                        <td>{{ check.bank|default:"—" }}</td>
+                        <td>
+                            {% if check.status == 'cleared' %}<span class="badge bg-success">{{ check.get_status_display }}</span>
+                            {% elif check.status == 'bounced' %}<span class="badge bg-danger">{{ check.get_status_display }}</span>
+                            {% elif check.status == 'cancelled' %}<span class="badge bg-secondary">{{ check.get_status_display }}</span>
+                            {% elif check.status == 'deposited' %}<span class="badge bg-info text-dark">{{ check.get_status_display }}</span>
+                            {% else %}<span class="badge bg-warning text-dark">{{ check.get_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if check.status == 'pending' %}
+                            <form method="post" action="{% url 'treasury:check_action' check.pk 'deposit' %}" class="d-inline">
+                                {% csrf_token %}
+                                <button class="btn btn-xs btn-info btn-sm" title="إيداع">إيداع</button>
+                            </form>
+                            {% endif %}
+                            {% if check.status in 'pending,deposited' %}
+                            <form method="post" action="{% url 'treasury:check_action' check.pk 'clear' %}" class="d-inline">
+                                {% csrf_token %}
+                                <button class="btn btn-xs btn-success btn-sm" title="تحصيل">تحصيل</button>
+                            </form>
+                            <form method="post" action="{% url 'treasury:check_action' check.pk 'bounce' %}" class="d-inline">
+                                {% csrf_token %}
+                                <button class="btn btn-xs btn-danger btn-sm" title="ارتجاع">ارتجاع</button>
+                            </form>
+                            {% endif %}
+                            {% if check.status != 'cleared' and check.status != 'cancelled' %}
+                            <form method="post" action="{% url 'treasury:check_action' check.pk 'cancel' %}" class="d-inline">
+                                {% csrf_token %}
+                                <button class="btn btn-xs btn-secondary btn-sm" title="إلغاء"
+                                        onclick="return confirm('تأكيد الإلغاء؟')">إلغاء</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="text-center text-muted py-4">لا توجد شيكات</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

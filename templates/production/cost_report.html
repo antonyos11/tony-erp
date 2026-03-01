@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}تقرير تكلفة الإنتاج — RITA ERP{% endblock %}
+{% block nav_production %}active{% endblock %}
+{% block nav_production_open %}show{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">
+        <i class="bi bi-bar-chart-line me-2 text-primary"></i>تقرير تكلفة الإنتاج
+    </h4>
+</div>
+
+<!-- فلترة -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <input type="text" name="product" class="form-control form-control-sm"
+                       placeholder="بحث بالمنتج" value="{{ product_q|default:'' }}">
+            </div>
+            <div class="col-md-2">
+                <input type="date" name="date_from" class="form-control form-control-sm"
+                       value="{{ date_from|default:'' }}" title="من تاريخ">
+            </div>
+            <div class="col-md-2">
+                <input type="date" name="date_to" class="form-control form-control-sm"
+                       value="{{ date_to|default:'' }}" title="إلى تاريخ">
+            </div>
+            <div class="col-md-1 d-flex gap-1">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill"><i class="bi bi-search"></i></button>
+                <a href="{% url 'production:cost_report' %}" class="btn btn-outline-secondary btn-sm flex-fill">✕</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- الإجماليات -->
+{% if totals.total_cost %}
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card border-primary shadow-sm">
+            <div class="card-body text-center py-3">
+                <div class="small text-muted">إجمالي المواد</div>
+                <div class="h5 text-primary mb-0">{{ totals.total_material|default:"0.00" }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-warning shadow-sm">
+            <div class="card-body text-center py-3">
+                <div class="small text-muted">إجمالي العمالة</div>
+                <div class="h5 text-warning mb-0">{{ totals.total_labor|default:"0.00" }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-info shadow-sm">
+            <div class="card-body text-center py-3">
+                <div class="small text-muted">التكاليف الإضافية</div>
+                <div class="h5 text-info mb-0">{{ totals.total_overhead|default:"0.00" }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-success shadow-sm">
+            <div class="card-body text-center py-3">
+                <div class="small text-muted">إجمالي التكاليف</div>
+                <div class="h5 text-success mb-0">{{ totals.total_cost|default:"0.00" }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- جدول التفاصيل -->
+<div class="card shadow-sm">
+    <div class="card-header py-2">
+        <i class="bi bi-table me-2"></i>تفاصيل أوامر الإنتاج المكتملة
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>رقم الأمر</th>
+                        <th>المنتج</th>
+                        <th>تاريخ الاكتمال</th>
+                        <th>الكمية</th>
+                        <th>تكلفة المواد</th>
+                        <th>تكلفة العمالة</th>
+                        <th>تكاليف إضافية</th>
+                        <th>الإجمالي</th>
+                        <th>تكلفة الوحدة</th>
+                        <th>سعر البيع</th>
+                        <th>هامش الربح</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'production:order_detail' order.pk %}" class="text-decoration-none fw-bold">
+                                {{ order.order_number }}
+                            </a>
+                        </td>
+                        <td>{{ order.product.name }}</td>
+                        <td>{{ order.actual_completion_date|date:"Y/m/d"|default:"—" }}</td>
+                        <td>{{ order.quantity_produced }}</td>
+                        <td>{{ order.material_cost }}</td>
+                        <td>{{ order.labor_cost }}</td>
+                        <td>{{ order.overhead_cost }}</td>
+                        <td class="fw-bold">{{ order.total_cost }}</td>
+                        <td>{{ order.unit_cost }}</td>
+                        <td>{{ order.product.retail_price }}</td>
+                        <td>
+                            {% if order.unit_cost > 0 %}
+                            {% with margin=order.product.retail_price|add:"-"|add:order.unit_cost %}
+                            <span class="{% if order.product.retail_price > order.unit_cost %}text-success{% else %}text-danger{% endif %} fw-bold">
+                                {{ order.product.retail_price }}
+                            </span>
+                            {% endwith %}
+                            {% else %}—{% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'production:order_detail' order.pk %}" class="btn btn-outline-primary btn-xs py-0 px-2">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="12" class="text-center text-muted py-4">لا توجد أوامر إنتاج مكتملة</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}المطابقة البنكية — RITA ERP{% endblock %}
+{% block nav_treasury %}active{% endblock %}
+
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-journal-check me-2 text-primary"></i>المطابقة البنكية</h4>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">اختر البنك</label>
+                <select name="bank_id" class="form-select">
+                    <option value="">— اختر بنك —</option>
+                    {% for bank in bank_accounts %}
+                    <option value="{{ bank.pk }}" {% if selected_bank.pk == bank.pk %}selected{% endif %}>
+                        {{ bank.name }} — {{ bank.account_number }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary btn-sm w-100">
+                    <i class="bi bi-search me-1"></i>عرض
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if selected_bank %}
+<div class="alert alert-info">
+    <strong>{{ selected_bank.name }}</strong> —
+    رقم الحساب: <code>{{ selected_bank.account_number }}</code> —
+    الرصيد الحالي: <strong>{{ selected_bank.current_balance|floatformat:2 }}</strong>
+</div>
+
+<!-- الشيكات -->
+<h6 class="mt-4 mb-2">الشيكات المرتبطة</h6>
+<div class="card shadow-sm mb-4">
+    <div class="card-body p-0">
+        <table class="table table-sm table-hover mb-0">
+            <thead class="table-secondary">
+                <tr><th>رقم الشيك</th><th>النوع</th><th>الطرف</th><th class="text-end">المبلغ</th><th>الاستحقاق</th><th>الحالة</th></tr>
+            </thead>
+            <tbody>
+                {% for c in checks %}
+                <tr>
+                    <td>{{ c.check_number }}</td>
+                    <td>{{ c.get_check_type_display }}</td>
+                    <td>{{ c.partner_name }}</td>
+                    <td class="text-end">{{ c.amount|floatformat:2 }}</td>
+                    <td>{{ c.due_date }}</td>
+                    <td>{{ c.get_status_display }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center text-muted">لا توجد شيكات</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- التحويلات الواردة -->
+<h6 class="mt-4 mb-2">التحويلات الواردة</h6>
+<div class="card shadow-sm mb-4">
+    <div class="card-body p-0">
+        <table class="table table-sm table-hover mb-0">
+            <thead class="table-secondary">
+                <tr><th>التاريخ</th><th>المصدر</th><th class="text-end">المبلغ</th><th>ملاحظات</th></tr>
+            </thead>
+            <tbody>
+                {% for t in transfers_in %}
+                <tr>
+                    <td>{{ t.date|date:"Y-m-d" }}</td>
+                    <td>{% if t.from_cash %}{{ t.from_cash }}{% else %}{{ t.from_bank }}{% endif %}</td>
+                    <td class="text-end text-success">+{{ t.amount|floatformat:2 }}</td>
+                    <td>{{ t.notes|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center text-muted">لا توجد تحويلات واردة</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- التحويلات الصادرة -->
+<h6 class="mt-4 mb-2">التحويلات الصادرة</h6>
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-sm table-hover mb-0">
+            <thead class="table-secondary">
+                <tr><th>التاريخ</th><th>الوجهة</th><th class="text-end">المبلغ</th><th>ملاحظات</th></tr>
+            </thead>
+            <tbody>
+                {% for t in transfers_out %}
+                <tr>
+                    <td>{{ t.date|date:"Y-m-d" }}</td>
+                    <td>{% if t.to_cash %}{{ t.to_cash }}{% else %}{{ t.to_bank }}{% endif %}</td>
+                    <td class="text-end text-danger">-{{ t.amount|floatformat:2 }}</td>
+                    <td>{{ t.notes|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center text-muted">لا توجد تحويلات صادرة</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

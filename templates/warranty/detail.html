@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}بطاقة الضمان {{ warranty.serial_number }} — RITA ERP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">
+        <i class="bi bi-shield-check me-2 text-primary"></i>
+        بطاقة ضمان: {{ warranty.serial_number }}
+    </h4>
+    <div class="d-flex gap-2">
+        <a href="{% url 'warranty:claim_create' warranty.pk %}" class="btn btn-warning btn-sm">
+            <i class="bi bi-exclamation-triangle me-1"></i>تسجيل مطالبة
+        </a>
+        <a href="{% url 'warranty:warranty_search' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-right me-1"></i>العودة
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-light">
+                <strong><i class="bi bi-info-circle me-2"></i>بيانات الضمان</strong>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr><td class="text-muted fw-semibold">رقم الضمان:</td><td class="font-monospace">{{ warranty.serial_number }}</td></tr>
+                    <tr><td class="text-muted fw-semibold">المنتج:</td><td>{{ warranty.product.name }}</td></tr>
+                    <tr><td class="text-muted fw-semibold">الكود:</td><td>{{ warranty.product.code }}</td></tr>
+                    <tr><td class="text-muted fw-semibold">الفاتورة:</td><td><a href="{% url 'sales:invoice_detail' warranty.invoice.pk %}">{{ warranty.invoice.invoice_number }}</a></td></tr>
+                    <tr><td class="text-muted fw-semibold">تاريخ الشراء:</td><td>{{ warranty.purchase_date }}</td></tr>
+                    <tr><td class="text-muted fw-semibold">تاريخ الانتهاء:</td><td>
+                        {{ warranty.expiry_date }}
+                        {% if warranty.status == 'active' %}
+                            <span class="badge bg-success ms-1">ساري</span>
+                        {% endif %}
+                    </td></tr>
+                    <tr><td class="text-muted fw-semibold">الحالة:</td><td>
+                        {% if warranty.status == 'active' %}
+                            <span class="badge bg-success">نشط</span>
+                        {% elif warranty.status == 'expired' %}
+                            <span class="badge bg-warning text-dark">منتهي</span>
+                        {% else %}
+                            <span class="badge bg-secondary">ملغي</span>
+                        {% endif %}
+                    </td></tr>
+                    <tr><td class="text-muted fw-semibold">فعّله:</td><td>{{ warranty.activated_by.get_full_name|default:'-' }}</td></tr>
+                    <tr><td class="text-muted fw-semibold">تاريخ التفعيل:</td><td>{{ warranty.activation_date|date:"Y-m-d H:i"|default:'-' }}</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-light">
+                <strong><i class="bi bi-person me-2"></i>بيانات العميل</strong>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr><td class="text-muted fw-semibold">الاسم:</td><td>{{ warranty.customer_name }}</td></tr>
+                    <tr><td class="text-muted fw-semibold">الهاتف:</td><td>{{ warranty.customer_phone }}</td></tr>
+                    <tr><td class="text-muted fw-semibold">العنوان:</td><td>{{ warranty.customer_address|default:'-' }}</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light d-flex justify-content-between">
+                <strong><i class="bi bi-exclamation-triangle me-2"></i>مطالبات الضمان ({{ claims.count }})</strong>
+                <a href="{% url 'warranty:claim_create' warranty.pk %}" class="btn btn-warning btn-sm py-0">
+                    <i class="bi bi-plus-circle me-1"></i>مطالبة جديدة
+                </a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>#</th>
+                                <th>التاريخ</th>
+                                <th>المشكلة</th>
+                                <th>الحل</th>
+                                <th>الحالة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for claim in claims %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>{{ claim.claim_date }}</td>
+                                <td>{{ claim.issue_description|truncatechars:60 }}</td>
+                                <td>{{ claim.resolution|truncatechars:60|default:'-' }}</td>
+                                <td>
+                                    {% if claim.status == 'resolved' %}
+                                        <span class="badge bg-success">{{ claim.get_status_display }}</span>
+                                    {% elif claim.status == 'rejected' %}
+                                        <span class="badge bg-danger">{{ claim.get_status_display }}</span>
+                                    {% elif claim.status == 'in_progress' %}
+                                        <span class="badge bg-primary">{{ claim.get_status_display }}</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">{{ claim.get_status_display }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-3">لا توجد مطالبات</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

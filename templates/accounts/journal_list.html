@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}القيود المحاسبية — RITA ERP{% endblock %}
+{% block nav_accounts %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-journal-text me-2 text-primary"></i>القيود المحاسبية</h4>
+    <a href="{% url 'accounts:journal_create' %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-circle me-1"></i>قيد يدوي جديد
+    </a>
+</div>
+
+<!-- فلترة -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label small mb-1">من تاريخ</label>
+                <input type="date" name="date_from" class="form-control form-control-sm"
+                       value="{{ filter_params.date_from|default:'' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">إلى تاريخ</label>
+                <input type="date" name="date_to" class="form-control form-control-sm"
+                       value="{{ filter_params.date_to|default:'' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">المصدر</label>
+                <select name="source" class="form-select form-select-sm">
+                    <option value="">— الكل —</option>
+                    {% for val, label in source_choices %}
+                    <option value="{{ val }}" {% if filter_params.source == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">الحالة</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">— الكل —</option>
+                    {% for val, label in status_choices %}
+                    <option value="{{ val }}" {% if filter_params.status == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary btn-sm w-100">
+                    <i class="bi bi-funnel me-1"></i>بحث
+                </button>
+            </div>
+            <div class="col-md-2">
+                <a href="{% url 'accounts:journal_list' %}" class="btn btn-outline-secondary btn-sm w-100">مسح</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- جدول القيود -->
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>رقم القيد</th>
+                        <th>التاريخ</th>
+                        <th>البيان</th>
+                        <th>المصدر</th>
+                        <th class="text-end text-success">المدين</th>
+                        <th class="text-end text-danger">الدائن</th>
+                        <th>الحالة</th>
+                        <th>الفرع</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in entries %}
+                    <tr>
+                        <td class="font-monospace">
+                            <a href="{% url 'accounts:journal_detail' entry.pk %}">{{ entry.entry_number }}</a>
+                        </td>
+                        <td>{{ entry.date }}</td>
+                        <td class="text-truncate" style="max-width:220px" title="{{ entry.description }}">
+                            {{ entry.description }}
+                        </td>
+                        <td><span class="badge bg-secondary">{{ entry.get_source_display }}</span></td>
+                        <td class="text-end text-danger fw-bold">{{ entry.total_debit|floatformat:2 }}</td>
+                        <td class="text-end text-success fw-bold">{{ entry.total_credit|floatformat:2 }}</td>
+                        <td>
+                            {% if entry.status == 'posted' %}
+                                <span class="badge bg-success">{{ entry.get_status_display }}</span>
+                            {% elif entry.status == 'draft' %}
+                                <span class="badge bg-secondary">{{ entry.get_status_display }}</span>
+                            {% elif entry.status == 'cancelled' %}
+                                <span class="badge bg-danger">{{ entry.get_status_display }}</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">{{ entry.get_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ entry.branch.name|default:"—" }}</td>
+                        <td>
+                            <a href="{% url 'accounts:journal_detail' entry.pk %}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-3 d-block mb-2"></i>لا توجد قيود
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<nav class="mt-3">
+    <ul class="pagination pagination-sm justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">السابق</a>
+        </li>
+        {% endif %}
+        <li class="page-item active">
+            <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        </li>
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}">التالي</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

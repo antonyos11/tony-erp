@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}{{ customer.name }} — RITA ERP{% endblock %}
+{% block nav_sales %}active{% endblock %}
+{% block nav_sales_open %}show{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-person me-2 text-primary"></i>{{ customer.name }}</h4>
+    <div class="d-flex gap-2">
+        <a href="{% url 'sales:invoice_create' %}" class="btn btn-success btn-sm">
+            <i class="bi bi-plus-circle me-1"></i>فاتورة جديدة
+        </a>
+        <a href="{% url 'sales:customer_list' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-right me-1"></i>العودة
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- بيانات العميل -->
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white fw-semibold">بيانات العميل</div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless mb-0">
+                    <tr><th>الكود</th><td><code>{{ customer.code }}</code></td></tr>
+                    <tr><th>النوع</th><td>{{ customer.get_customer_type_display }}</td></tr>
+                    <tr><th>الهاتف</th><td>{{ customer.phone|default:'—' }}</td></tr>
+                    <tr><th>هاتف 2</th><td>{{ customer.phone2|default:'—' }}</td></tr>
+                    <tr><th>المحافظة</th><td>{{ customer.governorate|default:'—' }}</td></tr>
+                    <tr><th>الرقم الضريبي</th><td>{{ customer.tax_number|default:'—' }}</td></tr>
+                    <tr><th>حد الائتمان</th><td>{{ customer.credit_limit|floatformat:2 }} ج.م</td></tr>
+                    <tr><th>الحالة</th><td>
+                        {% if customer.is_active %}<span class="badge bg-success">نشط</span>
+                        {% else %}<span class="badge bg-secondary">غير نشط</span>{% endif %}
+                    </td></tr>
+                </table>
+            </div>
+        </div>
+        <!-- الرصيد -->
+        <div class="card shadow-sm mt-3">
+            <div class="card-header bg-info text-white fw-semibold">الرصيد</div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>إجمالي الفواتير</span>
+                    <span class="fw-bold">{{ total_invoiced|floatformat:2 }} ج.م</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>المدفوع</span>
+                    <span class="fw-bold text-success">{{ total_paid|floatformat:2 }} ج.م</span>
+                </div>
+                <hr class="my-2">
+                <div class="d-flex justify-content-between">
+                    <span class="fw-bold">المتبقي</span>
+                    <span class="fw-bold {% if balance > 0 %}text-danger{% else %}text-success{% endif %}">
+                        {{ balance|floatformat:2 }} ج.م
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- الفواتير الأخيرة -->
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white fw-semibold">آخر الفواتير</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm mb-0">
+                        <thead class="table-secondary">
+                            <tr>
+                                <th>رقم الفاتورة</th>
+                                <th>التاريخ</th>
+                                <th>الإجمالي</th>
+                                <th>المدفوع</th>
+                                <th>المتبقي</th>
+                                <th>الحالة</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for inv in invoices %}
+                            <tr>
+                                <td><a href="{% url 'sales:invoice_detail' inv.pk %}">{{ inv.invoice_number }}</a></td>
+                                <td>{{ inv.date|date:"Y-m-d" }}</td>
+                                <td>{{ inv.total|floatformat:2 }}</td>
+                                <td>{{ inv.paid_amount|floatformat:2 }}</td>
+                                <td>{{ inv.remaining_amount|floatformat:2 }}</td>
+                                <td>
+                                    {% if inv.status == 'paid' %}<span class="badge bg-success">مدفوعة</span>
+                                    {% elif inv.status == 'draft' %}<span class="badge bg-secondary">مسودة</span>
+                                    {% elif inv.status == 'confirmed' %}<span class="badge bg-info">مؤكدة</span>
+                                    {% elif inv.status == 'partial_paid' %}<span class="badge bg-warning text-dark">جزئي</span>
+                                    {% else %}<span class="badge bg-secondary">{{ inv.get_status_display }}</span>{% endif %}
+                                </td>
+                                <td><a href="{% url 'sales:invoice_detail' inv.pk %}" class="btn btn-outline-info btn-sm"><i class="bi bi-eye"></i></a></td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="7" class="text-center text-muted py-3">لا توجد فواتير</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

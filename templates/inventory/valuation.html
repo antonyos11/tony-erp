@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}تقييم المخزون — RITA ERP{% endblock %}
+{% block nav_inventory %}active{% endblock %}
+{% block nav_inventory_open %}show{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-currency-dollar me-2 text-primary"></i>{{ title }}</h4>
+</div>
+
+<!-- فلترة -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <select name="warehouse" class="form-select form-select-sm">
+                    <option value="">— كل المخازن —</option>
+                    {% for w in warehouses %}
+                    <option value="{{ w.pk }}" {% if selected_warehouse == w.pk|stringformat:"s" %}selected{% endif %}>{{ w.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="product_type" class="form-select form-select-sm">
+                    <option value="">— كل الأنواع —</option>
+                    {% for val, label in product_types %}
+                    <option value="{{ val }}" {% if selected_type == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-funnel me-1"></i>فلترة</button>
+            </div>
+            <div class="col-md-2">
+                <a href="{% url 'inventory:valuation' %}" class="btn btn-outline-secondary btn-sm w-100">مسح</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ملخص -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card bg-primary text-white shadow-sm">
+            <div class="card-body text-center py-3">
+                <div class="fs-4 fw-bold">{{ report.total_value|floatformat:2 }}</div>
+                <div class="small">إجمالي قيمة المخزون (ج.م)</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-success text-white shadow-sm">
+            <div class="card-body text-center py-3">
+                <div class="fs-4 fw-bold">{{ report.total_items }}</div>
+                <div class="small">عدد الأصناف</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-warning text-dark shadow-sm">
+            <div class="card-body text-center py-3">
+                <div class="fs-4 fw-bold">
+                    {% with low_count=0 %}
+                    {{ report.items|length }}
+                    {% endwith %}
+                </div>
+                <div class="small">صنف يحتاج مراجعة</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- الجدول -->
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>الكود</th>
+                        <th>المنتج</th>
+                        <th>النوع</th>
+                        <th>التصنيف</th>
+                        <th>المخزن</th>
+                        <th class="text-end">الكمية</th>
+                        <th>الوحدة</th>
+                        <th class="text-end">متوسط التكلفة</th>
+                        <th class="text-end">القيمة</th>
+                        <th>حالة الرصيد</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in report.items %}
+                    <tr {% if item.is_low %}class="table-danger"{% endif %}>
+                        <td class="font-monospace small">{{ item.product_code }}</td>
+                        <td>{{ item.product_name }}</td>
+                        <td><span class="badge bg-secondary small">{{ item.product_type }}</span></td>
+                        <td class="small text-muted">{{ item.category }}</td>
+                        <td class="small">{{ item.warehouse }}</td>
+                        <td class="text-end fw-bold">{{ item.quantity }}</td>
+                        <td class="small text-muted">{{ item.unit }}</td>
+                        <td class="text-end">{{ item.average_cost|floatformat:2 }}</td>
+                        <td class="text-end text-success fw-bold">{{ item.value|floatformat:2 }}</td>
+                        <td>
+                            {% if item.is_low %}
+                            <span class="badge bg-danger"><i class="bi bi-exclamation-triangle me-1"></i>منخفض</span>
+                            {% else %}
+                            <span class="badge bg-success">جيد</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="10" class="text-center text-muted py-4">لا توجد بيانات مخزون</td></tr>
+                    {% endfor %}
+                </tbody>
+                {% if report.items %}
+                <tfoot class="table-dark fw-bold">
+                    <tr>
+                        <td colspan="8" class="text-end">الإجمالي:</td>
+                        <td class="text-end text-warning">{{ report.total_value|floatformat:2 }}</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

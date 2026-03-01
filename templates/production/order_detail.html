@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% block title %}{{ order.order_number }} — RITA ERP{% endblock %}
+{% block nav_production %}active{% endblock %}
+{% block nav_production_open %}show{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-0">
+            <i class="bi bi-gear-wide-connected me-2 text-primary"></i>
+            {{ order.order_number }}
+        </h4>
+        <small class="text-muted">{{ order.product.name }} | {{ order.date|date:"Y/m/d" }}</small>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'production:order_list' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-right me-1"></i>قائمة الأوامر
+        </a>
+
+        {% if actions.can_confirm %}
+        <form method="post" action="{% url 'production:order_confirm' order.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button class="btn btn-info btn-sm" onclick="return confirm('تأكيد أمر الإنتاج؟')">
+                <i class="bi bi-check-circle me-1"></i>تأكيد
+            </button>
+        </form>
+        {% endif %}
+
+        {% if actions.can_start %}
+        <form method="post" action="{% url 'production:order_start' order.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button class="btn btn-warning btn-sm" onclick="return confirm('بدء الإنتاج وصرف الخامات؟')">
+                <i class="bi bi-play-fill me-1"></i>بدء الإنتاج
+            </button>
+        </form>
+        {% endif %}
+
+        {% if actions.can_add_costs %}
+        <a href="{% url 'production:add_labor' order.pk %}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-person-badge me-1"></i>عمالة
+        </a>
+        <a href="{% url 'production:add_overhead' order.pk %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-building me-1"></i>تكاليف
+        </a>
+        {% endif %}
+
+        {% if actions.can_complete %}
+        <a href="{% url 'production:order_complete' order.pk %}" class="btn btn-success btn-sm">
+            <i class="bi bi-flag-fill me-1"></i>إكمال الإنتاج
+        </a>
+        {% endif %}
+
+        {% if actions.can_cancel %}
+        <a href="{% url 'production:order_cancel' order.pk %}" class="btn btn-outline-danger btn-sm">
+            <i class="bi bi-x-circle me-1"></i>إلغاء
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- بيانات الأمر -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header py-2">
+                <i class="bi bi-info-circle me-2 text-primary"></i>بيانات الأمر
+            </div>
+            <div class="card-body small">
+                <table class="table table-sm table-borderless mb-0">
+                    <tr><th class="text-muted">الحالة</th>
+                        <td>
+                            <span class="badge
+                                {% if order.status == 'draft' %}bg-secondary
+                                {% elif order.status == 'confirmed' %}bg-info
+                                {% elif order.status == 'in_progress' %}bg-warning text-dark
+                                {% elif order.status == 'quality_check' %}bg-primary
+                                {% elif order.status == 'completed' %}bg-success
+                                {% elif order.status == 'cancelled' %}bg-danger
+                                {% endif %}">
+                                {{ order.get_status_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr><th class="text-muted">المنتج</th><td>{{ order.product.name }}</td></tr>
+                    <tr><th class="text-muted">BOM</th><td>{{ order.bom.name }}</td></tr>
+                    <tr><th class="text-muted">الكمية المطلوبة</th><td>{{ order.quantity }}</td></tr>
+                    <tr><th class="text-muted">الكمية المنتجة</th><td>{{ order.quantity_produced }}</td></tr>
+                    <tr><th class="text-muted">كمية الهالك</th><td>{{ order.quantity_wasted }}</td></tr>
+                    <tr><th class="text-muted">خط الإنتاج</th><td>{{ order.production_line.name|default:"—" }}</td></tr>
+                    <tr><th class="text-muted">مخزن الخامات</th><td>{{ order.warehouse_raw.name }}</td></tr>
+                    <tr><th class="text-muted">مخزن المنتجات</th><td>{{ order.warehouse_finished.name }}</td></tr>
+                    <tr><th class="text-muted">التاريخ المتوقع</th><td>{{ order.expected_date|date:"Y/m/d"|default:"—" }}</td></tr>
+                    <tr><th class="text-muted">تاريخ الاكتمال</th><td>{{ order.actual_completion_date|date:"Y/m/d"|default:"—" }}</td></tr>
+                    {% if order.notes %}
+                    <tr><th class="text-muted">ملاحظات</th><td>{{ order.notes|linebreaksbr }}</td></tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- تفصيل التكلفة -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header py-2">
+                <i class="bi bi-currency-dollar me-2 text-success"></i>تفصيل التكلفة
+            </div>
+            <div class="card-body">
+                <div class="row text-center g-2 mb-3">
+                    <div class="col-6">
+                        <div class="border rounded p-2 bg-light">
+                            <div class="small text-muted">تكلفة المواد</div>
+                            <div class="fw-bold text-primary">{{ cost_breakdown.material_cost|default:"0.00" }}</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="border rounded p-2 bg-light">
+                            <div class="small text-muted">تكلفة العمالة</div>
+                            <div class="fw-bold text-warning">{{ cost_breakdown.labor_cost|default:"0.00" }}</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="border rounded p-2 bg-light">
+                            <div class="small text-muted">تكاليف إضافية</div>
+                            <div class="fw-bold text-info">{{ cost_breakdown.overhead_cost|default:"0.00" }}</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="border rounded p-2 bg-success text-white">
+                            <div class="small">إجمالي التكلفة</div>
+                            <div class="fw-bold">{{ cost_breakdown.total_cost|default:"0.00" }}</div>
+                        </div>
+                    </div>
+                </div>
+                {% if cost_breakdown.unit_cost %}
+                <div class="d-flex justify-content-between border-top pt-2 small">
+                    <span class="text-muted">تكلفة الوحدة:</span>
+                    <span class="fw-bold">{{ cost_breakdown.unit_cost }}</span>
+                </div>
+                <div class="d-flex justify-content-between small">
+                    <span class="text-muted">سعر التجزئة:</span>
+                    <span>{{ order.product.retail_price }}</span>
+                </div>
+                <div class="d-flex justify-content-between small">
+                    <span class="text-muted">هامش الربح:</span>
+                    <span class="{% if cost_breakdown.margin > 0 %}text-success fw-bold{% else %}text-danger{% endif %}">
+                        {{ cost_breakdown.margin }}
+                    </span>
+                </div>
+                {% endif %}
+
+                <!-- تفصيل الخامات -->
+                {% if cost_breakdown.material_details %}
+                <div class="mt-3">
+                    <div class="small fw-bold text-muted mb-1">الخامات المستهلكة:</div>
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="small">الخامة</th>
+                                <th class="small">مخطط</th>
+                                <th class="small">فعلي</th>
+                                <th class="small">تكلفة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in cost_breakdown.material_details %}
+                            <tr>
+                                <td class="small">{{ m.material }}</td>
+                                <td class="small">{{ m.planned_qty }}</td>
+                                <td class="small">{{ m.actual_qty }}</td>
+                                <td class="small">{{ m.total_cost|default:"—" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- مراحل الإنتاج (Timeline) -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header py-2">
+                <i class="bi bi-diagram-3 me-2 text-warning"></i>مراحل الإنتاج
+            </div>
+            <div class="card-body">
+                {% if stages %}
+                <div class="timeline">
+                    {% for stage in stages %}
+                    <div class="d-flex mb-3">
+                        <div class="me-3 text-center" style="min-width:32px">
+                            {% if stage.status == 'completed' %}
+                            <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center" style="width:32px;height:32px">
+                                <i class="bi bi-check-lg small"></i>
+                            </div>
+                            {% elif stage.status == 'in_progress' %}
+                            <div class="rounded-circle bg-warning text-dark d-flex align-items-center justify-content-center" style="width:32px;height:32px">
+                                <i class="bi bi-play-fill small"></i>
+                            </div>
+                            {% else %}
+                            <div class="rounded-circle bg-light border d-flex align-items-center justify-content-center" style="width:32px;height:32px">
+                                <span class="small text-muted">{{ forloop.counter }}</span>
+                            </div>
+                            {% endif %}
+                            {% if not forloop.last %}
+                            <div class="bg-secondary mx-auto" style="width:2px;height:20px;margin-top:2px"></div>
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div class="fw-bold small">{{ stage.step.name }}</div>
+                                    {% if stage.started_at %}
+                                    <div class="text-muted" style="font-size:0.75rem">
+                                        بدأت: {{ stage.started_at|date:"Y/m/d H:i" }}
+                                    </div>
+                                    {% endif %}
+                                    {% if stage.completed_at %}
+                                    <div class="text-success" style="font-size:0.75rem">
+                                        اكتملت: {{ stage.completed_at|date:"Y/m/d H:i" }}
+                                    </div>
+                                    {% endif %}
+                                    {% if stage.worker_count %}
+                                    <div class="text-muted" style="font-size:0.75rem">
+                                        {{ stage.worker_count }} عامل | {{ stage.actual_hours }} ساعة
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% if stage.status == 'in_progress' %}
+                                <a href="{% url 'production:stage_complete' stage.pk %}" class="btn btn-success btn-sm py-0">
+                                    <i class="bi bi-check"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-3 small">
+                    <i class="bi bi-info-circle me-1"></i>لا توجد مراحل محددة لهذا الأمر
+                </div>
+                {% endif %}
+
+                {% if actions.current_stage %}
+                <div class="mt-3 border-top pt-3">
+                    <div class="small text-muted">المرحلة الحالية:</div>
+                    <div class="fw-bold">{{ actions.current_stage.step.name }}</div>
+                    <a href="{% url 'production:stage_complete' actions.current_stage.pk %}" class="btn btn-success btn-sm mt-2 w-100">
+                        <i class="bi bi-check-circle me-1"></i>إكمال هذه المرحلة
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

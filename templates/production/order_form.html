@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}أمر إنتاج جديد — RITA ERP{% endblock %}
+{% block nav_production %}active{% endblock %}
+{% block nav_production_open %}show{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-plus-square me-2 text-primary"></i>أمر إنتاج جديد</h4>
+    <a href="{% url 'production:order_list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-right me-1"></i>قائمة الأوامر
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-lg-7">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white py-2">
+                <i class="bi bi-gear-wide-connected me-2"></i>بيانات أمر الإنتاج
+            </div>
+            <div class="card-body">
+                <form method="post" id="orderForm">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold small">{{ form.product.label }}</label>
+                            {{ form.product }}
+                            {% if form.product.errors %}
+                            <div class="text-danger small">{{ form.product.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold small">{{ form.bom.label }}</label>
+                            {{ form.bom }}
+                            {% if form.bom.errors %}
+                            <div class="text-danger small">{{ form.bom.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">يتم تحديد BOM تلقائياً إذا كان الأمر الافتراضي محدداً</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">{{ form.quantity.label }}</label>
+                            {{ form.quantity }}
+                            {% if form.quantity.errors %}
+                            <div class="text-danger small">{{ form.quantity.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">{{ form.production_line.label }}</label>
+                            {{ form.production_line }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">{{ form.warehouse_raw.label }}</label>
+                            {{ form.warehouse_raw }}
+                            {% if form.warehouse_raw.errors %}
+                            <div class="text-danger small">{{ form.warehouse_raw.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">{{ form.warehouse_finished.label }}</label>
+                            {{ form.warehouse_finished }}
+                            {% if form.warehouse_finished.errors %}
+                            <div class="text-danger small">{{ form.warehouse_finished.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">{{ form.expected_date.label }}</label>
+                            {{ form.expected_date }}
+                        </div>
+                    </div>
+
+                    <div class="mt-4 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-1"></i>إنشاء أمر الإنتاج
+                        </button>
+                        <a href="{% url 'production:order_list' %}" class="btn btn-outline-secondary">إلغاء</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- معاينة الخامات المطلوبة -->
+    <div class="col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light py-2">
+                <i class="bi bi-boxes me-2 text-info"></i>الخامات المطلوبة
+                <span class="text-muted small ms-2">(يتحدث تلقائياً)</span>
+            </div>
+            <div class="card-body p-0">
+                <div id="materialsPreview">
+                    <div class="text-center text-muted py-4 small">
+                        <i class="bi bi-info-circle me-1"></i>اختر المنتج والكمية لعرض الخامات
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- تحذير نقص الخامات -->
+        <div id="shortageAlert" class="alert alert-danger mt-3 d-none">
+            <h6 class="alert-heading"><i class="bi bi-exclamation-triangle me-2"></i>تحذير: نقص في الخامات</h6>
+            <div id="shortageDetails"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const productSelect = document.getElementById('id_product');
+const bomSelect = document.getElementById('id_bom');
+const quantityInput = document.querySelector('[name="quantity"]');
+const warehouseRawSelect = document.querySelector('[name="warehouse_raw"]');
+const materialsPreview = document.getElementById('materialsPreview');
+const shortageAlert = document.getElementById('shortageAlert');
+const shortageDetails = document.getElementById('shortageDetails');
+
+function loadBOMs() {
+    const productId = productSelect.value;
+    if (!productId) return;
+
+    fetch(`{% url 'production:ajax_boms' %}?product_id=${productId}`)
+        .then(r => r.json())
+        .then(data => {
+            bomSelect.innerHTML = '<option value="">— اختر BOM —</option>';
+            data.boms.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b.id;
+                opt.text = b.name + (b.is_default ? ' (افتراضي)' : '');
+                if (b.is_default) opt.selected = true;
+                bomSelect.appendChild(opt);
+            });
+            loadMaterials();
+        });
+}
+
+function loadMaterials() {
+    const bomId = bomSelect.value;
+    const qty = quantityInput.value || 1;
+    const warehouseId = warehouseRawSelect.value;
+
+    if (!bomId) {
+        materialsPreview.innerHTML = '<div class="text-center text-muted py-4 small"><i class="bi bi-info-circle me-1"></i>اختر BOM لعرض الخامات</div>';
+        return;
+    }
+
+    fetch(`{% url 'production:ajax_bom_details' %}?bom_id=${bomId}&quantity=${qty}&warehouse_id=${warehouseId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.lines.length) {
+                materialsPreview.innerHTML = '<div class="text-center text-muted py-3 small">لا توجد خامات في هذا BOM</div>';
+                return;
+            }
+
+            let html = '<table class="table table-sm table-hover mb-0">';
+            html += '<thead class="table-light"><tr><th>الخامة</th><th>مطلوب</th><th>متاح</th><th></th></tr></thead><tbody>';
+            let hasShortage = false;
+            let shortageHtml = '<ul class="mb-0 small">';
+
+            data.lines.forEach(l => {
+                const cls = l.sufficient ? '' : 'table-danger';
+                const icon = l.sufficient ? '<i class="bi bi-check-circle text-success"></i>' : '<i class="bi bi-x-circle text-danger"></i>';
+                html += `<tr class="${cls}"><td class="small">${l.material}</td><td class="small">${l.required.toFixed(2)}</td><td class="small">${l.available.toFixed(2)}</td><td>${icon}</td></tr>`;
+                if (!l.sufficient) {
+                    hasShortage = true;
+                    const deficit = (l.required - l.available).toFixed(2);
+                    shortageHtml += `<li>${l.material}: نقص ${deficit}</li>`;
+                }
+            });
+
+            html += '</tbody></table>';
+            shortageHtml += '</ul>';
+            materialsPreview.innerHTML = html;
+
+            if (hasShortage) {
+                shortageAlert.classList.remove('d-none');
+                shortageDetails.innerHTML = shortageHtml;
+            } else {
+                shortageAlert.classList.add('d-none');
+            }
+        });
+}
+
+productSelect.addEventListener('change', loadBOMs);
+bomSelect.addEventListener('change', loadMaterials);
+quantityInput.addEventListener('input', loadMaterials);
+warehouseRawSelect.addEventListener('change', loadMaterials);
+
+// تحميل مبدئي
+if (productSelect.value) loadBOMs();
+</script>
+{% endblock %}
