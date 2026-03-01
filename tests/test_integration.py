@@ -125,7 +125,7 @@ def _make_base():
 def _make_uom():
     uom, _ = UnitOfMeasure.objects.get_or_create(
         name='قطعة',
-        defaults=dict(symbol='قط', base_unit=True),
+        defaults=dict(symbol='قط'),
     )
     return uom
 
