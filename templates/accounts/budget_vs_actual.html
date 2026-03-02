@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}ميزانية مقابل فعلي — RITA ERP{% endblock %}
+{% block nav_accounts %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">
+        <i class="bi bi-bar-chart-line me-2 text-primary"></i>
+        ميزانية مقابل فعلي — {{ budget.name }}
+    </h4>
+    <a href="{% url 'accounts:budget_detail' pk=budget.pk %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-right me-1"></i>عودة
+    </a>
+</div>
+
+<!-- فلتر الشهر -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body py-2">
+        <form method="get" class="d-flex align-items-center gap-3">
+            <label class="fw-bold mb-0">الشهر:</label>
+            <select name="month" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
+                {% for m in months_range %}
+                <option value="{{ m }}" {% if m == selected_month %}selected{% endif %}>
+                    {% if m == 1 %}يناير{% elif m == 2 %}فبراير{% elif m == 3 %}مارس{% elif m == 4 %}أبريل
+                    {% elif m == 5 %}مايو{% elif m == 6 %}يونيو{% elif m == 7 %}يوليو{% elif m == 8 %}أغسطس
+                    {% elif m == 9 %}سبتمبر{% elif m == 10 %}أكتوبر{% elif m == 11 %}نوفمبر{% else %}ديسمبر{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+            <span class="text-muted small">السنة: {{ year }}</span>
+        </form>
+    </div>
+</div>
+
+<!-- إجماليات -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card border-primary shadow-sm text-center">
+            <div class="card-body">
+                <div class="fs-4 fw-bold text-primary">{{ total_budget|floatformat:2 }}</div>
+                <div class="text-muted small">إجمالي الميزانية</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-warning shadow-sm text-center">
+            <div class="card-body">
+                <div class="fs-4 fw-bold text-warning">{{ total_actual|floatformat:2 }}</div>
+                <div class="text-muted small">إجمالي الفعلي</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card {% if total_variance >= 0 %}border-success{% else %}border-danger{% endif %} shadow-sm text-center">
+            <div class="card-body">
+                <div class="fs-4 fw-bold {% if total_variance >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    {{ total_variance|floatformat:2 }}
+                </div>
+                <div class="text-muted small">الفرق (متبقي)</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- تفصيل -->
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>الحساب</th>
+                    <th>التصنيف</th>
+                    <th class="text-end">الميزانية</th>
+                    <th class="text-end">الفعلي</th>
+                    <th class="text-end">الفرق</th>
+                    <th class="text-center">%</th>
+                    <th class="text-center">الحالة</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for line in lines %}
+                <tr class="{% if line.status == 'over' %}table-danger{% elif line.status == 'warning' %}table-warning{% endif %}">
+                    <td><code>{{ line.account.code }}</code> {{ line.account.name }}</td>
+                    <td>{{ line.category.name|default:"—" }}</td>
+                    <td class="text-end">{{ line.budget|floatformat:2 }}</td>
+                    <td class="text-end">{{ line.actual|floatformat:2 }}</td>
+                    <td class="text-end fw-bold {% if line.variance < 0 %}text-danger{% else %}text-success{% endif %}">
+                        {{ line.variance|floatformat:2 }}
+                    </td>
+                    <td class="text-center">{{ line.variance_pct }}%</td>
+                    <td class="text-center">
+                        {% if line.status == 'over' %}
+                            <span class="badge bg-danger">تجاوز</span>
+                        {% elif line.status == 'warning' %}
+                            <span class="badge bg-warning text-dark">تحذير</span>
+                        {% else %}
+                            <span class="badge bg-success">طبيعي</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="text-center text-muted py-4">لا توجد بيانات</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

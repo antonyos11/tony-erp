@@ -47,6 +47,18 @@ class User(AbstractUser):
     phone = models.CharField(max_length=20, blank=True, verbose_name='رقم الهاتف')
     is_active_employee = models.BooleanField(default=True, verbose_name='موظف نشط')
 
+    # ── Sprint 25: Two-Factor Authentication ──
+    two_factor_enabled = models.BooleanField(default=False, verbose_name='تفعيل المصادقة الثنائية')
+    two_factor_method = models.CharField(
+        max_length=10,
+        choices=[('email', 'البريد الإلكتروني'), ('sms', 'رسالة نصية')],
+        default='email',
+        verbose_name='طريقة المصادقة',
+    )
+    last_login_ip = models.GenericIPAddressField(null=True, blank=True, verbose_name='آخر IP للدخول')
+    failed_login_count = models.PositiveSmallIntegerField(default=0, verbose_name='عدد محاولات الدخول الفاشلة')
+    account_locked_until = models.DateTimeField(null=True, blank=True, verbose_name='الحساب مقفل حتى')
+
     class Meta:
         verbose_name = 'مستخدم'
         verbose_name_plural = 'المستخدمون'
@@ -58,23 +70,88 @@ class User(AbstractUser):
 # ===== الشركة =====
 
 class Company(models.Model):
-    """بيانات الشركة (Singleton)"""
-    name = models.CharField(max_length=200, verbose_name='اسم الشركة')
-    tax_number = models.CharField(max_length=50, blank=True, verbose_name='الرقم الضريبي')
-    commercial_register = models.CharField(max_length=50, blank=True, verbose_name='السجل التجاري')
-    address = models.TextField(blank=True, verbose_name='العنوان')
-    phone = models.CharField(max_length=20, blank=True, verbose_name='الهاتف')
-    logo = models.ImageField(upload_to='company/', blank=True, null=True, verbose_name='الشعار')
-    default_currency = models.CharField(max_length=10, default='EGP', verbose_name='العملة الافتراضية')
-    vat_rate = models.DecimalField(max_digits=5, decimal_places=2, default=14.00, verbose_name='نسبة ضريبة القيمة المضافة')
-    fiscal_year_start = models.DateField(null=True, blank=True, verbose_name='بداية السنة المالية')
+    """
+    شركة / مصنع
+    النظام يدعم أكثر من شركة
+    كل البيانات مربوطة بشركة
+    """
+    code = models.CharField(max_length=20, unique=True, verbose_name="كود الشركة", default='MAIN')
+    name = models.CharField(max_length=255, verbose_name="اسم الشركة")
+    name_en = models.CharField(max_length=255, blank=True, verbose_name="الاسم بالإنجليزي")
+    legal_name = models.CharField(max_length=500, blank=True, verbose_name="الاسم القانوني")
+
+    # بيانات قانونية
+    tax_number = models.CharField(max_length=50, blank=True, verbose_name="الرقم الضريبي")
+    commercial_register = models.CharField(max_length=50, blank=True, verbose_name="السجل التجاري")
+    industry_register = models.CharField(max_length=50, blank=True, verbose_name="سجل صناعي")
+
+    # العنوان
+    address = models.TextField(blank=True, verbose_name="العنوان")
+    city = models.CharField(max_length=100, blank=True, verbose_name="المدينة")
+    governorate = models.CharField(max_length=100, blank=True, verbose_name="المحافظة")
+    country = models.CharField(max_length=100, default='مصر', verbose_name="الدولة")
+    postal_code = models.CharField(max_length=10, blank=True, verbose_name="الرمز البريدي")
+
+    # التواصل
+    phone = models.CharField(max_length=20, blank=True, verbose_name="الهاتف")
+    phone2 = models.CharField(max_length=20, blank=True, verbose_name="هاتف 2")
+    fax = models.CharField(max_length=20, blank=True, verbose_name="فاكس")
+    email = models.EmailField(blank=True, verbose_name="البريد الإلكتروني")
+    website = models.URLField(blank=True, verbose_name="الموقع الإلكتروني")
+
+    # الشعار
+    logo = models.ImageField(upload_to='company/', null=True, blank=True, verbose_name="الشعار")
+    logo_small = models.ImageField(upload_to='company/', null=True, blank=True, verbose_name="شعار صغير")
+
+    # إعدادات مالية
+    default_currency = models.CharField(max_length=3, default='EGP', verbose_name="العملة")
+    vat_rate = models.DecimalField(max_digits=5, decimal_places=2, default=14, verbose_name="نسبة ضريبة القيمة المضافة")
+    fiscal_year_start_month = models.IntegerField(default=1, verbose_name="شهر بداية السنة المالية")
+
+    # إعدادات الطباعة
+    invoice_header = models.TextField(blank=True, verbose_name="رأس الفاتورة")
+    invoice_footer = models.TextField(blank=True, verbose_name="تذييل الفاتورة")
+    invoice_terms = models.TextField(blank=True, verbose_name="شروط الفاتورة")
+    quotation_terms = models.TextField(blank=True, verbose_name="شروط عرض السعر")
+    warranty_terms = models.TextField(blank=True, verbose_name="شروط الضمان")
+
+    # إعدادات المخزون
+    default_valuation_method = models.CharField(
+        max_length=20,
+        default='weighted_average',
+        choices=[
+            ('weighted_average', 'متوسط مرجح'),
+            ('fifo', 'FIFO'),
+            ('lifo', 'LIFO'),
+        ],
+        verbose_name="طريقة تقييم المخزون",
+    )
+
+    # إعدادات الأمان
+    session_timeout_minutes = models.IntegerField(default=480, verbose_name="انتهاء الجلسة (دقائق)")
+    max_login_attempts = models.IntegerField(default=5, verbose_name="أقصى محاولات دخول")
+    password_min_length = models.IntegerField(default=8, verbose_name="أقل طول كلمة مرور")
+
+    # الإعداد الأولي
+    setup_completed = models.BooleanField(default=False, verbose_name="اكتمل الإعداد الأولي")
+
+    is_active = models.BooleanField(default=True, verbose_name="نشط")
 
     class Meta:
-        verbose_name = 'الشركة'
-        verbose_name_plural = 'الشركة'
+        verbose_name = "شركة"
+        verbose_name_plural = "الشركات"
 
     def __str__(self):
         return self.name
+
+    @classmethod
+    def get_main(cls):
+        """إرجاع الشركة الرئيسية — أو إنشائها إن لم توجد"""
+        obj, _ = cls.objects.get_or_create(
+            code='MAIN',
+            defaults={'name': 'الشركة الرئيسية'},
+        )
+        return obj
 
 
 # ===== الفرع =====

@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+{% block title %}{{ supplier.name }}{% endblock %}
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'partners:supplier_list' %}">الموردون</a></li>
+<li class="breadcrumb-item active">{{ supplier.name }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-building me-2 text-primary"></i>{{ supplier.name }}</h4>
+    <div class="d-flex gap-2">
+        <a href="{% url 'partners:supplier_statement' supplier.pk %}" class="btn btn-outline-info btn-sm">
+            <i class="bi bi-journal-text me-1"></i>كشف الحساب
+        </a>
+        <form method="post" action="{% url 'partners:supplier_toggle' supplier.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm {% if supplier.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %}">
+                {% if supplier.is_active %}<i class="bi bi-ban me-1"></i>تعطيل{% else %}<i class="bi bi-check-circle me-1"></i>تفعيل{% endif %}
+            </button>
+        </form>
+        <a href="{% url 'partners:supplier_update' supplier.pk %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-pencil me-1"></i>تعديل
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- البيانات الأساسية -->
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent fw-semibold">
+                <i class="bi bi-info-circle me-2 text-primary"></i>البيانات الأساسية
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-5 text-muted">الكود</dt>
+                    <dd class="col-7"><code>{{ supplier.code }}</code></dd>
+                    <dt class="col-5 text-muted">الاسم</dt>
+                    <dd class="col-7">{{ supplier.name }}</dd>
+                    <dt class="col-5 text-muted">النوع</dt>
+                    <dd class="col-7">{{ supplier.get_supplier_type_display }}</dd>
+                    <dt class="col-5 text-muted">الهاتف</dt>
+                    <dd class="col-7">{{ supplier.phone|default:"—" }}</dd>
+                    <dt class="col-5 text-muted">هاتف 2</dt>
+                    <dd class="col-7">{{ supplier.phone2|default:"—" }}</dd>
+                    <dt class="col-5 text-muted">الدولة</dt>
+                    <dd class="col-7">{{ supplier.country }}</dd>
+                    <dt class="col-5 text-muted">العنوان</dt>
+                    <dd class="col-7">{{ supplier.address|default:"—" }}</dd>
+                    <dt class="col-5 text-muted">الرقم الضريبي</dt>
+                    <dd class="col-7">{{ supplier.tax_number|default:"—" }}</dd>
+                    <dt class="col-5 text-muted">خاضع للضريبة</dt>
+                    <dd class="col-7">{% if supplier.is_taxable %}<span class="badge bg-warning text-dark">نعم</span>{% else %}<span class="badge bg-secondary">لا</span>{% endif %}</dd>
+                    <dt class="col-5 text-muted">شروط الدفع</dt>
+                    <dd class="col-7">{{ supplier.payment_terms }} يوم</dd>
+                    <dt class="col-5 text-muted">جهة الاتصال</dt>
+                    <dd class="col-7">{{ supplier.contact_person|default:"—" }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <!-- البيانات البنكية + إحصاءات -->
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-transparent fw-semibold">
+                <i class="bi bi-bank me-2 text-warning"></i>البيانات البنكية
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-5 text-muted">اسم البنك</dt>
+                    <dd class="col-7">{{ supplier.bank_name|default:"—" }}</dd>
+                    <dt class="col-5 text-muted">رقم الحساب</dt>
+                    <dd class="col-7">{{ supplier.bank_account|default:"—" }}</dd>
+                </dl>
+            </div>
+        </div>
+        <div class="row g-3">
+            <div class="col-6">
+                <div class="card border-0 shadow-sm text-center py-3">
+                    <h4 class="fw-bold text-success mb-0">{{ total_purchases|floatformat:0 }}</h4>
+                    <small class="text-muted">إجمالي المشتريات</small>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="card border-0 shadow-sm text-center py-3">
+                    <h4 class="fw-bold text-warning mb-0">{{ pending_orders }}</h4>
+                    <small class="text-muted">أوامر معلّقة</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- آخر أوامر الشراء -->
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent fw-semibold">
+                <i class="bi bi-cart3 me-2 text-info"></i>آخر أوامر الشراء
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>الرقم</th>
+                                <th>التاريخ</th>
+                                <th>الحالة</th>
+                                <th class="text-end">الإجمالي</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in recent_orders %}
+                            <tr>
+                                <td><code>{{ order.order_number }}</code></td>
+                                <td>{{ order.date }}</td>
+                                <td>{{ order.get_status_display }}</td>
+                                <td class="text-end">{{ order.total|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="4" class="text-center text-muted py-3">لا توجد أوامر</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

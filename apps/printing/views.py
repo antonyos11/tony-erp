@@ -3,7 +3,7 @@
 """
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.generic import TemplateView, View, ListView
 
 from apps.printing.models import PrintTemplate
@@ -136,3 +136,74 @@ class PrintTemplateListView(LoginRequiredMixin, ListView):
         ctx                 = super().get_context_data(**kwargs)
         ctx['template_types'] = PrintTemplate.TEMPLATE_TYPES
         return ctx
+
+
+# ══════════════════════════════════════════════════════
+# طباعة ملصقات المنتجات (Labels)
+# ══════════════════════════════════════════════════════
+
+class PrintProductLabelsView(LoginRequiredMixin, TemplateView):
+    """طباعة ملصقات أسعار/باركود لمجموعة منتجات"""
+    template_name = 'printing/product_labels.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from apps.inventory.models import Product
+
+        pks_param    = self.request.GET.get('products', '')
+        copies       = int(self.request.GET.get('copies', 1))
+        barcode_type = self.request.GET.get('type', 'code128')
+        show_price   = self.request.GET.get('show_price', '1') == '1'
+
+        labels = []
+        if pks_param:
+            pks = [p.strip() for p in pks_param.split(',') if p.strip().isdigit()]
+            products = Product.objects.filter(pk__in=pks, is_active=True)
+            for product in products:
+                barcode_html = generate_barcode_html(
+                    product_code=product.code,
+                    product_name=product.name,
+                    barcode_type=barcode_type,
+                )
+                for _ in range(copies):
+                    labels.append({
+                        'product': product,
+                        'barcode_html': barcode_html,
+                        'show_price': show_price,
+                    })
+
+        ctx['labels'] = labels
+        ctx['barcode_type'] = barcode_type
+        ctx['copies'] = copies
+        return ctx
+
+
+class PrintProductLabelsSelectorView(LoginRequiredMixin, View):
+    """صفحة اختيار منتجات لطباعة ملصقاتها"""
+    template_name = 'printing/label_selector.html'
+
+    def get(self, request):
+        from apps.inventory.models import Product, Category
+        products = Product.objects.filter(
+            is_active=True, is_deleted=False
+        ).select_related('category').order_by('code')
+        categories = Category.objects.filter(is_deleted=False)
+        return render(request, self.template_name, {
+            'products': products,
+            'categories': categories,
+        })
+
+    def post(self, request):
+        from django.shortcuts import render as _render
+        pks = request.POST.getlist('products')
+        copies = request.POST.get('copies', '1')
+        barcode_type = request.POST.get('type', 'code128')
+        show_price = request.POST.get('show_price', '1')
+        if not pks:
+            from django.contrib import messages as msg
+            msg.error(request, 'اختر منتجاً واحداً على الأقل')
+            return redirect('printing:label_selector')
+        pks_str = ','.join(pks)
+        return redirect(
+            f'/printing/labels/?products={pks_str}&copies={copies}&type={barcode_type}&show_price={show_price}'
+        )

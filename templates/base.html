@@ -89,6 +89,35 @@
             .sidebar-overlay.show { display: block; }
             .main-content { padding: 1rem !important; }
         }
+
+        /* ── تحسينات عامة للفورمات ── */
+        .form-control, .form-select {
+            border-radius: 8px;
+        }
+        .card {
+            border-radius: 12px;
+        }
+        .btn {
+            border-radius: 8px;
+        }
+        .btn-primary {
+            background: #1a73e8;
+            border-color: #1a73e8;
+        }
+        .btn-primary:hover {
+            background: #1558b0;
+            border-color: #1558b0;
+        }
+
+        /* ── Print CSS ── */
+        @media print {
+            #sidebar, .navbar, .breadcrumb, .btn, footer,
+            #sidebarToggle, .sidebar-overlay, form[method="get"] { display: none !important; }
+            .main-content { margin: 0 !important; padding: 0 !important; }
+            .card { box-shadow: none !important; border: 1px solid #dee2e6; }
+            .table { font-size: 10pt; }
+            a[href]::after { content: none !important; }
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -109,25 +138,92 @@
         <div class="collapse navbar-collapse" id="navbarTop">
             <ul class="navbar-nav ms-auto align-items-center gap-2">
                 {% if user.is_authenticated %}
+                <!-- Global Search -->
                 <li class="nav-item">
-                    <span class="nav-link text-white-50 small">
-                        <i class="bi bi-person-circle me-1"></i>{{ user.get_full_name|default:user.username }}
-                    </span>
+                    <form class="d-flex" action="{% url 'core:global_search' %}" method="GET">
+                        <input class="form-control form-control-sm" type="search" name="q"
+                               placeholder="🔍 بحث... (عميل، منتج، فاتورة)" 
+                               value="{{ request.GET.q }}" style="width: 260px;">
+                    </form>
                 </li>
-                {% if user.is_staff %}
+                <!-- Branch Switcher -->
+                {% if can_see_all_branches %}
                 <li class="nav-item">
-                    <a class="nav-link text-white-50 small" href="/admin/" target="_blank">
-                        <i class="bi bi-gear me-1"></i>الإدارة
-                    </a>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            🏢 {% if current_branch %}{{ current_branch.name }}{% else %}كل الفروع{% endif %}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item {% if not current_branch %}active{% endif %}" href="{% url 'core:switch_branch' %}?branch=all">🏢 كل الفروع</a></li>
+                            {% if all_branches %}
+                            <li><hr class="dropdown-divider"></li>
+                            {% for b in all_branches %}
+                            <li>
+                                <a class="dropdown-item {% if current_branch.id == b.id %}active{% endif %}" href="{% url 'core:switch_branch' %}?branch={{ b.id }}">
+                                    {{ b.name }}
+                                    {% if b.branch_type == 'franchise' %}<span class="badge bg-warning text-dark ms-1 small">توكيل</span>{% endif %}
+                                    {% if b.branch_type == 'distributor' %}<span class="badge bg-info text-dark ms-1 small">موزع</span>{% endif %}
+                                </a>
+                            </li>
+                            {% endfor %}
+                            {% endif %}
+                        </ul>
+                    </div>
+                </li>
+                {% elif current_branch %}
+                <li class="nav-item">
+                    <span class="navbar-text text-light small">🏢 {{ current_branch.name }}</span>
                 </li>
                 {% endif %}
+                <!-- جرس الإشعارات -->
                 <li class="nav-item">
-                    <form method="post" action="{% url 'logout' %}" class="d-inline">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-outline-light btn-sm">
-                            <i class="bi bi-box-arrow-right me-1"></i>خروج
+                    <div class="dropdown">
+                        <button class="btn btn-link text-light position-relative p-1" data-bs-toggle="dropdown" aria-expanded="false" title="الإشعارات">
+                            🔔
+                            {% if unread_notifications_count > 0 %}
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:0.65rem;">
+                                {{ unread_notifications_count }}
+                            </span>
+                            {% endif %}
                         </button>
-                    </form>
+                        <div class="dropdown-menu dropdown-menu-end" style="width: 350px; max-height: 400px; overflow-y: auto;">
+                            <h6 class="dropdown-header">الإشعارات</h6>
+                            {% for n in recent_notifications %}
+                            <a class="dropdown-item small {% if not n.is_read %}fw-bold{% endif %}" href="{% if n.action_url %}{{ n.action_url }}{% else %}{% url 'notifications:notification_list' %}{% endif %}">
+                                {% if n.notification_type == 'danger' %}🔴{% elif n.notification_type == 'warning' %}🟡{% elif n.notification_type == 'success' %}🟢{% else %}🔵{% endif %}
+                                {{ n.title }}
+                                <br><small class="text-muted">{{ n.created_at|timesince }} مضت</small>
+                            </a>
+                            {% empty %}
+                            <span class="dropdown-item text-muted small">لا توجد إشعارات جديدة</span>
+                            {% endfor %}
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item text-center small" href="{% url 'notifications:notification_list' %}">عرض الكل</a>
+                        </div>
+                    </div>
+                </li>
+                <!-- User info dropdown -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link text-white-50 small dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle me-1"></i>{{ user.get_full_name|default:user.username }}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{% url 'core:my_profile' %}"><i class="bi bi-person me-2"></i>حسابي</a></li>
+                        <li><a class="dropdown-item" href="{% url 'core:my_change_password' %}"><i class="bi bi-key me-2"></i>تغيير كلمة المرور</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        {% if user.is_staff %}
+                        <li><a class="dropdown-item" href="/admin/" target="_blank"><i class="bi bi-gear me-2"></i>الإدارة</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        {% endif %}
+                        <li>
+                            <form method="post" action="{% url 'logout' %}" class="d-inline w-100">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item text-danger">
+                                    <i class="bi bi-box-arrow-right me-2"></i>خروج
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
                 </li>
                 {% endif %}
             </ul>
@@ -139,251 +235,64 @@
 
 <div class="wrapper d-flex">
 
-    <!-- ==================== SIDEBAR ==================== -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- SIDEBAR ديناميكي — Sprint 22A                         -->
+    <!-- ══════════════════════════════════════════════════════ -->
     <aside class="sidebar bg-dark text-white" id="sidebar">
 
-        <!-- 🏠 الرئيسية -->
-        <div class="py-2">
-            <span class="sidebar-section-label">🏠 الرئيسية</span>
-            <ul class="nav flex-column">
-                <li class="nav-item">
-                    <a class="nav-link sidebar-link {% block nav_dashboard %}{% endblock %}" href="{% url 'core:dashboard' %}">
-                        <i class="bi bi-speedometer2 me-2"></i>لوحة التحكم
-                    </a>
-                </li>
-            </ul>
+        <!-- الشعار -->
+        <div class="py-2 px-3 border-bottom border-secondary text-center">
+            <span class="fw-bold fs-6">🏭 RITA ERP</span>
         </div>
 
-        <div class="sidebar-divider"></div>
+        <!-- القوائم الديناميكية -->
+        <ul class="nav flex-column p-2">
+            {% for section in sidebar_menu %}
 
-        <!-- 💰 المحاسبة -->
-        <div class="py-1">
-            <span class="sidebar-section-label">💰 المحاسبة</span>
-            <ul class="nav flex-column">
-                <li class="nav-item">
-                    <a class="nav-link sidebar-link d-flex justify-content-between align-items-center {% block nav_accounts %}{% endblock %}"
-                       href="#accountsMenu" data-bs-toggle="collapse" role="button" aria-expanded="false">
-                        <span><i class="bi bi-journal-text me-2"></i>المحاسبة</span>
-                        <i class="bi bi-chevron-down small toggle-icon"></i>
-                    </a>
-                    <div class="collapse {% block nav_accounts_open %}{% endblock %}" id="accountsMenu">
-                        <ul class="nav flex-column ps-3 pe-1 border-start border-secondary ms-3 sidebar-submenu">
-                            <li><a class="nav-link" href="{% url 'accounts:chart_of_accounts' %}"><i class="bi bi-diagram-3 me-2"></i>دليل الحسابات</a></li>
-                            <li><a class="nav-link" href="{% url 'accounts:journal_list' %}"><i class="bi bi-list-columns me-2"></i>القيود المحاسبية</a></li>
-                            <li><a class="nav-link" href="{% url 'accounts:journal_create' %}"><i class="bi bi-plus-square me-2"></i>قيد يدوي جديد</a></li>
-                            <li><a class="nav-link" href="{% url 'accounts:trial_balance' %}"><i class="bi bi-bar-chart-steps me-2"></i>ميزان المراجعة</a></li>
-                            <li><a class="nav-link" href="{% url 'accounts:income_statement' %}"><i class="bi bi-graph-up-arrow me-2"></i>قائمة الدخل</a></li>
-                            <li><a class="nav-link" href="{% url 'accounts:balance_sheet' %}"><i class="bi bi-currency-exchange me-2"></i>المركز المالي</a></li>
-                            <li><a class="nav-link" href="{% url 'accounts:account_statement' %}"><i class="bi bi-file-text me-2"></i>كشف حساب</a></li>
-                            <li><a class="nav-link" href="{% url 'accounts:fiscal_year_list' %}"><i class="bi bi-calendar3 me-2"></i>السنوات المالية</a></li>
-                        </ul>
-                    </div>
-                </li>
-            </ul>
-        </div>
+            {% if section.children %}
+            <!-- قسم مع عناصر فرعية -->
+            <li class="nav-item mt-1">
+                <a class="nav-link sidebar-link text-white d-flex justify-content-between align-items-center"
+                   data-bs-toggle="collapse" href="#menu_{{ section.id }}"
+                   role="button" aria-expanded="{% if request.resolver_match.namespace == section.module %}true{% else %}false{% endif %}">
+                    <span>{{ section.icon }} {{ section.title }}</span>
+                    <small class="text-white-50">▾</small>
+                </a>
+                <div class="collapse {% if request.resolver_match.namespace == section.module %}show{% endif %}"
+                     id="menu_{{ section.id }}">
+                    <ul class="nav flex-column ps-3 pe-1 border-start border-secondary ms-3 sidebar-submenu">
+                        {% for child in section.children %}
+                        <li class="nav-item">
+                            <a class="nav-link text-white-50 py-1 sidebar-link small"
+                               href="{{ child.href }}">
+                                {{ child.title }}
+                                {% if 'approvals' in child.href and pending_approvals > 0 %}
+                                <span class="badge bg-danger ms-1">{{ pending_approvals }}</span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </li>
 
-        <div class="sidebar-divider"></div>
+            {% else %}
+            <!-- رابط مباشر (Dashboard) -->
+            <li class="nav-item mt-1">
+                <a class="nav-link sidebar-link text-white {% if request.path == '/' %}fw-bold active{% endif %}"
+                   href="{{ section.href|default:'/' }}">
+                    {{ section.icon }} {{ section.title }}
+                </a>
+            </li>
+            {% endif %}
 
-        <!-- 📦 المخزون -->
-        <div class="py-1">
-            <span class="sidebar-section-label">📦 المخزون</span>
-            <ul class="nav flex-column">
-                <li class="nav-item">
-                    <a class="nav-link sidebar-link d-flex justify-content-between align-items-center {% block nav_inventory %}{% endblock %}"
-                       href="#inventoryMenu" data-bs-toggle="collapse" role="button" aria-expanded="false">
-                        <span><i class="bi bi-box-seam me-2"></i>المخزون</span>
-                        <i class="bi bi-chevron-down small toggle-icon"></i>
-                    </a>
-                    <div class="collapse {% block nav_inventory_open %}{% endblock %}" id="inventoryMenu">
-                        <ul class="nav flex-column ps-3 pe-1 border-start border-secondary ms-3 sidebar-submenu">
-                            <li><a class="nav-link" href="{% url 'inventory:product_list' %}"><i class="bi bi-box me-2"></i>المنتجات</a></li>
-                            <li><a class="nav-link" href="{% url 'inventory:product_create' %}"><i class="bi bi-plus-square me-2"></i>إضافة منتج</a></li>
-                            <li><a class="nav-link" href="{% url 'inventory:stock_levels' %}"><i class="bi bi-layers me-2"></i>أرصدة المخزون</a></li>
-                            <li><a class="nav-link" href="{% url 'inventory:stock_moves' %}"><i class="bi bi-arrow-left-right me-2"></i>حركات المخزون</a></li>
-                            <li><a class="nav-link" href="{% url 'inventory:stock_receive' %}"><i class="bi bi-box-arrow-in-down me-2"></i>استلام مخزون</a></li>
-                            <li><a class="nav-link" href="{% url 'inventory:stock_transfer' %}"><i class="bi bi-arrow-repeat me-2"></i>تحويل مخزون</a></li>
-                            <li><a class="nav-link" href="{% url 'inventory:stock_adjustment' %}"><i class="bi bi-clipboard-check me-2"></i>تسوية جرد</a></li>
-                            <li><a class="nav-link" href="{% url 'inventory:low_stock' %}"><i class="bi bi-exclamation-triangle me-2 text-warning"></i>مخزون منخفض</a></li>
-                            <li><a class="nav-link" href="{% url 'inventory:valuation' %}"><i class="bi bi-currency-dollar me-2"></i>تقييم المخزون</a></li>
-                            <li><a class="nav-link" href="{% url 'inventory:bom_list' %}"><i class="bi bi-list-nested me-2"></i>قوائم المواد (BOM)</a></li>
-                            <li><a class="nav-link" href="{% url 'inventory:category_list' %}"><i class="bi bi-tags me-2"></i>التصنيفات</a></li>
-                        </ul>
-                    </div>
-                </li>
-            </ul>
-        </div>
-
-        <div class="sidebar-divider"></div>
-
-        <!-- 🏭 الإنتاج -->
-        <div class="py-1">
-            <span class="sidebar-section-label">🏭 الإنتاج</span>
-            <ul class="nav flex-column">
-                <li class="nav-item">
-                    <a class="nav-link sidebar-link d-flex justify-content-between align-items-center {% block nav_production %}{% endblock %}"
-                       href="#productionMenu" data-bs-toggle="collapse" role="button" aria-expanded="false">
-                        <span><i class="bi bi-gear-wide-connected me-2"></i>الإنتاج</span>
-                        <i class="bi bi-chevron-down small toggle-icon"></i>
-                    </a>
-                    <div class="collapse {% block nav_production_open %}{% endblock %}" id="productionMenu">
-                        <ul class="nav flex-column ps-3 pe-1 border-start border-secondary ms-3 sidebar-submenu">
-                            <li><a class="nav-link" href="{% url 'production:order_list' %}"><i class="bi bi-list-ul me-2"></i>أوامر الإنتاج</a></li>
-                            <li><a class="nav-link" href="{% url 'production:order_create' %}"><i class="bi bi-plus-square me-2"></i>أمر إنتاج جديد</a></li>
-                            <li><a class="nav-link" href="{% url 'production:cost_report' %}"><i class="bi bi-bar-chart-line me-2"></i>تقرير تكلفة الإنتاج</a></li>
-                        </ul>
-                    </div>
-                </li>
-            </ul>
-        </div>
-
-        <div class="sidebar-divider"></div>
-
-        <!-- 🛒 المبيعات -->
-        <div class="py-1">
-            <span class="sidebar-section-label">🛒 المبيعات</span>
-            <ul class="nav flex-column">
-                <li class="nav-item">
-                    <a class="nav-link sidebar-link d-flex justify-content-between align-items-center {% block nav_sales %}{% endblock %}"
-                       href="#salesMenu" data-bs-toggle="collapse" role="button" aria-expanded="false">
-                        <span><i class="bi bi-cart3 me-2"></i>المبيعات</span>
-                        <i class="bi bi-chevron-down small toggle-icon"></i>
-                    </a>
-                    <div class="collapse {% block nav_sales_open %}{% endblock %}" id="salesMenu">
-                        <ul class="nav flex-column ps-3 pe-1 border-start border-secondary ms-3 sidebar-submenu">
-                            <li><a class="nav-link" href="{% url 'sales:invoice_list' %}"><i class="bi bi-receipt me-2"></i>فواتير البيع</a></li>
-                            <li><a class="nav-link" href="{% url 'sales:invoice_create' %}"><i class="bi bi-plus-square me-2"></i>فاتورة جديدة</a></li>
-                            <li><a class="nav-link" href="{% url 'sales:customer_list' %}"><i class="bi bi-people me-2"></i>العملاء</a></li>
-                            <li><a class="nav-link" href="{% url 'sales:return_list' %}"><i class="bi bi-arrow-return-left me-2"></i>المرتجعات</a></li>
-                            <li><a class="nav-link" href="{% url 'sales:price_lists' %}"><i class="bi bi-tags me-2"></i>قوائم الأسعار</a></li>
-                        </ul>
-                    </div>
-                </li>
-            </ul>
-        </div>
-
-        <div class="sidebar-divider"></div>
-
-        <!-- 🛍️ المشتريات -->
-        <div class="py-1">
-            <span class="sidebar-section-label">🛍️ المشتريات</span>
-            <ul class="nav flex-column">
-                <li class="nav-item">
-                    <a class="nav-link sidebar-link d-flex justify-content-between align-items-center {% block nav_purchases %}{% endblock %}"
-                       href="#purchasesMenu" data-bs-toggle="collapse" role="button" aria-expanded="false">
-                        <span><i class="bi bi-truck me-2"></i>المشتريات</span>
-                        <i class="bi bi-chevron-down small toggle-icon"></i>
-                    </a>
-                    <div class="collapse {% block nav_purchases_open %}{% endblock %}" id="purchasesMenu">
-                        <ul class="nav flex-column ps-3 pe-1 border-start border-secondary ms-3 sidebar-submenu">
-                            <li><a class="nav-link" href="{% url 'purchases:order_list' %}"><i class="bi bi-list-ul me-2"></i>أوامر الشراء</a></li>
-                            <li><a class="nav-link" href="{% url 'purchases:order_create' %}"><i class="bi bi-plus-square me-2"></i>أمر شراء جديد</a></li>
-                            <li><a class="nav-link" href="{% url 'purchases:supplier_list' %}"><i class="bi bi-building me-2"></i>الموردين</a></li>
-                        </ul>
-                    </div>
-                </li>
-            </ul>
-        </div>
-
-        <div class="sidebar-divider"></div>
-
-        <!-- 🏦 الخزينة -->
-        <div class="py-1">
-            <span class="sidebar-section-label">🏦 الخزينة</span>
-            <ul class="nav flex-column">
-                <li class="nav-item">
-                    <a class="nav-link sidebar-link d-flex justify-content-between align-items-center {% block nav_treasury %}{% endblock %}"
-                       href="#treasuryMenu" data-bs-toggle="collapse" role="button" aria-expanded="false">
-                        <span><i class="bi bi-bank me-2"></i>الخزينة والبنوك</span>
-                        <i class="bi bi-chevron-down small toggle-icon"></i>
-                    </a>
-                    <div class="collapse {% block nav_treasury_open %}{% endblock %}" id="treasuryMenu">
-                        <ul class="nav flex-column ps-3 pe-1 border-start border-secondary ms-3 sidebar-submenu">
-                            <li><a class="nav-link" href="{% url 'treasury:bank_account_list' %}"><i class="bi bi-bank me-2"></i>الحسابات البنكية</a></li>
-                            <li><a class="nav-link" href="{% url 'treasury:cashbox_list' %}"><i class="bi bi-safe me-2"></i>الخزائن النقدية</a></li>
-                            <li><a class="nav-link" href="{% url 'treasury:check_list' %}"><i class="bi bi-credit-card me-2"></i>الشيكات</a></li>
-                            <li><a class="nav-link" href="{% url 'treasury:transfer_list' %}"><i class="bi bi-arrow-left-right me-2"></i>التحويلات</a></li>
-                            <li><a class="nav-link" href="{% url 'treasury:bank_reconciliation' %}"><i class="bi bi-check2-all me-2"></i>المطابقة البنكية</a></li>
-                        </ul>
-                    </div>
-                </li>
-            </ul>
-        </div>
-
-        <div class="sidebar-divider"></div>
-
-        <!-- 📊 التقارير -->
-        <div class="py-1">
-            <span class="sidebar-section-label">📊 التقارير</span>
-            <ul class="nav flex-column">
-                <li class="nav-item">
-                    <a class="nav-link sidebar-link d-flex justify-content-between align-items-center {% block nav_reports %}{% endblock %}"
-                       href="#reportsMenu" data-bs-toggle="collapse" role="button" aria-expanded="false">
-                        <span><i class="bi bi-file-earmark-bar-graph me-2"></i>التقارير</span>
-                        <i class="bi bi-chevron-down small toggle-icon"></i>
-                    </a>
-                    <div class="collapse {% block nav_reports_open %}{% endblock %}" id="reportsMenu">
-                        <ul class="nav flex-column ps-3 pe-1 border-start border-secondary ms-3 sidebar-submenu">
-                            <li><a class="nav-link" href="{% url 'reports:sales_summary' %}"><i class="bi bi-bar-chart-line me-2"></i>ملخص المبيعات</a></li>
-                            <li><a class="nav-link" href="{% url 'reports:profitability' %}"><i class="bi bi-trophy me-2"></i>ربحية المنتجات</a></li>
-                            <li><a class="nav-link" href="{% url 'reports:product_cost' %}"><i class="bi bi-gem me-2"></i>تكلفة المنتج الفعلية</a></li>
-                            <li><a class="nav-link" href="{% url 'reports:branch_scorecard' %}"><i class="bi bi-building me-2"></i>تقييم الفروع</a></li>
-                            <li><a class="nav-link" href="{% url 'reports:aging' %}"><i class="bi bi-hourglass-split me-2"></i>أعمار الديون</a></li>
-                            <li><a class="nav-link" href="{% url 'reports:dead_stock' %}"><i class="bi bi-clock-history me-2"></i>المخزون الراكد</a></li>
-                            <li><a class="nav-link" href="{% url 'reports:vat_report' %}"><i class="bi bi-receipt-cutoff me-2"></i>الإقرار الضريبي</a></li>
-                        </ul>
-                    </div>
-                </li>
-            </ul>
-        </div>
-
-        <div class="sidebar-divider"></div>
-
-        <!-- 🔐 الصلاحيات -->
-        <div class="py-1">
-            <span class="sidebar-section-label">🔐 الصلاحيات</span>
-            <ul class="nav flex-column">
-                <li class="nav-item">
-                    <a class="nav-link sidebar-link d-flex justify-content-between align-items-center {% block nav_authorization %}{% endblock %}"
-                       href="#authorizationMenu" data-bs-toggle="collapse" role="button" aria-expanded="false">
-                        <span><i class="bi bi-shield-lock me-2"></i>الصلاحيات</span>
-                        <i class="bi bi-chevron-down small toggle-icon"></i>
-                    </a>
-                    <div class="collapse" id="authorizationMenu">
-                        <ul class="nav flex-column ps-3 pe-1 border-start border-secondary ms-3 sidebar-submenu">
-                            <li><a class="nav-link" href="{% url 'authorization:role_list' %}"><i class="bi bi-shield-check me-2"></i>الأدوار والصلاحيات</a></li>
-                            <li><a class="nav-link" href="{% url 'authorization:assign_role' %}"><i class="bi bi-person-gear me-2"></i>تعيين الأدوار</a></li>
-                            <li><a class="nav-link" href="{% url 'authorization:audit_log' %}"><i class="bi bi-journal-text me-2"></i>سجل التدقيق</a></li>
-                            <li><a class="nav-link" href="{% url 'authorization:delegation_list' %}"><i class="bi bi-arrow-left-right me-2"></i>التفويضات</a></li>
-                        </ul>
-                    </div>
-                </li>
-            </ul>
-        </div>
-
-        <div class="sidebar-divider"></div>
-
-        <!-- ⚙️ الإعدادات -->
-        <div class="py-1 pb-4">
-            <span class="sidebar-section-label">⚙️ الإعدادات</span>
-            <ul class="nav flex-column">
-                <li class="nav-item">
-                    <a class="nav-link sidebar-link d-flex justify-content-between align-items-center {% block nav_printing %}{% endblock %}"
-                       href="#settingsMenu" data-bs-toggle="collapse" role="button" aria-expanded="false">
-                        <span><i class="bi bi-gear me-2"></i>الإعدادات</span>
-                        <i class="bi bi-chevron-down small toggle-icon"></i>
-                    </a>
-                    <div class="collapse {% block nav_printing_open %}{% endblock %}" id="settingsMenu">
-                        <ul class="nav flex-column ps-3 pe-1 border-start border-secondary ms-3 sidebar-submenu">
-                            <li><a class="nav-link" href="{% url 'printing:barcode_sheet' %}"><i class="bi bi-upc-scan me-2"></i>طباعة باركود</a></li>
-                            <li><a class="nav-link" href="{% url 'printing:template_list' %}"><i class="bi bi-file-earmark-text me-2"></i>قوالب الطباعة</a></li>
-                            {% if user.is_staff %}
-                            <li><a class="nav-link" href="/admin/" target="_blank"><i class="bi bi-gear-wide me-2"></i>لوحة الإدارة</a></li>
-                            {% endif %}
-                        </ul>
-                    </div>
-                </li>
-            </ul>
-        </div>
+            {% empty %}
+            <!-- لا توجد قوائم — المستخدم بدون صلاحيات -->
+            <li class="nav-item p-3">
+                <span class="text-white-50 small">لا توجد قوائم متاحة</span>
+            </li>
+            {% endfor %}
+        </ul>
 
     </aside>
     <!-- ==================== END SIDEBAR ==================== -->
@@ -405,13 +314,21 @@
         </nav>
         {% endblock %}
 
-        <!-- Messages -->
+        <!-- Toast Messages -->
         {% if messages %}
-        <div class="messages mb-3">
+        <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
             {% for message in messages %}
-            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <div class="toast align-items-center text-bg-{{ message.tags|default:'secondary' }} border-0 show mb-2" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="5000" data-bs-autohide="true">
+                <div class="d-flex">
+                    <div class="toast-body fw-semibold">
+                        {% if message.tags == 'success' %}<i class="bi bi-check-circle-fill me-2"></i>
+                        {% elif message.tags == 'error' or message.tags == 'danger' %}<i class="bi bi-x-circle-fill me-2"></i>
+                        {% elif message.tags == 'warning' %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        {% else %}<i class="bi bi-info-circle-fill me-2"></i>{% endif %}
+                        {{ message }}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
             </div>
             {% endfor %}
         </div>
@@ -422,15 +339,17 @@
 </div>
 
 <!-- Footer -->
-<footer class="footer bg-light border-top py-2 text-center text-muted small">
+<footer class="footer bg-white border-top py-2 text-center text-muted small">
     <div class="container-fluid">
-        RITA ERP &copy; {% now "Y" %} — نظام إدارة موارد المصنع
+        <span class="fw-semibold text-primary">RITA ERP</span> v1.0 &copy; {% now "Y" %} — نظام إدارة موارد المصنع
     </div>
 </footer>
 
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{% static 'js/main.js' %}"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="{% static 'js/charts.js' %}"></script>
 <script>
 (function () {
     'use strict';
@@ -478,5 +397,27 @@
 })();
 </script>
 {% block extra_js %}{% endblock %}
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="d-none position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style="background:rgba(0,0,0,.45);z-index:10000;">
+    <div class="spinner-border text-light" style="width:3rem;height:3rem;" role="status">
+        <span class="visually-hidden">جاري التحميل...</span>
+    </div>
+</div>
+<script>
+(function(){
+    // Initialize toasts
+    document.querySelectorAll('.toast').forEach(function(el){
+        new bootstrap.Toast(el, {delay: 5000}).show();
+    });
+    // Loading overlay on form submit
+    document.querySelectorAll('form[method="post"]').forEach(function(form){
+        form.addEventListener('submit', function(){
+            var overlay = document.getElementById('loadingOverlay');
+            if(overlay){ overlay.classList.remove('d-none'); overlay.classList.add('d-flex'); }
+        });
+    });
+})();
+</script>
 </body>
 </html>

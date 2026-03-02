@@ -13,6 +13,7 @@ from apps.treasury.models import BankAccount, CashBox, Check, MoneyTransfer
 from apps.treasury.services.treasury_engine import TreasuryEngine
 from apps.treasury.services.check_engine import CheckEngine
 from apps.core.models import Branch
+from apps.core.mixins import apply_branch_filter
 
 
 # ══════════════════════════════════════════════════════
@@ -94,7 +95,8 @@ class BankAccountListView(LoginRequiredMixin, ListView):
     context_object_name = 'bank_accounts'
 
     def get_queryset(self):
-        return BankAccount.objects.filter(is_deleted=False).select_related('branch', 'account')
+        qs = BankAccount.objects.filter(is_deleted=False).select_related('branch', 'account')
+        return apply_branch_filter(qs, self.request)
 
 
 class BankAccountCreateView(LoginRequiredMixin, CreateView):
@@ -120,7 +122,8 @@ class CashBoxListView(LoginRequiredMixin, ListView):
     context_object_name = 'cashboxes'
 
     def get_queryset(self):
-        return CashBox.objects.filter(is_deleted=False).select_related('branch', 'account', 'responsible')
+        qs = CashBox.objects.filter(is_deleted=False).select_related('branch', 'account', 'responsible')
+        return apply_branch_filter(qs, self.request)
 
 
 class CashBoxCreateView(LoginRequiredMixin, CreateView):
@@ -289,3 +292,157 @@ class BankReconciliationView(LoginRequiredMixin, TemplateView):
             ctx['transfers_out'] = MoneyTransfer.objects.filter(from_bank=bank, is_deleted=False)
 
         return ctx
+
+
+# ══════════════════════════════════════════════════════
+# Sprint 20 — إيداع وسحب ومحطات
+# ══════════════════════════════════════════════════════
+
+from django.shortcuts import render
+from decimal import Decimal
+
+
+class CashBoxDepositView(LoginRequiredMixin, View):
+    """إيداع في خزنة"""
+    def get(self, request, pk):
+        cashbox = get_object_or_404(CashBox, pk=pk)
+        return render(request, 'treasury/cashbox_deposit.html', {
+            'title': f'إيداع في الخزنة: {cashbox.name}',
+            'cashbox': cashbox,
+            'operation': 'deposit',
+        })
+
+    def post(self, request, pk):
+        cashbox = get_object_or_404(CashBox, pk=pk)
+        amount = request.POST.get('amount', '0')
+        description = request.POST.get('description', 'إيداع')
+        try:
+            amt = Decimal(str(amount))
+            if amt <= 0:
+                raise ValueError('المبلغ يجب أن يكون موجباً')
+            TreasuryEngine.cashbox_deposit(
+                cashbox=cashbox,
+                amount=amt,
+                description=description,
+                user=request.user,
+            )
+            messages.success(request, f'تم إيداع {amt:,.2f} في الخزنة {cashbox.name}')
+        except Exception as e:
+            messages.error(request, f'خطأ: {e}')
+        return redirect('treasury:cashbox_list')
+
+
+class CashBoxWithdrawView(LoginRequiredMixin, View):
+    """سحب من خزنة"""
+    def get(self, request, pk):
+        cashbox = get_object_or_404(CashBox, pk=pk)
+        return render(request, 'treasury/cashbox_deposit.html', {
+            'title': f'سحب من الخزنة: {cashbox.name}',
+            'cashbox': cashbox,
+            'operation': 'withdraw',
+        })
+
+    def post(self, request, pk):
+        cashbox = get_object_or_404(CashBox, pk=pk)
+        amount = request.POST.get('amount', '0')
+        description = request.POST.get('description', 'سحب')
+        try:
+            amt = Decimal(str(amount))
+            if amt <= 0:
+                raise ValueError('المبلغ يجب أن يكون موجباً')
+            TreasuryEngine.cashbox_withdraw(
+                cashbox=cashbox,
+                amount=amt,
+                description=description,
+                user=request.user,
+            )
+            messages.success(request, f'تم سحب {amt:,.2f} من الخزنة {cashbox.name}')
+        except Exception as e:
+            messages.error(request, f'خطأ: {e}')
+        return redirect('treasury:cashbox_list')
+
+
+class CashBoxStatementView(LoginRequiredMixin, View):
+    """كشف حركة الخزنة"""
+    def get(self, request, pk):
+        cashbox = get_object_or_404(CashBox, pk=pk)
+        try:
+            transactions = cashbox.transactions.order_by('date').all()
+        except Exception:
+            transactions = []
+        return render(request, 'treasury/cashbox_statement.html', {
+            'title': f'حركة الخزنة: {cashbox.name}',
+            'cashbox': cashbox,
+            'transactions': transactions,
+        })
+
+
+class BankDepositView(LoginRequiredMixin, View):
+    """إيداع في بنك"""
+    def get(self, request, pk):
+        bank = get_object_or_404(BankAccount, pk=pk)
+        return render(request, 'treasury/bank_deposit.html', {
+            'title': f'إيداع في البنك: {bank.name}',
+            'bank': bank,
+            'operation': 'deposit',
+        })
+
+    def post(self, request, pk):
+        bank = get_object_or_404(BankAccount, pk=pk)
+        amount = request.POST.get('amount', '0')
+        description = request.POST.get('description', 'إيداع بنكي')
+        try:
+            amt = Decimal(str(amount))
+            TreasuryEngine.bank_deposit(
+                bank_account=bank,
+                amount=amt,
+                description=description,
+                user=request.user,
+            )
+            messages.success(request, f'تم الإيداع {amt:,.2f} في البنك {bank.name}')
+        except Exception as e:
+            messages.error(request, f'خطأ: {e}')
+        return redirect('treasury:bank_account_list')
+
+
+class BankWithdrawView(LoginRequiredMixin, View):
+    """سحب من بنك"""
+    def get(self, request, pk):
+        bank = get_object_or_404(BankAccount, pk=pk)
+        return render(request, 'treasury/bank_deposit.html', {
+            'title': f'سحب من البنك: {bank.name}',
+            'bank': bank,
+            'operation': 'withdraw',
+        })
+
+    def post(self, request, pk):
+        bank = get_object_or_404(BankAccount, pk=pk)
+        amount = request.POST.get('amount', '0')
+        description = request.POST.get('description', 'سحب بنكي')
+        try:
+            amt = Decimal(str(amount))
+            TreasuryEngine.bank_withdraw(
+                bank_account=bank,
+                amount=amt,
+                description=description,
+                user=request.user,
+            )
+            messages.success(request, f'تم السحب {amt:,.2f} من البنك {bank.name}')
+        except Exception as e:
+            messages.error(request, f'خطأ: {e}')
+        return redirect('treasury:bank_account_list')
+
+
+class BankStatementView(LoginRequiredMixin, View):
+    """كشف حركة البنك"""
+    def get(self, request, pk):
+        bank = get_object_or_404(BankAccount, pk=pk)
+        try:
+            transactions = bank.transactions.order_by('date').all()
+        except Exception:
+            transactions = []
+        return render(request, 'treasury/bank_statement.html', {
+            'title': f'حركة البنك: {bank.name}',
+            'bank': bank,
+            'transactions': transactions,
+        })

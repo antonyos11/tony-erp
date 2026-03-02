@@ -64,6 +64,93 @@ class AuditMiddleware:
         return 'unknown'
 
 
+# ═══════════════════════════════════════════════════════════════
+# Sprint 22A — ServerEnforcementMiddleware
+# ═══════════════════════════════════════════════════════════════
+
+class ServerEnforcementMiddleware:
+    """
+    طبقة الحماية في السيرفر
+    ══════════════════════════════
+    حتى لو حد كتب URL يدوي — النظام يمنعه
+    """
+
+    MODULE_MAP = {
+        '/accounts/': 'accounts',
+        '/inventory/': 'inventory',
+        '/production/': 'production',
+        '/sales/': 'sales',
+        '/purchases/': 'purchases',
+        '/hr/': 'hr',
+        '/crm/': 'crm',
+        '/quotations/': 'quotations',
+        '/treasury/': 'treasury',
+        '/expenses/': 'expenses',
+        '/delivery/': 'delivery',
+        '/warranty/': 'warranty',
+        '/reports/': 'reports',
+        '/authorization/': 'authorization',
+        '/notifications/': 'notifications',
+    }
+
+    EXEMPT_PREFIXES = [
+        '/', '/auth/', '/admin/', '/api/', '/static/', '/media/',
+        '/search/', '/profile/', '/switch-branch/', '/production/display/',
+        '/authorization/',  # Sprint 22A Part 2 exemption added below
+        '/users/', '/delegations/',  # يُدار بـ DelegationEngine   # تُدار صلاحياتها على مستوى الـ views مثل PermissionMiddleware القديم
+    ]
+    EXEMPT_EXACT = ['/', '/auth/login/', '/auth/logout/']
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if not request.user.is_authenticated:
+            return self.get_response(request)
+
+        if request.user.is_superuser:
+            return self.get_response(request)
+
+        path = request.path
+
+        if path in self.EXEMPT_EXACT:
+            return self.get_response(request)
+        for prefix in self.EXEMPT_PREFIXES:
+            if path == prefix or (prefix != '/' and path.startswith(prefix)):
+                return self.get_response(request)
+
+        module = None
+        for prefix, mod in self.MODULE_MAP.items():
+            if path.startswith(prefix):
+                module = mod
+                break
+
+        if path.startswith('/branches/') or path.startswith('/warehouses/') or path.startswith('/users/'):
+            module = 'settings'
+
+        if not module:
+            return self.get_response(request)
+
+        action = 'view' if request.method == 'GET' else 'create'
+
+        from apps.authorization.services.permission_engine import PermissionEngine
+        from django.contrib import messages
+        from django.shortcuts import redirect
+
+        if not PermissionEngine.has_any_module_access(request.user, module):
+            PermissionEngine.log_violation(
+                user=request.user,
+                url=path,
+                module=module,
+                action=action,
+                request=request,
+            )
+            messages.error(request, "⛔ ليس لديك صلاحية للوصول لهذا القسم")
+            return redirect('core:dashboard')
+
+        return self.get_response(request)
+
+
 class PermissionMiddleware:
     """يتحقق من الصلاحيات حسب الـ URL"""
 
@@ -158,3 +245,74 @@ class PermissionMiddleware:
                 }, status=403)
 
         return self.get_response(request)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Sprint 25 — Content Security Policy Middleware
+# ═══════════════════════════════════════════════════════════════
+
+class ContentSecurityPolicyMiddleware:
+    """
+    إضافة Content-Security-Policy headers إلى كل Response
+    يحمي من XSS وCode Injection
+    """
+
+    CSP_POLICY = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; "
+        "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com fonts.googleapis.com; "
+        "font-src 'self' fonts.gstatic.com cdnjs.cloudflare.com data:; "
+        "img-src 'self' data: blob:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self';"
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        response['Content-Security-Policy'] = self.CSP_POLICY
+        response['X-Content-Type-Options'] = 'nosniff'
+        response['X-Frame-Options'] = 'DENY'
+        response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        response['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
+        return response
+
+
+# ═══════════════════════════════════════════════════════════════
+# Sprint 25 — Brute Force Request Middleware
+# ═══════════════════════════════════════════════════════════════
+
+class BruteForceMiddleware:
+    """
+    Middleware يعترض طلبات تسجيل الدخول ويتحقق من قفل الحساب
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        return self.get_response(request)
+
+    def process_view(self, request, view_func, view_args, view_kwargs):
+        """قبل تنفيذ الـ view — تحقق من قفل الحساب"""
+        if request.method == 'POST' and request.path in ('/auth/login/', '/accounts/login/'):
+            username = request.POST.get('username', '')
+            ip = get_client_ip(request)
+            from apps.authorization.security import check_brute_force
+            state = check_brute_force(username, ip)
+            if state['locked']:
+                from django.contrib import messages
+                messages.error(
+                    request,
+                    f"⛔ تم تجميد الحساب بسبب تكرار المحاولات الخاطئة. "
+                    f"يُرجى المحاولة بعد {state['remaining_minutes']} دقيقة."
+                )
+                return render(request, 'registration/login.html', {
+                    'locked': True,
+                    'remaining_minutes': state['remaining_minutes'],
+                }, status=429)
+        return None

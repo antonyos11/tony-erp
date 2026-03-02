@@ -205,3 +205,171 @@ class TaxTransaction(AuditMixin):
     def __str__(self):
         return f'{self.get_tax_type_display()} - {self.tax_amount}'
 
+
+# ══════════════════════════════════════════════════════════════════════
+# Sprint 22B — محاسبة التكاليف الصناعية + الميزانيات
+# ══════════════════════════════════════════════════════════════════════
+
+
+class CostAllocation(AuditMixin):
+    """
+    تحميل تكاليف على أوامر الإنتاج
+    كل تكلفة (خامة / عمالة / overhead) تتحمل على أمر إنتاج محدد
+    """
+    COST_TYPES = [
+        ('material', 'خامات مباشرة'),
+        ('labor', 'عمالة مباشرة'),
+        ('overhead', 'تكاليف غير مباشرة'),
+        ('depreciation', 'إهلاك'),
+        ('utility', 'مرافق'),
+        ('other', 'أخرى'),
+    ]
+
+    production_order = models.ForeignKey(
+        'production.ProductionOrder', on_delete=models.CASCADE,
+        related_name='cost_allocations', verbose_name='أمر الإنتاج',
+    )
+    cost_center = models.ForeignKey(
+        'accounts.CostCenter', on_delete=models.SET_NULL, null=True,
+        verbose_name='مركز التكلفة',
+    )
+    cost_type = models.CharField(max_length=20, choices=COST_TYPES, verbose_name='نوع التكلفة')
+    description = models.CharField(max_length=500, verbose_name='الوصف')
+    amount = models.DecimalField(max_digits=15, decimal_places=2, verbose_name='المبلغ')
+    date = models.DateField(verbose_name='التاريخ')
+    journal_entry = models.ForeignKey(
+        'accounts.JournalEntry', on_delete=models.SET_NULL,
+        null=True, blank=True, verbose_name='القيد',
+    )
+
+    class Meta:
+        verbose_name = 'تحميل تكلفة'
+        verbose_name_plural = 'تحميلات التكاليف'
+        ordering = ['-date']
+
+    def __str__(self):
+        return f'{self.get_cost_type_display()} - {self.amount} ({self.production_order})'
+
+
+class WIPAccount(AuditMixin):
+    """
+    حساب الإنتاج تحت التشغيل (WIP)
+    يتتبع رصيد كل أمر إنتاج
+    """
+    production_order = models.OneToOneField(
+        'production.ProductionOrder', on_delete=models.CASCADE,
+        related_name='wip_account', verbose_name='أمر الإنتاج',
+    )
+    material_cost = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='تكلفة الخامات')
+    labor_cost = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='تكلفة العمالة')
+    overhead_cost = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='تكاليف غير مباشرة')
+    total_cost = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='إجمالي التكلفة')
+    unit_cost = models.DecimalField(max_digits=12, decimal_places=4, default=0, verbose_name='تكلفة الوحدة')
+    is_closed = models.BooleanField(default=False, verbose_name='مغلق')
+    closed_at = models.DateTimeField(null=True, blank=True, verbose_name='تاريخ الإغلاق')
+
+    class Meta:
+        verbose_name = 'حساب WIP'
+        verbose_name_plural = 'حسابات WIP'
+
+    def __str__(self):
+        return f'WIP - {self.production_order}'
+
+    def recalculate(self):
+        """إعادة حساب التكلفة"""
+        allocations = self.production_order.cost_allocations.all()
+        self.material_cost = allocations.filter(cost_type='material').aggregate(
+            total=models.Sum('amount'))['total'] or 0
+        self.labor_cost = allocations.filter(cost_type='labor').aggregate(
+            total=models.Sum('amount'))['total'] or 0
+        self.overhead_cost = allocations.filter(
+            cost_type__in=['overhead', 'depreciation', 'utility', 'other']
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        self.total_cost = self.material_cost + self.labor_cost + self.overhead_cost
+        qty = self.production_order.quantity_produced or self.production_order.quantity
+        self.unit_cost = self.total_cost / qty if qty > 0 else 0
+        self.save()
+
+
+class Budget(AuditMixin):
+    """ميزانية سنوية / شهرية"""
+    PERIOD_TYPES = [
+        ('monthly', 'شهرية'),
+        ('quarterly', 'ربع سنوية'),
+        ('annual', 'سنوية'),
+    ]
+
+    name = models.CharField(max_length=255, verbose_name='اسم الميزانية')
+    fiscal_year = models.ForeignKey(
+        'accounts.FiscalYear', on_delete=models.PROTECT, verbose_name='السنة المالية',
+    )
+    period_type = models.CharField(max_length=20, choices=PERIOD_TYPES, default='monthly', verbose_name='النوع')
+    branch = models.ForeignKey(
+        'core.Branch', on_delete=models.SET_NULL, null=True, blank=True, verbose_name='الفرع',
+    )
+    cost_center = models.ForeignKey(
+        'accounts.CostCenter', on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name='مركز التكلفة',
+    )
+    status = models.CharField(max_length=20, choices=[
+        ('draft', 'مسودة'), ('approved', 'معتمد'), ('closed', 'مغلق'),
+    ], default='draft', verbose_name='الحالة')
+    approved_by = models.ForeignKey(
+        'core.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='approved_budgets', verbose_name='اعتمده',
+    )
+    notes = models.TextField(blank=True, verbose_name='ملاحظات')
+
+    class Meta:
+        verbose_name = 'ميزانية'
+        verbose_name_plural = 'الميزانيات'
+
+    def __str__(self):
+        return self.name
+
+
+class BudgetLine(models.Model):
+    """سطر ميزانية — مبلغ لكل حساب لكل شهر"""
+    budget = models.ForeignKey(Budget, on_delete=models.CASCADE, related_name='lines', verbose_name='الميزانية')
+    account = models.ForeignKey('accounts.Account', on_delete=models.PROTECT, verbose_name='الحساب')
+    expense_category = models.ForeignKey(
+        'expenses.ExpenseCategory', on_delete=models.SET_NULL,
+        null=True, blank=True, verbose_name='تصنيف المصروف',
+    )
+
+    # المبالغ الشهرية
+    jan = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='يناير')
+    feb = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='فبراير')
+    mar = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='مارس')
+    apr = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='أبريل')
+    may = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='مايو')
+    jun = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='يونيو')
+    jul = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='يوليو')
+    aug = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='أغسطس')
+    sep = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='سبتمبر')
+    oct = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='أكتوبر')
+    nov = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='نوفمبر')
+    dec = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='ديسمبر')
+
+    annual_total = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='الإجمالي السنوي')
+
+    class Meta:
+        verbose_name = 'سطر ميزانية'
+        verbose_name_plural = 'سطور الميزانية'
+        unique_together = ['budget', 'account']
+
+    def __str__(self):
+        return f'{self.budget} - {self.account}'
+
+    def save(self, *args, **kwargs):
+        self.annual_total = sum([
+            self.jan, self.feb, self.mar, self.apr, self.may, self.jun,
+            self.jul, self.aug, self.sep, self.oct, self.nov, self.dec,
+        ])
+        super().save(*args, **kwargs)
+
+    def get_month_amount(self, month):
+        """رجّع مبلغ شهر معين (1-12)"""
+        months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+        return getattr(self, months[month - 1], 0)
+

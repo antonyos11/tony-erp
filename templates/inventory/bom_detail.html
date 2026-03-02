@@ -3,49 +3,138 @@
 {% block nav_inventory %}active{% endblock %}
 {% block nav_inventory_open %}show{% endblock %}
 
+{% block extra_css %}
+<style>
+.bom-tree ul { list-style: none; padding-right: 20px; margin: 0; }
+.bom-tree li { padding: 4px 0; border-right: 2px solid #dee2e6; margin-right: 4px; }
+.bom-tree li:last-child { border-right: none; }
+.tree-item { display: inline-flex; align-items: center; gap: 6px; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h4 class="mb-0">
         <i class="bi bi-list-nested me-2 text-primary"></i>{{ title }}
     </h4>
-    <a href="{% url 'inventory:bom_list' %}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-right me-1"></i>قوائم المواد
-    </a>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'inventory:bom_update' bom.pk %}" class="btn btn-warning btn-sm">
+            <i class="bi bi-pencil me-1"></i>تعديل
+        </a>
+        <form method="post" action="{% url 'inventory:bom_duplicate' bom.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-copy me-1"></i>نسخ
+            </button>
+        </form>
+        <a href="{% url 'inventory:bom_list' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-right me-1"></i>رجوع
+        </a>
+    </div>
 </div>
 
-<div class="row g-4">
-    <!-- بيانات القائمة -->
+<div class="row g-3">
+    <!-- ════ بيانات القائمة ════ -->
     <div class="col-md-4">
-        <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white py-2">بيانات القائمة</div>
-            <div class="card-body">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-primary text-white py-2">
+                <i class="bi bi-info-circle me-2"></i>بيانات القائمة
+            </div>
+            <div class="card-body p-0">
                 <table class="table table-sm table-borderless mb-0">
-                    <tr>
-                        <td class="text-muted">المنتج</td>
-                        <td>
-                            <a href="{% url 'inventory:product_detail' bom.product.pk %}">
-                                {{ bom.product.name }}
-                            </a>
-                        </td>
-                    </tr>
-                    <tr><td class="text-muted">الاسم</td><td>{{ bom.name }}</td></tr>
-                    <tr><td class="text-muted">افتراضي</td>
-                        <td>{% if bom.is_default %}<span class="badge bg-primary">نعم</span>{% else %}لا{% endif %}</td>
-                    </tr>
-                    <tr><td class="text-muted">نشط</td>
-                        <td>{% if bom.is_active %}<span class="badge bg-success">نشط</span>{% else %}<span class="badge bg-secondary">متوقف</span>{% endif %}</td>
-                    </tr>
-                    <tr><td class="text-muted">عدد الخامات</td><td>{{ lines|length }}</td></tr>
+                    <tbody>
+                        <tr>
+                            <td class="text-muted ps-3">المنتج</td>
+                            <td>
+                                <a href="{% url 'inventory:product_detail' bom.product.pk %}">
+                                    <strong>{{ bom.product.name }}</strong>
+                                </a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted ps-3">الاسم</td>
+                            <td>{{ bom.name }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted ps-3">النوع</td>
+                            <td>
+                                {% if bom.bom_type == 'standard' %}<span class="badge bg-primary">قياسية</span>
+                                {% elif bom.bom_type == 'phantom' %}<span class="badge bg-warning text-dark">وهمية</span>
+                                {% else %}<span class="badge bg-info text-dark">قابلة للتخصيص</span>{% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted ps-3">الإصدار</td>
+                            <td><span class="badge bg-secondary">v{{ bom.version }}</span></td>
+                        </tr>
+                        {% if bom.width %}
+                        <tr>
+                            <td class="text-muted ps-3">الأبعاد</td>
+                            <td>{{ bom.width }} × {{ bom.length }}{% if bom.height %} × {{ bom.height }}{% endif %} سم</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <td class="text-muted ps-3">الحالة</td>
+                            <td>
+                                {% if bom.is_active %}<span class="badge bg-success">نشط</span>
+                                {% else %}<span class="badge bg-secondary">متوقف</span>{% endif %}
+                            </td>
+                        </tr>
+                        {% if bom.notes %}
+                        <tr>
+                            <td class="text-muted ps-3">ملاحظات</td>
+                            <td class="small">{{ bom.notes }}</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- ════ التكلفة التقديرية ════ -->
+        <div class="card shadow-sm mt-3">
+            <div class="card-header bg-success text-white py-2">
+                <i class="bi bi-cash-stack me-2"></i>التكلفة التقديرية
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <tbody>
+                        <tr>
+                            <td class="ps-3">تكلفة الخامات</td>
+                            <td class="text-end pe-3 font-monospace">{{ bom.estimated_material_cost|floatformat:2 }} ج.م</td>
+                        </tr>
+                        <tr>
+                            <td class="ps-3">تكلفة العمالة</td>
+                            <td class="text-end pe-3 font-monospace">{{ bom.estimated_labor_cost|floatformat:2 }} ج.م</td>
+                        </tr>
+                        <tr>
+                            <td class="ps-3">Overhead</td>
+                            <td class="text-end pe-3 font-monospace">{{ bom.estimated_overhead_cost|floatformat:2 }} ج.م</td>
+                        </tr>
+                        <tr class="table-success fw-bold">
+                            <td class="ps-3">الإجمالي</td>
+                            <td class="text-end pe-3 font-monospace">{{ bom.estimated_total_cost|floatformat:2 }} ج.م</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer py-1">
+                <form method="post" action="{% url 'inventory:bom_update' bom.pk %}">
+                    {% csrf_token %}
+                    <a href="#" onclick="recalcCost({{ bom.pk }})" class="btn btn-sm btn-outline-success w-100">
+                        <i class="bi bi-calculator me-1"></i>إعادة حساب التكلفة
+                    </a>
+                </form>
             </div>
         </div>
     </div>
 
-    <!-- الخامات -->
+    <!-- ════ الخامات المباشرة ════ -->
     <div class="col-md-8">
-        <div class="card shadow-sm">
-            <div class="card-header bg-success text-white py-2">
-                <i class="bi bi-list-check me-2"></i>الخامات والمكونات
+        <div class="card shadow-sm mb-3">
+            <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-list-check me-2 text-success"></i>الخامات والمكونات</span>
+                <span class="badge bg-secondary">{{ lines|length }} عنصر</span>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -53,40 +142,42 @@
                         <thead class="table-light">
                             <tr>
                                 <th>#</th>
-                                <th>الخامة</th>
-                                <th>الكود</th>
+                                <th>الخامة / المكوّن</th>
+                                <th>النوع</th>
                                 <th class="text-end">الكمية</th>
                                 <th>الوحدة</th>
                                 <th class="text-end">هالك %</th>
                                 <th class="text-end">الكمية الفعلية</th>
-                                <th>ملاحظات</th>
+                                {% if can_view_cost %}<th class="text-end">التكلفة</th>{% endif %}
                             </tr>
                         </thead>
                         <tbody>
                             {% for line in lines %}
-                            <tr>
+                            <tr {% if line.is_sub_assembly %}class="table-info"{% elif line.is_alternative %}class="table-warning"{% endif %}>
                                 <td>{{ forloop.counter }}</td>
                                 <td>
                                     <a href="{% url 'inventory:product_detail' line.raw_material.pk %}">
                                         {{ line.raw_material.name }}
                                     </a>
+                                    {% if line.is_sub_assembly %}
+                                    <span class="badge bg-info text-dark ms-1">📦 نصف مصنع</span>
+                                    {% endif %}
+                                    {% if line.is_alternative %}
+                                    <span class="badge bg-warning text-dark ms-1">بديل</span>
+                                    {% endif %}
                                 </td>
-                                <td class="font-monospace small">{{ line.raw_material.code }}</td>
+                                <td class="small text-muted">{{ line.raw_material.get_product_type_display }}</td>
                                 <td class="text-end">{{ line.quantity }}</td>
-                                <td class="small text-muted">{{ line.raw_material.unit.symbol|default:'' }}</td>
+                                <td class="small text-muted">{{ line.unit.symbol|default:line.raw_material.unit.symbol|default:'' }}</td>
                                 <td class="text-end">
                                     {% if line.waste_percentage > 0 %}
                                     <span class="text-warning">{{ line.waste_percentage }}%</span>
                                     {% else %}-{% endif %}
                                 </td>
-                                <td class="text-end fw-bold">
-                                    {% if line.waste_percentage > 0 %}
-                                    {{ line.quantity|floatformat:3 }}
-                                    {% else %}
-                                    {{ line.quantity }}
-                                    {% endif %}
-                                </td>
-                                <td class="small text-muted">{{ line.notes|default:'' }}</td>
+                                <td class="text-end fw-semibold">{{ line.effective_quantity|floatformat:4 }}</td>
+                                {% if can_view_cost %}
+                                <td class="text-end font-monospace small">{{ line.line_cost|floatformat:2 }}</td>
+                                {% endif %}
                             </tr>
                             {% empty %}
                             <tr><td colspan="8" class="text-center text-muted py-4">لا توجد خامات</td></tr>
@@ -96,6 +187,168 @@
                 </div>
             </div>
         </div>
+
+        <!-- ════ شجرة متعدد المستويات ════ -->
+        {% if exploded_items %}
+        <div class="card shadow-sm mb-3">
+            <div class="card-header py-2">
+                <i class="bi bi-diagram-3 me-2 text-primary"></i>🌳 شجرة المكوّنات (Multi-Level)
+            </div>
+            <div class="card-body bom-tree" dir="rtl">
+                <ul>
+                    <li>
+                        <span class="tree-item fw-bold text-primary">
+                            <i class="bi bi-box-seam"></i> {{ bom.product.name }}
+                            <span class="badge bg-primary ms-1">المنتج النهائي</span>
+                        </span>
+                        <ul>
+                            {% for item in exploded_items %}
+                            <li style="padding-right: {{ item.level|add:1 }}rem;">
+                                {% if item.is_sub_assembly %}
+                                <span class="tree-item text-info fw-semibold">
+                                    <i class="bi bi-boxes"></i> {{ item.product.name }}
+                                    <span class="badge bg-info text-dark">📦 نصف مصنع × {{ item.quantity|floatformat:4 }}</span>
+                                </span>
+                                {% else %}
+                                <span class="tree-item">
+                                    <i class="bi bi-puzzle text-muted"></i>
+                                    {{ item.product.name }}
+                                    <span class="text-muted small">× {{ item.quantity|floatformat:4 }}</span>
+                                    {% if can_view_cost and item.line_cost > 0 %}
+                                    <span class="badge bg-light text-dark border">{{ item.line_cost|floatformat:2 }} ج.م</span>
+                                    {% endif %}
+                                </span>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- ════ الخامات المسطحة ════ -->
+        {% if flat_materials %}
+        <div class="card shadow-sm mb-3">
+            <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-table me-2 text-warning"></i>الخامات المسطحة (للصرف الفعلي)</span>
+                <!-- فحص التوفر -->
+                <select id="warehouseSelect" class="form-select form-select-sm w-auto">
+                    <option value="">— اختر مخزن للفحص —</option>
+                    {% for wh in warehouses %}
+                    <option value="{{ wh.pk }}">{{ wh.name }}</option>
+                    {% endfor %}
+                </select>
+                <button onclick="checkAvailability()" class="btn btn-sm btn-outline-warning">
+                    <i class="bi bi-check2-circle me-1"></i>فحص التوفر
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm mb-0" id="flatMaterialsTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>الخامة</th>
+                                <th class="text-end">الكمية المطلوبة</th>
+                                {% if can_view_cost %}<th class="text-end">التكلفة</th>{% endif %}
+                                <th class="text-center" id="availHeader" style="display:none">التوفر</th>
+                            </tr>
+                        </thead>
+                        <tbody id="flatMaterialsBody">
+                            {% for mat in flat_materials %}
+                            <tr data-product-id="{{ mat.product.pk }}">
+                                <td>{{ mat.product.name }}</td>
+                                <td class="text-end font-monospace">{{ mat.quantity|floatformat:4 }}</td>
+                                {% if can_view_cost %}
+                                <td class="text-end font-monospace">{{ mat.cost|floatformat:2 }}</td>
+                                {% endif %}
+                                <td class="text-center avail-cell" style="display:none">—</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+
+        <!-- ════ أين يُستخدم (Where Used) ════ -->
+        {% if where_used %}
+        <div class="card shadow-sm">
+            <div class="card-header py-2">
+                <i class="bi bi-arrow-up-right-circle me-2 text-secondary"></i>
+                أين يُستخدم هذا المنتج (Where Used)
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>قائمة المواد</th>
+                                <th>المنتج الأب</th>
+                                <th class="text-end">الكمية</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for wu in where_used %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'inventory:bom_detail' wu.bom.pk %}">{{ wu.bom.name }}</a>
+                                </td>
+                                <td>
+                                    <a href="{% url 'inventory:product_detail' wu.parent_product.pk %}">
+                                        {{ wu.parent_product.name }}
+                                    </a>
+                                </td>
+                                <td class="text-end">{{ wu.quantity }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function recalcCost(bomId) {
+    fetch(`/inventory/bom/${bomId}/explode/?quantity=1`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                alert('تم تحديث التكلفة — يرجى تحديث الصفحة');
+                location.reload();
+            }
+        });
+}
+
+function checkAvailability() {
+    const wh = document.getElementById('warehouseSelect').value;
+    if (!wh) { alert('يرجى اختيار المخزن أولاً'); return; }
+    const qty = 1;
+    fetch(`/inventory/bom/{{ bom.pk }}/check-materials/?quantity=${qty}&warehouse_id=${wh}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.ok) { alert(data.error); return; }
+            document.getElementById('availHeader').style.display = '';
+            document.querySelectorAll('.avail-cell').forEach(el => el.style.display = '');
+            data.data.materials.forEach(mat => {
+                const row = document.querySelector(`tr[data-product-id="${mat.product_id}"]`);
+                if (row) {
+                    const cell = row.querySelector('.avail-cell');
+                    if (mat.is_available) {
+                        cell.innerHTML = `<span class="badge bg-success">متوفر (${mat.available})</span>`;
+                    } else {
+                        cell.innerHTML = `<span class="badge bg-danger">نقص ${mat.shortage}</span>`;
+                    }
+                }
+            });
+        });
+}
+</script>
 {% endblock %}

@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}لوحة CRM — RITA ERP{% endblock %}
+{% block nav_crm %}active{% endblock %}
+{% block nav_crm_open %}show{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-diagram-3 me-2 text-primary"></i>لوحة إدارة علاقات العملاء</h4>
+    <div>
+        <a href="{% url 'crm:lead_create' %}" class="btn btn-primary btn-sm me-1">
+            <i class="bi bi-plus-circle me-1"></i>Lead جديد
+        </a>
+        <a href="{% url 'crm:complaint_create' %}" class="btn btn-danger btn-sm">
+            <i class="bi bi-exclamation-circle me-1"></i>شكوى جديدة
+        </a>
+    </div>
+</div>
+
+<!-- إحصائيات سريعة -->
+<div class="row g-3 mb-4">
+    <div class="col-md-2">
+        <div class="card text-center shadow-sm border-0 bg-primary text-white">
+            <div class="card-body py-3">
+                <div class="fs-3 fw-bold">{{ total_customers }}</div>
+                <div class="small">إجمالي العملاء</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card text-center shadow-sm border-0 bg-info text-white">
+            <div class="card-body py-3">
+                <div class="fs-3 fw-bold">{{ new_leads_this_month }}</div>
+                <div class="small">Leads هذا الشهر</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card text-center shadow-sm border-0 bg-success text-white">
+            <div class="card-body py-3">
+                <div class="fs-3 fw-bold">{{ conversion_rate }}%</div>
+                <div class="small">نسبة التحويل</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card text-center shadow-sm border-0 bg-danger text-white">
+            <div class="card-body py-3">
+                <div class="fs-3 fw-bold">{{ open_complaints }}</div>
+                <div class="small">شكاوى مفتوحة</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card text-center shadow-sm border-0 bg-warning">
+            <div class="card-body py-3">
+                <div class="fs-3 fw-bold">{{ follow_ups_today }}</div>
+                <div class="small">متابعات اليوم</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card text-center shadow-sm border-0 bg-dark text-white">
+            <div class="card-body py-3">
+                <div class="fs-3 fw-bold text-danger">{{ overdue_follow_ups }}</div>
+                <div class="small">متأخرة</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pipeline -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white fw-bold">
+        <i class="bi bi-funnel me-2 text-primary"></i>Pipeline — العملاء المحتملين
+        <a href="{% url 'crm:lead_kanban' %}" class="btn btn-sm btn-outline-primary float-end">
+            <i class="bi bi-kanban me-1"></i>Kanban
+        </a>
+    </div>
+    <div class="card-body">
+        <div class="row text-center">
+            {% with p=pipeline %}
+            <div class="col">
+                <div class="p-3 rounded bg-light">
+                    <div class="fs-4 fw-bold text-secondary">{{ p.new }}</div>
+                    <div class="small text-muted">جديد</div>
+                </div>
+            </div>
+            <div class="col"><i class="bi bi-arrow-left text-muted"></i></div>
+            <div class="col">
+                <div class="p-3 rounded bg-info bg-opacity-10">
+                    <div class="fs-4 fw-bold text-info">{{ p.contacted }}</div>
+                    <div class="small text-muted">تم التواصل</div>
+                </div>
+            </div>
+            <div class="col"><i class="bi bi-arrow-left text-muted"></i></div>
+            <div class="col">
+                <div class="p-3 rounded bg-primary bg-opacity-10">
+                    <div class="fs-4 fw-bold text-primary">{{ p.interested }}</div>
+                    <div class="small text-muted">مهتم</div>
+                </div>
+            </div>
+            <div class="col"><i class="bi bi-arrow-left text-muted"></i></div>
+            <div class="col">
+                <div class="p-3 rounded bg-warning bg-opacity-10">
+                    <div class="fs-4 fw-bold text-warning">{{ p.qualified }}</div>
+                    <div class="small text-muted">مؤهل</div>
+                </div>
+            </div>
+            <div class="col"><i class="bi bi-arrow-left text-muted"></i></div>
+            <div class="col">
+                <div class="p-3 rounded bg-success bg-opacity-10">
+                    <div class="fs-4 fw-bold text-success">{{ p.negotiation }}</div>
+                    <div class="small text-muted">تفاوض</div>
+                </div>
+            </div>
+            {% endwith %}
+        </div>
+        <div class="mt-3 text-muted small text-center">
+            إجمالي {{ pipeline.total_leads }} lead — قيمة تقديرية: {{ pipeline.total_value|floatformat:0 }} جنيه
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- متابعات اليوم -->
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-warning bg-opacity-25 fw-bold">
+                <i class="bi bi-calendar-check me-2"></i>متابعات اليوم
+                <a href="{% url 'crm:follow_up_list' %}" class="btn btn-sm btn-outline-warning float-end">كل المتابعات</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for i in follow_ups_today_list %}
+                    <div class="list-group-item d-flex justify-content-between align-items-start">
+                        <div>
+                            <small class="text-muted">{{ i.interaction_type }}</small><br>
+                            <strong>{{ i.customer|default:i.lead }}</strong>
+                            <div class="small text-muted">{{ i.subject|truncatechars:50 }}</div>
+                        </div>
+                        <form method="post" action="{% url 'crm:follow_up_done' i.pk %}">
+                            {% csrf_token %}
+                            <button class="btn btn-xs btn-success btn-sm"><i class="bi bi-check"></i></button>
+                        </form>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-muted text-center py-3">لا توجد متابعات اليوم 🎉</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- عملاء في خطر -->
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-danger bg-opacity-25 fw-bold">
+                <i class="bi bi-exclamation-triangle me-2 text-danger"></i>عملاء في خطر (لم يشتروا +90 يوم)
+                <a href="{% url 'crm:rating_report' %}" class="btn btn-sm btn-outline-danger float-end">التقرير</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for r in at_risk_customers %}
+                    <a href="{% url 'crm:customer_profile' r.customer.pk %}" class="list-group-item list-group-item-action d-flex justify-content-between">
+                        <span>{{ r.customer.name }}</span>
+                        <span class="badge bg-danger">{{ r.days_since_last_purchase }} يوم</span>
+                    </a>
+                    {% empty %}
+                    <div class="list-group-item text-muted text-center py-3">لا يوجد عملاء في خطر</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- أفضل العملاء -->
+<div class="card shadow-sm mt-3">
+    <div class="card-header bg-success bg-opacity-25 fw-bold">
+        <i class="bi bi-star me-2 text-warning"></i>أفضل العملاء (A+ و A)
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>العميل</th><th>التصنيف</th><th>النقاط</th>
+                        <th>إجمالي مشتريات</th><th>آخر شراء</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in top_customers %}
+                    <tr>
+                        <td><a href="{% url 'crm:customer_profile' r.customer.pk %}">{{ r.customer.name }}</a></td>
+                        <td>
+                            <span class="badge {% if r.grade == 'A+' %}bg-success{% else %}bg-primary{% endif %}">
+                                {{ r.grade }}
+                            </span>
+                        </td>
+                        <td>{{ r.score }}</td>
+                        <td>{{ r.total_purchases|floatformat:0 }}</td>
+                        <td>{{ r.last_purchase_date|default:'—' }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center text-muted">لا توجد بيانات</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

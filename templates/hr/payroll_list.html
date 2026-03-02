@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}مسيّرات الرواتب – RITA ERP{% endblock %}
+{% block nav_hr %}active{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-receipt me-2 text-primary"></i>مسيّرات الرواتب</h4>
+    <a href="{% url 'hr:payroll_calculate' %}" class="btn btn-primary btn-sm"><i class="bi bi-calculator me-1"></i>حساب مسيّر جديد</a>
+  </div>
+
+  {% if messages %}{% for msg in messages %}<div class="alert alert-{{ msg.tags }} py-2 alert-dismissible fade show">{{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}{% endif %}
+
+  <div class="card mb-3 shadow-sm">
+    <div class="card-body py-2">
+      <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-3">
+          <select name="branch" class="form-select form-select-sm">
+            <option value="">كل الفروع</option>
+            {% for b in branches %}
+            <option value="{{ b.pk }}" {% if request.GET.branch == b.pk|stringformat:'s' %}selected{% endif %}>{{ b.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <select name="status" class="form-select form-select-sm">
+            <option value="">كل الحالات</option>
+            {% for val, lbl in statuses %}
+            <option value="{{ val }}" {% if request.GET.status == val %}selected{% endif %}>{{ lbl }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-secondary btn-sm w-100"><i class="bi bi-search"></i></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body p-0">
+      <table class="table table-hover table-sm mb-0">
+        <thead class="table-dark">
+          <tr><th>الفترة</th><th>الفرع</th><th>الحالة</th><th>إجمالي الرواتب</th><th>إجمالي الخصومات</th><th>صافي الرواتب</th><th>تاريخ الصرف</th><th>الإجراءات</th></tr>
+        </thead>
+        <tbody>
+          {% for p in payrolls %}
+          <tr>
+            <td class="fw-bold">{{ p.month|stringformat:"02d" }}/{{ p.year }}</td>
+            <td>{{ p.branch.name }}</td>
+            <td>
+              <span class="badge bg-{% if p.status == 'paid' %}success{% elif p.status == 'approved' %}primary{% elif p.status == 'calculated' %}info text-dark{% elif p.status == 'cancelled' %}danger{% else %}secondary{% endif %}">
+                {{ p.get_status_display }}
+              </span>
+            </td>
+            <td class="text-end">{{ p.total_gross|floatformat:2 }}</td>
+            <td class="text-end text-danger">{{ p.total_deductions|floatformat:2 }}</td>
+            <td class="text-end fw-bold text-success">{{ p.total_net|floatformat:2 }}</td>
+            <td>{{ p.paid_date|default:"-" }}</td>
+            <td>
+              <a href="{% url 'hr:payroll_detail' p.pk %}" class="btn btn-xs btn-outline-info btn-sm py-0 px-1"><i class="bi bi-eye"></i></a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" class="text-center text-muted py-4">لا يوجد مسيّرات</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

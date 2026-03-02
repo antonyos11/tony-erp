@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}المهام — RITA ERP{% endblock %}
+{% block nav_crm %}active{% endblock %}
+{% block nav_crm_open %}show{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-check2-square me-2 text-warning"></i>المهام</h4>
+    <a href="{% url 'crm:task_create' %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-circle me-1"></i>مهمة جديدة
+    </a>
+</div>
+
+<!-- فلترة -->
+<div class="card shadow-sm mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">— الحالة —</option>
+                    {% for val, label in statuses %}
+                    <option value="{{ val }}" {% if request.GET.status == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="priority" class="form-select form-select-sm">
+                    <option value="">— الأولوية —</option>
+                    {% for val, label in priorities %}
+                    <option value="{{ val }}" {% if request.GET.priority == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-1">
+                <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-search"></i></button>
+            </div>
+            <div class="col-md-1">
+                <a href="{% url 'crm:task_list' %}" class="btn btn-outline-secondary btn-sm w-100">مسح</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>العنوان</th><th>الأولوية</th><th>الحالة</th>
+                        <th>الاستحقاق</th><th>المسؤول</th><th>الارتباط</th><th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in tasks %}
+                    <tr class="{% if task.status == 'overdue' %}table-danger{% elif task.priority == 'urgent' %}table-warning{% endif %}">
+                        <td><strong>{{ task.title|truncatechars:50 }}</strong></td>
+                        <td>
+                            {% if task.priority == 'urgent' %}<span class="badge bg-danger">عاجل</span>
+                            {% elif task.priority == 'high' %}<span class="badge bg-warning text-dark">مرتفع</span>
+                            {% elif task.priority == 'medium' %}<span class="badge bg-info">متوسط</span>
+                            {% else %}<span class="badge bg-secondary">منخفض</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if task.status == 'completed' %}<span class="badge bg-success">مكتمل</span>
+                            {% elif task.status == 'overdue' %}<span class="badge bg-danger">متأخر</span>
+                            {% elif task.status == 'in_progress' %}<span class="badge bg-primary">جاري</span>
+                            {% elif task.status == 'cancelled' %}<span class="badge bg-secondary">ملغي</span>
+                            {% else %}<span class="badge bg-light text-dark border">انتظار</span>{% endif %}
+                        </td>
+                        <td>
+                            <small class="{% if task.due_date < today and task.status not in 'completed,cancelled' %}text-danger fw-bold{% endif %}">
+                                {{ task.due_date }}
+                            </small>
+                        </td>
+                        <td><small>{{ task.assigned_to }}</small></td>
+                        <td>
+                            <small>
+                                {% if task.customer %}👤 {{ task.customer.name|truncatechars:20 }}
+                                {% elif task.lead %}🎯 {{ task.lead.name|truncatechars:20 }}
+                                {% elif task.complaint %}⚠️ {{ task.complaint.complaint_number }}
+                                {% endif %}
+                            </small>
+                        </td>
+                        <td>
+                            {% if task.status not in 'completed,cancelled' %}
+                            <button class="btn btn-xs btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#completeModal{{ task.pk }}">
+                                <i class="bi bi-check"></i>
+                            </button>
+                            <!-- Modal -->
+                            <div class="modal fade" id="completeModal{{ task.pk }}" tabindex="-1">
+                                <div class="modal-dialog modal-sm">
+                                    <div class="modal-content">
+                                        <div class="modal-header"><h6 class="modal-title">إكمال المهمة</h6></div>
+                                        <form method="post" action="{% url 'crm:task_complete' task.pk %}">
+                                            {% csrf_token %}
+                                            <div class="modal-body">
+                                                <input type="text" name="notes" class="form-control form-control-sm" placeholder="ملاحظات">
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="submit" class="btn btn-success btn-sm">تأكيد</button>
+                                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">إلغاء</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="text-center text-muted py-4">لا توجد مهام</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const today = new Date().toISOString().split('T')[0];
+</script>
+{% endblock %}

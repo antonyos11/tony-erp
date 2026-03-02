@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} — RITA ERP{% endblock %}
+{% block nav_authorization %}active{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'authorization:approval_list' %}">طلبات الاعتماد</a></li>
+<li class="breadcrumb-item active">{{ title }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+
+        <!-- رأس الصفحة -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="mb-0">
+                <i class="bi bi-clipboard-check me-2 text-warning"></i>{{ title }}
+            </h4>
+            <span class="badge bg-{{ approval.status_badge_class }} fs-6 px-3 py-2">
+                {{ approval.get_status_display }}
+            </span>
+        </div>
+
+        <!-- تفاصيل الطلب -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light fw-semibold">
+                <i class="bi bi-info-circle me-2"></i>تفاصيل الطلب
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <label class="text-muted small">نوع الطلب</label>
+                        <p class="fw-semibold mb-0">
+                            <span class="badge bg-secondary fs-6">{{ approval.get_request_type_display }}</span>
+                        </p>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="text-muted small">المبلغ</label>
+                        <p class="fw-bold fs-5 mb-0 text-primary">{{ approval.amount|floatformat:2 }}</p>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="text-muted small">الطالب</label>
+                        <p class="mb-0">{{ approval.requested_by.get_full_name|default:approval.requested_by.username }}</p>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="text-muted small">الفرع</label>
+                        <p class="mb-0">{{ approval.branch.name|default:"—" }}</p>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="text-muted small">المصدر</label>
+                        <p class="mb-0 text-muted small">{{ approval.source_model }} #{{ approval.source_id }}</p>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="text-muted small">تاريخ الطلب</label>
+                        <p class="mb-0 small">{{ approval.created_at|date:"Y/m/d H:i" }}</p>
+                    </div>
+                    <div class="col-12">
+                        <label class="text-muted small">الوصف</label>
+                        <p class="mb-0 bg-light p-2 rounded small" style="white-space:pre-line">{{ approval.description }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- نتيجة المعالجة (لو اتعالجت) -->
+        {% if not approval.is_pending %}
+        <div class="card shadow-sm mb-4 border-{{ approval.status_badge_class }}">
+            <div class="card-header bg-{{ approval.status_badge_class }} text-white fw-semibold">
+                <i class="bi bi-person-check me-2"></i>نتيجة المعالجة
+            </div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-sm-6">
+                        <label class="text-muted small">المعتمد / المرفوض من</label>
+                        <p class="mb-0">{{ approval.approved_by.get_full_name|default:approval.approved_by.username|default:"—" }}</p>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="text-muted small">وقت المعالجة</label>
+                        <p class="mb-0 small">{{ approval.processed_at|date:"Y/m/d H:i"|default:"—" }}</p>
+                    </div>
+                    {% if approval.rejection_reason %}
+                    <div class="col-12">
+                        <label class="text-muted small">سبب الرفض</label>
+                        <p class="mb-0 text-danger bg-light p-2 rounded small">{{ approval.rejection_reason }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- أزرار الاعتماد / الرفض -->
+        {% if approval.is_pending %}
+        <div class="card shadow-sm border-warning">
+            <div class="card-header bg-warning text-dark fw-semibold">
+                <i class="bi bi-hand-index me-2"></i>قرار الاعتماد
+            </div>
+            <div class="card-body">
+
+                <!-- اعتماد -->
+                <form method="post" action="{% url 'authorization:approval_process' approval.pk %}"
+                      class="mb-3" onsubmit="return confirm('هل تؤكد اعتماد هذا الطلب؟')">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="approve">
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="bi bi-check-circle-fill me-2"></i>اعتماد الطلب
+                    </button>
+                </form>
+
+                <!-- رفض -->
+                <form method="post" action="{% url 'authorization:approval_process' approval.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="reject">
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">سبب الرفض <span class="text-danger">*</span></label>
+                        <textarea name="reason" class="form-control form-control-sm" rows="2"
+                                  placeholder="أدخل سبب الرفض..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-danger w-100">
+                        <i class="bi bi-x-circle-fill me-2"></i>رفض الطلب
+                    </button>
+                </form>
+
+                <!-- إلغاء (لو من نفس الطالب) -->
+                {% if request.user == approval.requested_by or request.user.is_superuser %}
+                <hr>
+                <form method="post" action="{% url 'authorization:approval_process' approval.pk %}"
+                      onsubmit="return confirm('هل تؤكد إلغاء هذا الطلب؟')">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="cancel">
+                    <button type="submit" class="btn btn-outline-secondary btn-sm w-100">
+                        <i class="bi bi-trash me-2"></i>إلغاء الطلب
+                    </button>
+                </form>
+                {% endif %}
+
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- زر الرجوع -->
+        <div class="mt-3">
+            <a href="{% url 'authorization:approval_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-right me-1"></i>العودة للقائمة
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

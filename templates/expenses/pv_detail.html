@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}{{ voucher.voucher_number }} — RITA ERP{% endblock %}
+{% block nav_expenses %}active{% endblock %}
+{% block nav_expenses_open %}show{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-4 gap-3">
+    <a href="{% url 'expenses:pv_list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-right me-1"></i>العودة</a>
+    <h4 class="mb-0"><i class="bi bi-file-earmark-minus me-2 text-danger"></i>{{ voucher.voucher_number }}</h4>
+    <span class="badge {% if voucher.status == 'paid' %}bg-success{% elif voucher.status == 'cancelled' %}bg-danger{% elif voucher.status == 'draft' %}bg-secondary{% else %}bg-warning text-dark{% endif %} fs-6">{{ voucher.get_status_display }}</span>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div class="alert alert-{{ msg.tags }} alert-dismissible fade show">{{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+{% endfor %}
+{% endif %}
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light fw-bold">بيانات سند الصرف</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4"><div class="text-muted small">رقم السند</div><div class="fw-bold">{{ voucher.voucher_number }}</div></div>
+                    <div class="col-md-4"><div class="text-muted small">التاريخ</div><div>{{ voucher.date }}</div></div>
+                    <div class="col-md-4"><div class="text-muted small">الفرع</div><div>{{ voucher.branch.name }}</div></div>
+                    <div class="col-md-4"><div class="text-muted small">نوع المستفيد</div><div>{{ voucher.get_beneficiary_type_display }}</div></div>
+                    <div class="col-md-4"><div class="text-muted small">المستفيد</div><div>{{ voucher.beneficiary_name|default:"—" }}</div></div>
+                    <div class="col-md-4"><div class="text-muted small">طريقة الدفع</div><div>{{ voucher.get_payment_method_display }}</div></div>
+                    <div class="col-md-4"><div class="text-muted small">المبلغ</div><div class="fs-5 fw-bold text-danger">{{ voucher.amount|floatformat:2 }}</div></div>
+                    <div class="col-md-8"><div class="text-muted small">المبلغ كتابةً</div><div>{{ voucher.amount_in_words|default:"—" }}</div></div>
+                    <div class="col-12"><div class="text-muted small">البيان</div><div>{{ voucher.description }}</div></div>
+                    <div class="col-md-6"><div class="text-muted small">الحساب المدين</div><div>{{ voucher.debit_account.code }} — {{ voucher.debit_account.name }}</div></div>
+                    <div class="col-md-6"><div class="text-muted small">الحساب الدائن</div><div>{{ voucher.credit_account.code }} — {{ voucher.credit_account.name }}</div></div>
+                    {% if voucher.notes %}<div class="col-12"><div class="text-muted small">ملاحظات</div><div>{{ voucher.notes }}</div></div>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if journal_lines %}
+        <div class="card shadow-sm">
+            <div class="card-header bg-light fw-bold"><i class="bi bi-journal-text me-1"></i>القيد المحاسبي</div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light"><tr><th>الحساب</th><th>مدين</th><th>دائن</th><th>البيان</th></tr></thead>
+                    <tbody>
+                        {% for line in journal_lines %}
+                        <tr>
+                            <td>{{ line.account.code }} — {{ line.account.name }}</td>
+                            <td class="text-success">{% if line.debit %}{{ line.debit|floatformat:2 }}{% endif %}</td>
+                            <td class="text-danger">{% if line.credit %}{{ line.credit|floatformat:2 }}{% endif %}</td>
+                            <td>{{ line.description }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-light fw-bold">الإجراءات</div>
+            <div class="card-body d-grid gap-2">
+                {% if voucher.status == 'draft' %}
+                <form method="post" action="{% url 'expenses:pv_approve' voucher.pk %}"
+                      onsubmit="return confirm('هل تريد اعتماد هذا السند؟')">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="bi bi-check-circle me-1"></i>اعتماد وتنفيذ
+                    </button>
+                </form>
+                {% endif %}
+                <a href="{% url 'expenses:pv_print' voucher.pk %}" class="btn btn-outline-secondary" target="_blank">
+                    <i class="bi bi-printer me-1"></i>طباعة السند
+                </a>
+            </div>
+        </div>
+        {% if voucher.approved_by %}
+        <div class="card shadow-sm">
+            <div class="card-header bg-light fw-bold">معلومات الاعتماد</div>
+            <div class="card-body">
+                <div class="text-muted small">اعتمده</div>
+                <div>{{ voucher.approved_by.get_full_name|default:voucher.approved_by.username }}</div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

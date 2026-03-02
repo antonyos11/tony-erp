@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{{ lead.name }} — Lead تفاصيل{% endblock %}
+{% block nav_crm %}active{% endblock %}
+{% block nav_crm_open %}show{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">
+        <i class="bi bi-person-circle me-2 text-primary"></i>{{ lead.name }}
+        {% if lead.priority == 'urgent' %}<span class="badge bg-danger ms-2">عاجل</span>
+        {% elif lead.priority == 'high' %}<span class="badge bg-warning text-dark ms-2">أولوية عالية</span>{% endif %}
+    </h4>
+    <div>
+        <a href="{% url 'crm:lead_update' lead.pk %}" class="btn btn-warning btn-sm me-1">
+            <i class="bi bi-pencil me-1"></i>تعديل
+        </a>
+        {% if lead.status != 'won' %}
+        <a href="{% url 'crm:lead_convert' lead.pk %}" class="btn btn-success btn-sm me-1">
+            <i class="bi bi-arrow-up-circle me-1"></i>تحويل لعميل
+        </a>
+        {% endif %}
+        <a href="{% url 'crm:interaction_create' %}?lead={{ lead.pk }}" class="btn btn-info btn-sm">
+            <i class="bi bi-chat-dots me-1"></i>تفاعل جديد
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-primary text-white fw-bold">بيانات Lead</div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless mb-0">
+                    <tr><th>الهاتف</th><td>{{ lead.phone }}</td></tr>
+                    {% if lead.phone2 %}<tr><th>هاتف 2</th><td>{{ lead.phone2 }}</td></tr>{% endif %}
+                    {% if lead.email %}<tr><th>الإيميل</th><td>{{ lead.email }}</td></tr>{% endif %}
+                    {% if lead.company %}<tr><th>الشركة</th><td>{{ lead.company }}</td></tr>{% endif %}
+                    {% if lead.governorate %}<tr><th>المحافظة</th><td>{{ lead.governorate }}</td></tr>{% endif %}
+                    <tr><th>المصدر</th><td>{{ lead.get_source_display }}</td></tr>
+                    <tr><th>الحالة</th><td><strong>{{ lead.get_status_display }}</strong></td></tr>
+                    <tr><th>الأولوية</th><td>{{ lead.get_priority_display }}</td></tr>
+                    <tr><th>القيمة</th><td>{{ lead.estimated_value|floatformat:0 }} جنيه</td></tr>
+                    <tr><th>المسؤول</th><td>{{ lead.assigned_to|default:'—' }}</td></tr>
+                    <tr><th>الفرع</th><td>{{ lead.branch }}</td></tr>
+                    <tr><th>المتابعة</th><td>{{ lead.next_follow_up|default:'—' }}</td></tr>
+                    <tr><th>آخر تواصل</th><td>{{ lead.last_contact_date|default:'—' }}</td></tr>
+                    {% if lead.converted_to_customer %}
+                    <tr><th>تحوّل إلى</th>
+                        <td><a href="{% url 'crm:customer_profile' lead.converted_to_customer.pk %}">{{ lead.converted_to_customer.name }}</a></td>
+                    </tr>
+                    {% endif %}
+                </table>
+                {% if lead.notes %}
+                <hr><small class="text-muted">{{ lead.notes }}</small>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if tasks %}
+        <div class="card shadow-sm">
+            <div class="card-header fw-bold">المهام المرتبطة</div>
+            <div class="list-group list-group-flush">
+                {% for task in tasks %}
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <small>{{ task.title }}</small>
+                    <span class="badge {% if task.status == 'completed' %}bg-success{% elif task.status == 'overdue' %}bg-danger{% else %}bg-secondary{% endif %}">
+                        {{ task.get_status_display }}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center fw-bold">
+                <span><i class="bi bi-clock-history me-2"></i>سجل التفاعلات</span>
+                <a href="{% url 'crm:interaction_create' %}?lead={{ lead.pk }}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-plus"></i> تفاعل
+                </a>
+            </div>
+            <div class="card-body p-0">
+                <div class="timeline p-3">
+                    {% for interaction in interactions %}
+                    <div class="d-flex mb-3">
+                        <div class="me-3 mt-1">
+                            <i class="bi bi-chat-dots-fill text-primary fs-5"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between">
+                                <strong>{{ interaction.get_interaction_type_display }}</strong>
+                                <small class="text-muted">{{ interaction.date|date:"d/m/Y H:i" }}</small>
+                            </div>
+                            <div class="small text-muted mb-1">{{ interaction.subject }}</div>
+                            <div class="small">{{ interaction.details }}</div>
+                            {% if interaction.result %}
+                            <span class="badge bg-light text-dark border small mt-1">{{ interaction.get_result_display }}</span>
+                            {% endif %}
+                            {% if interaction.follow_up_date %}
+                            <div class="small text-info mt-1">
+                                <i class="bi bi-calendar-event me-1"></i>متابعة: {{ interaction.follow_up_date }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted text-center py-3">لا توجد تفاعلات مسجلة</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

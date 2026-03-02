@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}{{ customer.name }} — ملف العميل{% endblock %}
+{% block nav_crm %}active{% endblock %}
+{% block nav_crm_open %}show{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="card shadow-sm mb-3 border-0" style="background: linear-gradient(135deg,#1a73e8,#0d47a1)">
+    <div class="card-body text-white py-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="mb-0">{{ customer.name }}</h4>
+                <small class="opacity-75">{{ customer.code }} | {{ customer.get_customer_type_display }}</small>
+            </div>
+            <div class="text-end">
+                {% with r=rating %}
+                <span class="badge fs-4 {% if r.grade == 'A+' %}bg-success{% elif r.grade == 'A' %}bg-primary{% elif r.grade == 'B' %}bg-info{% elif r.grade == 'C' %}bg-warning text-dark{% elif r.grade == 'D' %}bg-orange{% else %}bg-danger{% endif %}"
+                      style="font-size:1.5rem!important">{{ r.grade }}</span>
+                <div class="small mt-1">{{ r.score }}/100 نقطة</div>
+                {% endwith %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="card text-center shadow-sm">
+            <div class="card-body py-2">
+                <div class="fs-4 fw-bold text-success">{{ rating.total_purchases|floatformat:0 }}</div>
+                <small class="text-muted">إجمالي المشتريات</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card text-center shadow-sm">
+            <div class="card-body py-2">
+                <div class="fs-4 fw-bold text-primary">{{ rating.total_invoices }}</div>
+                <small class="text-muted">فاتورة</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card text-center shadow-sm">
+            <div class="card-body py-2">
+                <div class="fs-4 fw-bold text-warning">{{ rating.return_rate }}%</div>
+                <small class="text-muted">نسبة المرتجعات</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card text-center shadow-sm">
+            <div class="card-body py-2">
+                <div class="fs-4 fw-bold text-danger">{{ rating.total_complaints }}</div>
+                <small class="text-muted">شكاوى</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center shadow-sm">
+            <div class="card-body py-2">
+                <div class="fs-4 fw-bold text-info">{{ rating.days_since_last_purchase }}</div>
+                <small class="text-muted">يوم منذ آخر شراء</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="mb-3 d-flex gap-2 flex-wrap">
+    <a href="{% url 'crm:interaction_create' %}?customer={{ customer.pk }}" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-chat-dots me-1"></i>تفاعل جديد
+    </a>
+    <a href="{% url 'crm:complaint_create' %}?customer={{ customer.pk }}" class="btn btn-sm btn-outline-danger">
+        <i class="bi bi-exclamation-circle me-1"></i>شكوى جديدة
+    </a>
+    <a href="{% url 'crm:task_create' %}?customer={{ customer.pk }}" class="btn btn-sm btn-outline-warning">
+        <i class="bi bi-check2-square me-1"></i>مهمة
+    </a>
+    <a href="{% url 'sales:customer_detail' customer.pk %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-person me-1"></i>ملف المبيعات
+    </a>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-3" id="profileTabs">
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-invoices">الفواتير ({{ invoices.count }})</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-interactions">التفاعلات ({{ interactions.count }})</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-complaints">الشكاوى ({{ complaints.count }})</a></li>
+</ul>
+
+<div class="tab-content">
+    <!-- فواتير -->
+    <div class="tab-pane active" id="tab-invoices">
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-dark">
+                            <tr><th>رقم</th><th>التاريخ</th><th>الإجمالي</th><th>الحالة</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                            {% for inv in invoices %}
+                            <tr>
+                                <td>{{ inv.invoice_number }}</td>
+                                <td>{{ inv.date|date:"d/m/Y" }}</td>
+                                <td>{{ inv.total|floatformat:0 }}</td>
+                                <td><span class="badge bg-secondary">{{ inv.get_status_display }}</span></td>
+                                <td><a href="{% url 'sales:invoice_detail' inv.pk %}" class="btn btn-xs btn-outline-primary btn-sm"><i class="bi bi-eye"></i></a></td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="text-center text-muted">لا توجد فواتير</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- تفاعلات -->
+    <div class="tab-pane" id="tab-interactions">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                {% for i in interactions %}
+                <div class="d-flex mb-3 pb-2 border-bottom">
+                    <div class="me-3"><i class="bi bi-chat-dots-fill text-primary fs-5"></i></div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between">
+                            <strong class="small">{{ i.get_interaction_type_display }}</strong>
+                            <small class="text-muted">{{ i.date|date:"d/m/Y H:i" }}</small>
+                        </div>
+                        <div class="small">{{ i.subject }}</div>
+                        <div class="small text-muted">{{ i.details|truncatechars:100 }}</div>
+                    </div>
+                </div>
+                {% empty %}<p class="text-muted">لا توجد تفاعلات</p>{% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- شكاوى -->
+    <div class="tab-pane" id="tab-complaints">
+        <div class="card shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="table-dark">
+                        <tr><th>الرقم</th><th>الموضوع</th><th>النوع</th><th>الحالة</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        {% for c in complaints %}
+                        <tr>
+                            <td><small>{{ c.complaint_number }}</small></td>
+                            <td>{{ c.subject|truncatechars:40 }}</td>
+                            <td><small>{{ c.get_complaint_type_display }}</small></td>
+                            <td>
+                                <span class="badge {% if c.status == 'open' %}bg-danger{% elif c.status == 'resolved' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                                    {{ c.get_status_display }}
+                                </span>
+                            </td>
+                            <td><a href="{% url 'crm:complaint_detail' c.pk %}" class="btn btn-xs btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center text-muted">لا توجد شكاوى</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

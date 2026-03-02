@@ -7,8 +7,11 @@ from apps.inventory.views import (
     StockLevelListView, StockMoveListView,
     StockReceiveView, StockIssueView, StockTransferView, StockAdjustmentView,
     LowStockView, InventoryValuationView,
-    BOMListView, BOMCreateView, BOMDetailView,
-    CategoryListView,
+    BOMListView, BOMCreateView, BOMDetailView, BOMUpdateView, BOMDeleteView,
+    BOMDuplicateView, BOMExplodeView, BOMMaterialCheckView,
+    CategoryListView, CategoryCreateView, CategoryUpdateView,
+    CategoryDeleteView, CategoryQuickCreateView,
+    StockCountListView, StockCountCreateView, StockCountDetailView, StockCountApplyView,
 )
 
 app_name = 'inventory'
@@ -34,11 +37,26 @@ urlpatterns = [
     path('low-stock/', LowStockView.as_view(), name='low_stock'),
     path('valuation/', InventoryValuationView.as_view(), name='valuation'),
 
-    # قوائم المواد
+    # قوائم المواد (BOM)
     path('bom/', BOMListView.as_view(), name='bom_list'),
     path('bom/create/', BOMCreateView.as_view(), name='bom_create'),
     path('bom/<int:pk>/', BOMDetailView.as_view(), name='bom_detail'),
+    path('bom/<int:pk>/edit/', BOMUpdateView.as_view(), name='bom_update'),
+    path('bom/<int:pk>/delete/', BOMDeleteView.as_view(), name='bom_delete'),
+    path('bom/<int:pk>/duplicate/', BOMDuplicateView.as_view(), name='bom_duplicate'),
+    path('bom/<int:pk>/explode/', BOMExplodeView.as_view(), name='bom_explode'),
+    path('bom/<int:pk>/check-materials/', BOMMaterialCheckView.as_view(), name='bom_check_materials'),
 
-    # التصنيفات
+    # الجرد المخزني
+    path('stock-count/', StockCountListView.as_view(), name='stock_count_list'),
+    path('stock-count/create/', StockCountCreateView.as_view(), name='stock_count_create'),
+    path('stock-count/<int:pk>/', StockCountDetailView.as_view(), name='stock_count_detail'),
+    path('stock-count/<int:pk>/apply/', StockCountApplyView.as_view(), name='stock_count_apply'),
+
+    # التصنيفات — literal paths قبل المعرَّفات بـ pk
     path('categories/', CategoryListView.as_view(), name='category_list'),
+    path('categories/create/', CategoryCreateView.as_view(), name='category_create'),
+    path('categories/quick-create/', CategoryQuickCreateView.as_view(), name='category_quick_create'),
+    path('categories/<int:pk>/edit/', CategoryUpdateView.as_view(), name='category_update'),
+    path('categories/<int:pk>/delete/', CategoryDeleteView.as_view(), name='category_delete'),
 ]

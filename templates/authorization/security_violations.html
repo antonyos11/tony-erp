@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} — RITA ERP{% endblock %}
+{% block nav_authorization %}active{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item active">سجل الأمان</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0 text-danger"><i class="bi bi-shield-exclamation me-2"></i>{{ title }}</h4>
+    <span class="badge bg-danger fs-6">
+        <i class="bi bi-exclamation-triangle me-1"></i>اليوم: {{ total_today }}
+    </span>
+</div>
+
+<!-- فلاتر البحث -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-sm-3">
+                <label class="form-label small fw-semibold mb-1">المستخدم</label>
+                <select name="user" class="form-select form-select-sm">
+                    <option value="">— الكل —</option>
+                    {% for u in users %}
+                    <option value="{{ u.pk }}" {% if filter_params.user == u.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ u.get_full_name|default:u.username }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-sm-2">
+                <label class="form-label small fw-semibold mb-1">القسم</label>
+                <select name="module" class="form-select form-select-sm">
+                    <option value="">— الكل —</option>
+                    {% for mod in modules %}
+                    <option value="{{ mod }}" {% if filter_params.module == mod %}selected{% endif %}>{{ mod }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-sm-2">
+                <label class="form-label small fw-semibold mb-1">من تاريخ</label>
+                <input type="date" name="date_from" class="form-control form-control-sm"
+                       value="{{ filter_params.date_from|default:'' }}">
+            </div>
+            <div class="col-sm-2">
+                <label class="form-label small fw-semibold mb-1">إلى تاريخ</label>
+                <input type="date" name="date_to" class="form-control form-control-sm"
+                       value="{{ filter_params.date_to|default:'' }}">
+            </div>
+            <div class="col-sm-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                    <i class="bi bi-search me-1"></i>بحث
+                </button>
+                <a href="{% url 'authorization:security_violations' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-x"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- جدول السجل -->
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-danger">
+                    <tr>
+                        <th>التوقيت</th>
+                        <th>المستخدم</th>
+                        <th>القسم</th>
+                        <th>الإجراء</th>
+                        <th>الـ URL</th>
+                        <th>IP</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td class="text-muted small text-nowrap">{{ log.timestamp|date:"Y/m/d H:i" }}</td>
+                        <td>
+                            {% if log.user %}
+                                <span class="fw-semibold">{{ log.user.get_full_name|default:log.user.username }}</span>
+                                <div class="text-muted small">@{{ log.user.username }}</div>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge bg-warning text-dark">{{ log.attempted_module }}</span></td>
+                        <td><span class="badge bg-secondary">{{ log.attempted_action }}</span></td>
+                        <td class="text-muted small" style="max-width:250px;word-break:break-all;">
+                            {{ log.attempted_url }}
+                        </td>
+                        <td class="text-muted small text-nowrap">{{ log.ip_address|default:"—" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-5">
+                            <i class="bi bi-shield-check fs-1 text-success d-block mb-2"></i>
+                            لا توجد محاولات وصول غير مصرح سجلت حتى الآن
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<nav class="mt-3">
+    <ul class="pagination pagination-sm justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filter_params %}&{{ filter_params|urlencode }}{% endif %}">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </li>
+        {% endif %}
+        <li class="page-item disabled">
+            <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        </li>
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filter_params %}&{{ filter_params|urlencode }}{% endif %}">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% endblock %}

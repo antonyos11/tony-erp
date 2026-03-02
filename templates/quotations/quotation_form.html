@@ -1,0 +1,423 @@
+{% extends "base.html" %}
+{% block title %}{% if action == 'edit' %}تعديل{% else %}عرض سعر جديد{% endif %} — RITA ERP{% endblock %}
+{% block nav_quotations %}active{% endblock %}
+{% block nav_quotations_open %}show{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">
+        <i class="bi bi-file-earmark-plus me-2 text-primary"></i>
+        {% if action == 'edit' %}تعديل عرض السعر {{ quotation.quotation_number }}{% else %}عرض سعر جديد{% endif %}
+    </h4>
+    <a href="{% url 'quotations:quotation_list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-right me-1"></i>عودة
+    </a>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div class="alert alert-{{ msg.tags }} alert-dismissible fade show">{{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+{% endfor %}
+{% endif %}
+
+<form method="post" id="quotationForm">
+    {% csrf_token %}
+    <div class="row g-4">
+        <!-- العميل -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-person me-2"></i>بيانات العميل
+                </div>
+                <div class="card-body">
+                    <!-- تبويبات: عميل مسجل / عميل محتمل -->
+                    <ul class="nav nav-tabs mb-3" id="customerTabs">
+                        <li class="nav-item">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#existingCustomer" type="button">
+                                <i class="bi bi-person-check me-1"></i>عميل مسجل
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#prospectCustomer" type="button">
+                                <i class="bi bi-person-plus me-1"></i>عميل محتمل
+                            </button>
+                        </li>
+                    </ul>
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="existingCustomer">
+                            <div class="mb-3">
+                                <label class="form-label">اختر العميل</label>
+                                <div class="input-group">
+                                    {{ form.customer }}
+                                    <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#quickAddCustomerModal">
+                                        <i class="bi bi-plus-circle"></i> إضافة سريع
+                                    </button>
+                                </div>
+                                {% if form.customer.errors %}<div class="text-danger small">{{ form.customer.errors }}</div>{% endif %}
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="prospectCustomer">
+                            <div class="mb-2">
+                                <label class="form-label">الاسم *</label>
+                                {{ form.prospect_name }}
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="form-label">الهاتف</label>
+                                    {{ form.prospect_phone }}
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">الإيميل</label>
+                                    {{ form.prospect_email }}
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label">الشركة</label>
+                                {{ form.prospect_company }}
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label">العنوان</label>
+                                {{ form.prospect_address }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- بيانات العرض -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-secondary text-white">
+                    <i class="bi bi-gear me-2"></i>بيانات العرض
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label">الفرع *</label>
+                            {{ form.branch }}
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">صلاحية العرض</label>
+                            {{ form.valid_days }}
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">خصم إجمالي %</label>
+                            {{ form.discount_percentage }}
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">رسوم التوصيل</label>
+                            {{ form.delivery_fee }}
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">شروط الدفع</label>
+                            {{ form.payment_terms }}
+                        </div>
+                        <div class="col-6 d-flex align-items-end gap-3 pb-1">
+                            <div class="form-check">
+                                {{ form.is_taxable }}
+                                <label class="form-check-label">خاضع للضريبة</label>
+                            </div>
+                            <div class="form-check">
+                                {{ form.delivery_required }}
+                                <label class="form-check-label">يحتاج توصيل</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- سطور المنتجات -->
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center bg-dark text-white">
+                    <span><i class="bi bi-list-ul me-2"></i>الأصناف</span>
+                    <button type="button" class="btn btn-success btn-sm" onclick="addLine()">
+                        <i class="bi bi-plus-circle me-1"></i>إضافة صنف
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered mb-0" id="linesTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="min-width:220px">المنتج</th>
+                                    <th style="width:100px">الكمية</th>
+                                    <th style="width:130px">السعر</th>
+                                    <th style="width:100px">خصم %</th>
+                                    <th style="width:130px">الإجمالي</th>
+                                    <th style="width:130px">الربح التقديري</th>
+                                    <th style="min-width:150px">ملاحظات</th>
+                                    <th style="width:50px"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="linesBody">
+                                {% if existing_lines %}
+                                {% for line in existing_lines %}
+                                <tr>
+                                    <td>
+                                        <select name="line_product" class="form-select form-select-sm product-select" onchange="updateLine(this)">
+                                            <option value="">— اختر منتج —</option>
+                                            {% for p in products %}
+                                            <option value="{{ p.pk }}"
+                                                data-price="{{ p.sell_price }}"
+                                                data-cost="{{ p.cost_price }}"
+                                                {% if p.pk == line.product_id %}selected{% endif %}>
+                                                {{ p.name }} ({{ p.code }})
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td><input type="number" name="line_quantity" class="form-control form-control-sm line-qty" value="{{ line.quantity }}" min="0.01" step="0.01" onchange="updateLine(this)"></td>
+                                    <td><input type="number" name="line_price" class="form-control form-control-sm line-price" value="{{ line.unit_price }}" min="0" step="0.01" onchange="updateLine(this)"></td>
+                                    <td><input type="number" name="line_discount" class="form-control form-control-sm line-disc" value="{{ line.discount_percentage }}" min="0" max="100" step="0.01" onchange="updateLine(this)"></td>
+                                    <td><input type="text" class="form-control form-control-sm line-sub bg-light" value="{{ line.subtotal|floatformat:2 }}" readonly></td>
+                                    <td><input type="text" class="form-control form-control-sm line-profit bg-light" value="{{ line.estimated_profit|floatformat:2 }}" readonly></td>
+                                    <td><input type="text" name="line_notes" class="form-control form-control-sm" value="{{ line.notes }}"></td>
+                                    <td><button type="button" class="btn btn-danger btn-sm" onclick="removeLine(this)"><i class="bi bi-trash"></i></button></td>
+                                </tr>
+                                {% endfor %}
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- الإجماليات -->
+                <div class="card-footer">
+                    <div class="row justify-content-end g-2">
+                        <div class="col-md-4">
+                            <table class="table table-sm mb-0">
+                                <tr><td class="text-muted">الإجمالي الفرعي:</td><td class="fw-bold text-end" id="totalSubtotal">0.00</td></tr>
+                                <tr><td class="text-muted">الخصم:</td><td class="fw-bold text-end text-danger" id="totalDiscount">0.00</td></tr>
+                                <tr><td class="text-muted">الضريبة (14%):</td><td class="fw-bold text-end" id="totalTax">0.00</td></tr>
+                                <tr class="table-primary"><td class="fw-bold">الإجمالي النهائي:</td><td class="fw-bold text-end fs-5" id="totalFinal">0.00</td></tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- الشروط والملاحظات -->
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header">الشروط والملاحظات</div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <label class="form-label">الشروط والأحكام</label>
+                        {{ form.terms_and_conditions }}
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">ملاحظات للعميل</label>
+                        {{ form.customer_notes }}
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">ملاحظات داخلية</label>
+                        {{ form.internal_notes }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-save me-2"></i>حفظ عرض السعر
+        </button>
+        <a href="{% url 'quotations:quotation_list' %}" class="btn btn-outline-secondary">إلغاء</a>
+    </div>
+</form>
+
+<!-- Modal إضافة عميل سريع -->
+<div class="modal fade" id="quickAddCustomerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>إضافة عميل سريع</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">الاسم *</label>
+                    <input type="text" id="qa_name" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">الهاتف *</label>
+                    <input type="text" id="qa_phone" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">النوع</label>
+                    <select id="qa_type" class="form-select">
+                        <option value="retail">قطاعي</option>
+                        <option value="wholesale">جملة</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">المحافظة</label>
+                    <input type="text" id="qa_gov" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">العنوان</label>
+                    <textarea id="qa_address" class="form-control" rows="2"></textarea>
+                </div>
+                <div id="qaError" class="alert alert-danger d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button class="btn btn-success" onclick="quickAddCustomer()">
+                    <i class="bi bi-check-circle me-1"></i>حفظ
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- قالب سطر جديد -->
+<template id="lineTemplate">
+    <tr>
+        <td>
+            <select name="line_product" class="form-select form-select-sm product-select" onchange="updateLine(this)">
+                <option value="">— اختر منتج —</option>
+                {% for p in products %}
+                <option value="{{ p.pk }}" data-price="{{ p.sell_price }}" data-cost="{{ p.cost_price }}">
+                    {{ p.name }} ({{ p.code }})
+                </option>
+                {% endfor %}
+            </select>
+        </td>
+        <td><input type="number" name="line_quantity" class="form-control form-control-sm line-qty" value="1" min="0.01" step="0.01" onchange="updateLine(this)"></td>
+        <td><input type="number" name="line_price" class="form-control form-control-sm line-price" value="0" min="0" step="0.01" onchange="updateLine(this)"></td>
+        <td><input type="number" name="line_discount" class="form-control form-control-sm line-disc" value="0" min="0" max="100" step="0.01" onchange="updateLine(this)"></td>
+        <td><input type="text" class="form-control form-control-sm line-sub bg-light" value="0.00" readonly></td>
+        <td><input type="text" class="form-control form-control-sm line-profit bg-light" value="0.00" readonly></td>
+        <td><input type="text" name="line_notes" class="form-control form-control-sm"></td>
+        <td><button type="button" class="btn btn-danger btn-sm" onclick="removeLine(this)"><i class="bi bi-trash"></i></button></td>
+    </tr>
+</template>
+
+<script>
+function addLine() {
+    const tmpl = document.getElementById('lineTemplate');
+    const clone = tmpl.content.cloneNode(true);
+    document.getElementById('linesBody').appendChild(clone);
+    recalcTotals();
+}
+
+function removeLine(btn) {
+    btn.closest('tr').remove();
+    recalcTotals();
+}
+
+function updateLine(el) {
+    const row = el.closest('tr');
+    // لو اختار منتج، نضع السعر تلقائياً
+    const productSel = row.querySelector('.product-select');
+    const selOpt = productSel.options[productSel.selectedIndex];
+    const defaultPrice = selOpt ? parseFloat(selOpt.dataset.price || 0) : 0;
+    const costPerUnit = selOpt ? parseFloat(selOpt.dataset.cost || 0) : 0;
+
+    if (el.classList.contains('product-select') && selOpt) {
+        const priceInput = row.querySelector('.line-price');
+        if (parseFloat(priceInput.value) === 0) {
+            priceInput.value = defaultPrice.toFixed(2);
+        }
+    }
+
+    const qty = parseFloat(row.querySelector('.line-qty').value) || 0;
+    const price = parseFloat(row.querySelector('.line-price').value) || 0;
+    const disc = parseFloat(row.querySelector('.line-disc').value) || 0;
+
+    const lineTotal = qty * price;
+    const lineDisc = lineTotal * disc / 100;
+    const lineSub = lineTotal - lineDisc;
+    const lineCost = qty * costPerUnit;
+    const lineProfit = lineSub - lineCost;
+
+    row.querySelector('.line-sub').value = lineSub.toFixed(2);
+    row.querySelector('.line-profit').value = lineProfit.toFixed(2);
+    row.querySelector('.line-profit').style.color = lineProfit >= 0 ? 'green' : 'red';
+
+    recalcTotals();
+}
+
+function recalcTotals() {
+    let subtotal = 0;
+    document.querySelectorAll('.line-sub').forEach(el => {
+        subtotal += parseFloat(el.value) || 0;
+    });
+
+    const discPct = parseFloat(document.querySelector('[name="discount_percentage"]')?.value) || 0;
+    const deliveryFee = parseFloat(document.querySelector('[name="delivery_fee"]')?.value) || 0;
+    const isTaxable = document.querySelector('[name="is_taxable"]')?.checked || false;
+
+    const discAmt = subtotal * discPct / 100;
+    const taxable = subtotal - discAmt;
+    const tax = isTaxable ? taxable * 14 / 100 : 0;
+    const total = taxable + tax + deliveryFee;
+
+    document.getElementById('totalSubtotal').textContent = subtotal.toFixed(2) + ' ج.م';
+    document.getElementById('totalDiscount').textContent = discAmt.toFixed(2) + ' ج.م';
+    document.getElementById('totalTax').textContent = tax.toFixed(2) + ' ج.م';
+    document.getElementById('totalFinal').textContent = total.toFixed(2) + ' ج.م';
+}
+
+// إعادة الحساب عند تغيير الخصم الإجمالي أو التوصيل أو الضريبة
+document.addEventListener('DOMContentLoaded', function() {
+    const discField = document.querySelector('[name="discount_percentage"]');
+    const feeField = document.querySelector('[name="delivery_fee"]');
+    const taxField = document.querySelector('[name="is_taxable"]');
+    if (discField) discField.addEventListener('input', recalcTotals);
+    if (feeField) feeField.addEventListener('input', recalcTotals);
+    if (taxField) taxField.addEventListener('change', recalcTotals);
+    recalcTotals();
+});
+
+function quickAddCustomer() {
+    const name = document.getElementById('qa_name').value.trim();
+    const phone = document.getElementById('qa_phone').value.trim();
+    if (!name || !phone) {
+        document.getElementById('qaError').textContent = 'الاسم والهاتف مطلوبان';
+        document.getElementById('qaError').classList.remove('d-none');
+        return;
+    }
+    fetch("{% url 'sales:quick_add_customer' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}',
+        },
+        body: JSON.stringify({
+            name: name,
+            phone: phone,
+            customer_type: document.getElementById('qa_type').value,
+            governorate: document.getElementById('qa_gov').value,
+            address: document.getElementById('qa_address').value,
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            const select = document.getElementById('id_customer');
+            const option = new Option(
+                data.customer.name + ' (' + data.customer.code + ')',
+                data.customer.id, true, true
+            );
+            select.add(option);
+            bootstrap.Modal.getInstance(document.getElementById('quickAddCustomerModal')).hide();
+            // إعادة ضبط الفورم
+            document.getElementById('qa_name').value = '';
+            document.getElementById('qa_phone').value = '';
+            document.getElementById('qaError').classList.add('d-none');
+        } else {
+            document.getElementById('qaError').textContent = 'حدث خطأ، حاول مرة أخرى';
+            document.getElementById('qaError').classList.remove('d-none');
+        }
+    })
+    .catch(() => {
+        document.getElementById('qaError').textContent = 'خطأ في الاتصال';
+        document.getElementById('qaError').classList.remove('d-none');
+    });
+}
+</script>
+{% endblock %}

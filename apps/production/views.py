@@ -564,3 +564,156 @@ class GetBOMDetailsView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 shortages.append(line_data)
 
         return JsonResponse({'lines': lines, 'shortages': shortages})
+
+
+# ══════════════════════════════════════════════════════
+# Sprint 20 — Views إضافية للإنتاج
+# ══════════════════════════════════════════════════════
+
+class ExtraMaterialView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """صرف خامات إضافية أثناء الإنتاج"""
+    permission_module = 'production'
+    permission_action = 'edit'
+
+    def get(self, request, pk):
+        order = get_object_or_404(ProductionOrder, pk=pk)
+        return render(request, 'production/extra_material.html', {
+            'title': f'خامات إضافية — {order.order_number}',
+            'order': order,
+            'products': Product.objects.filter(product_type='raw_material', is_active=True),
+        })
+
+    def post(self, request, pk):
+        order = get_object_or_404(ProductionOrder, pk=pk)
+        product_id = request.POST.get('product')
+        quantity = request.POST.get('quantity', '0')
+        notes = request.POST.get('notes', '')
+
+        try:
+            product = Product.objects.get(pk=product_id)
+            qty = Decimal(str(quantity))
+            warehouse = getattr(order, 'warehouse_raw', None)
+            if warehouse:
+                StockEngine.issue_stock(
+                    product=product,
+                    warehouse=warehouse,
+                    quantity=qty,
+                    source_type='production_extra',
+                    source_id=order.pk,
+                    notes=f'خامات إضافية — أمر إنتاج {order.order_number} — {notes}',
+                    user=request.user,
+                )
+                messages.success(request, f'تم صرف {qty} من {product.name}')
+        except Exception as e:
+            messages.error(request, f'خطأ: {e}')
+
+        return redirect('production:order_detail', pk=pk)
+
+
+class ProductionWasteView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """تسجيل هالك أثناء الإنتاج"""
+    permission_module = 'production'
+    permission_action = 'edit'
+
+    def get(self, request, pk):
+        order = get_object_or_404(ProductionOrder, pk=pk)
+        return render(request, 'production/production_waste.html', {
+            'title': f'تسجيل هالك — {order.order_number}',
+            'order': order,
+        })
+
+    def post(self, request, pk):
+        order = get_object_or_404(ProductionOrder, pk=pk)
+        waste_description = request.POST.get('description', '')
+        waste_quantity = request.POST.get('quantity', '0')
+        notes = request.POST.get('notes', '')
+
+        try:
+            qty = Decimal(str(waste_quantity))
+            # تسجيل الهالك كحركة مخزون
+            warehouse = getattr(order, 'warehouse_raw', None)
+            if warehouse and order.product:
+                StockEngine.issue_stock(
+                    product=order.product,
+                    warehouse=warehouse,
+                    quantity=qty,
+                    source_type='production_waste',
+                    source_id=order.pk,
+                    notes=f'هالك إنتاج — {order.order_number} — {waste_description} — {notes}',
+                    user=request.user,
+                )
+                messages.success(request, f'تم تسجيل {qty} هالك في أمر الإنتاج {order.order_number}')
+        except Exception as e:
+            messages.error(request, f'خطأ في تسجيل الهالك: {e}')
+
+        return redirect('production:order_detail', pk=pk)
+
+
+class DuplicateOrderView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """نسخ أمر إنتاج"""
+    permission_module = 'production'
+    permission_action = 'create'
+
+    def post(self, request, pk):
+        original = get_object_or_404(ProductionOrder, pk=pk)
+        try:
+            # نسخ الأمر
+            new_order = ProductionOrder.objects.create(
+                product=original.product,
+                bom=original.bom,
+                planned_quantity=original.planned_quantity,
+                warehouse_raw=original.warehouse_raw,
+                warehouse_finished=getattr(original, 'warehouse_finished', None),
+                production_line=getattr(original, 'production_line', None),
+                expected_date=original.expected_date,
+                notes=f'نسخة من {original.order_number}',
+                status='draft',
+                created_by=request.user,
+                updated_by=request.user,
+            )
+            messages.success(request, f'تم إنشاء نسخة جديدة: {new_order.order_number}')
+            return redirect('production:order_detail', pk=new_order.pk)
+        except Exception as e:
+            messages.error(request, f'خطأ في النسخ: {e}')
+            return redirect('production:order_detail', pk=pk)
+
+
+class ProductionEfficiencyView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
+    """تقرير كفاءة الإنتاج"""
+    permission_module = 'production'
+    permission_action = 'view'
+    template_name = 'production/efficiency_report.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['title'] = 'تقرير كفاءة الإنتاج'
+
+        from django.utils import timezone as tz
+        now = tz.now()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0)
+
+        orders = ProductionOrder.objects.filter(
+            created_at__gte=month_start
+        ).select_related('product', 'production_line')
+
+        ctx['orders'] = orders
+        ctx['total_orders'] = orders.count()
+        ctx['completed_orders'] = orders.filter(status='completed').count()
+        ctx['delayed_orders'] = orders.filter(
+            status__in=['confirmed', 'in_progress'],
+            expected_date__lt=now.date(),
+        ).count()
+
+        # حساب الكفاءة الإجمالية
+        completed = orders.filter(status='completed')
+        if completed.exists():
+            total_planned = completed.aggregate(t=Sum('quantity'))['t'] or Decimal('0')
+            total_actual = completed.aggregate(t=Sum('quantity_produced'))['t'] or Decimal('0')
+            ctx['efficiency_rate'] = (
+                round(float(total_actual) / float(total_planned) * 100, 1)
+                if total_planned > 0 else 0
+            )
+        else:
+            ctx['efficiency_rate'] = 0
+
+        return ctx

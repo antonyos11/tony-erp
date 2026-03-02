@@ -166,3 +166,52 @@ class OverdueInstallmentsView(LoginRequiredMixin, ListView):
             status__in=('overdue', 'pending'),
             is_deleted=False,
         ).select_related('plan', 'plan__customer').order_by('due_date')
+
+
+# ══════════════════════════════════════════════════════
+# تصدير جدول الأقساط CSV
+# ══════════════════════════════════════════════════════
+
+class InstallmentPlanExportView(LoginRequiredMixin, View):
+    """تصدير جدول سداد خطة أقساط إلى CSV"""
+
+    def get(self, request, pk):
+        from django.http import HttpResponse
+        import csv
+
+        plan = get_object_or_404(InstallmentPlan, pk=pk, is_deleted=False)
+        schedule = InstallmentEngine.get_schedule(plan)
+
+        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+        response['Content-Disposition'] = f'attachment; filename="installment_plan_{plan.pk}.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['رقم القسط', 'تاريخ الاستحقاق', 'المبلغ', 'المدفوع', 'المتبقي', 'الحالة'])
+        for inst in schedule:
+            writer.writerow([
+                inst.installment_number,
+                inst.due_date,
+                inst.amount,
+                inst.paid_amount,
+                inst.remaining,
+                inst.get_status_display(),
+            ])
+        return response
+
+
+# ══════════════════════════════════════════════════════
+# إلغاء خطة أقساط
+# ══════════════════════════════════════════════════════
+
+class CancelInstallmentPlanView(LoginRequiredMixin, View):
+    """إلغاء خطة أقساط (defaulted)"""
+
+    def post(self, request, pk):
+        plan = get_object_or_404(InstallmentPlan, pk=pk, is_deleted=False)
+        if plan.status == 'active':
+            plan.status = 'defaulted'
+            plan.updated_by = request.user
+            plan.save(update_fields=['status', 'updated_by'])
+            messages.warning(request, f'تم تصنيف الخطة كمتعثرة')
+        else:
+            messages.error(request, 'لا يمكن تغيير حالة هذه الخطة')
+        return redirect('installments:plan_detail', pk=pk)

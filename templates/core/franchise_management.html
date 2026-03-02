@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% block title %}إدارة التوكيلات — RITA ERP{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item active">التوكيلات والموزعون</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-diagram-2 me-2 text-primary"></i>{{ title }}</h4>
+    <a href="{% url 'core:branch_create' %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>إضافة توكيل
+    </a>
+</div>
+
+<!-- KPIs -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center py-3">
+            <div class="text-muted small">إجمالي التوكيلات</div>
+            <div class="fw-bold fs-4">{{ franchises.count }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center py-3">
+            <div class="text-muted small">عقود قاربت على الانتهاء</div>
+            <div class="fw-bold fs-4 text-warning">{{ expiring_soon_count }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center py-3">
+            <div class="text-muted small">عقود منتهية</div>
+            <div class="fw-bold fs-4 text-danger">{{ expired_count }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center py-3">
+            <div class="text-muted small">عقود نشطة</div>
+            <div class="fw-bold fs-4 text-success">{{ franchise_data|length }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- تنبيه للعقود المنتهية قريباً -->
+{% if expiring_soon_count > 0 %}
+<div class="alert alert-warning d-flex align-items-center mb-3">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    <strong>{{ expiring_soon_count }} عقد</strong> سينتهي خلال 30 يوماً — يُرجى المراجعة وتجديد العقود.
+</div>
+{% endif %}
+
+<!-- الجدول -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>الاسم</th>
+                        <th>النوع</th>
+                        <th>المحافظة</th>
+                        <th>نسبة الخصم</th>
+                        <th>بداية العقد</th>
+                        <th>نهاية العقد</th>
+                        <th>حالة العقد</th>
+                        <th>إجمالي المبيعات</th>
+                        <th>الرصيد المستحق</th>
+                        <th class="text-center">إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fd in franchise_data %}
+                    <tr class="{% if fd.contract_status == 'expiring_soon' %}table-warning{% elif fd.contract_status == 'expired' %}table-danger{% endif %}">
+                        <td class="fw-semibold">
+                            <a href="{% url 'core:branch_detail' fd.branch.pk %}" class="text-decoration-none">
+                                {{ fd.branch.name }}
+                            </a>
+                        </td>
+                        <td>
+                            {% if fd.branch.branch_type == 'franchise' %}
+                            <span class="badge bg-warning text-dark">توكيل</span>
+                            {% else %}
+                            <span class="badge bg-info text-dark">موزع</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ fd.branch.governorate|default:"—" }}</td>
+                        <td class="text-success fw-semibold">{{ fd.branch.discount_rate }}%</td>
+                        <td>{{ fd.branch.contract_start|default:"—" }}</td>
+                        <td>{{ fd.branch.contract_end|default:"—" }}</td>
+                        <td>
+                            {% if fd.contract_status == 'active' %}
+                            <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                نشط ({{ fd.days_left }} يوم)
+                            </span>
+                            {% elif fd.contract_status == 'expiring_soon' %}
+                            <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
+                                <i class="bi bi-clock me-1"></i>ينتهي خلال {{ fd.days_left }} يوم
+                            </span>
+                            {% elif fd.contract_status == 'expired' %}
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                <i class="bi bi-x-circle me-1"></i>منتهٍ
+                            </span>
+                            {% else %}
+                            <span class="badge bg-secondary">بدون عقد</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-success fw-semibold">{{ fd.sales|floatformat:0 }} ج.م</td>
+                        <td class="{% if fd.balance > 0 %}text-danger fw-semibold{% else %}text-muted{% endif %}">
+                            {{ fd.balance|floatformat:0 }} ج.م
+                        </td>
+                        <td class="text-center">
+                            <a href="{% url 'core:branch_detail' fd.branch.pk %}" class="btn btn-outline-secondary btn-sm" title="تفاصيل">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{% url 'core:branch_update' fd.branch.pk %}" class="btn btn-outline-primary btn-sm" title="تعديل">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted py-4">لا توجد توكيلات أو موزعون مسجلون</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

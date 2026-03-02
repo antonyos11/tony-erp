@@ -16,6 +16,7 @@ from apps.accounts.models import (
 from apps.accounts.services.financial_reports import FinancialReports
 from apps.authorization.decorators import PermissionRequiredMixin
 from apps.core.models import Branch
+from apps.core.mixins import apply_branch_filter, BranchCreateMixin
 
 
 # ══════════════════════════════════════════════════════
@@ -109,6 +110,7 @@ class JournalEntryListView(LoginRequiredMixin, PermissionRequiredMixin, ListView
 
     def get_queryset(self):
         qs = JournalEntry.objects.select_related('branch', 'fiscal_year').order_by('-date', '-entry_number')
+        qs = apply_branch_filter(qs, self.request)
         date_from = self.request.GET.get('date_from')
         date_to   = self.request.GET.get('date_to')
         source    = self.request.GET.get('source')
@@ -411,3 +413,404 @@ class FiscalYearListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
             object_list=qs,
             form=form,
         ))
+
+
+# ══════════════════════════════════════════════════════
+# تعديل واعتماد القيود (Sprint 20)
+# ══════════════════════════════════════════════════════
+
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, render
+from django.views import View
+
+
+class JournalEditView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """تعديل قيد في حالة مسودة"""
+    permission_module = 'accounts'
+    permission_action = 'edit'
+
+    def get(self, request, pk):
+        entry = get_object_or_404(JournalEntry, pk=pk)
+        if entry.status != 'draft':
+            messages.error(request, 'لا يمكن تعديل قيد إلا في حالة المسودة.')
+            return redirect('accounts:journal_detail', pk=pk)
+        lines = entry.lines.select_related('account').all()
+        return render(request, 'accounts/journal_edit.html', {
+            'title': f'تعديل قيد: {entry.entry_number}',
+            'entry': entry,
+            'lines': lines,
+        })
+
+    def post(self, request, pk):
+        entry = get_object_or_404(JournalEntry, pk=pk)
+        if entry.status != 'draft':
+            messages.error(request, 'لا يمكن تعديل قيد إلا في حالة المسودة.')
+            return redirect('accounts:journal_detail', pk=pk)
+
+        description = request.POST.get('description', entry.description)
+        entry.description = description
+        entry.save()
+        messages.success(request, f'تم تحديث القيد {entry.entry_number}')
+        return redirect('accounts:journal_detail', pk=pk)
+
+
+class JournalCancelView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """إلغاء قيد محاسبي (تغيير الحالة لـ cancelled)"""
+    permission_module = 'accounts'
+    permission_action = 'approve'
+
+    def post(self, request, pk):
+        entry = get_object_or_404(JournalEntry, pk=pk)
+        if entry.status == 'posted':
+            messages.error(request, 'لا يمكن إلغاء قيد مرحّل.')
+            return redirect('accounts:journal_detail', pk=pk)
+        entry.status = 'cancelled'
+        entry.save()
+        messages.success(request, f'تم إلغاء القيد {entry.entry_number}')
+        return redirect('accounts:journal_list')
+
+
+class JournalPostView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """ترحيل (اعتماد) قيد يدوي"""
+    permission_module = 'accounts'
+    permission_action = 'approve'
+
+    def post(self, request, pk):
+        entry = get_object_or_404(JournalEntry, pk=pk)
+        if entry.status != 'draft':
+            messages.error(request, 'لا يمكن ترحيل قيد إلا في حالة المسودة.')
+            return redirect('accounts:journal_detail', pk=pk)
+
+        # التحقق من التوازن
+        from decimal import Decimal
+        from django.db.models import Sum
+        totals = entry.lines.aggregate(d=Sum('debit'), c=Sum('credit'))
+        total_debit = totals['d'] or Decimal('0')
+        total_credit = totals['c'] or Decimal('0')
+
+        if abs(total_debit - total_credit) > Decimal('0.01'):
+            messages.error(request, f'القيد غير متوازن: مدين={total_debit}, دائن={total_credit}')
+            return redirect('accounts:journal_detail', pk=pk)
+
+        entry.status = 'posted'
+        entry.posted_by = request.user
+        entry.posted_at = timezone.now()
+        entry.save()
+        messages.success(request, f'تم ترحيل القيد {entry.entry_number} بنجاح')
+        return redirect('accounts:journal_detail', pk=pk)
+
+
+# ══════════════════════════════════════════════════════
+# Sprint 22B — مراكز التكلفة
+# ══════════════════════════════════════════════════════
+
+from apps.accounts.models import CostCenter
+
+
+class CostCenterListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    """قائمة مراكز التكلفة"""
+    permission_module = 'accounts'
+    permission_action = 'view'
+    template_name = 'accounts/cost_center_list.html'
+    model = CostCenter
+    context_object_name = 'cost_centers'
+    ordering = ['code']
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['title'] = 'مراكز التكلفة'
+        return ctx
+
+
+# ══════════════════════════════════════════════════════
+# Sprint 22B — WIP (إنتاج تحت التشغيل)
+# ══════════════════════════════════════════════════════
+
+from apps.accounts.models import WIPAccount
+from apps.accounts.services.manufacturing_cost_engine import ManufacturingCostEngine
+from django.views.generic import View
+from django.shortcuts import get_object_or_404
+
+
+class WIPSummaryView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
+    """ملخص WIP — كل الأوامر المفتوحة + إجمالي القيمة"""
+    permission_module = 'accounts'
+    permission_action = 'view'
+    template_name = 'accounts/wip_summary.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        summary = ManufacturingCostEngine.get_wip_summary()
+        ctx.update(summary)
+        ctx['title'] = 'إنتاج تحت التشغيل (WIP)'
+        return ctx
+
+
+class ProductionCostDetailView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
+    """تفصيل تكلفة أمر إنتاج"""
+    permission_module = 'accounts'
+    permission_action = 'view'
+    template_name = 'accounts/production_cost_detail.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from apps.production.models import ProductionOrder
+        order = get_object_or_404(ProductionOrder, pk=self.kwargs['pk'])
+        report = ManufacturingCostEngine.get_production_cost_report(order)
+        ctx.update(report)
+        ctx['title'] = f'تكلفة أمر الإنتاج {order.order_number}'
+        # بيانات Chart.js
+        import json
+        ctx['cost_chart_data'] = json.dumps({
+            'labels': ['خامات', 'عمالة', 'تكاليف غير مباشرة'],
+            'values': [
+                float(report['material_cost']),
+                float(report['labor_cost']),
+                float(report['overhead_cost']),
+            ],
+        })
+        return ctx
+
+
+class UnitCostComparisonView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
+    """مقارنة تكلفة الوحدة عبر الأوامر"""
+    permission_module = 'accounts'
+    permission_action = 'view'
+    template_name = 'accounts/unit_cost_comparison.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from apps.inventory.models import Product
+        import json
+        product = get_object_or_404(Product, pk=self.kwargs['product_id'])
+        comparison = ManufacturingCostEngine.get_unit_cost_comparison(product)
+        ctx['product'] = product
+        ctx['comparison'] = comparison
+        ctx['title'] = f'تطور تكلفة الوحدة — {product.name}'
+        ctx['chart_data'] = json.dumps({
+            'labels': [str(r['order_number']) for r in comparison],
+            'values': [float(r['unit_cost']) for r in comparison],
+        })
+        return ctx
+
+
+# ══════════════════════════════════════════════════════
+# Sprint 22B — الميزانيات
+# ══════════════════════════════════════════════════════
+
+from apps.accounts.models import Budget, BudgetLine, FiscalYear
+from apps.accounts.services.budget_engine import BudgetEngine
+from django.views.generic import UpdateView
+from django.contrib import messages
+import json as _json
+
+
+class BudgetListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    """قائمة الميزانيات"""
+    permission_module = 'accounts'
+    permission_action = 'view'
+    template_name = 'accounts/budget_list.html'
+    model = Budget
+    context_object_name = 'budgets'
+    ordering = ['-fiscal_year__start_date', 'name']
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['title'] = 'الميزانيات'
+        return ctx
+
+
+class BudgetCreateView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
+    """إنشاء ميزانية"""
+    permission_module = 'accounts'
+    permission_action = 'create'
+    template_name = 'accounts/budget_form.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['title'] = 'إنشاء ميزانية جديدة'
+        ctx['fiscal_years'] = FiscalYear.objects.filter(is_closed=False)
+        ctx['accounts'] = Account.objects.filter(is_detail=True, is_active=True).order_by('code')
+        ctx['branches'] = Branch.objects.filter(is_active=True)
+        ctx['cost_centers'] = CostCenter.objects.filter(is_active=True)
+        ctx['is_edit'] = False
+        from apps.expenses.models import ExpenseCategory
+        ctx['categories'] = ExpenseCategory.objects.filter(is_active=True)
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        name = request.POST.get('name', '').strip()
+        fiscal_year_id = request.POST.get('fiscal_year')
+        period_type = request.POST.get('period_type', 'monthly')
+        branch_id = request.POST.get('branch')
+        cost_center_id = request.POST.get('cost_center')
+        notes = request.POST.get('notes', '')
+
+        if not name or not fiscal_year_id:
+            messages.error(request, 'يرجى تعبئة الاسم والسنة المالية.')
+            return redirect('accounts:budget_create')
+
+        try:
+            fiscal_year = FiscalYear.objects.get(pk=fiscal_year_id)
+        except FiscalYear.DoesNotExist:
+            messages.error(request, 'السنة المالية غير موجودة.')
+            return redirect('accounts:budget_create')
+
+        budget = Budget.objects.create(
+            name=name,
+            fiscal_year=fiscal_year,
+            period_type=period_type,
+            branch_id=branch_id if branch_id else None,
+            cost_center_id=cost_center_id if cost_center_id else None,
+            notes=notes,
+            created_by=request.user, updated_by=request.user,
+        )
+        messages.success(request, f'تم إنشاء الميزانية "{budget.name}" بنجاح.')
+        return redirect('accounts:budget_detail', pk=budget.pk)
+
+
+class BudgetDetailView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
+    """تفاصيل ميزانية"""
+    permission_module = 'accounts'
+    permission_action = 'view'
+    template_name = 'accounts/budget_detail.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        budget = get_object_or_404(Budget, pk=self.kwargs['pk'])
+        ctx['budget'] = budget
+        ctx['lines'] = budget.lines.select_related('account', 'expense_category').order_by('account__code')
+        ctx['title'] = f'ميزانية: {budget.name}'
+        return ctx
+
+
+class BudgetUpdateView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
+    """تعديل ميزانية (مسودة فقط)"""
+    permission_module = 'accounts'
+    permission_action = 'edit'
+    template_name = 'accounts/budget_form.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        budget = get_object_or_404(Budget, pk=self.kwargs['pk'])
+        if budget.status != 'draft':
+            ctx['error'] = 'لا يمكن تعديل ميزانية معتمدة أو مغلقة.'
+        ctx['budget'] = budget
+        ctx['title'] = f'تعديل ميزانية: {budget.name}'
+        ctx['fiscal_years'] = FiscalYear.objects.filter(is_closed=False)
+        ctx['accounts'] = Account.objects.filter(is_detail=True, is_active=True).order_by('code')
+        ctx['branches'] = Branch.objects.filter(is_active=True)
+        ctx['cost_centers'] = CostCenter.objects.filter(is_active=True)
+        ctx['is_edit'] = True
+        from apps.expenses.models import ExpenseCategory
+        ctx['categories'] = ExpenseCategory.objects.filter(is_active=True)
+        return ctx
+
+    def post(self, request, pk, *args, **kwargs):
+        budget = get_object_or_404(Budget, pk=pk)
+        if budget.status != 'draft':
+            messages.error(request, 'لا يمكن تعديل ميزانية معتمدة.')
+            return redirect('accounts:budget_detail', pk=pk)
+
+        # تحديث بيانات الميزانية
+        budget.name = request.POST.get('name', budget.name)
+        budget.notes = request.POST.get('notes', budget.notes)
+        budget.updated_by = request.user
+        budget.save()
+        messages.success(request, 'تم تحديث الميزانية بنجاح.')
+        return redirect('accounts:budget_detail', pk=pk)
+
+
+class BudgetApproveView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """اعتماد الميزانية"""
+    permission_module = 'accounts'
+    permission_action = 'approve'
+
+    def post(self, request, pk, *args, **kwargs):
+        budget = get_object_or_404(Budget, pk=pk)
+        if budget.status != 'draft':
+            messages.error(request, 'يمكن اعتماد مسودات فقط.')
+            return redirect('accounts:budget_detail', pk=pk)
+        budget.status = 'approved'
+        budget.approved_by = request.user
+        budget.updated_by = request.user
+        budget.save()
+        messages.success(request, f'تم اعتماد الميزانية "{budget.name}" بنجاح.')
+        return redirect('accounts:budget_detail', pk=pk)
+
+
+class BudgetVsActualView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
+    """تقرير Budget vs Actual"""
+    permission_module = 'accounts'
+    permission_action = 'view'
+    template_name = 'accounts/budget_vs_actual.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        budget = get_object_or_404(Budget, pk=self.kwargs['pk'])
+        month_param = self.request.GET.get('month')
+        month = int(month_param) if month_param else timezone.now().month
+        report = BudgetEngine.get_budget_vs_actual(budget.pk, month)
+        ctx.update(report)
+        ctx['title'] = f'ميزانية مقابل فعلي — {budget.name}'
+        ctx['months_range'] = range(1, 13)
+        ctx['selected_month'] = month
+        return ctx
+
+
+# ══════════════════════════════════════════════════════
+# Sprint 22B — ربحية مراكز التكلفة
+# ══════════════════════════════════════════════════════
+
+
+class CostCenterProfitabilityView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
+    """ربحية كل مركز تكلفة"""
+    permission_module = 'accounts'
+    permission_action = 'view'
+    template_name = 'accounts/cost_center_profitability.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from django.db.models import Sum
+        from apps.accounts.models import JournalLine
+
+        start_date = self.request.GET.get('start_date')
+        end_date = self.request.GET.get('end_date')
+
+        from datetime import date
+        if start_date:
+            from datetime import datetime
+            start_date = date.fromisoformat(start_date)
+        else:
+            start_date = date.today().replace(day=1)
+        if end_date:
+            from datetime import datetime
+            end_date = date.fromisoformat(end_date)
+        else:
+            end_date = date.today()
+
+        cost_centers = CostCenter.objects.filter(is_active=True)
+        data = []
+        for cc in cost_centers:
+            qs = JournalLine.objects.filter(
+                cost_center=cc,
+                entry__date__gte=start_date,
+                entry__date__lte=end_date,
+                entry__status='posted',
+            )
+            totals = qs.aggregate(total_debit=Sum('debit'), total_credit=Sum('credit'))
+            total_debit = totals['total_debit'] or 0
+            total_credit = totals['total_credit'] or 0
+            data.append({
+                'cost_center': cc,
+                'total_debit': total_debit,
+                'total_credit': total_credit,
+                'net': total_credit - total_debit,
+            })
+
+        data.sort(key=lambda x: x['net'], reverse=True)
+        ctx['data'] = data
+        ctx['start_date'] = start_date
+        ctx['end_date'] = end_date
+        ctx['title'] = 'ربحية مراكز التكلفة'
+        return ctx

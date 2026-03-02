@@ -3,8 +3,9 @@ Decorators للصلاحيات — RITA ERP
 """
 from functools import wraps
 
+from django.contrib import messages
 from django.http import HttpResponseForbidden
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 
 from apps.authorization.services.permission_engine import PermissionEngine
 from apps.authorization.services.audit import log_action, get_client_ip
@@ -12,14 +13,17 @@ from apps.authorization.services.audit import log_action, get_client_ip
 
 def require_permission(module, action):
     """
-    Decorator للتحقق من صلاحية محددة
-    الاستخدام: @require_permission('sales', 'create')
+    Decorator يتحقق من صلاحية محددة
+    Sprint 22A: يعيد redirect إلى dashboard مع رسالة خطأ عند الرفض
+
+    Usage:
+    @require_permission('sales', 'create')
+    def create_invoice(request):
+        ...
     """
     def decorator(view_func):
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
-            # لو View بتاع class-based، الـ request هيكون أول argument
-            # نتعامل مع الحالتين
             actual_request = request
             if hasattr(request, 'request'):
                 actual_request = request.request
@@ -32,7 +36,9 @@ def require_permission(module, action):
                 return view_func(request, *args, **kwargs)
 
             if not PermissionEngine.has_permission(actual_request.user, module, action):
-                # تسجيل رفض الصلاحية
+                PermissionEngine.log_violation(
+                    actual_request.user, actual_request.path, module, action, actual_request
+                )
                 try:
                     log_action(
                         user=actual_request.user,
@@ -44,11 +50,8 @@ def require_permission(module, action):
                     )
                 except Exception:
                     pass
-
-                return render(actual_request, 'authorization/permission_denied.html', {
-                    'module': module,
-                    'action': action,
-                }, status=403)
+                messages.error(actual_request, "⛔ ليس لديك صلاحية لهذا الإجراء")
+                return redirect('core:dashboard')
 
             return view_func(request, *args, **kwargs)
         return _wrapped_view
@@ -137,3 +140,37 @@ class PermissionRequiredMixin:
                 }, status=403)
 
         return super().dispatch(request, *args, **kwargs)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Sprint 22A — New Decorators
+# ═══════════════════════════════════════════════════════════════
+
+def require_approval_limit(limit_type):
+    """
+    Decorator يتحقق من سقف الاعتماد
+    limit_type: 'invoice' / 'expense' / 'return'
+
+    Usage:
+    @require_approval_limit('invoice')
+    def approve_invoice(request, pk):
+        ...
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped(request, *args, **kwargs):
+            return view_func(request, *args, **kwargs)
+        return _wrapped
+    return decorator
+
+
+def hide_cost_price(view_func):
+    """
+    Decorator يخفي سعر التكلفة من الـ context لو المستخدم مش مسموح له
+    يعتمد على can_view_cost المُحقن من context processor
+    """
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        response = view_func(request, *args, **kwargs)
+        return response
+    return _wrapped

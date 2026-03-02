@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ object.count_number }} — RITA ERP{% endblock %}
+{% block nav_inventory %}active{% endblock %}
+{% block nav_inventory_open %}show{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'inventory:stock_count_list' %}">الجرد المخزني</a></li>
+<li class="breadcrumb-item active">{{ object.count_number }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold"><i class="bi bi-clipboard2-data me-2 text-primary"></i>{{ object.count_number }}</h4>
+        <div>
+            {% if object.status != 'applied' and object.status != 'cancelled' %}
+            <a href="{% url 'inventory:stock_count_apply' object.pk %}"
+               onclick="return confirm('هل تريد تطبيق الجرد؟ سيتم تعديل أرصدة المخزون.')"
+               class="btn btn-success btn-sm me-2">
+                <i class="bi bi-check2-all me-1"></i>تطبيق الجرد
+            </a>
+            {% endif %}
+            <a href="{% url 'inventory:stock_count_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-right me-1"></i>عودة
+            </a>
+        </div>
+    </div>
+
+    <!-- Header Info -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3">
+                <div class="text-muted small mb-1">رقم الجرد</div>
+                <div class="fw-bold">{{ object.count_number }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3">
+                <div class="text-muted small mb-1">التاريخ</div>
+                <div class="fw-bold">{{ object.date|date:"Y/m/d" }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3">
+                <div class="text-muted small mb-1">المستودع</div>
+                <div class="fw-bold">{{ object.warehouse }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3">
+                <div class="text-muted small mb-1">الحالة</div>
+                {% if object.status == 'applied' %}<span class="badge bg-success fs-6">مُطبَّق</span>
+                {% elif object.status == 'cancelled' %}<span class="badge bg-danger fs-6">ملغي</span>
+                {% elif object.status == 'counting' %}<span class="badge bg-info fs-6">جاري العد</span>
+                {% elif object.status == 'review' %}<span class="badge bg-warning text-dark fs-6">مراجعة</span>
+                {% else %}<span class="badge bg-secondary fs-6">مسودة</span>{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Lines Form -->
+    {% if object.status != 'applied' and object.status != 'cancelled' %}
+    <form method="post">
+        {% csrf_token %}
+    {% endif %}
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-dark text-white fw-bold">
+            <i class="bi bi-list-check me-2"></i>أصناف الجرد ({{ object.lines.count }} صنف)
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0 align-middle">
+                    <thead class="table-secondary">
+                        <tr>
+                            <th>#</th>
+                            <th>المنتج</th>
+                            <th class="text-center">الكمية في النظام</th>
+                            <th class="text-center">الكمية الفعلية</th>
+                            <th class="text-center">الفرق</th>
+                            <th>ملاحظات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for line in object.lines.all %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td class="fw-semibold">{{ line.product.name }}</td>
+                            <td class="text-center">{{ line.system_quantity|floatformat:2 }}</td>
+                            <td class="text-center">
+                                {% if object.status != 'applied' and object.status != 'cancelled' %}
+                                <input type="number" name="actual_{{ line.pk }}" class="form-control form-control-sm text-center"
+                                       value="{{ line.actual_quantity|default:'' }}" step="0.01" min="0" style="width:100px;margin:auto;">
+                                {% else %}
+                                {{ line.actual_quantity|floatformat:2|default:"—" }}
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if line.difference is not None %}
+                                    {% if line.difference > 0 %}<span class="text-success fw-bold">+{{ line.difference|floatformat:2 }}</span>
+                                    {% elif line.difference < 0 %}<span class="text-danger fw-bold">{{ line.difference|floatformat:2 }}</span>
+                                    {% else %}<span class="text-muted">0</span>{% endif %}
+                                {% else %}<span class="text-muted">—</span>{% endif %}
+                            </td>
+                            <td>
+                                {% if object.status != 'applied' and object.status != 'cancelled' %}
+                                <input type="text" name="notes_{{ line.pk }}" class="form-control form-control-sm"
+                                       value="{{ line.notes|default:'' }}" placeholder="ملاحظة...">
+                                {% else %}
+                                {{ line.notes|default:"—" }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="text-center py-3 text-muted">لا توجد أصناف</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% if object.status != 'applied' and object.status != 'cancelled' %}
+        <div class="card-footer text-end">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save me-1"></i>حفظ الكميات الفعلية
+            </button>
+        </div>
+        {% endif %}
+    </div>
+    {% if object.status != 'applied' and object.status != 'cancelled' %}
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

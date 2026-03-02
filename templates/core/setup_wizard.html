@@ -1,0 +1,370 @@
+{% extends 'base.html' %}
+{% block title %}معالج الإعداد الأولي — RITA ERP{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item active">معالج الإعداد الأولي</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-9">
+
+{# ── تم الإعداد مسبقاً ─────────────────────────────── #}
+{% if already_done %}
+<div class="card border-0 shadow-sm text-center py-5">
+  <div class="card-body">
+    <i class="bi bi-check-circle-fill text-success" style="font-size:4rem;"></i>
+    <h3 class="mt-3 fw-bold">تم إعداد النظام مسبقاً</h3>
+    <p class="text-muted">الشركة: <strong>{{ company.name }}</strong></p>
+    <div class="d-flex justify-content-center gap-3 mt-4">
+      <a href="{% url 'core:dashboard' %}" class="btn btn-primary px-4">
+        <i class="bi bi-speedometer2 me-1"></i>لوحة التحكم
+      </a>
+      <a href="{% url 'core:company_settings' %}" class="btn btn-outline-secondary px-4">
+        <i class="bi bi-gear me-1"></i>إعدادات الشركة
+      </a>
+      <a href="{% url 'core:setup_wizard' %}?reopen=1&step=1" class="btn btn-outline-warning px-4">
+        <i class="bi bi-arrow-repeat me-1"></i>إعادة تشغيل الويزارد
+      </a>
+    </div>
+  </div>
+</div>
+
+{# ── الويزارد الفعلي ───────────────────────────────── #}
+{% else %}
+
+{# شريط التقدم العلوي #}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body py-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <span class="fw-bold text-primary fs-5">
+        <i class="bi bi-magic me-2"></i>معالج الإعداد الأولي
+      </span>
+      <span class="text-muted small">الخطوة {{ step }} من {{ total_steps }}</span>
+    </div>
+    
+    {# شريط التقدم #}
+    <div class="progress mb-3" style="height:8px;">
+      <div class="progress-bar bg-primary" style="width:{{ progress }}%"></div>
+    </div>
+
+    {# مؤشرات الخطوات #}
+    <div class="d-flex justify-content-between">
+      {% for s in step_range %}
+      <div class="text-center" style="flex:1;">
+        <div class="mx-auto rounded-circle d-flex align-items-center justify-content-center fw-bold
+          {% if s < step %}bg-success text-white{% elif s == step %}bg-primary text-white{% else %}bg-light text-muted{% endif %}"
+          style="width:32px;height:32px;font-size:.85rem;">
+          {% if s < step %}<i class="bi bi-check-lg"></i>
+          {% else %}{{ s }}{% endif %}
+        </div>
+        <div class="small mt-1 {% if s == step %}text-primary fw-semibold{% else %}text-muted{% endif %}">
+          {% if s == 1 %}الشركة
+          {% elif s == 2 %}الفروع
+          {% elif s == 3 %}الأقسام
+          {% elif s == 4 %}المستخدمون
+          {% elif s == 5 %}السنة المالية
+          {% elif s == 6 %}اكتمال
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{# رسائل #}
+{% if messages %}
+  {% for msg in messages %}
+    <div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show" role="alert">
+      {{ msg }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  {% endfor %}
+{% endif %}
+
+{# ── بطاقة الخطوة ────────────────────────────────── #}
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-4">
+
+  {# الخطوة 1 — بيانات الشركة #}
+  {% if step == 1 %}
+  <h5 class="fw-bold mb-4"><i class="bi bi-building me-2 text-primary"></i>بيانات الشركة</h5>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="1">
+    <div class="row g-3">
+      <div class="col-md-8">
+        <label class="form-label fw-semibold">اسم الشركة *</label>
+        <input type="text" name="name" class="form-control form-control-lg"
+               value="{{ company.name }}" placeholder="مثال: شركة ريتا للصناعة" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">الرقم الضريبي</label>
+        <input type="text" name="tax_number" class="form-control form-control-lg"
+               value="{{ company.tax_number }}" placeholder="000-000-000">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">الاسم بالإنجليزي</label>
+        <input type="text" name="name_en" class="form-control"
+               value="{{ company.name_en }}" placeholder="RITA Industries">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">السجل التجاري</label>
+        <input type="text" name="commercial_register" class="form-control"
+               value="{{ company.commercial_register }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">الهاتف</label>
+        <input type="text" name="phone" class="form-control"
+               value="{{ company.phone }}" placeholder="02-XXXXXXXX">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">البريد الإلكتروني</label>
+        <input type="email" name="email" class="form-control"
+               value="{{ company.email }}" placeholder="info@company.com">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">المحافظة</label>
+        <input type="text" name="governorate" class="form-control"
+               value="{{ company.governorate }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">المدينة</label>
+        <input type="text" name="city" class="form-control"
+               value="{{ company.city }}">
+      </div>
+      <div class="col-12">
+        <label class="form-label fw-semibold">العنوان التفصيلي</label>
+        <textarea name="address" class="form-control" rows="2"
+                  placeholder="الشارع / الحي / المنطقة">{{ company.address }}</textarea>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">شعار الشركة</label>
+        <input type="file" name="logo" class="form-control" accept="image/*">
+      </div>
+    </div>
+    {% include 'core/_wizard_buttons.html' with step=step total=total_steps %}
+  </form>
+
+  {# الخطوة 2 — الفروع والمخازن #}
+  {% elif step == 2 %}
+  <h5 class="fw-bold mb-4"><i class="bi bi-diagram-3 me-2 text-primary"></i>الفروع والمخازن</h5>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="2">
+
+    <div class="row">
+      <div class="col-md-6">
+        <h6 class="fw-semibold text-secondary mb-3">
+          <i class="bi bi-building me-1"></i>الفروع
+        </h6>
+        {% if branches %}
+          <ul class="list-group list-group-flush mb-3">
+            {% for b in branches %}
+              <li class="list-group-item py-1">
+                <i class="bi bi-check-circle-fill text-success me-1"></i>{{ b.name }}
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        <div id="branchInputs">
+          <div class="input-group mb-2">
+            <span class="input-group-text"><i class="bi bi-building"></i></span>
+            <input type="text" name="branch_name" class="form-control" placeholder="اسم الفرع">
+          </div>
+        </div>
+        <button type="button" class="btn btn-outline-primary btn-sm mt-1" onclick="addInput('branchInputs','branch_name','اسم الفرع آخر')">
+          <i class="bi bi-plus-lg me-1"></i>إضافة فرع
+        </button>
+      </div>
+
+      <div class="col-md-6">
+        <h6 class="fw-semibold text-secondary mb-3">
+          <i class="bi bi-boxes me-1"></i>المخازن
+        </h6>
+        {% if warehouses %}
+          <ul class="list-group list-group-flush mb-3">
+            {% for w in warehouses %}
+              <li class="list-group-item py-1">
+                <i class="bi bi-check-circle-fill text-success me-1"></i>{{ w.name }}
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        <div id="warehouseInputs">
+          <div class="input-group mb-2">
+            <span class="input-group-text"><i class="bi bi-boxes"></i></span>
+            <input type="text" name="warehouse_name" class="form-control" placeholder="اسم المخزن">
+          </div>
+        </div>
+        <button type="button" class="btn btn-outline-primary btn-sm mt-1" onclick="addInput('warehouseInputs','warehouse_name','اسم مخزن آخر')">
+          <i class="bi bi-plus-lg me-1"></i>إضافة مخزن
+        </button>
+      </div>
+    </div>
+    {% include 'core/_wizard_buttons.html' with step=step total=total_steps %}
+  </form>
+
+  {# الخطوة 3 — الأقسام #}
+  {% elif step == 3 %}
+  <h5 class="fw-bold mb-4"><i class="bi bi-people me-2 text-primary"></i>الأقسام</h5>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="3">
+    <p class="text-muted small">أضف الأقسام الرئيسية للشركة (مبيعات، إنتاج، محاسبة ...)</p>
+    <div id="deptInputs">
+      <div class="input-group mb-2" style="max-width:400px;">
+        <span class="input-group-text"><i class="bi bi-diagram-2"></i></span>
+        <input type="text" name="dept_name" class="form-control" placeholder="اسم القسم">
+      </div>
+    </div>
+    <button type="button" class="btn btn-outline-primary btn-sm mt-1" onclick="addInput('deptInputs','dept_name','اسم قسم آخر')">
+      <i class="bi bi-plus-lg me-1"></i>إضافة قسم
+    </button>
+    {% include 'core/_wizard_buttons.html' with step=step total=total_steps %}
+  </form>
+
+  {# الخطوة 4 — المستخدمون #}
+  {% elif step == 4 %}
+  <h5 class="fw-bold mb-4"><i class="bi bi-person-plus me-2 text-primary"></i>المستخدمون الأساسيون</h5>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="4">
+    {% if users %}
+    <div class="alert alert-light border small mb-3">
+      <strong>المستخدمون الحاليون:</strong>
+      {% for u in users %}
+        <span class="badge bg-secondary me-1">{{ u.username }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <p class="text-muted small">أضف مستخدمين إضافيين (يتجاهل النظام الأسماء الموجودة تلقائياً):</p>
+    <div id="userRows">
+      <div class="row g-2 mb-2 align-items-center user-row">
+        <div class="col-md-3">
+          <input type="text" name="username" class="form-control" placeholder="اسم المستخدم">
+        </div>
+        <div class="col-md-3">
+          <input type="text" name="full_name" class="form-control" placeholder="الاسم الكامل">
+        </div>
+        <div class="col-md-3">
+          <input type="email" name="user_email" class="form-control" placeholder="البريد الإلكتروني">
+        </div>
+        <div class="col-md-3">
+          <input type="password" name="password" class="form-control" placeholder="كلمة المرور">
+        </div>
+      </div>
+    </div>
+    <button type="button" class="btn btn-outline-primary btn-sm mt-1" onclick="addUserRow()">
+      <i class="bi bi-plus-lg me-1"></i>إضافة مستخدم
+    </button>
+    {% include 'core/_wizard_buttons.html' with step=step total=total_steps %}
+  </form>
+
+  {# الخطوة 5 — السنة المالية #}
+  {% elif step == 5 %}
+  <h5 class="fw-bold mb-4"><i class="bi bi-calendar3 me-2 text-primary"></i>إعداد السنة المالية</h5>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="5">
+    <div class="row g-3">
+      <div class="col-md-5">
+        <label class="form-label fw-semibold">شهر بداية السنة المالية</label>
+        <select name="fiscal_year_start_month" class="form-select form-select-lg">
+          {% for m_num in "123456789101112"|make_list %}{% endfor %}
+          <option value="1" {% if company.fiscal_year_start_month == 1 %}selected{% endif %}>يناير</option>
+          <option value="2" {% if company.fiscal_year_start_month == 2 %}selected{% endif %}>فبراير</option>
+          <option value="3" {% if company.fiscal_year_start_month == 3 %}selected{% endif %}>مارس</option>
+          <option value="4" {% if company.fiscal_year_start_month == 4 %}selected{% endif %}>أبريل</option>
+          <option value="5" {% if company.fiscal_year_start_month == 5 %}selected{% endif %}>مايو</option>
+          <option value="6" {% if company.fiscal_year_start_month == 6 %}selected{% endif %}>يونيو</option>
+          <option value="7" {% if company.fiscal_year_start_month == 7 %}selected{% endif %}>يوليو</option>
+          <option value="8" {% if company.fiscal_year_start_month == 8 %}selected{% endif %}>أغسطس</option>
+          <option value="9" {% if company.fiscal_year_start_month == 9 %}selected{% endif %}>سبتمبر</option>
+          <option value="10" {% if company.fiscal_year_start_month == 10 %}selected{% endif %}>أكتوبر</option>
+          <option value="11" {% if company.fiscal_year_start_month == 11 %}selected{% endif %}>نوفمبر</option>
+          <option value="12" {% if company.fiscal_year_start_month == 12 %}selected{% endif %}>ديسمبر</option>
+        </select>
+        <div class="form-text">الأكثر شيوعاً: يناير أو يوليو</div>
+      </div>
+      <div class="col-md-7 d-flex align-items-end">
+        <div class="alert alert-info border-0 small mb-0">
+          <i class="bi bi-info-circle me-1"></i>
+          السنة المالية تحدد كيفية إغلاق الحسابات وإعداد التقارير السنوية.
+        </div>
+      </div>
+    </div>
+    {% include 'core/_wizard_buttons.html' with step=step total=total_steps %}
+  </form>
+
+  {# الخطوة 6 — اكتمل الإعداد #}
+  {% elif step == 6 %}
+  <div class="text-center py-4">
+    <div class="mb-3">
+      <i class="bi bi-check-circle-fill text-success" style="font-size:5rem;"></i>
+    </div>
+    <h3 class="fw-bold mb-2">كل شيء جاهز! 🎉</h3>
+    <p class="text-muted mb-1">الشركة: <strong>{{ company.name }}</strong></p>
+    <p class="text-muted mb-4">تم إدخال كل البيانات الأساسية. اضغط "ابدأ الآن" لتشغيل النظام.</p>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="step" value="6">
+      <input type="hidden" name="action" value="next">
+      <div class="d-flex justify-content-center gap-3">
+        <a href="?step=5&reopen=1" class="btn btn-outline-secondary px-4">
+          <i class="bi bi-arrow-right me-1"></i>السابق
+        </a>
+        <button type="submit" class="btn btn-success btn-lg px-5">
+          <i class="bi bi-rocket-takeoff me-2"></i>ابدأ الآن!
+        </button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+
+  </div><!-- /.card-body -->
+</div><!-- /.card -->
+
+{% endif %}{# end already_done #}
+
+</div><!-- /.col -->
+</div><!-- /.row -->
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function addInput(containerId, fieldName, placeholder) {
+  const container = document.getElementById(containerId);
+  const div = document.createElement('div');
+  div.className = 'input-group mb-2';
+  if (containerId === 'warehouseInputs') {
+    div.style.cssText = '';
+  }
+  div.innerHTML = `
+    <span class="input-group-text"><i class="bi bi-plus-circle text-muted"></i></span>
+    <input type="text" name="${fieldName}" class="form-control" placeholder="${placeholder}">
+    <button type="button" class="btn btn-outline-danger" onclick="this.parentElement.remove()">
+      <i class="bi bi-x"></i>
+    </button>`;
+  container.appendChild(div);
+}
+
+function addUserRow() {
+  const container = document.getElementById('userRows');
+  const div = document.createElement('div');
+  div.className = 'row g-2 mb-2 align-items-center user-row';
+  div.innerHTML = `
+    <div class="col-md-3"><input type="text" name="username" class="form-control" placeholder="اسم المستخدم"></div>
+    <div class="col-md-3"><input type="text" name="full_name" class="form-control" placeholder="الاسم الكامل"></div>
+    <div class="col-md-3"><input type="email" name="user_email" class="form-control" placeholder="البريد الإلكتروني"></div>
+    <div class="col-md-2"><input type="password" name="password" class="form-control" placeholder="كلمة المرور"></div>
+    <div class="col-md-1">
+      <button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.user-row').remove()">
+        <i class="bi bi-x"></i>
+      </button>
+    </div>`;
+  container.appendChild(div);
+}
+</script>
+{% endblock %}

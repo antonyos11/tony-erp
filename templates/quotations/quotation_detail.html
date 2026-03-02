@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% block title %}{{ quotation.quotation_number }} — RITA ERP{% endblock %}
+{% block nav_quotations %}active{% endblock %}
+{% block nav_quotations_open %}show{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">
+        <i class="bi bi-file-earmark-text me-2 text-primary"></i>
+        عرض السعر: {{ quotation.quotation_number }}
+        {% if quotation.revision_number > 0 %}
+        <span class="badge bg-info ms-2">تعديل {{ quotation.revision_number }}</span>
+        {% endif %}
+    </h4>
+    <div class="d-flex gap-2">
+        <a href="{% url 'quotations:quotation_list' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-right"></i> عودة
+        </a>
+        <a href="{% url 'quotations:quotation_print' quotation.pk %}" class="btn btn-outline-dark btn-sm" target="_blank">
+            <i class="bi bi-printer me-1"></i>طباعة
+        </a>
+    </div>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div class="alert alert-{{ msg.tags }} alert-dismissible fade show">{{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+{% endfor %}
+{% endif %}
+
+<!-- الحالة وأزرار الإجراءات -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body d-flex flex-wrap gap-2 align-items-center">
+        <span class="fw-bold me-3">الحالة:</span>
+        {% if quotation.status == 'draft' %}<span class="badge bg-secondary fs-6">مسودة</span>
+        {% elif quotation.status == 'sent' %}<span class="badge bg-primary fs-6">مُرسل</span>
+        {% elif quotation.status == 'negotiation' %}<span class="badge bg-warning text-dark fs-6">قيد التفاوض</span>
+        {% elif quotation.status == 'revised' %}<span class="badge bg-info fs-6">معدّل</span>
+        {% elif quotation.status == 'accepted' %}<span class="badge bg-success fs-6">مقبول</span>
+        {% elif quotation.status == 'rejected' %}<span class="badge bg-danger fs-6">مرفوض</span>
+        {% elif quotation.status == 'expired' %}<span class="badge bg-dark fs-6">منتهي</span>
+        {% elif quotation.status == 'converted' %}<span class="badge fs-6" style="background:#20c997">تحوّل لفاتورة</span>
+        {% elif quotation.status == 'cancelled' %}<span class="badge bg-dark fs-6">ملغي</span>
+        {% endif %}
+        {% if quotation.is_expired %}
+        <span class="badge bg-warning text-dark ms-1"><i class="bi bi-exclamation-triangle me-1"></i>منتهي الصلاحية</span>
+        {% endif %}
+
+        <div class="ms-auto d-flex flex-wrap gap-2">
+            {% if quotation.status not in 'accepted,rejected,converted,cancelled' %}
+            <a href="{% url 'quotations:quotation_update' quotation.pk %}" class="btn btn-warning btn-sm">
+                <i class="bi bi-pencil me-1"></i>تعديل
+            </a>
+            <a href="{% url 'quotations:add_follow_up' quotation.pk %}" class="btn btn-info btn-sm">
+                <i class="bi bi-telephone me-1"></i>متابعة
+            </a>
+            {% endif %}
+
+            {% if quotation.status not in 'accepted,converted,cancelled' %}
+            <form method="post" action="{% url 'quotations:quotation_accept' quotation.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('تأكيد قبول العرض؟')">
+                    <i class="bi bi-check-circle me-1"></i>قبول
+                </button>
+            </form>
+            {% endif %}
+
+            {% if quotation.status not in 'rejected,converted,cancelled' %}
+            <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                <i class="bi bi-x-circle me-1"></i>رفض
+            </button>
+            {% endif %}
+
+            {% if quotation.status == 'accepted' %}
+            <form method="post" action="{% url 'quotations:convert_to_invoice' quotation.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary btn-sm" onclick="return confirm('تحويل العرض إلى فاتورة؟')">
+                    <i class="bi bi-receipt me-1"></i>تحويل لفاتورة
+                </button>
+            </form>
+            {% endif %}
+
+            {% if quotation.converted_invoice %}
+            <a href="{% url 'sales:invoice_detail' quotation.converted_invoice.pk %}" class="btn btn-outline-success btn-sm">
+                <i class="bi bi-receipt me-1"></i>الفاتورة: {{ quotation.converted_invoice.invoice_number }}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- بيانات العميل -->
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-person me-2"></i>بيانات العميل
+            </div>
+            <div class="card-body">
+                <table class="table table-sm mb-0">
+                    <tr><td class="text-muted" width="40%">الاسم:</td><td class="fw-bold">{{ quotation.customer_display_name }}</td></tr>
+                    {% if quotation.customer %}
+                    <tr><td class="text-muted">الكود:</td><td>{{ quotation.customer.code }}</td></tr>
+                    <tr><td class="text-muted">الهاتف:</td><td>{{ quotation.customer.phone }}</td></tr>
+                    <tr><td class="text-muted">المحافظة:</td><td>{{ quotation.customer.governorate }}</td></tr>
+                    {% else %}
+                    <tr><td class="text-muted">الهاتف:</td><td>{{ quotation.prospect_phone }}</td></tr>
+                    <tr><td class="text-muted">الإيميل:</td><td>{{ quotation.prospect_email }}</td></tr>
+                    <tr><td class="text-muted">الشركة:</td><td>{{ quotation.prospect_company }}</td></tr>
+                    <tr><td class="text-muted">العنوان:</td><td>{{ quotation.prospect_address }}</td></tr>
+                    <tr><td colspan="2">
+                        <span class="badge bg-warning text-dark"><i class="bi bi-person-question me-1"></i>عميل محتمل غير مسجل</span>
+                    </td></tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- بيانات العرض -->
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-secondary text-white">
+                <i class="bi bi-info-circle me-2"></i>تفاصيل العرض
+            </div>
+            <div class="card-body">
+                <table class="table table-sm mb-0">
+                    <tr><td class="text-muted" width="40%">رقم العرض:</td><td class="fw-bold">{{ quotation.quotation_number }}</td></tr>
+                    <tr><td class="text-muted">التاريخ:</td><td>{{ quotation.date|date:"Y-m-d H:i" }}</td></tr>
+                    <tr><td class="text-muted">صالح حتى:</td>
+                        <td class="{% if quotation.is_expired %}text-danger fw-bold{% endif %}">
+                            {{ quotation.valid_until|date:"Y-m-d" }}
+                        </td>
+                    </tr>
+                    <tr><td class="text-muted">الفرع:</td><td>{{ quotation.branch.name }}</td></tr>
+                    <tr><td class="text-muted">البائع:</td><td>{{ quotation.salesperson.get_full_name|default:quotation.salesperson }}</td></tr>
+                    <tr><td class="text-muted">شروط الدفع:</td><td>{{ quotation.payment_terms|default:"—" }}</td></tr>
+                    {% if quotation.delivery_required %}
+                    <tr><td class="text-muted">التوصيل:</td><td><span class="badge bg-info">مطلوب</span> {{ quotation.delivery_fee|floatformat:2 }} ج.م</td></tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- سطور المنتجات -->
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <i class="bi bi-list-ul me-2"></i>الأصناف
+            </div>
+            <div class="table-responsive">
+                <table class="table table-bordered mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>المنتج</th>
+                            <th>الكمية</th>
+                            <th>السعر</th>
+                            <th>خصم %</th>
+                            <th>الإجمالي</th>
+                            <th>الربح التقديري</th>
+                            <th>ملاحظات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for line in lines %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <div class="fw-bold">{{ line.product.name }}</div>
+                                <small class="text-muted">{{ line.product.code }}</small>
+                                {% if line.description and line.description != line.product.name %}
+                                <div class="text-muted small">{{ line.description }}</div>
+                                {% endif %}
+                            </td>
+                            <td>{{ line.quantity|floatformat:2 }}</td>
+                            <td>{{ line.unit_price|floatformat:2 }}</td>
+                            <td>{% if line.discount_percentage %}{{ line.discount_percentage|floatformat:1 }}%{% else %}—{% endif %}</td>
+                            <td class="fw-bold">{{ line.subtotal|floatformat:2 }}</td>
+                            <td class="{% if line.estimated_profit >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                {{ line.estimated_profit|floatformat:2 }}
+                            </td>
+                            <td class="text-muted small">{{ line.notes|default:"—" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8" class="text-center text-muted">لا توجد أصناف</td></tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <td colspan="5" class="text-end fw-bold">الإجمالي الفرعي:</td>
+                            <td class="fw-bold">{{ quotation.subtotal|floatformat:2 }} ج.م</td>
+                            <td colspan="2"></td>
+                        </tr>
+                        {% if quotation.discount_amount %}
+                        <tr>
+                            <td colspan="5" class="text-end text-danger">الخصم ({{ quotation.discount_percentage|floatformat:1 }}%):</td>
+                            <td class="text-danger">- {{ quotation.discount_amount|floatformat:2 }} ج.م</td>
+                            <td colspan="2"></td>
+                        </tr>
+                        {% endif %}
+                        {% if quotation.is_taxable %}
+                        <tr>
+                            <td colspan="5" class="text-end">ضريبة القيمة المضافة (14%):</td>
+                            <td>{{ quotation.tax_amount|floatformat:2 }} ج.م</td>
+                            <td colspan="2"></td>
+                        </tr>
+                        {% endif %}
+                        {% if quotation.delivery_fee %}
+                        <tr>
+                            <td colspan="5" class="text-end">رسوم التوصيل:</td>
+                            <td>{{ quotation.delivery_fee|floatformat:2 }} ج.م</td>
+                            <td colspan="2"></td>
+                        </tr>
+                        {% endif %}
+                        <tr class="table-primary">
+                            <td colspan="5" class="text-end fw-bold fs-5">الإجمالي النهائي:</td>
+                            <td class="fw-bold fs-5">{{ quotation.total|floatformat:2 }} ج.م</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- الشروط والملاحظات -->
+    {% if quotation.terms_and_conditions or quotation.customer_notes %}
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header">الشروط والملاحظات</div>
+            <div class="card-body">
+                {% if quotation.terms_and_conditions %}
+                <div class="mb-2">
+                    <strong>الشروط والأحكام:</strong>
+                    <p class="text-muted mb-0">{{ quotation.terms_and_conditions }}</p>
+                </div>
+                {% endif %}
+                {% if quotation.customer_notes %}
+                <div>
+                    <strong>ملاحظات للعميل:</strong>
+                    <p class="text-muted mb-0">{{ quotation.customer_notes }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- سجل المتابعات -->
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clock-history me-2"></i>سجل المتابعات</span>
+                <a href="{% url 'quotations:add_follow_up' quotation.pk %}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-plus-circle me-1"></i>إضافة متابعة
+                </a>
+            </div>
+            <div class="card-body">
+                {% if follow_ups %}
+                <div class="timeline">
+                    {% for fu in follow_ups %}
+                    <div class="d-flex mb-3">
+                        <div class="me-3 text-center" style="width:50px">
+                            {% if fu.follow_up_type == 'call' %}<i class="bi bi-telephone-fill text-primary fs-4"></i>
+                            {% elif fu.follow_up_type == 'whatsapp' %}<i class="bi bi-whatsapp text-success fs-4"></i>
+                            {% elif fu.follow_up_type == 'email' %}<i class="bi bi-envelope-fill text-info fs-4"></i>
+                            {% elif fu.follow_up_type == 'visit' %}<i class="bi bi-geo-alt-fill text-warning fs-4"></i>
+                            {% else %}<i class="bi bi-calendar-event-fill text-secondary fs-4"></i>{% endif %}
+                        </div>
+                        <div class="flex-fill border-start ps-3">
+                            <div class="d-flex justify-content-between">
+                                <strong>{{ fu.get_follow_up_type_display }}</strong>
+                                <small class="text-muted">{{ fu.date|date:"Y-m-d H:i" }}</small>
+                            </div>
+                            <div>
+                                النتيجة:
+                                <span class="badge
+                                    {% if fu.result == 'will_buy' %}bg-success
+                                    {% elif fu.result == 'lost' %}bg-danger
+                                    {% elif fu.result == 'interested' %}bg-primary
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ fu.get_result_display }}
+                                </span>
+                            </div>
+                            <p class="text-muted mb-1">{{ fu.notes }}</p>
+                            {% if fu.next_follow_up_date %}
+                            <small class="text-info"><i class="bi bi-calendar-check me-1"></i>المتابعة القادمة: {{ fu.next_follow_up_date }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">لا توجد متابعات</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal رفض العرض -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-x-circle me-2"></i>رفض العرض</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'quotations:quotation_reject' quotation.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">سبب الرفض</label>
+                        <textarea name="rejection_reason" class="form-control" rows="3" placeholder="اكتب سبب الرفض..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">خسرنا لصالح (المنافس)</label>
+                        <input type="text" name="lost_to_competitor" class="form-control" placeholder="اسم المنافس إن وُجد">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-danger">تأكيد الرفض</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

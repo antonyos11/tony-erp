@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} — RITA ERP{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'core:branch_list' %}" class="text-decoration-none">الفروع</a></li>
+<li class="breadcrumb-item active">{{ branch.name }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">
+        <i class="bi bi-building me-2 text-primary"></i>{{ branch.name }}
+        {% if branch.branch_type == 'franchise' %}<span class="badge bg-warning text-dark ms-2">توكيل</span>{% endif %}
+        {% if branch.branch_type == 'distributor' %}<span class="badge bg-info text-dark ms-2">موزع</span>{% endif %}
+        {% if not branch.is_active %}<span class="badge bg-danger ms-2">موقوف</span>{% endif %}
+    </h4>
+    <a href="{% url 'core:branch_update' branch.pk %}" class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-pencil me-1"></i>تعديل
+    </a>
+</div>
+
+<!-- تحذير العقد -->
+{% if contract_warning %}
+<div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    العقد سينتهي خلال <strong>{{ contract_days_left }}</strong> يوم — يُرجى التجديد.
+</div>
+{% endif %}
+{% if contract_expired %}
+<div class="alert alert-danger d-flex align-items-center mb-3" role="alert">
+    <i class="bi bi-x-circle-fill me-2"></i>
+    العقد منتهٍ منذ {{ contract_days_left|stringformat:"d"|slice:"1:" }} يوم.
+</div>
+{% endif %}
+
+<!-- KPIs -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center py-3">
+            <div class="text-muted small">إجمالي المبيعات</div>
+            <div class="fw-bold fs-5 text-success">{{ sales_total|floatformat:0 }} ج.م</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center py-3">
+            <div class="text-muted small">عدد الفواتير</div>
+            <div class="fw-bold fs-5">{{ invoices_count }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center py-3">
+            <div class="text-muted small">قيمة المخزون</div>
+            <div class="fw-bold fs-5 text-primary">{{ stock_value|floatformat:0 }} ج.م</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center py-3">
+            <div class="text-muted small">الموظفون</div>
+            <div class="fw-bold fs-5">{{ employees.count }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-3" id="branchTabs" role="tablist">
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabInfo">بيانات الفرع</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabWarehouses">المخازن ({{ warehouses.count }})</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabEmployees">الموظفون ({{ employees.count }})</a></li>
+</ul>
+
+<div class="tab-content">
+    <!-- بيانات الفرع -->
+    <div class="tab-pane fade show active" id="tabInfo">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6"><label class="text-muted small">المحافظة</label><div class="fw-semibold">{{ branch.governorate|default:"—" }}</div></div>
+                    <div class="col-md-6"><label class="text-muted small">المنطقة</label><div class="fw-semibold">{{ branch.area|default:"—" }}</div></div>
+                    <div class="col-md-6"><label class="text-muted small">الهاتف</label><div class="fw-semibold">{{ branch.phone|default:"—" }}</div></div>
+                    <div class="col-md-6"><label class="text-muted small">المدير</label><div class="fw-semibold">{{ branch.manager.get_full_name|default:"—" }}</div></div>
+                    <div class="col-12"><label class="text-muted small">العنوان</label><div class="fw-semibold">{{ branch.address|default:"—" }}</div></div>
+                    <div class="col-md-4"><label class="text-muted small">نسبة الخصم</label><div class="fw-semibold text-success">{{ branch.discount_rate }}%</div></div>
+                    <div class="col-md-4"><label class="text-muted small">بداية العقد</label><div class="fw-semibold">{{ branch.contract_start|default:"—" }}</div></div>
+                    <div class="col-md-4"><label class="text-muted small">نهاية العقد</label><div class="fw-semibold">{{ branch.contract_end|default:"—" }}</div></div>
+                    {% if branch.contract_terms %}
+                    <div class="col-12"><label class="text-muted small">شروط العقد</label><div class="fw-semibold">{{ branch.contract_terms }}</div></div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- المخازن -->
+    <div class="tab-pane fade" id="tabWarehouses">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr><th>المخزن</th><th>النوع</th><th>أمين المخزن</th><th>الحالة</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for wh in warehouses %}
+                        <tr>
+                            <td class="fw-semibold">{{ wh.name }}</td>
+                            <td>{{ wh.get_warehouse_type_display }}</td>
+                            <td>{{ wh.keeper.get_full_name|default:"—" }}</td>
+                            <td><span class="badge bg-success-subtle text-success border border-success-subtle">نشط</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-center text-muted py-3">لا توجد مخازن</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- الموظفون -->
+    <div class="tab-pane fade" id="tabEmployees">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr><th>اسم المستخدم</th><th>الاسم</th><th>البريد</th><th>الصلاحيات</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for emp in employees %}
+                        <tr>
+                            <td class="fw-semibold">{{ emp.username }}</td>
+                            <td>{{ emp.get_full_name|default:"—" }}</td>
+                            <td>{{ emp.email|default:"—" }}</td>
+                            <td>
+                                {% if emp.is_superuser %}<span class="badge bg-danger">مدير عام</span>{% endif %}
+                                {% if emp.is_staff and not emp.is_superuser %}<span class="badge bg-warning text-dark">staff</span>{% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-center text-muted py-3">لا يوجد موظفون</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

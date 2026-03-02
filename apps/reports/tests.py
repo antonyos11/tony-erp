@@ -415,3 +415,203 @@ class DashboardTests(BaseReportTestCase):
         response = self.client.get('/')
         alerts = response.context['alerts']
         self.assertTrue(len(alerts) >= 1)
+
+
+# ===================================================================
+# Sprint 16 — تصدير PDF/Excel + Chart Data
+# ===================================================================
+import io
+from unittest.mock import patch, MagicMock
+
+from django.http import HttpResponse
+from django.urls import reverse
+
+from apps.reports.services.export_engine import ExcelExporter, PDFExporter
+
+
+class ExcelExporterTest(TestCase):
+    """اختبارات تصدير Excel"""
+
+    def test_returns_http_response(self):
+        response = ExcelExporter.export(
+            title='تقرير الاختبار',
+            headers=['الحقل 1', 'الحقل 2'],
+            data=[['قيمة 1', 100], ['قيمة 2', 200]],
+            filename='test_report',
+        )
+        self.assertIsInstance(response, HttpResponse)
+
+    def test_content_type_xlsx(self):
+        response = ExcelExporter.export(
+            title='test',
+            headers=['col1'],
+            data=[['row1']],
+            filename='test',
+        )
+        self.assertIn('spreadsheetml', response['Content-Type'])
+
+    def test_content_disposition_excel(self):
+        response = ExcelExporter.export(
+            title='test',
+            headers=['col1'],
+            data=[['row1']],
+            filename='my_report',
+        )
+        self.assertIn('my_report', response['Content-Disposition'])
+        self.assertIn('.xlsx', response['Content-Disposition'])
+
+    def test_empty_data_still_works(self):
+        """تصدير بدون بيانات لا يرفع استثناء"""
+        response = ExcelExporter.export(
+            title='فارغ',
+            headers=['العمود 1', 'العمود 2'],
+            data=[],
+            filename='empty',
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_numeric_data_serialized(self):
+        """بيانات رقمية تُصدَّر بدون خطأ"""
+        from decimal import Decimal
+        response = ExcelExporter.export(
+            title='أرقام',
+            headers=['الكمية', 'القيمة'],
+            data=[[10, Decimal('999.99')], [5, Decimal('500.00')]],
+            filename='numbers',
+        )
+        self.assertEqual(response.status_code, 200)
+
+
+class PDFExporterTest(TestCase):
+    """اختبارات تصدير PDF"""
+
+    def test_generic_pdf_returns_response(self):
+        response = PDFExporter.export(
+            template_name='reports/pdf/generic_table_pdf.html',
+            context={
+                'title': 'تقرير PDF',
+                'headers': ['العمود 1', 'العمود 2'],
+                'data': [['قيمة أ', '100'], ['قيمة ب', '200']],
+            },
+            filename='test_pdf',
+        )
+        self.assertIsInstance(response, HttpResponse)
+        self.assertIn('pdf', response['Content-Type'])
+
+    def test_pdf_content_disposition(self):
+        response = PDFExporter.export(
+            template_name='reports/pdf/generic_table_pdf.html',
+            context={'title': 'test', 'headers': [], 'data': []},
+            filename='my_pdf_report',
+        )
+        self.assertIn('my_pdf_report', response['Content-Disposition'])
+
+
+class ReportViewsExportTest(BaseReportTestCase):
+    """اختبارات تصدير من الـ views"""
+
+    def setUp(self):
+        self.client = Client()
+        self.client.login(username='testuser', password='testpass123')
+
+    # ---- Excel exports ----
+    def test_sales_summary_excel(self):
+        url = reverse('reports:sales_summary') + '?export=excel'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('spreadsheetml', response['Content-Type'])
+
+    def test_sales_by_product_excel(self):
+        url = reverse('reports:sales_by_product') + '?export=excel'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('spreadsheetml', response['Content-Type'])
+
+    def test_sales_by_customer_excel(self):
+        url = reverse('reports:sales_by_customer') + '?export=excel'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('spreadsheetml', response['Content-Type'])
+
+    def test_branch_scorecard_excel(self):
+        url = reverse('reports:branch_scorecard') + '?export=excel'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('spreadsheetml', response['Content-Type'])
+
+    def test_dead_stock_excel(self):
+        url = reverse('reports:dead_stock') + '?export=excel'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('spreadsheetml', response['Content-Type'])
+
+    def test_reorder_excel(self):
+        url = reverse('reports:reorder') + '?export=excel'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('spreadsheetml', response['Content-Type'])
+
+    # ---- PDF exports ----
+    def test_sales_summary_pdf(self):
+        url = reverse('reports:sales_summary') + '?export=pdf'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('pdf', response['Content-Type'])
+
+    def test_sales_by_product_pdf(self):
+        url = reverse('reports:sales_by_product') + '?export=pdf'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('pdf', response['Content-Type'])
+
+    def test_branch_scorecard_pdf(self):
+        url = reverse('reports:branch_scorecard') + '?export=pdf'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('pdf', response['Content-Type'])
+
+    # ---- Normal views still work ----
+    def test_sales_summary_html(self):
+        url = reverse('reports:sales_summary')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'export=excel')
+        self.assertContains(response, 'export=pdf')
+
+    def test_sales_by_product_html_has_chart_data(self):
+        url = reverse('reports:sales_by_product')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_branch_scorecard_html_chart_context(self):
+        url = reverse('reports:branch_scorecard')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('chart_labels', response.context)
+        self.assertIn('chart_sales', response.context)
+        self.assertIn('chart_profit', response.context)
+
+
+class TopProductsServiceTest(BaseReportTestCase):
+    """اختبارات top_products"""
+
+    def test_top_products_returns_list(self):
+        result = SalesReports.top_products(days=30, limit=10)
+        self.assertIsInstance(result, list)
+
+    def test_top_products_keys(self):
+        result = SalesReports.top_products(days=30, limit=10)
+        if result:
+            row = result[0]
+            self.assertIn('product__name', row)
+            self.assertIn('total_qty', row)
+            self.assertIn('total_revenue', row)
+            self.assertIn('total_profit', row)
+
+    def test_top_products_limit(self):
+        result = SalesReports.top_products(days=30, limit=3)
+        self.assertLessEqual(len(result), 3)
+
+    def test_top_products_branch_filter(self):
+        result = SalesReports.top_products(days=30, limit=10, branch=self.branch)
+        self.assertIsInstance(result, list)

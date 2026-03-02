@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سند قبض {{ voucher.voucher_number }}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css">
+    <style>
+        @media print {
+            body { margin: 0; }
+            .no-print { display: none !important; }
+            .voucher-container { box-shadow: none !important; border: 1px solid #000 !important; }
+        }
+        body { background: #f8f9fa; font-family: 'Segoe UI', Tahoma, Arial, sans-serif; }
+        .voucher-container {
+            max-width: 800px; margin: 20px auto; background: #fff;
+            border: 2px solid #155724; border-radius: 8px;
+            padding: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .voucher-header { border-bottom: 2px solid #155724; padding-bottom: 15px; margin-bottom: 20px; }
+        .company-name { font-size: 1.5rem; font-weight: 700; color: #1a1a2e; }
+        .voucher-title { font-size: 1.3rem; font-weight: 700; color: #155724; text-align: center; }
+        .voucher-number { font-size: 1.1rem; font-weight: 700; background: #155724; color: #fff; padding: 5px 15px; border-radius: 5px; }
+        .data-row { border-bottom: 1px dashed #ccc; padding: 8px 0; }
+        .label-col { font-weight: 600; color: #555; min-width: 130px; }
+        .amount-box {
+            border: 2px solid #155724; border-radius: 8px; padding: 15px;
+            text-align: center; background: #f0fff4;
+        }
+        .amount-big { font-size: 2rem; font-weight: 700; color: #155724; }
+        .amount-words { font-size: 1rem; color: #333; border: 1px solid #ddd; padding: 8px 15px; border-radius: 5px; background: #fafafa; }
+        .signatures { margin-top: 40px; }
+        .sig-box { border-top: 1px solid #333; padding-top: 8px; text-align: center; color: #555; font-size: 0.9rem; }
+        .official-stamp { border: 2px dashed #333; width: 90px; height: 90px; display: flex; align-items: center; justify-content: center; margin: 0 auto; color: #999; font-size: 0.8rem; border-radius: 50%; }
+    </style>
+</head>
+<body>
+<div class="voucher-container">
+    <!-- ترويسة السند -->
+    <div class="voucher-header d-flex justify-content-between align-items-center">
+        <div>
+            <div class="company-name">RITA ERP</div>
+            <div class="text-muted">نظام إدارة المؤسسات</div>
+        </div>
+        <div class="text-center">
+            <div class="voucher-title">سند قبض</div>
+            <div class="text-muted small">Receipt Voucher</div>
+        </div>
+        <div class="text-end">
+            <div class="voucher-number"># {{ voucher.voucher_number }}</div>
+            <div class="text-muted small mt-1">التاريخ: {{ voucher.date }}</div>
+            <div class="text-muted small">الفرع: {{ voucher.branch.name }}</div>
+        </div>
+    </div>
+
+    <!-- معلومات الدافع -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <table class="table table-sm table-borderless">
+                <tr class="data-row">
+                    <td class="label-col">الدافع</td>
+                    <td>{{ voucher.payer_name|default:voucher.get_payer_type_display }}</td>
+                    <td class="label-col">نوع الدافع</td>
+                    <td>{{ voucher.get_payer_type_display }}</td>
+                </tr>
+                <tr class="data-row">
+                    <td class="label-col">طريقة الدفع</td>
+                    <td>{{ voucher.get_payment_method_display }}</td>
+                    <td class="label-col">الحساب المدين</td>
+                    <td>{{ voucher.debit_account.code }} — {{ voucher.debit_account.name }}</td>
+                </tr>
+                <tr class="data-row">
+                    <td class="label-col" colspan="4">البيان: {{ voucher.description }}</td>
+                </tr>
+                {% if voucher.invoice %}
+                <tr class="data-row">
+                    <td class="label-col">الفاتورة</td>
+                    <td colspan="3">{{ voucher.invoice }}</td>
+                </tr>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+
+    <!-- المبلغ -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="amount-box">
+                <div class="text-muted small mb-1">المبلغ المُقبوض</div>
+                <div class="amount-big">{{ voucher.amount|floatformat:2 }}</div>
+                <div class="text-muted small">جنيه مصري</div>
+            </div>
+        </div>
+        <div class="col-md-8 d-flex align-items-center">
+            <div class="w-100">
+                <div class="text-muted small mb-1 fw-bold">المبلغ كتابةً</div>
+                <div class="amount-words">
+                    {{ voucher.amount_in_words|default:"فقط _________________________ لا غير" }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if voucher.notes %}
+    <div class="mb-4">
+        <div class="text-muted small fw-bold mb-1">ملاحظات</div>
+        <div class="border rounded p-2 bg-light">{{ voucher.notes }}</div>
+    </div>
+    {% endif %}
+
+    <div class="mb-4 text-center">
+        <span class="badge fs-6 {% if voucher.status == 'received' %}bg-success{% elif voucher.status == 'cancelled' %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+            {{ voucher.get_status_display }}
+        </span>
+        {% if voucher.approved_by %}
+        <div class="text-muted small mt-1">اعتمده: {{ voucher.approved_by.get_full_name|default:voucher.approved_by.username }}</div>
+        {% endif %}
+    </div>
+
+    <!-- التوقيعات -->
+    <div class="signatures row g-4">
+        <div class="col-4 text-center">
+            <div style="height:60px"></div>
+            <div class="sig-box">المحاسب</div>
+        </div>
+        <div class="col-4 text-center">
+            <div class="official-stamp">الختم الرسمي</div>
+            <div class="sig-box">المدير المالي</div>
+        </div>
+        <div class="col-4 text-center">
+            <div style="height:60px"></div>
+            <div class="sig-box">الدافع / المستلم</div>
+        </div>
+    </div>
+
+    <div class="mt-4 pt-3 border-top text-center text-muted small">
+        تم إنشاء هذا السند بواسطة نظام RITA ERP — {{ voucher.date }}
+    </div>
+</div>
+
+<div class="no-print text-center my-3">
+    <button onclick="window.print()" class="btn btn-success me-2">
+        <i class="bi bi-printer me-1"></i>طباعة
+    </button>
+    <a href="{% url 'expenses:rv_detail' voucher.pk %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-right me-1"></i>عودة
+    </a>
+</div>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+</body>
+</html>

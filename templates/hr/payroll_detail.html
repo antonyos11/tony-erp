@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}مسيّر {{ payroll.month }}/{{ payroll.year }} – RITA ERP{% endblock %}
+{% block nav_hr %}active{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">
+      <i class="bi bi-receipt me-2 text-primary"></i>
+      مسيّر رواتب {{ payroll.month|stringformat:"02d" }}/{{ payroll.year }}
+      — {{ payroll.branch.name }}
+    </h4>
+    <a href="{% url 'hr:payroll_list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-right me-1"></i>القائمة</a>
+  </div>
+
+  {% if messages %}{% for msg in messages %}<div class="alert alert-{{ msg.tags }} py-2 alert-dismissible fade show">{{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}{% endif %}
+
+  <!-- بطاقة الملخص -->
+  <div class="row g-3 mb-3">
+    <div class="col-md-3">
+      <div class="card bg-primary text-white text-center shadow-sm">
+        <div class="card-body py-3">
+          <div class="fs-5 fw-bold">{{ payroll.total_gross|floatformat:2 }}</div>
+          <small>إجمالي الرواتب</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card bg-warning text-dark text-center shadow-sm">
+        <div class="card-body py-3">
+          <div class="fs-5 fw-bold">{{ payroll.total_bonuses|floatformat:2 }}</div>
+          <small>إجمالي المكافآت</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card bg-danger text-white text-center shadow-sm">
+        <div class="card-body py-3">
+          <div class="fs-5 fw-bold">{{ payroll.total_deductions|floatformat:2 }}</div>
+          <small>إجمالي الخصومات</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card bg-success text-white text-center shadow-sm">
+        <div class="card-body py-3">
+          <div class="fs-5 fw-bold">{{ payroll.total_net|floatformat:2 }}</div>
+          <small>صافي الرواتب</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- أزرار الاعتماد والصرف -->
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <span class="badge bg-{% if payroll.status == 'paid' %}success{% elif payroll.status == 'approved' %}primary{% elif payroll.status == 'calculated' %}info text-dark{% else %}secondary{% endif %} fs-6 align-self-center">
+      {{ payroll.get_status_display }}
+    </span>
+    {% if payroll.status == 'calculated' %}
+    <form method="post" action="{% url 'hr:payroll_approve' payroll.pk %}" class="d-inline">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary btn-sm" onclick="return confirm('اعتماد المسيّر؟')">
+        <i class="bi bi-check-circle me-1"></i>اعتماد المسيّر
+      </button>
+    </form>
+    {% endif %}
+    {% if payroll.status == 'approved' %}
+    <form method="post" action="{% url 'hr:payroll_pay' payroll.pk %}" class="d-inline">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('صرف الرواتب وإنشاء القيد المحاسبي؟')">
+        <i class="bi bi-cash me-1"></i>صرف الرواتب
+      </button>
+    </form>
+    {% endif %}
+    {% if payroll.journal_entry %}
+    <a href="/accounts/journal/{{ payroll.journal_entry.pk }}/" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-journal-text me-1"></i>القيد المحاسبي
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- جدول سطور المسيّر -->
+  <div class="card shadow-sm">
+    <div class="card-header bg-light py-2">
+      <small class="text-muted">{{ lines|length }} موظف</small>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover table-sm mb-0" style="font-size:0.82rem">
+          <thead class="table-dark">
+            <tr>
+              <th>الموظف</th><th>أساسي</th><th>بدلات</th><th>إضافي</th><th>مكافأة</th>
+              <th>إجمالي</th><th>غياب</th><th>خصومات</th><th>صافي</th><th>أيام</th><th>قسيمة</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ln in lines %}
+            <tr>
+              <td>
+                <a href="{% url 'hr:employee_detail' ln.employee.pk %}">{{ ln.employee.full_name_ar }}</a>
+                <br><small class="text-muted">{{ ln.employee.employee_number }}</small>
+              </td>
+              <td class="text-end">{{ ln.basic_salary|floatformat:0 }}</td>
+              <td class="text-end">{{ ln.housing_allowance|add:ln.transport_allowance|add:ln.food_allowance|add:ln.other_allowances|floatformat:0 }}</td>
+              <td class="text-end text-info">{{ ln.overtime_amount|floatformat:0 }}</td>
+              <td class="text-end text-success">{{ ln.bonus|add:ln.incentive|floatformat:0 }}</td>
+              <td class="text-end fw-bold">{{ ln.gross_salary|floatformat:0 }}</td>
+              <td class="text-center {% if ln.absence_days > 0 %}text-danger{% endif %}">{{ ln.absence_days }}</td>
+              <td class="text-end text-danger">{{ ln.total_deductions|floatformat:0 }}</td>
+              <td class="text-end fw-bold text-success">{{ ln.net_salary|floatformat:0 }}</td>
+              <td class="text-center">{{ ln.actual_days }}/{{ ln.working_days }}</td>
+              <td>
+                <a href="{% url 'hr:payslip' payroll.pk ln.employee.pk %}" class="btn btn-xs btn-outline-primary btn-sm py-0 px-1" target="_blank">
+                  <i class="bi bi-printer"></i>
+                </a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="11" class="text-center text-muted py-4">لا يوجد موظفون</td></tr>
+            {% endfor %}
+          </tbody>
+          <tfoot class="table-light fw-bold">
+            <tr>
+              <td>الإجمالي</td>
+              <td></td><td></td><td></td><td></td>
+              <td class="text-end">{{ payroll.total_gross|floatformat:0 }}</td>
+              <td></td>
+              <td class="text-end text-danger">{{ payroll.total_deductions|floatformat:0 }}</td>
+              <td class="text-end text-success">{{ payroll.total_net|floatformat:0 }}</td>
+              <td></td><td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

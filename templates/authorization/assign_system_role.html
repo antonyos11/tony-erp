@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} — RITA ERP{% endblock %}
+{% block nav_authorization %}active{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item active">{{ title }}</li>
+{% endblock %}
+
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-person-badge me-2"></i>{{ title }}</h4>
+
+<div class="row g-4">
+
+    <!-- فورم التعيين -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white fw-bold">
+                <i class="bi bi-plus-circle me-1"></i>تعيين دور جديد
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label for="{{ field.id_for_label }}" class="form-label fw-semibold">
+                            {{ field.label }}
+                            {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
+                        </label>
+                        {{ field }}
+                        {% if field.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in field.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if field.help_text %}
+                        <div class="form-text text-muted small">{{ field.help_text }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-check-lg me-1"></i>تعيين الدور
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- قائمة التعيينات الحالية -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white fw-bold">
+                <i class="bi bi-people me-1"></i>التعيينات الحالية
+                <span class="badge bg-secondary ms-1">{{ existing|length }}</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-secondary">
+                        <tr>
+                            <th>المستخدم</th>
+                            <th>الدور</th>
+                            <th>الفرع</th>
+                            <th>عيّنه</th>
+                            <th>التاريخ</th>
+                            <th>الحالة</th>
+                            <th>إلغاء</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in existing %}
+                        <tr class="{% if not a.is_active %}table-warning opacity-50{% endif %}">
+                            <td>
+                                <span class="fw-semibold">{{ a.user.get_full_name|default:a.user.username }}</span>
+                                <div class="text-muted small">@{{ a.user.username }}</div>
+                            </td>
+                            <td>
+                                <a href="{% url 'authorization:system_role_detail' pk=a.role.pk %}"
+                                   class="text-decoration-none">{{ a.role.name }}</a>
+                                <div class="text-muted small">
+                                    <span class="badge bg-info text-dark">{{ a.role.get_scope_display }}</span>
+                                </div>
+                            </td>
+                            <td class="text-muted small">{{ a.branch.name|default:"—" }}</td>
+                            <td class="text-muted small">{{ a.assigned_by.get_full_name|default:a.assigned_by.username|default:"—" }}</td>
+                            <td class="text-muted small">{{ a.assigned_at|date:"Y/m/d" }}</td>
+                            <td>
+                                {% if a.is_active %}
+                                    <span class="badge bg-success">نشط</span>
+                                {% else %}
+                                    <span class="badge bg-danger">ملغى</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if a.is_active %}
+                                <form method="post" action="{% url 'authorization:revoke_system_role' pk=a.pk %}"
+                                      onsubmit="return confirm('إلغاء هذا التعيين؟')">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                                        <i class="bi bi-x-circle"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                لا توجد تعيينات حالية
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% block title %}اختيار منتجات للطباعة{% endblock %}
+{% block breadcrumb_items %}
+<li class="breadcrumb-item active">طباعة ملصقات المنتجات</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-tags me-2 text-primary"></i>طباعة ملصقات المنتجات</h4>
+</div>
+
+<form method="post" id="labelForm">
+    {% csrf_token %}
+    <div class="row g-4">
+        <!-- إعدادات الطباعة -->
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent fw-semibold">
+                    <i class="bi bi-gear me-2"></i>إعدادات الطباعة
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">نوع الباركود</label>
+                        <select name="type" class="form-select form-select-sm">
+                            <option value="code128">Code 128</option>
+                            <option value="qr">QR Code</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">عدد النسخ لكل منتج</label>
+                        <input type="number" name="copies" class="form-control form-control-sm" value="1" min="1" max="100">
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="show_price" value="1" id="showPrice" checked>
+                            <label class="form-check-label" for="showPrice">إظهار السعر</label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small">فلترة حسب الفئة</label>
+                        <select id="categoryFilter" class="form-select form-select-sm">
+                            <option value="">كل الفئات</option>
+                            {% for cat in categories %}
+                            <option value="{{ cat.pk }}">{{ cat.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-printer me-1"></i>طباعة الملصقات
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- اختيار المنتجات -->
+        <div class="col-md-9">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold"><i class="bi bi-box-seam me-2"></i>اختر المنتجات</span>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="selectAll">تحديد الكل</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="deselectAll">إلغاء الكل</button>
+                        <span class="badge bg-primary" id="selectedCount">0 منتج</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <input type="text" class="form-control form-control-sm mb-3" id="productSearch" placeholder="بحث...">
+                    <div style="max-height: 500px; overflow-y: auto;">
+                        <table class="table table-sm table-hover" id="productsTable">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th width="40">
+                                        <input type="checkbox" id="checkAll" class="form-check-input">
+                                    </th>
+                                    <th>الكود</th>
+                                    <th>الاسم</th>
+                                    <th>الفئة</th>
+                                    <th>السعر</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for product in products %}
+                                <tr data-category="{{ product.category_id|default:'' }}">
+                                    <td>
+                                        <input class="form-check-input product-check" type="checkbox"
+                                            name="products" value="{{ product.pk }}">
+                                    </td>
+                                    <td><code>{{ product.code }}</code></td>
+                                    <td>{{ product.name }}</td>
+                                    <td>{{ product.category.name|default:"—" }}</td>
+                                    <td>{{ product.sale_price|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+const checks = () => document.querySelectorAll('.product-check');
+const updateCount = () => {
+    const n = [...checks()].filter(c => c.checked).length;
+    document.getElementById('selectedCount').textContent = n + ' منتج';
+};
+
+document.getElementById('selectAll').addEventListener('click', () => {
+    checks().forEach(c => { if (c.closest('tr').style.display !== 'none') c.checked = true; });
+    updateCount();
+});
+document.getElementById('deselectAll').addEventListener('click', () => {
+    checks().forEach(c => c.checked = false);
+    updateCount();
+});
+document.getElementById('checkAll').addEventListener('change', function() {
+    checks().forEach(c => c.checked = this.checked);
+    updateCount();
+});
+checks().forEach(c => c.addEventListener('change', updateCount));
+
+// بحث
+document.getElementById('productSearch').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('#productsTable tbody tr').forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+});
+
+// فلترة الفئة
+document.getElementById('categoryFilter').addEventListener('change', function() {
+    const cat = this.value;
+    document.querySelectorAll('#productsTable tbody tr').forEach(row => {
+        row.style.display = (!cat || row.dataset.category === cat) ? '' : 'none';
+    });
+});
+</script>
+{% endblock %}

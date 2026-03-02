@@ -4,14 +4,20 @@
 from decimal import Decimal
 
 from django import forms
+import json
+
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q, Sum
+from django.http import JsonResponse
 from django.shortcuts import redirect, get_object_or_404, render
 from django.urls import reverse_lazy
-from django.views.generic import ListView, DetailView, CreateView, View
+from django.views.decorators.http import require_POST
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, View
 
 from apps.core.models import Branch, Warehouse
+from apps.core.mixins import apply_branch_filter, BranchCreateMixin
 from apps.partners.models import Supplier
 from apps.purchases.models import PurchaseOrder, PurchaseOrderLine
 from apps.inventory.models import Product
@@ -163,6 +169,7 @@ class PurchaseOrderListView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
         qs = PurchaseOrder.objects.select_related(
             'supplier', 'branch', 'warehouse'
         ).order_by('-date')
+        qs = apply_branch_filter(qs, self.request)
         q = self.request.GET.get('q', '').strip()
         status = self.request.GET.get('status', '')
         supplier_id = self.request.GET.get('supplier', '')
@@ -281,3 +288,193 @@ class ReceivePurchaseView(LoginRequiredMixin, PermissionRequiredMixin, View):
         except Exception as e:
             messages.error(request, f'خطأ: {e}')
         return redirect('purchases:order_detail', pk=pk)
+
+
+# ══════════════════════════════════════════════════════
+# إضافة مورد سريع (AJAX)
+# ══════════════════════════════════════════════════════
+
+@login_required
+@require_POST
+def quick_add_supplier(request):
+    """
+    إضافة مورد سريع عبر AJAX
+    يُستخدم في فورم أمر الشراء
+    """
+    data = json.loads(request.body)
+
+    last = Supplier.objects.order_by('-code').first()
+    if last and last.code.startswith('S'):
+        try:
+            new_num = int(last.code[1:]) + 1
+        except ValueError:
+            new_num = 1
+    else:
+        new_num = 1
+
+    supplier = Supplier.objects.create(
+        code=f'S{new_num:04d}',
+        name=data.get('name', ''),
+        supplier_type=data.get('supplier_type', 'local'),
+        phone=data.get('phone', ''),
+        phone2=data.get('phone2', ''),
+        address=data.get('address', ''),
+        country=data.get('country', 'مصر'),
+        contact_person=data.get('contact_person', ''),
+        is_active=True,
+        created_by=request.user,
+        updated_by=request.user,
+    )
+
+    return JsonResponse({
+        'success': True,
+        'supplier': {
+            'id': supplier.id,
+            'code': supplier.code,
+            'name': supplier.name,
+            'phone': supplier.phone,
+        }
+    })
+
+
+# ══════════════════════════════════════════════════════
+# Sprint 20 — Views إضافية للمشتريات
+# ══════════════════════════════════════════════════════
+
+class SupplierUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    """تعديل بيانات المورد"""
+    permission_module = 'purchases'
+    permission_action = 'edit'
+    model = Supplier
+    fields = ['name', 'code', 'phone', 'email', 'address', 'tax_number',
+              'payment_terms', 'is_active']
+    template_name = 'purchases/supplier_form.html'
+    success_url = '/purchases/suppliers/'
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        for field in form.fields.values():
+            import django.forms as dforms
+            if isinstance(field.widget, dforms.CheckboxInput):
+                field.widget.attrs['class'] = 'form-check-input'
+            else:
+                field.widget.attrs['class'] = 'form-control'
+        return form
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['title'] = f'تعديل مورد: {self.object.name}'
+        ctx['edit_mode'] = True
+        return ctx
+
+    def form_valid(self, form):
+        messages.success(self.request, f'تم تحديث بيانات المورد "{form.instance.name}"')
+        return super().form_valid(form)
+
+
+class SupplierStatementView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """كشف حساب مورد"""
+    permission_module = 'purchases'
+    permission_action = 'view'
+
+    def get(self, request, pk):
+        supplier = get_object_or_404(Supplier, pk=pk)
+        orders = PurchaseOrder.objects.filter(
+            supplier=supplier
+        ).order_by('order_date')
+
+        from decimal import Decimal as D
+        running_balance = D('0')
+        statement = []
+        for order in orders:
+            total = getattr(order, 'total', D('0')) or D('0')
+            paid = getattr(order, 'paid_amount', D('0')) or D('0')
+            running_balance += total - paid
+            statement.append({
+                'date': order.order_date,
+                'type': 'أمر شراء',
+                'reference': order.order_number,
+                'debit': D('0'),
+                'credit': total,
+                'balance': running_balance,
+                'obj': order,
+            })
+
+        export = request.GET.get('export')
+        if export == 'excel':
+            import csv
+            from django.http import HttpResponse
+            response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+            response['Content-Disposition'] = f'attachment; filename="supplier_stmt_{supplier.code}.csv"'
+            writer = csv.writer(response)
+            writer.writerow(['التاريخ', 'النوع', 'المرجع', 'مدين', 'دائن', 'الرصيد'])
+            for s in statement:
+                writer.writerow([s['date'], s['type'], s['reference'], s['debit'], s['credit'], s['balance']])
+            return response
+
+        return render(request, 'purchases/supplier_statement.html', {
+            'title': f'كشف حساب مورد: {supplier.name}',
+            'supplier': supplier,
+            'statement': statement,
+            'final_balance': running_balance,
+        })
+
+
+class PurchaseOrderUpdateView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """تعديل أمر شراء في حالة مسودة"""
+    permission_module = 'purchases'
+    permission_action = 'edit'
+
+    def get(self, request, pk):
+        order = get_object_or_404(PurchaseOrder, pk=pk)
+        if order.status != 'draft':
+            messages.error(request, 'لا يمكن تعديل أمر شراء مؤكد.')
+            return redirect('purchases:order_detail', pk=pk)
+        lines = order.lines.select_related('product').all()
+        return render(request, 'purchases/order_update.html', {
+            'title': f'تعديل أمر شراء: {order.order_number}',
+            'order': order,
+            'lines': lines,
+        })
+
+    def post(self, request, pk):
+        order = get_object_or_404(PurchaseOrder, pk=pk)
+        if order.status != 'draft':
+            messages.error(request, 'لا يمكن تعديل أمر شراء مؤكد.')
+            return redirect('purchases:order_detail', pk=pk)
+        order.notes = request.POST.get('notes', order.notes)
+        order.save()
+        messages.success(request, f'تم تحديث أمر الشراء {order.order_number}')
+        return redirect('purchases:order_detail', pk=pk)
+
+
+class PurchaseOrderCancelView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """إلغاء أمر شراء"""
+    permission_module = 'purchases'
+    permission_action = 'approve'
+
+    def post(self, request, pk):
+        order = get_object_or_404(PurchaseOrder, pk=pk)
+        if order.status in ('received', 'cancelled'):
+            messages.error(request, 'لا يمكن إلغاء هذا الأمر.')
+            return redirect('purchases:order_detail', pk=pk)
+        order.status = 'cancelled'
+        order.save()
+        messages.success(request, f'تم إلغاء أمر الشراء {order.order_number}')
+        return redirect('purchases:order_list')
+
+
+class PurchaseOrderPrintView(LoginRequiredMixin, View):
+    """طباعة أمر شراء"""
+    def get(self, request, pk):
+        order = get_object_or_404(PurchaseOrder, pk=pk)
+        try:
+            from apps.core.models import Company
+            company = Company.objects.first()
+        except Exception:
+            company = None
+        return render(request, 'purchases/order_print.html', {
+            'order': order,
+            'lines': order.lines.select_related('product').all(),
+            'company': company,
+        })

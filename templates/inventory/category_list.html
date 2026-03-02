@@ -4,50 +4,105 @@
 {% block nav_inventory_open %}show{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h4 class="mb-0"><i class="bi bi-tags me-2 text-primary"></i>{{ title }}</h4>
-    <span class="badge bg-secondary fs-6">{{ all_categories|length }} تصنيف</span>
+    <div class="d-flex gap-2">
+        <span class="badge bg-secondary fs-6 align-self-center">{{ all_categories|length }} تصنيف</span>
+        <a href="{% url 'inventory:category_create' %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-circle me-1"></i>تصنيف جديد
+        </a>
+    </div>
 </div>
 
-<div class="row g-4">
+<div class="row g-3">
     {% for root in root_categories %}
     <div class="col-md-4">
         <div class="card shadow-sm h-100">
-            <div class="card-header bg-primary text-white py-2">
-                <i class="bi bi-folder-fill me-2"></i>{{ root.name }}
+            <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-folder-fill me-2"></i>{{ root.name }}</span>
+                <div class="d-flex gap-1">
+                    <a href="{% url 'inventory:category_update' root.pk %}"
+                       class="btn btn-sm btn-light py-0 px-1" title="تعديل">
+                        <i class="bi bi-pencil text-primary"></i>
+                    </a>
+                    <a href="{% url 'inventory:category_create' %}?parent={{ root.pk }}"
+                       class="btn btn-sm btn-light py-0 px-1" title="تصنيف فرعي جديد">
+                        <i class="bi bi-plus text-success"></i>
+                    </a>
+                    <form method="post" action="{% url 'inventory:category_delete' root.pk %}"
+                          class="d-inline" onsubmit="return confirm('هل تريد حذف هذا التصنيف؟')">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-light py-0 px-1" title="حذف">
+                            <i class="bi bi-trash text-danger"></i>
+                        </button>
+                    </form>
+                </div>
             </div>
             <div class="card-body p-0">
                 <ul class="list-group list-group-flush">
                     {% for child in root.children.all %}
-                    <li class="list-group-item py-2">
-                        <i class="bi bi-folder2 me-2 text-muted"></i>
-                        {{ child.name }}
-                        {% with grandchildren=child.children.all %}
-                        {% if grandchildren %}
-                        <ul class="mt-1 ps-3 mb-0">
-                            {% for gc in grandchildren %}
-                            <li class="small text-muted">
-                                <i class="bi bi-dash me-1"></i>{{ gc.name }}
-                            </li>
-                            {% endfor %}
-                        </ul>
-                        {% endif %}
-                        {% endwith %}
+                    <li class="list-group-item py-2 d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="bi bi-folder2 me-2 text-muted"></i>
+                            {{ child.name }}
+                            {% with grandchildren=child.children.all %}
+                            {% if grandchildren %}
+                            <ul class="mt-1 ps-3 mb-0">
+                                {% for gc in grandchildren %}
+                                <li class="small text-muted d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-dash me-1"></i>{{ gc.name }}</span>
+                                    <div class="d-flex gap-1 ms-2">
+                                        <a href="{% url 'inventory:category_update' gc.pk %}" class="text-primary">
+                                            <i class="bi bi-pencil-fill small"></i>
+                                        </a>
+                                    </div>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+                            {% endwith %}
+                        </div>
+                        <div class="d-flex gap-1 flex-shrink-0">
+                            <a href="{% url 'inventory:category_update' child.pk %}"
+                               class="btn btn-sm btn-outline-primary py-0 px-1">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a href="{% url 'inventory:category_create' %}?parent={{ child.pk }}"
+                               class="btn btn-sm btn-outline-success py-0 px-1" title="+ فرعي">
+                                <i class="bi bi-plus"></i>
+                            </a>
+                            <form method="post" action="{% url 'inventory:category_delete' child.pk %}"
+                                  class="d-inline" onsubmit="return confirm('حذف هذا التصنيف؟')">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-1">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </div>
                     </li>
                     {% empty %}
                     <li class="list-group-item text-muted small py-2">لا توجد تصنيفات فرعية</li>
                     {% endfor %}
                 </ul>
             </div>
-            <div class="card-footer text-muted small py-1">
-                {{ root.children.count }} تصنيف فرعي
+            <div class="card-footer text-muted small py-1 d-flex justify-content-between align-items-center">
+                <span>{{ root.children.count }} تصنيف فرعي</span>
+                <a href="{% url 'inventory:category_create' %}?parent={{ root.pk }}"
+                   class="btn btn-outline-primary btn-sm py-0">
+                    <i class="bi bi-plus me-1"></i>فرعي
+                </a>
             </div>
         </div>
     </div>
     {% empty %}
     <div class="col-12">
-        <div class="alert alert-info">
-            لا توجد تصنيفات. قم بتشغيل <code>python manage.py setup_inventory</code> لإنشاء التصنيفات الأساسية.
+        <div class="alert alert-info d-flex align-items-center gap-3">
+            <i class="bi bi-info-circle-fill fs-4"></i>
+            <div>
+                لا توجد تصنيفات بعد.
+                <a href="{% url 'inventory:category_create' %}" class="alert-link">أنشئ أول تصنيف الآن</a>
+                أو شغّل <code>python manage.py setup_inventory</code> للتصنيفات الأساسية.
+            </div>
         </div>
     </div>
     {% endfor %}

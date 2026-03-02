@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Kanban Pipeline — RITA ERP{% endblock %}
+{% block nav_crm %}active{% endblock %}
+{% block nav_crm_open %}show{% endblock %}
+
+{% block extra_css %}
+<style>
+.kanban-board { display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 1rem; }
+.kanban-col { min-width: 220px; max-width: 240px; flex-shrink: 0; }
+.kanban-col-header { padding: .5rem .75rem; border-radius: .375rem .375rem 0 0; font-weight: 700; }
+.kanban-col-body { background: #f8f9fa; border-radius: 0 0 .375rem .375rem; min-height: 200px; padding: .5rem; border: 1px solid #dee2e6; border-top: 0; }
+.kanban-card { background: #fff; border-radius: .375rem; padding: .6rem; margin-bottom: .5rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); cursor: grab; border-left: 4px solid #dee2e6; }
+.kanban-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+.kanban-card.priority-urgent { border-left-color: #dc3545; }
+.kanban-card.priority-high    { border-left-color: #fd7e14; }
+.kanban-card.priority-medium  { border-left-color: #0d6efd; }
+.kanban-card.priority-low     { border-left-color: #adb5bd; }
+.col-new       .kanban-col-header { background: #e9ecef; }
+.col-contacted .kanban-col-header { background: #cff4fc; }
+.col-interested .kanban-col-header { background: #cfe2ff; }
+.col-qualified .kanban-col-header { background: #fff3cd; }
+.col-negotiation .kanban-col-header { background: #fde5c0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-kanban me-2 text-primary"></i>Pipeline — Kanban Board</h4>
+    <div>
+        <a href="{% url 'crm:lead_list' %}" class="btn btn-outline-secondary btn-sm me-1">
+            <i class="bi bi-list-ul me-1"></i>قائمة
+        </a>
+        <a href="{% url 'crm:lead_create' %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-circle me-1"></i>Lead جديد
+        </a>
+    </div>
+</div>
+
+<div class="kanban-board" id="kanban-board">
+    {% for status, leads in columns.items %}
+    <div class="kanban-col col-{{ status }}" data-status="{{ status }}">
+        <div class="kanban-col-header d-flex justify-content-between">
+            <span>{{ status_labels|dictsort:status|first|last|default:status }}</span>
+            <span class="badge bg-dark">{{ leads.count }}</span>
+        </div>
+        <div class="kanban-col-body" id="col-{{ status }}">
+            {% for lead in leads %}
+            <div class="kanban-card priority-{{ lead.priority }}"
+                 data-lead-id="{{ lead.pk }}" draggable="true">
+                <div class="fw-semibold small">
+                    <a href="{% url 'crm:lead_detail' lead.pk %}" class="text-dark text-decoration-none">
+                        {{ lead.name }}
+                    </a>
+                </div>
+                <div class="text-muted" style="font-size:.75rem;">{{ lead.phone }}</div>
+                {% if lead.estimated_value %}
+                <div class="text-success" style="font-size:.75rem;">{{ lead.estimated_value|floatformat:0 }} ج</div>
+                {% endif %}
+                {% if lead.assigned_to %}
+                <div class="text-muted" style="font-size:.72rem;">
+                    <i class="bi bi-person"></i> {{ lead.assigned_to.get_full_name|default:lead.assigned_to.username }}
+                </div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="text-muted text-center small py-2">فارغ</div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.kanban-card');
+    const cols  = document.querySelectorAll('.kanban-col-body');
+    let dragged = null;
+
+    cards.forEach(card => {
+        card.addEventListener('dragstart', () => { dragged = card; card.style.opacity = '.5'; });
+        card.addEventListener('dragend', ()  => { card.style.opacity = '1'; });
+    });
+
+    cols.forEach(col => {
+        col.addEventListener('dragover', e => e.preventDefault());
+        col.addEventListener('drop', e => {
+            e.preventDefault();
+            if (!dragged) return;
+            col.appendChild(dragged);
+            const newStatus = col.id.replace('col-', '');
+            const leadId = dragged.dataset.leadId;
+            // AJAX update
+            fetch(`/crm/leads/${leadId}/edit/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+                body: `status=${newStatus}&_kanban=1`
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

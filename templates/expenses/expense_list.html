@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}المصروفات — RITA ERP{% endblock %}
+{% block nav_expenses %}active{% endblock %}
+{% block nav_expenses_open %}show{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-cash-stack me-2 text-danger"></i>المصروفات</h4>
+    <a href="{% url 'expenses:expense_create' %}" class="btn btn-danger btn-sm">
+        <i class="bi bi-plus-circle me-1"></i>مصروف جديد
+    </a>
+</div>
+
+<!-- فلترة -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <input type="text" name="q" class="form-control form-control-sm"
+                       placeholder="بحث برقم المصروف أو الوصف"
+                       value="{{ request.GET.q|default:'' }}">
+            </div>
+            <div class="col-md-2">
+                <select name="category" class="form-select form-select-sm">
+                    <option value="">— التصنيف —</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.pk }}" {% if request.GET.category == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">— الحالة —</option>
+                    {% for val, label in statuses %}
+                    <option value="{{ val }}" {% if request.GET.status == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <input type="date" name="date_from" class="form-control form-control-sm"
+                       value="{{ request.GET.date_from|default:'' }}" placeholder="من تاريخ">
+            </div>
+            <div class="col-md-2">
+                <input type="date" name="date_to" class="form-control form-control-sm"
+                       value="{{ request.GET.date_to|default:'' }}" placeholder="إلى تاريخ">
+            </div>
+            <div class="col-md-1 d-flex gap-1">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill"><i class="bi bi-search"></i></button>
+                <a href="{% url 'expenses:expense_list' %}" class="btn btn-outline-secondary btn-sm flex-fill">×</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- إجمالي -->
+{% if total_amount %}
+<div class="alert alert-info py-2 mb-3">
+    <strong>إجمالي المصروفات المعروضة:</strong> {{ total_amount|floatformat:2 }} ج.م
+</div>
+{% endif %}
+
+<!-- الجدول -->
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover table-sm mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>رقم المصروف</th>
+                    <th>التاريخ</th>
+                    <th>التصنيف</th>
+                    <th>الوصف</th>
+                    <th>المبلغ</th>
+                    <th>الضريبة</th>
+                    <th>الإجمالي</th>
+                    <th>الحالة</th>
+                    <th>الفرع</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for expense in expenses %}
+                <tr>
+                    <td><a href="{% url 'expenses:expense_detail' expense.pk %}">{{ expense.expense_number }}</a></td>
+                    <td>{{ expense.date }}</td>
+                    <td>{{ expense.category.name }}</td>
+                    <td>{{ expense.description|truncatechars:40 }}</td>
+                    <td>{{ expense.amount|floatformat:2 }}</td>
+                    <td>{{ expense.tax_amount|floatformat:2 }}</td>
+                    <td class="fw-bold">{{ expense.total|floatformat:2 }}</td>
+                    <td>
+                        {% if expense.status == 'draft' %}
+                            <span class="badge bg-secondary">{{ expense.get_status_display }}</span>
+                        {% elif expense.status == 'paid' %}
+                            <span class="badge bg-success">{{ expense.get_status_display }}</span>
+                        {% elif expense.status == 'rejected' %}
+                            <span class="badge bg-danger">{{ expense.get_status_display }}</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">{{ expense.get_status_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ expense.branch.name }}</td>
+                    <td>
+                        <a href="{% url 'expenses:expense_detail' expense.pk %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="10" class="text-center text-muted py-4">لا توجد مصروفات</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ترقيم الصفحات -->
+{% if is_paginated %}
+<nav class="mt-3 d-flex justify-content-center">
+    <ul class="pagination pagination-sm">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">السابق</a></li>
+        {% endif %}
+        <li class="page-item active"><a class="page-link" href="#">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a></li>
+        {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">التالي</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

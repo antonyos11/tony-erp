@@ -12,9 +12,14 @@ def get_client_ip(request):
     return request.META.get('REMOTE_ADDR')
 
 
+def get_user_agent(request) -> str:
+    """استخراج بيانات المتصفح"""
+    return request.META.get('HTTP_USER_AGENT', '')[:512]
+
+
 def log_action(user, action, module, model_name='', object_id='',
                description='', old_value=None, new_value=None,
-               ip_address=None, branch=None):
+               ip_address=None, branch=None, user_agent=''):
     """تسجيل حركة في سجل التدقيق"""
     return AuditLog.objects.create(
         user=user,
@@ -26,8 +31,30 @@ def log_action(user, action, module, model_name='', object_id='',
         old_value=old_value,
         new_value=new_value,
         ip_address=ip_address,
+        user_agent=user_agent,
         branch=branch,
     )
+
+
+def log_action_from_request(request, action, module, model_name='', object_id='',
+                             description='', old_value=None, new_value=None):
+    """
+    تسجيل حركة في سجل التدقيق مع استخلاص البيانات من الـ request تلقائيًا
+    """
+    return log_action(
+        user=request.user if request.user.is_authenticated else None,
+        action=action,
+        module=module,
+        model_name=model_name,
+        object_id=object_id,
+        description=description,
+        old_value=old_value,
+        new_value=new_value,
+        ip_address=get_client_ip(request),
+        user_agent=get_user_agent(request),
+        branch=getattr(request.user, 'branch', None) if request.user.is_authenticated else None,
+    )
+
 
 
 def get_audit_log(filters=None):

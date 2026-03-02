@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-3">
+
+    <h3>{{ title }}</h3>
+
+    {% if fixed_branch %}
+    <div class="alert alert-info">
+        الفرع: <strong>{{ fixed_branch.name }}</strong> (محدد تلقائياً)
+    </div>
+    {% endif %}
+
+    <form method="POST" id="userForm">
+        {% csrf_token %}
+
+        <!-- ═══ القسم 1: بيانات الحساب ═══ -->
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">بيانات الحساب</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">اسم المستخدم *</label>
+                        <input type="text" name="username" class="form-control" required
+                               placeholder="مثال: ahmed.seller" autocomplete="off"
+                               value="{{ request.POST.username }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">كلمة المرور *</label>
+                        <input type="password" name="password" class="form-control" required minlength="8"
+                               placeholder="8 أحرف على الأقل">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">تأكيد كلمة المرور *</label>
+                        <input type="password" name="confirm_password" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">الاسم الأول *</label>
+                        <input type="text" name="first_name" class="form-control" required
+                               value="{{ request.POST.first_name }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">اسم العائلة</label>
+                        <input type="text" name="last_name" class="form-control"
+                               value="{{ request.POST.last_name }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">البريد الإلكتروني</label>
+                        <input type="email" name="email" class="form-control"
+                               value="{{ request.POST.email }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ القسم 2: الدور والنطاق ═══ -->
+        <div class="card mb-3">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">الدور والنطاق</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <!-- الدور — يظهر فقط المسموح -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">الدور *</label>
+                        <select name="role" id="roleSelect" class="form-select" required>
+                            <option value="">— اختر الدور —</option>
+                            {% for role in grantable_roles %}
+                            <option value="{{ role.id }}"
+                                    data-scope="{{ role.scope }}"
+                                    data-description="{{ role.description }}"
+                                    data-max-discount="{{ role.max_discount_percentage }}">
+                                {{ role.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <!-- وصف الدور -->
+                        <div id="roleDescription" class="alert alert-info mt-2 d-none">
+                            <small id="roleDescText"></small>
+                        </div>
+                    </div>
+
+                    <!-- الفرع -->
+                    <div class="col-md-6" id="branchSection">
+                        <label class="form-label fw-bold">الفرع</label>
+                        {% if fixed_branch %}
+                        <!-- مدير فرع = فرع ثابت -->
+                        <input type="hidden" name="branch" value="{{ fixed_branch.id }}">
+                        <input type="text" class="form-control" value="{{ fixed_branch.name }}" disabled>
+                        {% else %}
+                        <select name="branch" id="branchSelect" class="form-select">
+                            <option value="">— اختر الفرع —</option>
+                            {% for branch in grantable_branches %}
+                            <option value="{{ branch.id }}">{{ branch.name }}</option>
+                            {% endfor %}
+                        </select>
+                        {% endif %}
+                    </div>
+
+                    <!-- المخزن — يظهر فقط لأمين المخزن -->
+                    <div class="col-md-6 d-none" id="warehouseSection">
+                        <label class="form-label fw-bold">المخزن *</label>
+                        <select name="warehouse" id="warehouseSelect" class="form-select">
+                            <option value="">— اختر المخزن —</option>
+                            {% for wh in grantable_warehouses %}
+                            <option value="{{ wh.id }}">{{ wh.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- خط الإنتاج — يظهر فقط لأدوار الإنتاج -->
+                    <div class="col-md-6 d-none" id="lineSection">
+                        <label class="form-label fw-bold">خط الإنتاج *</label>
+                        <select name="production_line" id="lineSelect" class="form-select">
+                            <option value="">— اختر خط الإنتاج —</option>
+                            {% for line in grantable_lines %}
+                            <option value="{{ line.id }}">{{ line.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ القسم 3: ربط بموظف ═══ -->
+        {% if unlinked_employees %}
+        <div class="card mb-3">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">ربط بموظف (اختياري)</h5>
+            </div>
+            <div class="card-body">
+                <div class="form-check mb-3">
+                    <input type="checkbox" class="form-check-input" id="linkEmployee"
+                           onchange="document.getElementById('employeeSelect').classList.toggle('d-none', !this.checked)">
+                    <label class="form-check-label">ربط هذا الحساب بموظف موجود</label>
+                </div>
+                <div id="employeeSelect" class="d-none">
+                    <select name="employee" class="form-select">
+                        <option value="">— اختر موظف غير مرتبط —</option>
+                        {% for emp in unlinked_employees %}
+                        <option value="{{ emp.id }}">
+                            {{ emp.full_name_ar }} — {{ emp.employee_number }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted">يظهر فقط الموظفين غير المرتبطين بحساب مستخدم</small>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ═══ تنبيه ═══ -->
+        <div class="alert alert-warning">
+            <strong>ملاحظة:</strong>
+            لا يمكنك منح صلاحيات أعلى من صلاحياتك.
+            الأدوار والفروع المعروضة هي فقط ما يحق لك التعيين فيه.
+        </div>
+
+        <!-- ═══ أزرار ═══ -->
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary btn-lg">
+                إنشاء المستخدم
+            </button>
+            <a href="{% url 'core:user_list' %}" class="btn btn-secondary btn-lg">
+                إلغاء
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+// ═══ ديناميكية الفورم ═══
+
+const roleSelect = document.getElementById('roleSelect');
+const branchSection = document.getElementById('branchSection');
+const warehouseSection = document.getElementById('warehouseSection');
+const lineSection = document.getElementById('lineSection');
+const roleDescription = document.getElementById('roleDescription');
+const roleDescText = document.getElementById('roleDescText');
+
+if (roleSelect) {
+    roleSelect.addEventListener('change', function() {
+        const selected = this.options[this.selectedIndex];
+        const scope = selected.dataset.scope;
+        const desc = selected.dataset.description;
+
+        // عرض وصف الدور
+        if (desc) {
+            roleDescText.textContent = desc;
+            roleDescription.classList.remove('d-none');
+        } else {
+            roleDescription.classList.add('d-none');
+        }
+
+        // إظهار/إخفاء حقول حسب Scope
+        if (warehouseSection) {
+            if (scope === 'warehouse') {
+                warehouseSection.classList.remove('d-none');
+            } else {
+                warehouseSection.classList.add('d-none');
+                const ws = document.getElementById('warehouseSelect');
+                if (ws) ws.value = '';
+            }
+        }
+
+        if (lineSection) {
+            if (scope === 'production_line') {
+                lineSection.classList.remove('d-none');
+            } else {
+                lineSection.classList.add('d-none');
+                const ls = document.getElementById('lineSelect');
+                if (ls) ls.value = '';
+            }
+        }
+
+        // الفرع — مطلوب إلا لـ scope=all
+        if (branchSection) {
+            const branchInput = branchSection.querySelector('select');
+            if (branchInput) {
+                branchInput.required = (scope !== 'all');
+            }
+        }
+    });
+}
+
+// ═══ تحقق قبل الإرسال ═══
+const userForm = document.getElementById('userForm');
+if (userForm) {
+    userForm.addEventListener('submit', function(e) {
+        const passwordEl = document.querySelector('input[name="password"]');
+        const confirmEl = document.querySelector('input[name="confirm_password"]');
+        if (!passwordEl || !confirmEl) return;
+
+        const password = passwordEl.value;
+        const confirm = confirmEl.value;
+
+        if (password !== confirm) {
+            e.preventDefault();
+            alert('كلمتا المرور غير متطابقتين!');
+            return;
+        }
+
+        if (password.length < 8) {
+            e.preventDefault();
+            alert('كلمة المرور يجب أن تكون 8 أحرف على الأقل!');
+            return;
+        }
+    });
+}
+</script>
+
+{% endblock %}

@@ -263,3 +263,29 @@ class SalesReports:
             })
 
         return result
+
+    @classmethod
+    def top_products(cls, days=30, limit=10, branch=None):
+        """أفضل المنتجات مبيعاً — للرسم البياني"""
+        from datetime import timedelta
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=days)
+
+        filters = Q(
+            invoice__status__in=['confirmed', 'paid', 'partial_paid', 'delivered'],
+            invoice__date__date__gte=start_date,
+            invoice__date__date__lte=end_date,
+        )
+        if branch:
+            filters &= Q(invoice__branch=branch)
+
+        return list(
+            SalesInvoiceLine.objects.filter(filters)
+            .values('product__name')
+            .annotate(
+                total_qty=Sum('quantity'),
+                total_revenue=Sum('subtotal'),
+                total_profit=Sum('profit'),
+            )
+            .order_by('-total_revenue')[:limit]
+        )

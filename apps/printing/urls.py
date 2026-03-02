@@ -17,5 +17,9 @@ urlpatterns = [
     path('barcode/sheet/',           views.PrintBarcodeSheetView.as_view(),  name='barcode_sheet'),
 
     # قوالب الطباعة
-    path('templates/',               views.PrintTemplateListView.as_view(),  name='template_list'),
+    path('templates/',               views.PrintTemplateListView.as_view(),    name='template_list'),
+
+    # ملصقات المنتجات
+    path('labels/',                  views.PrintProductLabelsView.as_view(),   name='product_labels'),
+    path('labels/select/',           views.PrintProductLabelsSelectorView.as_view(), name='label_selector'),
 ]

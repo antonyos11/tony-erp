@@ -1,0 +1,116 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>قسيمة راتب {{ employee.full_name_ar }} – {{ payroll.month }}/{{ payroll.year }}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css">
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; font-size: 0.9rem; }
+    .payslip { max-width: 800px; margin: 20px auto; border: 2px solid #333; padding: 20px; }
+    .payslip-header { background: #1a2332; color: white; padding: 15px; text-align: center; margin: -20px -20px 20px; }
+    .section-title { background: #f0f0f0; font-weight: bold; padding: 5px 10px; border-right: 4px solid #1a2332; margin-bottom: 8px; }
+    table.data-table td, table.data-table th { padding: 4px 8px; border: 1px solid #ddd; }
+    table.data-table th { background: #f8f9fa; font-weight: 600; }
+    .total-row { background: #e8f5e9 !important; font-weight: bold; font-size: 1rem; }
+    .deduction-row { background: #ffebee !important; }
+    @media print {
+      body { margin: 0; }
+      .no-print { display: none !important; }
+      .payslip { border: 2px solid #333; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="text-center mt-2 mb-2 no-print">
+  <button onclick="window.print()" class="btn btn-primary btn-sm"><i class="bi bi-printer me-1"></i>طباعة</button>
+  <a href="{% url 'hr:payroll_detail' payroll.pk %}" class="btn btn-outline-secondary btn-sm">العودة للمسيّر</a>
+</div>
+
+<div class="payslip">
+  <!-- الترويسة -->
+  <div class="payslip-header">
+    <h5 class="mb-1">قسيمة راتب</h5>
+    <div>{{ payroll.branch.name }}</div>
+    <div>{{ payroll.month|stringformat:"02d" }} / {{ payroll.year }}</div>
+  </div>
+
+  <!-- بيانات الموظف -->
+  <div class="section-title">بيانات الموظف</div>
+  <div class="row mb-3">
+    <div class="col-6">
+      <table class="table table-borderless table-sm mb-0">
+        <tr><td style="width:130px"><strong>الاسم</strong></td><td>{{ employee.full_name_ar }}</td></tr>
+        <tr><td><strong>الرقم الوظيفي</strong></td><td>{{ employee.employee_number }}</td></tr>
+        <tr><td><strong>القسم</strong></td><td>{{ employee.department.name }}</td></tr>
+        <tr><td><strong>المسمى الوظيفي</strong></td><td>{{ employee.job_title.name }}</td></tr>
+      </table>
+    </div>
+    <div class="col-6">
+      <table class="table table-borderless table-sm mb-0">
+        <tr><td style="width:130px"><strong>نوع التوظيف</strong></td><td>{{ employee.get_employment_type_display }}</td></tr>
+        <tr><td><strong>تاريخ التعيين</strong></td><td>{{ employee.hire_date }}</td></tr>
+        <tr><td><strong>أيام الحضور</strong></td><td>{{ line.actual_days }} / {{ line.working_days }}</td></tr>
+        <tr><td><strong>أيام الغياب</strong></td><td>{{ line.absence_days }}</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- الإضافات -->
+    <div class="col-6">
+      <div class="section-title">الراتب والإضافات</div>
+      <table class="table table-sm data-table mb-3">
+        <tr><th>البند</th><th class="text-end">المبلغ</th></tr>
+        <tr><td>الراتب الأساسي</td><td class="text-end">{{ line.basic_salary|floatformat:2 }}</td></tr>
+        {% if line.housing_allowance > 0 %}<tr><td>بدل سكن</td><td class="text-end">{{ line.housing_allowance|floatformat:2 }}</td></tr>{% endif %}
+        {% if line.transport_allowance > 0 %}<tr><td>بدل مواصلات</td><td class="text-end">{{ line.transport_allowance|floatformat:2 }}</td></tr>{% endif %}
+        {% if line.food_allowance > 0 %}<tr><td>بدل وجبات</td><td class="text-end">{{ line.food_allowance|floatformat:2 }}</td></tr>{% endif %}
+        {% if line.other_allowances > 0 %}<tr><td>بدلات أخرى</td><td class="text-end">{{ line.other_allowances|floatformat:2 }}</td></tr>{% endif %}
+        {% if line.overtime_amount > 0 %}<tr><td>ساعات إضافية ({{ line.overtime_hours }} ساعة)</td><td class="text-end">{{ line.overtime_amount|floatformat:2 }}</td></tr>{% endif %}
+        {% if line.bonus > 0 %}<tr><td>مكافأة</td><td class="text-end">{{ line.bonus|floatformat:2 }}</td></tr>{% endif %}
+        {% if line.incentive > 0 %}<tr><td>حافز</td><td class="text-end">{{ line.incentive|floatformat:2 }}</td></tr>{% endif %}
+        {% if line.commission > 0 %}<tr><td>عمولة</td><td class="text-end">{{ line.commission|floatformat:2 }}</td></tr>{% endif %}
+        <tr class="total-row"><td>إجمالي الراتب</td><td class="text-end">{{ line.gross_salary|floatformat:2 }}</td></tr>
+        <tr class="table-info"><td>إجمالي الإضافات</td><td class="text-end">{{ line.total_additions|floatformat:2 }}</td></tr>
+      </table>
+    </div>
+
+    <!-- الخصومات -->
+    <div class="col-6">
+      <div class="section-title">الخصومات</div>
+      <table class="table table-sm data-table mb-3">
+        <tr><th>البند</th><th class="text-end">المبلغ</th></tr>
+        {% if line.absence_deduction > 0 %}<tr class="deduction-row"><td>خصم غياب ({{ line.absence_days }} يوم)</td><td class="text-end">{{ line.absence_deduction|floatformat:2 }}</td></tr>{% endif %}
+        {% if line.late_deduction > 0 %}<tr class="deduction-row"><td>خصم تأخير</td><td class="text-end">{{ line.late_deduction|floatformat:2 }}</td></tr>{% endif %}
+        {% if line.penalty_deduction > 0 %}<tr class="deduction-row"><td>خصم جزاءات</td><td class="text-end">{{ line.penalty_deduction|floatformat:2 }}</td></tr>{% endif %}
+        {% if line.advance_deduction > 0 %}<tr class="deduction-row"><td>خصم سلفة</td><td class="text-end">{{ line.advance_deduction|floatformat:2 }}</td></tr>{% endif %}
+        {% if line.social_insurance > 0 %}<tr class="deduction-row"><td>تأمين اجتماعي</td><td class="text-end">{{ line.social_insurance|floatformat:2 }}</td></tr>{% endif %}
+        {% if line.tax > 0 %}<tr class="deduction-row"><td>ضريبة</td><td class="text-end">{{ line.tax|floatformat:2 }}</td></tr>{% endif %}
+        {% if line.other_deductions > 0 %}<tr class="deduction-row"><td>خصومات أخرى</td><td class="text-end">{{ line.other_deductions|floatformat:2 }}</td></tr>{% endif %}
+        <tr class="deduction-row fw-bold"><td>إجمالي الخصومات</td><td class="text-end">{{ line.total_deductions|floatformat:2 }}</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- الصافي -->
+  <div class="text-center mt-3 p-3 bg-success text-white rounded">
+    <h5 class="mb-0">صافي الراتب: <strong>{{ line.net_salary|floatformat:2 }} جنيه مصري</strong></h5>
+  </div>
+
+  <!-- توقيعات -->
+  <div class="row mt-5 mb-2">
+    <div class="col-4 text-center"><div class="border-top pt-2">مدير الموارد البشرية</div></div>
+    <div class="col-4 text-center"><div class="border-top pt-2">المدير المالي</div></div>
+    <div class="col-4 text-center"><div class="border-top pt-2">توقيع الموظف</div></div>
+  </div>
+
+  <div class="text-center text-muted mt-2" style="font-size:0.75rem">
+    تم إصدار هذه القسيمة إلكترونياً — RITA ERP — {{ payroll.paid_date|default:"لم يُصرف بعد" }}
+  </div>
+</div>
+
+</body>
+</html>

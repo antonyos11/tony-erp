@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}لوحة عروض الأسعار — RITA ERP{% endblock %}
+{% block nav_quotations %}active{% endblock %}
+{% block nav_quotations_open %}show{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-bar-chart-line me-2 text-primary"></i>لوحة عروض الأسعار</h4>
+    <a href="{% url 'quotations:quotation_create' %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-circle me-1"></i>عرض سعر جديد
+    </a>
+</div>
+
+<!-- بطاقات الإحصائيات -->
+<div class="row g-3 mb-4">
+    <div class="col-md-2 col-6">
+        <div class="card border-0 bg-primary text-white text-center py-3 shadow-sm">
+            <div class="card-body p-2">
+                <i class="bi bi-file-earmark-text fs-2"></i>
+                <div class="fw-bold fs-3 mt-1">{{ stats.total }}</div>
+                <div class="small opacity-75">إجمالي العروض</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6">
+        <div class="card border-0 bg-warning text-dark text-center py-3 shadow-sm">
+            <div class="card-body p-2">
+                <i class="bi bi-hourglass-split fs-2"></i>
+                <div class="fw-bold fs-3 mt-1">{{ stats.pending }}</div>
+                <div class="small opacity-75">قيد المتابعة</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6">
+        <div class="card border-0 bg-success text-white text-center py-3 shadow-sm">
+            <div class="card-body p-2">
+                <i class="bi bi-check-circle fs-2"></i>
+                <div class="fw-bold fs-3 mt-1">{{ stats.accepted }}</div>
+                <div class="small opacity-75">مقبول</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6">
+        <div class="card border-0 text-white text-center py-3 shadow-sm" style="background:#20c997">
+            <div class="card-body p-2">
+                <i class="bi bi-receipt fs-2"></i>
+                <div class="fw-bold fs-3 mt-1">{{ stats.converted }}</div>
+                <div class="small opacity-75">تحوّل لفاتورة</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6">
+        <div class="card border-0 bg-danger text-white text-center py-3 shadow-sm">
+            <div class="card-body p-2">
+                <i class="bi bi-x-circle fs-2"></i>
+                <div class="fw-bold fs-3 mt-1">{{ stats.rejected }}</div>
+                <div class="small opacity-75">مرفوض</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6">
+        <div class="card border-0 bg-info text-white text-center py-3 shadow-sm">
+            <div class="card-body p-2">
+                <i class="bi bi-percent fs-2"></i>
+                <div class="fw-bold fs-3 mt-1">{{ stats.conversion_rate }}%</div>
+                <div class="small opacity-75">نسبة التحويل</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- إجمالي القيمة المقبولة -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card border-success shadow-sm">
+            <div class="card-body text-center">
+                <div class="text-muted small">إجمالي قيمة العروض المقبولة والمحوّلة</div>
+                <div class="fw-bold fs-3 text-success">{{ stats.total_value|floatformat:2 }} ج.م</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- مؤشر نسبة التحويل -->
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted small">نسبة التحويل</span>
+                    <span class="fw-bold">{{ stats.conversion_rate }}%</span>
+                </div>
+                <div class="progress" style="height: 20px;">
+                    <div class="progress-bar bg-success" role="progressbar"
+                         style="width: {{ stats.conversion_rate }}%"
+                         aria-valuenow="{{ stats.conversion_rate }}" aria-valuemin="0" aria-valuemax="100">
+                        {{ stats.conversion_rate }}%
+                    </div>
+                </div>
+                <div class="text-muted small mt-1">{{ stats.accepted|add:stats.converted }} مقبول من أصل {{ stats.total }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- العروض القريبة من الانتهاء -->
+    <div class="col-md-6">
+        <div class="card shadow-sm border-warning">
+            <div class="card-header bg-warning text-dark">
+                <i class="bi bi-exclamation-triangle me-2"></i>عروض تنتهي خلال 3 أيام
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>رقم العرض</th>
+                            <th>العميل</th>
+                            <th>ينتهي</th>
+                            <th>القيمة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for qt in expiring_soon %}
+                        <tr>
+                            <td><a href="{% url 'quotations:quotation_detail' qt.pk %}">{{ qt.quotation_number }}</a></td>
+                            <td>{{ qt.customer_display_name }}</td>
+                            <td class="text-danger fw-bold">{{ qt.valid_until }}</td>
+                            <td>{{ qt.total|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-center text-muted">لا توجد عروض قريبة من الانتهاء</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- العروض التي تحتاج متابعة -->
+    <div class="col-md-6">
+        <div class="card shadow-sm border-info">
+            <div class="card-header bg-info text-white">
+                <i class="bi bi-telephone me-2"></i>تحتاج متابعة اليوم
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>رقم العرض</th>
+                            <th>العميل</th>
+                            <th>تاريخ المتابعة</th>
+                            <th>الحالة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for qt in need_follow_up %}
+                        <tr>
+                            <td><a href="{% url 'quotations:quotation_detail' qt.pk %}">{{ qt.quotation_number }}</a></td>
+                            <td>{{ qt.customer_display_name }}</td>
+                            <td class="text-info fw-bold">{{ qt.follow_up_date }}</td>
+                            <td>
+                                {% if qt.status == 'sent' %}<span class="badge bg-primary">مُرسل</span>
+                                {% else %}<span class="badge bg-warning text-dark">قيد التفاوض</span>{% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-center text-muted">لا توجد متابعات معلقة</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- آخر العروض -->
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clock-history me-2"></i>آخر العروض</span>
+                <a href="{% url 'quotations:quotation_list' %}" class="btn btn-sm btn-outline-primary">عرض الكل</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>رقم العرض</th>
+                            <th>العميل</th>
+                            <th>الإجمالي</th>
+                            <th>الحالة</th>
+                            <th>التاريخ</th>
+                            <th>صالح حتى</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for qt in recent %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'quotations:quotation_detail' qt.pk %}" class="fw-bold text-decoration-none">
+                                    {{ qt.quotation_number }}
+                                </a>
+                            </td>
+                            <td>{{ qt.customer_display_name }}</td>
+                            <td class="fw-bold">{{ qt.total|floatformat:2 }} ج.م</td>
+                            <td>
+                                {% if qt.status == 'draft' %}<span class="badge bg-secondary">مسودة</span>
+                                {% elif qt.status == 'sent' %}<span class="badge bg-primary">مُرسل</span>
+                                {% elif qt.status == 'negotiation' %}<span class="badge bg-warning text-dark">تفاوض</span>
+                                {% elif qt.status == 'accepted' %}<span class="badge bg-success">مقبول</span>
+                                {% elif qt.status == 'rejected' %}<span class="badge bg-danger">مرفوض</span>
+                                {% elif qt.status == 'converted' %}<span class="badge" style="background:#20c997">محوّل</span>
+                                {% else %}<span class="badge bg-secondary">{{ qt.get_status_display }}</span>{% endif %}
+                            </td>
+                            <td>{{ qt.date|date:"Y-m-d" }}</td>
+                            <td class="{% if qt.is_expired %}text-danger{% endif %}">{{ qt.valid_until }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="text-center text-muted py-3">لا توجد عروض</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

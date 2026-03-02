@@ -4,25 +4,55 @@
 {% block nav_inventory_open %}show{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-3">
     <h4 class="mb-0"><i class="bi bi-list-nested me-2 text-primary"></i>{{ title }}</h4>
     <a href="{% url 'inventory:bom_create' %}" class="btn btn-primary btn-sm">
         <i class="bi bi-plus-circle me-1"></i>قائمة مواد جديدة
     </a>
 </div>
 
+<!-- فلتر البحث -->
+<form method="get" class="card card-body shadow-sm mb-3 p-3">
+    <div class="row g-2">
+        <div class="col-md-5">
+            <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm"
+                   placeholder="ابحث باسم BOM أو المنتج أو الكود...">
+        </div>
+        <div class="col-md-4">
+            <select name="bom_type" class="form-select form-select-sm">
+                <option value="">— كل الأنواع —</option>
+                {% for val, label in bom_type_choices %}
+                <option value="{{ val }}" {% if bom_type == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+            <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                <i class="bi bi-search me-1"></i>بحث
+            </button>
+            {% if q or bom_type %}
+            <a href="{% url 'inventory:bom_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-x-circle"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</form>
+
 <div class="card shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover table-sm mb-0">
+            <table class="table table-hover table-striped table-sm mb-0">
                 <thead class="table-dark">
                     <tr>
                         <th>#</th>
-                        <th>المنتج</th>
+                        <th>المنتج النهائي</th>
                         <th>اسم القائمة</th>
+                        <th>النوع</th>
+                        <th>الإصدار</th>
                         <th>عدد الخامات</th>
-                        <th>افتراضي</th>
-                        <th>نشط</th>
+                        <th>التكلفة التقديرية</th>
+                        <th>الحالة</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -31,20 +61,54 @@
                     <tr>
                         <td>{{ forloop.counter }}</td>
                         <td>
-                            <a href="{% url 'inventory:product_detail' bom.product.pk %}">{{ bom.product.name }}</a>
-                        </td>
-                        <td>{{ bom.name }}</td>
-                        <td>{{ bom.lines.count }}</td>
-                        <td>{% if bom.is_default %}<span class="badge bg-primary">افتراضي</span>{% else %}-{% endif %}</td>
-                        <td>{% if bom.is_active %}<span class="badge bg-success">نشط</span>{% else %}<span class="badge bg-secondary">متوقف</span>{% endif %}</td>
-                        <td>
-                            <a href="{% url 'inventory:bom_detail' bom.pk %}" class="btn btn-outline-primary btn-sm py-0">
-                                <i class="bi bi-eye"></i> عرض
+                            <a href="{% url 'inventory:product_detail' bom.product.pk %}">
+                                {{ bom.product.name }}
                             </a>
+                        </td>
+                        <td><strong>{{ bom.name }}</strong></td>
+                        <td>
+                            {% if bom.bom_type == 'standard' %}<span class="badge bg-primary">قياسية</span>
+                            {% elif bom.bom_type == 'phantom' %}<span class="badge bg-warning text-dark">وهمية</span>
+                            {% else %}<span class="badge bg-info text-dark">قابلة للتخصيص</span>{% endif %}
+                        </td>
+                        <td class="text-center">v{{ bom.version }}</td>
+                        <td class="text-center">{{ bom.lines.count }}</td>
+                        <td class="text-end font-monospace">
+                            {% if bom.estimated_total_cost > 0 %}
+                            {{ bom.estimated_total_cost|floatformat:2 }} ج.م
+                            {% else %}-{% endif %}
+                        </td>
+                        <td>
+                            {% if bom.is_active %}
+                            <span class="badge bg-success">نشط</span>
+                            {% else %}
+                            <span class="badge bg-secondary">متوقف</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-nowrap">
+                            <a href="{% url 'inventory:bom_detail' bom.pk %}" class="btn btn-outline-primary btn-sm py-0 px-2">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{% url 'inventory:bom_update' bom.pk %}" class="btn btn-outline-warning btn-sm py-0 px-2">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <form method="post" action="{% url 'inventory:bom_duplicate' bom.pk %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                        title="نسخ BOM">
+                                    <i class="bi bi-copy"></i>
+                                </button>
+                            </form>
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="7" class="text-center text-muted py-4">لا توجد قوائم مواد</td></tr>
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                            لا توجد قوائم مواد
+                            {% if q or bom_type %}— جرّب تغيير معايير البحث{% endif %}
+                        </td>
+                    </tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -57,11 +121,21 @@
 <nav class="mt-3">
     <ul class="pagination pagination-sm justify-content-center">
         {% if page_obj.has_previous %}
-        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}"><i class="bi bi-chevron-right"></i></a></li>
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q }}&bom_type={{ bom_type }}">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </li>
         {% endif %}
-        <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+        <li class="page-item active">
+            <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        </li>
         {% if page_obj.has_next %}
-        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}"><i class="bi bi-chevron-left"></i></a></li>
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q }}&bom_type={{ bom_type }}">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+        </li>
         {% endif %}
     </ul>
 </nav>

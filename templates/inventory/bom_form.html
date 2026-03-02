@@ -1,128 +1,269 @@
-{% extends "base.html" %}
-{% block title %}قائمة مواد جديدة — RITA ERP{% endblock %}
+{% extends 'base.html' %}
+{% block title %}{% if object %}تعديل BOM{% else %}BOM جديد{% endif %} — RITA ERP{% endblock %}
 {% block nav_inventory %}active{% endblock %}
 {% block nav_inventory_open %}show{% endblock %}
-
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'inventory:bom_list' %}">قوائم المواد</a></li>
+<li class="breadcrumb-item active">{% if object %}تعديل{% else %}إضافة{% endif %}</li>
+{% endblock %}
+{% block extra_css %}
+<style>
+.form-control, .form-select { border-radius: 8px; padding: 8px 12px; }
+.card { border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+.btn { border-radius: 8px; }
+.bom-line-row { background: #f8f9fa; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+.sub-assembly-badge { font-size: 0.7rem; }
+</style>
+{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="mb-0"><i class="bi bi-list-nested me-2 text-primary"></i>{{ title }}</h4>
-    <a href="{% url 'inventory:bom_list' %}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-right me-1"></i>عودة
-    </a>
-</div>
-
-<div class="card shadow-sm">
-    <div class="card-body">
-        <form method="post" id="bomForm">
-            {% csrf_token %}
-            <!-- بيانات القائمة -->
-            <div class="row g-3 mb-4">
-                <div class="col-md-4">
-                    <label class="form-label">{{ form.product.label }} <span class="text-danger">*</span></label>
-                    {{ form.product }}
-                    {% if form.product.errors %}<div class="text-danger small">{{ form.product.errors }}</div>{% endif %}
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">{{ form.name.label }} <span class="text-danger">*</span></label>
-                    {{ form.name }}
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <div class="form-check">
-                        {{ form.is_default }}
-                        <label class="form-check-label">افتراضي</label>
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold"><i class="bi bi-list-nested me-2 text-primary"></i>{% if object %}تعديل قائمة مواد{% else %}قائمة مواد جديدة{% endif %}</h4>
+    </div>
+    <form method="post" id="bomForm">
+        {% csrf_token %}
+        {% if form.errors %}<div class="alert alert-danger">{{ form.errors }}</div>{% endif %}
+        <div class="row g-4">
+            <!-- بيانات BOM -->
+            <div class="col-lg-5">
+                <div class="card border-0 mb-3">
+                    <div class="card-header bg-primary text-white">بيانات الـ BOM</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">{{ form.product.label }}</label>
+                                {{ form.product }}
+                                {% if form.product.errors %}<div class="text-danger small">{{ form.product.errors }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">{{ form.code.label }}</label>
+                                {{ form.code }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">{{ form.version.label }}</label>
+                                {{ form.version }}
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">{{ form.name.label }}</label>
+                                {{ form.name }}
+                                {% if form.name.errors %}<div class="text-danger small">{{ form.name.errors }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">{{ form.bom_type.label }}</label>
+                                {{ form.bom_type }}
+                            </div>
+                            <div class="col-md-6"></div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">{{ form.width.label }}</label>
+                                {{ form.width }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">{{ form.length.label }}</label>
+                                {{ form.length }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">{{ form.height.label }}</label>
+                                {{ form.height }}
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <div class="form-check">
-                        {{ form.is_active }}
-                        <label class="form-check-label">نشط</label>
+                <div class="card border-0 mb-3">
+                    <div class="card-header bg-secondary text-white">التكاليف التقديرية</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">{{ form.estimated_labor_cost.label }}</label>
+                                {{ form.estimated_labor_cost }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">{{ form.estimated_overhead_cost.label }}</label>
+                                {{ form.estimated_overhead_cost }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card border-0">
+                    <div class="card-header bg-light">إعدادات أخرى</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">{{ form.notes.label }}</label>
+                                {{ form.notes }}
+                            </div>
+                            <div class="col-auto">
+                                <div class="form-check">
+                                    {{ form.is_default }}
+                                    <label class="form-check-label">{{ form.is_default.label }}</label>
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <div class="form-check">
+                                    {{ form.is_active }}
+                                    <label class="form-check-label">{{ form.is_active.label }}</label>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- الخامات -->
-            <h6 class="text-muted border-bottom pb-2 mb-3">
-                <i class="bi bi-list-check me-2"></i>الخامات والمكونات
-            </h6>
-
-            <div id="linesContainer">
-                <div class="row g-2 align-items-center mb-2 line-row">
-                    <div class="col-md-5">
-                        <select name="raw_material" class="form-select form-select-sm">
-                            <option value="">— اختر الخامة —</option>
-                            {% for mat in raw_materials %}
-                            <option value="{{ mat.pk }}">{{ mat.name }} ({{ mat.code }})</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <input type="number" name="line_quantity" class="form-control form-control-sm" placeholder="الكمية" step="0.01" min="0.01" value="1">
-                    </div>
-                    <div class="col-md-2">
-                        <input type="number" name="waste_percentage" class="form-control form-control-sm" placeholder="هالك %" step="0.01" min="0" value="0">
-                    </div>
-                    <div class="col-md-2">
-                        <input type="text" name="line_notes" class="form-control form-control-sm" placeholder="ملاحظات">
-                    </div>
-                    <div class="col-md-1">
-                        <button type="button" class="btn btn-outline-danger btn-sm remove-line" title="حذف">
-                            <i class="bi bi-trash"></i>
+            <!-- مكوّنات BOM -->
+            <div class="col-lg-7">
+                <div class="card border-0">
+                    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-list-check me-2"></i>مكوّنات BOM</span>
+                        <button type="button" class="btn btn-light btn-sm" onclick="addLine()">
+                            <i class="bi bi-plus-circle me-1"></i>إضافة مكوّن
                         </button>
                     </div>
+                    <div class="card-body">
+                        <!-- رأس الجدول -->
+                        <div class="row g-1 mb-2 text-muted small fw-semibold d-none d-md-flex">
+                            <div class="col-4">المكوّن</div>
+                            <div class="col-2">الكمية</div>
+                            <div class="col-2">الوحدة</div>
+                            <div class="col-2">هالك %</div>
+                            <div class="col-1">بديل</div>
+                            <div class="col-1"></div>
+                        </div>
+                        <div id="linesContainer">
+                            {% if object %}
+                                {% for line in object.lines.all %}
+                                <div class="bom-line-row row g-1 align-items-center" id="line_{{ forloop.counter }}">
+                                    <div class="col-md-4 col-12">
+                                        <select name="raw_material" class="form-select form-select-sm" onchange="checkSubAssembly(this)">
+                                            <option value="">— اختر مكوّن —</option>
+                                            {% for mat in raw_materials %}
+                                            <option value="{{ mat.id }}"
+                                                data-type="{{ mat.product_type }}"
+                                                {% if mat.id == line.raw_material.id %}selected{% endif %}>
+                                                {{ mat.name }}
+                                                {% if mat.product_type == 'semi_finished' %}⚙{% endif %}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <span class="badge bg-info sub-assembly-badge d-none">نصف مصنع</span>
+                                    </div>
+                                    <div class="col-md-2 col-5">
+                                        <input type="number" name="line_quantity" class="form-control form-control-sm" step="0.0001" min="0" value="{{ line.quantity }}" placeholder="الكمية">
+                                    </div>
+                                    <div class="col-md-2 col-5">
+                                        <select name="line_unit" class="form-select form-select-sm">
+                                            <option value="">—</option>
+                                            {% for u in units %}
+                                            <option value="{{ u.id }}" {% if line.unit and u.id == line.unit.id %}selected{% endif %}>{{ u.symbol }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2 col-4">
+                                        <input type="number" name="waste_percentage" class="form-control form-control-sm" step="0.01" min="0" max="100" value="{{ line.waste_percentage }}" placeholder="هالك %">
+                                    </div>
+                                    <div class="col-md-1 col-4 text-center">
+                                        <div class="form-check">
+                                            <input type="checkbox" name="is_alternative" value="1" class="form-check-input" {% if line.is_alternative %}checked{% endif %}>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-1 col-4 text-center">
+                                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" onclick="removeLine(this)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                    <input type="hidden" name="line_notes" value="{{ line.notes }}">
+                                    <input type="hidden" name="sort_order" value="{{ line.sort_order }}">
+                                </div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        <p class="text-muted small mt-3 mb-0" id="emptyMsg" {% if object and object.lines.exists %}style="display:none"{% endif %}>
+                            <i class="bi bi-info-circle me-1"></i>اضغط "إضافة مكوّن" لبدء إضافة مكوّنات BOM.
+                        </p>
+                    </div>
                 </div>
             </div>
+        </div>
 
-            <button type="button" id="addLine" class="btn btn-outline-success btn-sm mt-2">
-                <i class="bi bi-plus-circle me-1"></i>إضافة خامة
-            </button>
-
-            <div class="mt-4">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-check-circle me-1"></i>حفظ قائمة المواد
-                </button>
-                <a href="{% url 'inventory:bom_list' %}" class="btn btn-outline-secondary ms-2">إلغاء</a>
-            </div>
-        </form>
-    </div>
+        <!-- أزرار -->
+        <div class="d-flex gap-2 justify-content-end mt-4 mb-4">
+            <a href="{% url 'inventory:bom_list' %}" class="btn btn-outline-secondary">إلغاء</a>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>حفظ</button>
+        </div>
+    </form>
 </div>
-{% endblock %}
 
-{% block extra_js %}
-<script>
-const rawMaterialsHtml = `{% for mat in raw_materials %}<option value="{{ mat.pk }}">{{ mat.name }} ({{ mat.code }})</option>{% endfor %}`;
-
-document.getElementById('addLine').addEventListener('click', function() {
-    const container = document.getElementById('linesContainer');
-    const row = document.createElement('div');
-    row.className = 'row g-2 align-items-center mb-2 line-row';
-    row.innerHTML = `
-        <div class="col-md-5">
-            <select name="raw_material" class="form-select form-select-sm">
-                <option value="">— اختر الخامة —</option>
-                ${rawMaterialsHtml}
+<!-- Template سطر جديد -->
+<template id="lineTemplate">
+    <div class="bom-line-row row g-1 align-items-center">
+        <div class="col-md-4 col-12">
+            <select name="raw_material" class="form-select form-select-sm" onchange="checkSubAssembly(this)">
+                <option value="">— اختر مكوّن —</option>
+                {% for mat in raw_materials %}
+                <option value="{{ mat.id }}" data-type="{{ mat.product_type }}">
+                    {{ mat.name }}{% if mat.product_type == 'semi_finished' %} ⚙{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+            <span class="badge bg-info sub-assembly-badge d-none">نصف مصنع</span>
+        </div>
+        <div class="col-md-2 col-5">
+            <input type="number" name="line_quantity" class="form-control form-control-sm" step="0.0001" min="0" value="1" placeholder="الكمية">
+        </div>
+        <div class="col-md-2 col-5">
+            <select name="line_unit" class="form-select form-select-sm">
+                <option value="">—</option>
+                {% for u in units %}
+                <option value="{{ u.id }}">{{ u.symbol }}</option>
+                {% endfor %}
             </select>
         </div>
-        <div class="col-md-2">
-            <input type="number" name="line_quantity" class="form-control form-control-sm" placeholder="الكمية" step="0.01" min="0.01" value="1">
+        <div class="col-md-2 col-4">
+            <input type="number" name="waste_percentage" class="form-control form-control-sm" step="0.01" min="0" max="100" value="0" placeholder="هالك %">
         </div>
-        <div class="col-md-2">
-            <input type="number" name="waste_percentage" class="form-control form-control-sm" placeholder="هالك %" step="0.01" min="0" value="0">
+        <div class="col-md-1 col-4 text-center">
+            <div class="form-check">
+                <input type="checkbox" name="is_alternative" value="1" class="form-check-input">
+            </div>
         </div>
-        <div class="col-md-2">
-            <input type="text" name="line_notes" class="form-control form-control-sm" placeholder="ملاحظات">
-        </div>
-        <div class="col-md-1">
-            <button type="button" class="btn btn-outline-danger btn-sm remove-line" title="حذف">
+        <div class="col-md-1 col-4 text-center">
+            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" onclick="removeLine(this)">
                 <i class="bi bi-trash"></i>
             </button>
-        </div>`;
-    container.appendChild(row);
-});
+        </div>
+        <input type="hidden" name="line_notes" value="">
+        <input type="hidden" name="sort_order" value="0">
+    </div>
+</template>
 
-document.addEventListener('click', function(e) {
-    if (e.target.closest('.remove-line')) {
-        e.target.closest('.line-row').remove();
+{% endblock %}
+{% block extra_js %}
+<script>
+function addLine() {
+    const tpl = document.getElementById('lineTemplate');
+    const clone = tpl.content.cloneNode(true);
+    document.getElementById('linesContainer').appendChild(clone);
+    document.getElementById('emptyMsg').style.display = 'none';
+}
+
+function removeLine(btn) {
+    btn.closest('.bom-line-row').remove();
+    const container = document.getElementById('linesContainer');
+    if (!container.querySelector('.bom-line-row')) {
+        document.getElementById('emptyMsg').style.display = '';
     }
-});
+}
+
+function checkSubAssembly(sel) {
+    const option = sel.options[sel.selectedIndex];
+    const badge = sel.closest('.col-md-4, .col-12').querySelector('.sub-assembly-badge');
+    if (option && option.dataset.type === 'semi_finished') {
+        badge.classList.remove('d-none');
+    } else {
+        badge.classList.add('d-none');
+    }
+}
+
+// تحقق عند التحميل للأسطر الموجودة
+document.querySelectorAll('select[name="raw_material"]').forEach(checkSubAssembly);
 </script>
 {% endblock %}
+
